@@ -36,21 +36,22 @@ export function SimpleCalendar({ className, value, onChange, selectRange = false
       />
       <style>{`
         .react-calendar {
-            width: 100%;
+            width: 280px;
+            max-width: 100%;
             background: white;
             border: none;
             font-family: inherit;
         }
         .react-calendar__navigation {
             display: flex;
-            height: 44px;
-            margin-bottom: 1em;
+            height: 40px;
+            margin-bottom: 0.5em;
         }
         .react-calendar__navigation button {
-            min-width: 44px;
+            min-width: 40px;
             background: none;
-            font-size: 16px;
-            margin-top: 8px;
+            font-size: 14px;
+            margin-top: 4px;
         }
         .react-calendar__navigation button:disabled {
             background-color: #f0f0f0;
@@ -64,12 +65,23 @@ export function SimpleCalendar({ className, value, onChange, selectRange = false
             text-align: center;
             text-transform: uppercase;
             font-weight: bold;
-            font-size: 0.75em;
+            font-size: 0.7em;
             color: #6b7280;
             text-decoration: none;
+            margin-bottom: 0.25em;
+        }
+        .react-calendar__month-view__days__day {
+            padding: 6px;
+            font-size: 0.85em;
         }
         .react-calendar__month-view__days__day--weekend {
             color: #ef4444;
+        }
+        .react-calendar__tile {
+            max-width: 100%;
+            text-align: center;
+            padding: 6px 4px;
+            background: none;
         }
         .react-calendar__tile--now {
             background: #fef3c7;
