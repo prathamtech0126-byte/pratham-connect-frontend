@@ -6,13 +6,13 @@ import {
   Settings, 
   LogOut, 
   Menu,
-  X,
   PieChart,
   UserPlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
+import logoUrl from "@assets/{E57CB05C-D1CA-4199-B617-F5E269BF372A}_1765258257461.png";
 
 const sidebarItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
@@ -28,11 +28,12 @@ export function Sidebar({ className }: { className?: string }) {
   return (
     <div className={cn("flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border", className)}>
       <div className="p-6 border-b border-sidebar-border/50">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-lg">C</span>
-          </div>
-          <span className="font-heading font-bold text-xl tracking-tight">Consultancy</span>
+        <div className="flex items-center justify-center">
+          <img 
+            src={logoUrl} 
+            alt="Consultancy Logo" 
+            className="h-12 w-auto object-contain"
+          />
         </div>
       </div>
 
