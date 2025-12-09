@@ -4,7 +4,7 @@ import { CalendarIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { SimpleCalendar } from "@/components/ui/simple-calendar";
 import {
   Popover,
   PopoverContent,
@@ -45,17 +45,17 @@ export function DateInput({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={value}
-          onSelect={(date) => {
-            onChange?.(date);
-            setIsOpen(false);
+        <SimpleCalendar
+          value={value}
+          onChange={(val) => {
+            if (val instanceof Date) {
+                onChange?.(val);
+                setIsOpen(false);
+            } else if (Array.isArray(val) && val.length > 0 && val[0] instanceof Date) {
+                onChange?.(val[0]);
+                setIsOpen(false);
+            }
           }}
-          initialFocus
-          captionLayout="dropdown"
-          fromYear={1900}
-          toYear={2100}
         />
       </PopoverContent>
     </Popover>

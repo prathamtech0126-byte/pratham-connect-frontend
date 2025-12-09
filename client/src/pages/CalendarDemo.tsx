@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar } from "@/components/ui/calendar";
+import { SimpleCalendar } from "@/components/ui/simple-calendar";
 import { DateInput } from "@/components/ui/date-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,18 +12,16 @@ export default function CalendarDemo() {
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 gap-8">
       <Card className="w-auto shadow-lg border-0 rounded-2xl overflow-hidden">
         <CardHeader>
-            <CardTitle className="text-center">Calendar Component</CardTitle>
+            <CardTitle className="text-center">Simple React Calendar</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="p-4 bg-white">
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={setDate}
-              className="rounded-md border-0"
-              captionLayout="dropdown"
-              fromYear={1960}
-              toYear={2030}
+            <SimpleCalendar
+              value={date}
+              onChange={(val) => {
+                  if (val instanceof Date) setDate(val);
+                  else if (Array.isArray(val) && val[0]) setDate(val[0]);
+              }}
             />
             <div className="flex justify-end mt-2 px-3 pb-2">
               <Button 
