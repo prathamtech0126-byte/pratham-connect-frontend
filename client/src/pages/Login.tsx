@@ -74,7 +74,6 @@ export default function Login() {
               >
                 <SelectTrigger className="h-11">
                   <div className="flex items-center gap-2">
-                    {getRoleIcon(selectedRole)}
                     <SelectValue placeholder="Select a role" />
                   </div>
                 </SelectTrigger>
