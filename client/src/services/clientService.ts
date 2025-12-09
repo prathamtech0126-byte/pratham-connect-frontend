@@ -5,7 +5,7 @@ export interface Client {
   counsellor: string;
   mainCounsellor?: string;
   productManager: string;
-  salesType: 'Consultancy' | 'IELTS' | 'Loan' | 'Combined';
+  salesType: string;
   status: 'Active' | 'Completed' | 'Pending' | 'Dropped';
   
   // Finance
@@ -70,7 +70,7 @@ let clients: Client[] = [
     enrollmentDate: "2024-01-15",
     counsellor: "Priya Singh",
     productManager: "Rahul Verma",
-    salesType: "Consultancy",
+    salesType: "Canada Student",
     status: "Active",
     totalPayment: 50000,
     amountReceived: 25000,
@@ -84,7 +84,7 @@ let clients: Client[] = [
     enrollmentDate: "2024-02-10",
     counsellor: "Priya Singh",
     productManager: "Rahul Verma",
-    salesType: "IELTS",
+    salesType: "UK Student",
     status: "Pending",
     totalPayment: 15000,
     amountReceived: 5000,
@@ -98,7 +98,7 @@ let clients: Client[] = [
     enrollmentDate: "2024-03-05",
     counsellor: "Amit Kumar",
     productManager: "Sneha Reddy",
-    salesType: "Combined",
+    salesType: "Canada Spouse",
     status: "Active",
     totalPayment: 120000,
     amountReceived: 80000,
@@ -112,7 +112,7 @@ let clients: Client[] = [
     enrollmentDate: "2024-03-20",
     counsellor: "Amit Kumar",
     productManager: "Sneha Reddy",
-    salesType: "Loan",
+    salesType: "USA Visitor",
     status: "Completed",
     totalPayment: 5000,
     amountReceived: 5000,
@@ -126,7 +126,7 @@ let clients: Client[] = [
     enrollmentDate: "2024-04-12",
     counsellor: "Priya Singh",
     productManager: "Rahul Verma",
-    salesType: "Consultancy",
+    salesType: "SPOUSAL PR",
     status: "Active",
     totalPayment: 60000,
     amountReceived: 10000,
