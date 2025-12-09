@@ -75,7 +75,7 @@ export function SimpleCalendar({ className, value, onChange, selectRange = false
             font-size: 0.85em;
         }
         .react-calendar__month-view__days__day--weekend {
-            color: #ef4444;
+            color: inherit;
         }
         .react-calendar__tile {
             max-width: 100%;
