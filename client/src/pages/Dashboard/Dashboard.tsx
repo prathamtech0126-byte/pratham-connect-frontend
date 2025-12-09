@@ -199,11 +199,27 @@ export default function Dashboard() {
         
         <Card className="col-span-3 border-none shadow-sm">
           <CardHeader>
-            <CardTitle className="text-subheader">Recent Activity</CardTitle>
-            <CardDescription>Latest actions across the system</CardDescription>
+            <CardTitle className="text-subheader">Recent Clients</CardTitle>
           </CardHeader>
           <CardContent>
-            <ActivityLog activities={filteredActivities || []} maxHeight="350px" />
+            <div className="space-y-8">
+              {recentStudents?.slice(0, 5).map((student) => (
+                <div key={student.id} className="flex items-center">
+                  <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                    {student.name.charAt(0)}
+                  </div>
+                  <div className="ml-4 space-y-1">
+                    <p className="text-paragraph text-sm font-medium leading-none">{student.name}</p>
+                    <p className="text-paragraph text-xs text-muted-foreground">{student.salesType}</p>
+                  </div>
+                  <div className="ml-auto font-medium text-sm">
+                    <Badge variant={student.status === 'Active' ? 'default' : 'secondary'}>
+                      {student.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>

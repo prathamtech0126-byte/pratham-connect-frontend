@@ -11,7 +11,8 @@ import {
   Shield,
   UserCog,
   Briefcase,
-  Crown
+  Crown,
+  Activity
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -30,6 +31,11 @@ interface SidebarItem {
 const sidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
   { icon: Users, label: "Clients", href: "/students" },
+  { 
+    icon: Activity, 
+    label: "Activity Log", 
+    href: "/activity" 
+  },
   { 
     icon: UserPlus, 
     label: "Add Client", 

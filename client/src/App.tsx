@@ -12,6 +12,7 @@ import StudentList from "@/pages/Students/StudentList";
 import StudentForm from "@/pages/Students/StudentForm";
 import StudentDetails from "@/pages/Students/StudentDetails";
 import Login from "@/pages/Login";
+import Activity from "@/pages/Activity";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -38,6 +39,10 @@ function Router() {
       
       <Route path="/">
         {params => <ProtectedRoute component={Dashboard} />}
+      </Route>
+
+      <Route path="/activity">
+        {params => <ProtectedRoute component={Activity} />}
       </Route>
       
       {/* Student Routes */}
