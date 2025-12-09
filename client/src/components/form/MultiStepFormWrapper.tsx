@@ -37,19 +37,19 @@ export function MultiStepFormWrapper({ title, steps, onSubmit, isSubmitting }: M
   return (
     <div className="space-y-6">
       {/* Progress Steps */}
-      <div className="relative">
-        <div className="absolute top-4 w-full h-0.5 bg-muted">
+      <div className="relative mb-8">
+        <div className="absolute top-4 left-0 w-full h-0.5 bg-muted -z-0">
           <div 
             className="absolute top-0 h-full bg-primary transition-all duration-300"
             style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
           />
         </div>
-        <div className="relative flex justify-between">
+        <div className="relative flex justify-between w-full">
           {steps.map((step, index) => (
-            <div key={step.id} className="flex flex-col items-center gap-2">
+            <div key={step.id} className="flex flex-col items-center relative">
               <div 
                 className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-all duration-300 bg-background",
+                  "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-all duration-300 bg-background z-10 relative",
                   index <= currentStep ? "border-primary text-primary" : "border-muted text-muted-foreground",
                   index < currentStep && "bg-primary text-primary-foreground"
                 )}
@@ -57,7 +57,7 @@ export function MultiStepFormWrapper({ title, steps, onSubmit, isSubmitting }: M
                 {index < currentStep ? <Check className="w-4 h-4" /> : index + 1}
               </div>
               <span className={cn(
-                "text-xs font-medium hidden md:block",
+                "absolute top-10 text-xs font-medium hidden md:block whitespace-nowrap",
                 index <= currentStep ? "text-primary" : "text-muted-foreground"
               )}>
                 {step.title}
