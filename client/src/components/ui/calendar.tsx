@@ -82,11 +82,45 @@ function Calendar({
       components={{
         // @ts-ignore - Custom Caption to ensure correct positioning
         Caption: ({ displayMonth, onMonthChange, previousMonth, nextMonth }) => {
+           const months = [
+             "January", "February", "March", "April", "May", "June", 
+             "July", "August", "September", "October", "November", "December"
+           ];
+           
+           const years = Array.from({ length: 20 }, (_, i) => displayMonth.getFullYear() - 10 + i);
+
            return (
              <div className="flex justify-center pt-1 relative items-center mb-2">
-               <div className="text-sm font-medium">
-                 {displayMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
+               <div className="flex items-center gap-1 text-sm font-medium">
+                 <select
+                   value={displayMonth.getMonth()}
+                   onChange={(e) => {
+                     const newDate = new Date(displayMonth);
+                     newDate.setMonth(parseInt(e.target.value));
+                     onMonthChange(newDate);
+                   }}
+                   className="bg-transparent hover:bg-gray-100 rounded px-1 py-0.5 cursor-pointer outline-none focus:ring-1 focus:ring-blue-500"
+                 >
+                   {months.map((month, index) => (
+                     <option key={month} value={index}>{month}</option>
+                   ))}
+                 </select>
+                 
+                 <select
+                   value={displayMonth.getFullYear()}
+                   onChange={(e) => {
+                     const newDate = new Date(displayMonth);
+                     newDate.setFullYear(parseInt(e.target.value));
+                     onMonthChange(newDate);
+                   }}
+                   className="bg-transparent hover:bg-gray-100 rounded px-1 py-0.5 cursor-pointer outline-none focus:ring-1 focus:ring-blue-500"
+                 >
+                   {years.map((year) => (
+                     <option key={year} value={year}>{year}</option>
+                   ))}
+                 </select>
                </div>
+               
                <div className="absolute left-1">
                  <Button
                    variant="ghost"
