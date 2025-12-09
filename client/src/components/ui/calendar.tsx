@@ -34,13 +34,13 @@ function Calendar({
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center w-full",
         caption_label: "text-sm font-medium",
-        nav: "space-x-1 flex items-center",
+        nav: "space-x-1 flex items-center absolute inset-0 justify-between px-1 pointer-events-none",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 pointer-events-auto"
         ),
-        nav_button_previous: "absolute left-1 top-1",
-        nav_button_next: "absolute right-1 top-1",
+        nav_button_previous: "absolute left-1",
+        nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex w-full",
         head_cell:
