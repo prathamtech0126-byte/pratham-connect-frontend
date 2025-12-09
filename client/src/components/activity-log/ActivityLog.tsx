@@ -33,9 +33,10 @@ interface ActivityLogProps {
   activities: ActivityLogItem[];
   className?: string;
   maxHeight?: string;
+  variant?: 'cards' | 'timeline' | 'minimal' | 'table';
 }
 
-export function ActivityLog({ activities, className, maxHeight = "400px" }: ActivityLogProps) {
+export function ActivityLog({ activities, className, maxHeight = "400px", variant = 'cards' }: ActivityLogProps) {
   const getActivityIcon = (type: ActivityType) => {
     switch (type) {
       case 'create':
@@ -83,11 +84,97 @@ export function ActivityLog({ activities, className, maxHeight = "400px" }: Acti
     );
   }
 
+  // Variant 1: Original Timeline
+  if (variant === 'timeline') {
+    return (
+      <ScrollArea className={cn("pr-4", className)} style={{ maxHeight }}>
+        <div className="space-y-6 relative ml-2">
+          {/* Vertical line */}
+          <div className="absolute left-4 top-2 bottom-4 w-px bg-border z-0" />
+          
+          {activities.map((activity) => (
+            <div key={activity.id} className="relative z-10 flex gap-4 group">
+              <div className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border shadow-sm mt-0.5 bg-white transition-colors group-hover:scale-110 duration-200",
+                getActivityColor(activity.type).replace('bg-', 'border-')
+              )}>
+                {getActivityIcon(activity.type)}
+              </div>
+              
+              <div className="flex flex-col flex-1 gap-1 pb-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium leading-none text-foreground">
+                    {activity.title}
+                  </p>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {format(new Date(activity.timestamp), "MMM d, h:mm a")}
+                  </span>
+                </div>
+                {activity.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {activity.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+    );
+  }
+
+  // Variant 3: Minimal List (Just Icon + Text, no cards)
+  if (variant === 'minimal') {
+    return (
+      <ScrollArea className={cn("pr-4", className)} style={{ maxHeight }}>
+        <div className="space-y-1">
+          {activities.map((activity) => (
+            <div key={activity.id} className="flex items-center gap-3 py-2 px-2 hover:bg-muted/50 rounded-md transition-colors">
+              <div className={cn("p-1.5 rounded-md", getActivityColor(activity.type))}>
+                {getActivityIcon(activity.type)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{activity.title}</p>
+              </div>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {format(new Date(activity.timestamp), "h:mm a")}
+              </span>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+    );
+  }
+
+  // Variant 4: Compact Table-like
+  if (variant === 'table') {
+    return (
+      <ScrollArea className={cn("pr-4", className)} style={{ maxHeight }}>
+        <div className="divide-y border rounded-md">
+          {activities.map((activity) => (
+            <div key={activity.id} className="flex items-center gap-4 p-3 hover:bg-muted/30 transition-colors">
+               <div className="flex items-center gap-3 flex-1">
+                 <div className={cn("p-1.5 rounded-full bg-muted")}>
+                    {getActivityIcon(activity.type)}
+                 </div>
+                 <span className="text-sm text-foreground">{activity.title}</span>
+               </div>
+               <div className="text-xs text-muted-foreground font-mono">
+                 {format(new Date(activity.timestamp), "MMM d, h:mm a")}
+               </div>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+    );
+  }
+
+  // Default: Cards (The clean one I made last)
   return (
     <ScrollArea className={cn("pr-4", className)} style={{ maxHeight }}>
-      <div className="space-y-6">
+      <div className="space-y-3">
         {activities.map((activity) => (
-          <div key={activity.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card text-card-foreground shadow-sm">
+          <div key={activity.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-md transition-all">
             <div className={cn(
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border shadow-sm",
               getActivityColor(activity.type)
