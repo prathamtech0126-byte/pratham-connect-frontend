@@ -53,12 +53,7 @@ export function FormDateInput<T extends FieldValues>({
         return (
           <div className={cn("space-y-2", className)}>
             <Label className={cn(error && "text-destructive")}>{label}</Label>
-            <Popover open={isOpen} onOpenChange={(open) => {
-              setIsOpen(open);
-              if (open) {
-                 setTempDate(field.value ? new Date(field.value) : undefined);
-              }
-            }}>
+            <Popover open={isOpen} onOpenChange={setIsOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant={"outline"}
@@ -76,42 +71,19 @@ export function FormDateInput<T extends FieldValues>({
                   <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 rounded-xl overflow-hidden" align="start">
-                <div className="bg-white p-0">
-                   <Calendar
-                    mode="single"
-                    selected={tempDate}
-                    onSelect={setTempDate}
-                    disabled={(date) =>
-                      date > new Date("2100-01-01") || date < new Date("1900-01-01")
-                    }
-                    initialFocus
-                    captionLayout="dropdown"
-                    fromYear={1960}
-                    toYear={2030}
-                    className="p-3"
-                  />
-                  <div className="flex items-center justify-between p-3 border-t bg-gray-50/50">
-                    <Button 
-                      variant="ghost" 
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 px-4"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Close
-                    </Button>
-                    <Button 
-                      className="bg-[#dcfce7] text-[#166534] hover:bg-[#bbf7d0] h-8 px-6 font-medium"
-                      onClick={() => {
-                        if (tempDate) {
-                          field.onChange(tempDate.toISOString());
-                        }
-                        setIsOpen(false);
-                      }}
-                    >
-                      Confirm
-                    </Button>
-                  </div>
-                </div>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={field.value ? new Date(field.value) : undefined}
+                  onSelect={(date) => {
+                    field.onChange(date?.toISOString());
+                    setIsOpen(false);
+                  }}
+                  disabled={(date) =>
+                    date > new Date("2100-01-01") || date < new Date("1900-01-01")
+                  }
+                  initialFocus
+                />
               </PopoverContent>
             </Popover>
             {error && (
