@@ -135,6 +135,78 @@ let students: Student[] = [
   }
 ];
 
+// Mock Activity Data
+export interface ActivityLogItem {
+  id: string;
+  type: 'create' | 'update' | 'delete' | 'payment' | 'status_change' | 'login' | 'upload';
+  title: string;
+  description: string;
+  timestamp: string;
+  user: {
+    name: string;
+    avatar?: string;
+    role: string;
+  };
+}
+
+const mockActivities: ActivityLogItem[] = [
+  {
+    id: "act-1",
+    type: "create",
+    title: "New Client Enrolled",
+    description: "Added Aarav Sharma to Consultancy program",
+    timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 mins ago
+    user: {
+      name: "Sarah Manager",
+      role: "Manager"
+    }
+  },
+  {
+    id: "act-2",
+    type: "payment",
+    title: "Payment Received",
+    description: "Received ₹25,000 from Aarav Sharma for initial deposit",
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
+    user: {
+      name: "Super Admin",
+      role: "Super Admin"
+    }
+  },
+  {
+    id: "act-3",
+    type: "status_change",
+    title: "Application Status Updated",
+    description: "Changed Ishita Patel status from Pending to Active",
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
+    user: {
+      name: "Tom Lead",
+      role: "Team Lead"
+    }
+  },
+  {
+    id: "act-4",
+    type: "upload",
+    title: "Document Uploaded",
+    description: "Uploaded Passport copy for Rohan Gupta",
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+    user: {
+      name: "Dr. Counsellor",
+      role: "Counsellor"
+    }
+  },
+  {
+    id: "act-5",
+    type: "update",
+    title: "Profile Updated",
+    description: "Updated contact details for Meera Iyer",
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(), // 1 day + 2 hours ago
+    user: {
+      name: "Sarah Manager",
+      role: "Manager"
+    }
+  }
+];
+
 export const studentService = {
   getStudents: async (): Promise<Student[]> => {
     // Simulate API delay
@@ -189,5 +261,11 @@ export const studentService = {
       todaysEnrollments: 2, // Mock
       upcomingPayments: 5   // Mock
     };
+  },
+
+  // Activity Logs
+  getRecentActivities: async (): Promise<ActivityLogItem[]> => {
+    await new Promise(resolve => setTimeout(resolve, 400));
+    return [...mockActivities];
   }
 };
