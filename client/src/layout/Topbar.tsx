@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
+import { ProfileDialog } from "@/components/profile-dialog";
+
 export function Topbar() {
   return (
     <header className="h-16 px-4 md:px-6 border-b bg-background flex items-center justify-between sticky top-0 z-10">
@@ -44,7 +46,9 @@ export function Topbar() {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile</DropdownMenuItem>
+            <ProfileDialog>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Profile</DropdownMenuItem>
+            </ProfileDialog>
             <DropdownMenuItem>Settings</DropdownMenuItem>
             <DropdownMenuItem>Billing</DropdownMenuItem>
             <DropdownMenuSeparator />

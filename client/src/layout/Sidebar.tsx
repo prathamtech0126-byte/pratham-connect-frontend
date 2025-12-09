@@ -51,6 +51,8 @@ const sidebarItems: SidebarItem[] = [
   },
 ];
 
+import { ProfileDialog } from "@/components/profile-dialog";
+
 export function Sidebar({ className }: { className?: string }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
@@ -145,16 +147,18 @@ export function Sidebar({ className }: { className?: string }) {
 
       <div className="p-4 border-t border-sidebar-border/50 space-y-4">
         {user && (
-          <div className="flex items-center gap-3 px-2">
-            <Avatar className="h-9 w-9 border border-border">
-              <AvatarImage src={user.avatar} alt={user.name} />
-              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col overflow-hidden">
-              <span className="text-sm font-medium truncate">{user.name}</span>
-              {getRoleBadge()}
+          <ProfileDialog>
+            <div className="flex items-center gap-3 px-2 cursor-pointer hover:bg-sidebar-accent/50 p-2 rounded-md transition-colors group">
+              <Avatar className="h-9 w-9 border border-border group-hover:border-primary/50 transition-colors">
+                <AvatarImage src={user.avatar} alt={user.name} />
+                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-sm font-medium truncate group-hover:text-primary transition-colors">{user.name}</span>
+                {getRoleBadge()}
+              </div>
             </div>
-          </div>
+          </ProfileDialog>
         )}
         
         <Button
