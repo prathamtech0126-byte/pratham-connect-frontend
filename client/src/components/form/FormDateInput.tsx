@@ -1,6 +1,10 @@
 import { Control, Controller, FieldValues, Path } from "react-hook-form";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -22,7 +26,7 @@ export function FormDateInput<T extends FieldValues>({
   className,
 }: FormDateInputProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
-  
+
   return (
     <Controller
       name={name}
@@ -31,21 +35,21 @@ export function FormDateInput<T extends FieldValues>({
         // Local state for the selected date inside the popover
         // We initialize it with the field value whenever the popover opens/renders
         const [tempDate, setTempDate] = useState<Date | undefined>(
-          field.value ? new Date(field.value) : undefined
+          field.value ? new Date(field.value) : undefined,
         );
 
         const handleConfirm = () => {
           if (tempDate) {
             field.onChange(tempDate.toISOString());
           } else {
-             // If they cleared it or nothing selected, we might want to allow clearing?
-             // For now, if tempDate is undefined, maybe clear the field?
-             // But the UI in the image implies "Confirm" selects the date.
-             // If nothing selected, maybe just close? Or clear?
-             // Let's assume clearing is allowed if undefined.
-             // But usually required fields need value.
-             // If undefined, let's just close for now or handle clear if needed.
-             // Actually field.onChange accepts undefined/null usually if schema allows.
+            // If they cleared it or nothing selected, we might want to allow clearing?
+            // For now, if tempDate is undefined, maybe clear the field?
+            // But the UI in the image implies "Confirm" selects the date.
+            // If nothing selected, maybe just close? Or clear?
+            // Let's assume clearing is allowed if undefined.
+            // But usually required fields need value.
+            // If undefined, let's just close for now or handle clear if needed.
+            // Actually field.onChange accepts undefined/null usually if schema allows.
           }
           setIsOpen(false);
         };
@@ -60,7 +64,7 @@ export function FormDateInput<T extends FieldValues>({
                   className={cn(
                     "w-full pl-3 text-left font-normal",
                     !field.value && "text-muted-foreground",
-                    error && "border-destructive text-destructive"
+                    error && "border-destructive text-destructive",
                   )}
                 >
                   {field.value ? (
@@ -80,7 +84,8 @@ export function FormDateInput<T extends FieldValues>({
                     setIsOpen(false);
                   }}
                   disabled={(date) =>
-                    date > new Date("2100-01-01") || date < new Date("1900-01-01")
+                    date > new Date("2100-01-01") ||
+                    date < new Date("1900-01-01")
                   }
                   captionLayout="dropdown"
                   fromYear={1900}
@@ -90,7 +95,9 @@ export function FormDateInput<T extends FieldValues>({
               </PopoverContent>
             </Popover>
             {error && (
-              <p className="text-xs font-medium text-destructive">{error.message}</p>
+              <p className="text-xs font-medium text-destructive">
+                {error.message}
+              </p>
             )}
           </div>
         );
