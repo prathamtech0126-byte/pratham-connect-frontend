@@ -1,0 +1,18 @@
+Sr. No.	Name 	Enrollment Date 	Total Payment	Amount Recived	Amount pending	Core Sales 	Sales Type 	CORE SALE CPONSELLOR	PRODUCT MANAGER	Product Payment Amount	Date of Payment 	IELTS Enrollment Amount	Date of Enrollment/ Payment 	Loan Amount 	Loan Disbursement Date 	Common Law - Affidavit Payment 	Date of Payment 	Lawyer Charges - Refusal Cases 	Date of Payment 	Part-time Employment Amont	Date of Payment 	Employment NOC Arrangement 	Date of Payment 	TRV/ Work Permit Ext. / Study Permit Extention	Date of Payment 	"Marriage photo's for Court Marriage
+"	Date of Payment	Common Law Marriage Cert+ Photos	Insurance Amount 	Insurance Date 	Air Ticket	Air Ticket Date	Relationship Affidavit - Lawyer Charges	Payment Date	SIM PLAN	SIM CARD	Beacon A/C Amount recived date	TOTAL CAD 	Judicial review charges	Judicial review charges Payemnt Date	Employment Verufication Cahrges	Employment Verufication Cahrges Payemnt Date	Canada side Finnace	Payment Date	RAG
+1	JEEL SHAH 	1/12/2025	70,800	5,900	64,900	Yes	Canada Spouse	PURVISH TAILOR	PURVISH TAILOR																																				
+2	AYUSHI RAJPUT 	3/12/2025	59,000	11,800	47,200	Yes	SPOUSAL PR	PURVISH TAILOR	PURVISH TAILOR																																				
+3	SAKSHI RANA 						Canada Spouse	MIT PATEL	PURVISH TAILOR																										"Rogers 5G 40CAD Plan	"	YES									
+4	SAFURBANU SUFAIL AJMERI 						Canada Spouse	PURVISH TAILOR																													YES	5175 CAD							
+5	MUSTAKIMBHAI ASHARAFBHAI VAHORA 						Canada Spouse	PARAM TRIWEDI	PURVISH TAILOR																												YES 	5000 CAD							
+6	MITALI PITHADIYA 	4/12/2025	82,600	5,900	76,700	Yes	Canada Spouse	PURVISH TAILOR	PURVISH TAILOR	80,000	04/12/2025																																		
+7	NIDHI SOLANKI 						Canada Spouse	PURVISH TAILOR	PURVISH TAILOR	80,000	05/12/2025																																		
+8	RINKAL CHAVDA						Canada Spouse	PURVISH TAILOR	PURVISH TAILOR									32,300	05/12/2025																										
+9	MOHAMMADADNAN VAHORA 						Canada Spouse	PURVISH TAILOR	PURVISH TAILOR																										"Rogers 5G 40CAD Plan	"	YES									
+10	DHRUTI DHANANJAYKUMAR BHATIYA 						Canada Spouse	PARAM TRIWEDI	PURVISH TAILOR																				12,951	08/12/2025					"Rogers 5G 40CAD Plan	"	YES	YES 	2000 CAD							
+11																																													
+12																																													
+13																																													
+14																																													
+15																																													
+16																																													

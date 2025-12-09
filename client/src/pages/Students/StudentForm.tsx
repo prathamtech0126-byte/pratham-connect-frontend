@@ -6,7 +6,7 @@ import { FormNumberInput } from "@/components/form/FormNumberInput";
 import { FormDateInput } from "@/components/form/FormDateInput";
 import { FormSelectInput } from "@/components/form/FormSelectInput";
 import { FormCurrencyInput } from "@/components/form/FormCurrencyInput";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useLocation } from "wouter";
@@ -63,6 +63,23 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+const salesTypeOptions = [
+  { label: "Canada Student", value: "Canada Student" },
+  { label: "Canada Onshore Student", value: "Canada Onshore Student" },
+  { label: "UK Student", value: "UK Student" },
+  { label: "Finland Student", value: "Finland Student" },
+  { label: "USA Student", value: "USA Student" },
+  { label: "Germany Student", value: "Germany Student" },
+  { label: "Canada Spouse", value: "Canada Spouse" },
+  { label: "UK Spouse", value: "UK Spouse" },
+  { label: "Finland Spouse", value: "Finland Spouse" },
+  { label: "UK Visitor", value: "UK Visitor" },
+  { label: "Canada Visitor", value: "Canada Visitor" },
+  { label: "USA Visitor", value: "USA Visitor" },
+  { label: "Schengen visa", value: "Schengen visa" },
+  { label: "SPOUSAL PR", value: "SPOUSAL PR" },
+];
+
 export default function StudentForm() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -71,7 +88,7 @@ export default function StudentForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      salesType: "Consultancy",
+      salesType: "Canada Student",
       totalPayment: 0,
       amountReceived: 0,
       amountPending: 0,
@@ -79,6 +96,15 @@ export default function StudentForm() {
   });
 
   const { control, handleSubmit } = form;
+  const salesType = useWatch({ control, name: "salesType" });
+
+  const isStudent = salesType?.toLowerCase().includes("student");
+  const isSpouse = salesType?.toLowerCase().includes("spouse") || salesType === "SPOUSAL PR";
+  
+  // Logic: 
+  // - Students see IELTS/Loan
+  // - Spouses see Legal Services, Employment (assuming NOC/Work permit related)
+  // - Everyone sees Basic, Payment, Visa & Travel, Finance (unless specified otherwise, keeping these general)
 
   const onSubmit = async (data: FormValues) => {
     try {
@@ -103,7 +129,7 @@ export default function StudentForm() {
     }
   };
 
-  const steps = [
+  const allSteps = [
     {
       id: "basic",
       title: "Basic Details",
@@ -115,12 +141,7 @@ export default function StudentForm() {
             name="salesType" 
             control={control} 
             label="Sales Type" 
-            options={[
-              { label: "Consultancy", value: "Consultancy" },
-              { label: "IELTS", value: "IELTS" },
-              { label: "Loan", value: "Loan" },
-              { label: "Combined", value: "Combined" },
-            ]} 
+            options={salesTypeOptions} 
           />
           <FormTextInput name="coreSales" control={control} label="Core Sales" />
           <FormTextInput name="counsellor" control={control} label="Counsellor Name" />
@@ -144,6 +165,7 @@ export default function StudentForm() {
     {
       id: "ielts_loan",
       title: "IELTS & Loan",
+      condition: isStudent, // Only for students
       component: (
         <FormSection title="IELTS & Loan Services">
           <FormCurrencyInput name="ieltsAmount" control={control} label="IELTS Amount" />
@@ -156,6 +178,7 @@ export default function StudentForm() {
     {
       id: "legal",
       title: "Legal Services",
+      condition: isSpouse, // Only for spouses
       component: (
         <FormSection title="Legal Services Charges">
           <FormCurrencyInput name="commonLawAffidavit" control={control} label="Common Law Affidavit" />
@@ -169,6 +192,7 @@ export default function StudentForm() {
     {
       id: "employment",
       title: "Employment",
+      condition: isSpouse, // Assuming employment/NOC is more relevant for spouse/work cases than students
       component: (
         <FormSection title="Employment Services">
           <FormCurrencyInput name="partTimeEmployment" control={control} label="Part-time Employment" />
@@ -202,6 +226,9 @@ export default function StudentForm() {
       )
     }
   ];
+
+  // Filter steps based on condition (default to true if condition is undefined)
+  const steps = allSteps.filter(step => step.condition === undefined || step.condition === true);
 
   return (
     <PageWrapper 
