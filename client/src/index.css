@@ -60,11 +60,11 @@
 
 :root {
   /* Brand Colors */
-  /* Orange #f15a29 -> 15 89% 55% */
-  /* Gray #878786 -> 240 0% 53% */
+  /* Logo Orange #ec6801 -> 26 99% 46% */
+  /* Gray #878786 -> 240 1% 53% */
 
   --background: 0 0% 100%;
-  --foreground: 240 1% 15%; /* Darker version of brand gray for text */
+  --foreground: 240 1% 15%;
 
   --card: 0 0% 100%;
   --card-foreground: 240 1% 15%;
@@ -72,46 +72,45 @@
   --popover: 0 0% 100%;
   --popover-foreground: 240 1% 15%;
 
-  /* Primary Brand Orange */
-  --primary: 15 89% 55%;
+  /* Primary Brand Orange #ec6801 */
+  --primary: 26 99% 46%;
   --primary-foreground: 0 0% 100%;
 
-  /* Secondary Brand Gray */
-  --secondary: 240 0% 96%;
+  /* Secondary Brand Gray #878786 - Used for backgrounds/muted */
+  --secondary: 240 5% 96%;
   --secondary-foreground: 240 1% 15%;
 
-  --muted: 240 0% 96%;
-  --muted-foreground: 240 0% 53%; /* Using the brand gray for muted text */
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 1% 53%; /* #878786 */
 
-  --accent: 240 0% 96%;
-  --accent-foreground: 15 89% 55%; /* Orange accent text */
+  --accent: 240 5% 96%;
+  --accent-foreground: 26 99% 46%;
 
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 240 0% 90%;
-  --input: 240 0% 90%;
-  --ring: 15 89% 55%; /* Orange Ring */
+  --border: 240 1% 90%;
+  --input: 240 1% 90%;
+  --ring: 26 99% 46%;
 
   --radius: 0.5rem;
 
-  /* Chart Colors - Updated to match warm/orange theme */
-  --chart-1: 15 89% 55%;  /* Brand Orange */
-  --chart-2: 35 90% 50%;  /* Gold/Yellow */
-  --chart-3: 240 0% 53%;  /* Brand Gray */
-  --chart-4: 197 37% 24%; /* Dark Slate */
-  --chart-5: 27 87% 67%;  /* Soft Orange */
+  /* Chart Colors */
+  --chart-1: 26 99% 46%;  /* Brand Orange */
+  --chart-2: 35 90% 50%;
+  --chart-3: 240 1% 53%;  /* Brand Gray */
+  --chart-4: 197 37% 24%;
+  --chart-5: 27 87% 67%;
 
-  /* Sidebar - Dark theme for contrast or White? */
-  /* Let's go with a Dark Sidebar that uses the Gray as a base but darker */
-  --sidebar: 240 1% 10%; /* Very dark gray/black */
-  --sidebar-foreground: 240 5% 96%;
-  --sidebar-primary: 15 89% 55%; /* Orange active state */
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 240 1% 15%;
-  --sidebar-accent-foreground: 240 5% 96%;
-  --sidebar-border: 240 1% 15%;
-  --sidebar-ring: 15 89% 55%;
+  /* Sidebar - LIGHT THEME to make Logo Visible */
+  --sidebar: 0 0% 100%; /* White background */
+  --sidebar-foreground: 240 1% 30%; /* Dark gray text */
+  --sidebar-primary: 26 99% 46%; /* Orange active background */
+  --sidebar-primary-foreground: 0 0% 100%; /* White text on active */
+  --sidebar-accent: 240 5% 96%; /* Light gray hover */
+  --sidebar-accent-foreground: 26 99% 46%; /* Orange text on hover */
+  --sidebar-border: 240 1% 90%; /* Light border */
+  --sidebar-ring: 26 99% 46%;
 }
 
 .dark {
@@ -124,39 +123,33 @@
   --popover: 240 1% 12%;
   --popover-foreground: 240 5% 96%;
 
-  --primary: 15 89% 55%;
+  --primary: 26 99% 46%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 240 1% 15%;
   --secondary-foreground: 240 5% 96%;
 
   --muted: 240 1% 15%;
-  --muted-foreground: 240 0% 53%;
+  --muted-foreground: 240 1% 53%;
 
   --accent: 240 1% 15%;
-  --accent-foreground: 15 89% 55%;
+  --accent-foreground: 26 99% 46%;
 
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 240 5% 96%;
 
   --border: 240 1% 15%;
   --input: 240 1% 15%;
-  --ring: 15 89% 55%;
-
-  --chart-1: 15 89% 55%;
-  --chart-2: 35 90% 50%;
-  --chart-3: 240 0% 53%;
-  --chart-4: 197 37% 24%;
-  --chart-5: 27 87% 67%;
+  --ring: 26 99% 46%;
 
   --sidebar: 240 1% 8%;
   --sidebar-foreground: 240 5% 96%;
-  --sidebar-primary: 15 89% 55%;
+  --sidebar-primary: 26 99% 46%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 240 1% 12%;
   --sidebar-accent-foreground: 240 5% 96%;
   --sidebar-border: 240 1% 12%;
-  --sidebar-ring: 15 89% 55%;
+  --sidebar-ring: 26 99% 46%;
 }
 
 @layer base {

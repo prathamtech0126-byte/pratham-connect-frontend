@@ -27,12 +27,12 @@ export function Sidebar({ className }: { className?: string }) {
 
   return (
     <div className={cn("flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border", className)}>
-      <div className="p-6 border-b border-sidebar-border/50">
+      <div className="p-6 border-b border-sidebar-border/50 bg-white">
         <div className="flex items-center justify-center">
           <img 
             src={logoUrl} 
             alt="Consultancy Logo" 
-            className="h-12 w-auto object-contain"
+            className="h-16 w-auto object-contain"
           />
         </div>
       </div>
