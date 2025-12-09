@@ -66,22 +66,19 @@ function Calendar({
           defaultClassNames.month_caption
         ),
         dropdowns: cn(
-          "flex h-[--cell-size] w-full items-center justify-center gap-1.5 text-sm font-medium",
+          "flex justify-center gap-2 w-full",
           defaultClassNames.dropdowns
         ),
         dropdown_root: cn(
-          "has-focus:border-ring border-input shadow-xs has-focus:ring-ring/50 has-focus:ring-[3px] relative rounded-md border",
+          "relative bg-muted/40 rounded-full px-4 py-1.5 flex items-center justify-center hover:bg-muted transition-colors cursor-pointer text-sm font-medium min-w-[100px] after:content-['▼'] after:text-[10px] after:ml-2 after:text-muted-foreground",
           defaultClassNames.dropdown_root
         ),
         dropdown: cn(
-          "bg-popover absolute inset-0 opacity-0",
+          "absolute inset-0 opacity-0 z-10 cursor-pointer w-full h-full",
           defaultClassNames.dropdown
         ),
         caption_label: cn(
-          "select-none font-medium",
-          captionLayout === "label"
-            ? "text-sm"
-            : "[&>svg]:text-muted-foreground flex h-8 items-center gap-1 rounded-md pl-2 pr-1 text-sm [&>svg]:size-3.5",
+          "hidden",
           defaultClassNames.caption_label
         ),
         table: "w-full border-collapse",
