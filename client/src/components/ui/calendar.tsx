@@ -92,33 +92,39 @@ function Calendar({
            return (
              <div className="flex justify-center pt-1 relative items-center mb-2">
                <div className="flex items-center gap-1 text-sm font-medium">
-                 <select
-                   value={displayMonth.getMonth()}
-                   onChange={(e) => {
-                     const newDate = new Date(displayMonth);
-                     newDate.setMonth(parseInt(e.target.value));
-                     onMonthChange(newDate);
-                   }}
-                   className="bg-transparent hover:bg-gray-100 rounded px-1 py-0.5 cursor-pointer outline-none focus:ring-1 focus:ring-blue-500"
-                 >
-                   {months.map((month, index) => (
-                     <option key={month} value={index}>{month}</option>
-                   ))}
-                 </select>
+                 <div className="relative group">
+                    <select
+                      value={displayMonth.getMonth()}
+                      onChange={(e) => {
+                        const newDate = new Date(displayMonth);
+                        newDate.setMonth(parseInt(e.target.value));
+                        onMonthChange(newDate);
+                      }}
+                      className="appearance-none bg-transparent hover:bg-gray-100 rounded pl-2 pr-6 py-1 cursor-pointer outline-none focus:ring-1 focus:ring-blue-500 font-semibold"
+                    >
+                      {months.map((month, index) => (
+                        <option key={month} value={index}>{month}</option>
+                      ))}
+                    </select>
+                    <ChevronDownIcon className="h-3 w-3 absolute right-1 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none" />
+                 </div>
                  
-                 <select
-                   value={displayMonth.getFullYear()}
-                   onChange={(e) => {
-                     const newDate = new Date(displayMonth);
-                     newDate.setFullYear(parseInt(e.target.value));
-                     onMonthChange(newDate);
-                   }}
-                   className="bg-transparent hover:bg-gray-100 rounded px-1 py-0.5 cursor-pointer outline-none focus:ring-1 focus:ring-blue-500"
-                 >
-                   {years.map((year) => (
-                     <option key={year} value={year}>{year}</option>
-                   ))}
-                 </select>
+                 <div className="relative group">
+                    <select
+                      value={displayMonth.getFullYear()}
+                      onChange={(e) => {
+                        const newDate = new Date(displayMonth);
+                        newDate.setFullYear(parseInt(e.target.value));
+                        onMonthChange(newDate);
+                      }}
+                      className="appearance-none bg-transparent hover:bg-gray-100 rounded pl-2 pr-6 py-1 cursor-pointer outline-none focus:ring-1 focus:ring-blue-500 font-semibold"
+                    >
+                      {years.map((year) => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                    <ChevronDownIcon className="h-3 w-3 absolute right-1 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none" />
+                 </div>
                </div>
                
                <div className="absolute left-1">
