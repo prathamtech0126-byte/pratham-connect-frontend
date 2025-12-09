@@ -32,35 +32,14 @@ export function FormDateInput<T extends FieldValues>({
       name={name}
       control={control}
       render={({ field, fieldState: { error } }) => {
-        // Local state for the selected date inside the popover
-        // We initialize it with the field value whenever the popover opens/renders
-        const [tempDate, setTempDate] = useState<Date | undefined>(
-          field.value ? new Date(field.value) : undefined,
-        );
-
-        const handleConfirm = () => {
-          if (tempDate) {
-            field.onChange(tempDate.toISOString());
-          } else {
-            // If they cleared it or nothing selected, we might want to allow clearing?
-            // For now, if tempDate is undefined, maybe clear the field?
-            // But the UI in the image implies "Confirm" selects the date.
-            // If nothing selected, maybe just close? Or clear?
-            // Let's assume clearing is allowed if undefined.
-            // But usually required fields need value.
-            // If undefined, let's just close for now or handle clear if needed.
-            // Actually field.onChange accepts undefined/null usually if schema allows.
-          }
-          setIsOpen(false);
-        };
-
         return (
           <div className={cn("space-y-2", className)}>
             <Label className={cn(error && "text-destructive")}>{label}</Label>
+
             <Popover open={isOpen} onOpenChange={setIsOpen}>
               <PopoverTrigger asChild>
                 <Button
-                  variant={"outline"}
+                  variant="outline"
                   className={cn(
                     "w-full pl-3 text-left font-normal",
                     !field.value && "text-muted-foreground",
@@ -75,13 +54,16 @@ export function FormDateInput<T extends FieldValues>({
                   <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                 </Button>
               </PopoverTrigger>
+
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
                   selected={field.value ? new Date(field.value) : undefined}
                   onSelect={(date) => {
-                    field.onChange(date?.toISOString());
-                    setIsOpen(false);
+                    if (date) {
+                      field.onChange(date.toISOString());
+                    }
+                    setIsOpen(false); // CLOSE AFTER SELECT
                   }}
                   disabled={(date) =>
                     date > new Date("2100-01-01") ||
@@ -94,6 +76,7 @@ export function FormDateInput<T extends FieldValues>({
                 />
               </PopoverContent>
             </Popover>
+
             {error && (
               <p className="text-xs font-medium text-destructive">
                 {error.message}

@@ -13,6 +13,7 @@ import ClientForm from "@/pages/Clients/ClientForm";
 import ClientDetails from "@/pages/Clients/ClientDetails";
 import Login from "@/pages/Login";
 import Activity from "@/pages/Activity";
+import CalendarDemo from "@/pages/CalendarDemo";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -43,6 +44,10 @@ function Router() {
 
       <Route path="/activity">
         {params => <ProtectedRoute component={Activity} />}
+      </Route>
+
+      <Route path="/calendar">
+        {params => <ProtectedRoute component={CalendarDemo} />}
       </Route>
       
       {/* Client Routes */}
