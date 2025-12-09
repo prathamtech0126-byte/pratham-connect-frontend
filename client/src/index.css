@@ -163,3 +163,19 @@
     @apply font-heading tracking-tight;
   }
 }
+
+@layer components {
+  /* Reusable Typography Classes */
+  
+  .text-header {
+    @apply font-heading text-3xl font-bold tracking-tight text-primary;
+  }
+
+  .text-subheader {
+    @apply font-heading text-xl font-semibold tracking-normal text-muted-foreground;
+  }
+
+  .text-paragraph {
+    @apply font-sans text-base font-normal leading-relaxed text-foreground;
+  }
+}
