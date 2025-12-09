@@ -40,7 +40,7 @@ const sidebarItems: SidebarItem[] = [
     icon: UserPlus, 
     label: "Add Client", 
     href: "/students/new",
-    roles: ['superadmin', 'director', 'manager'] 
+    roles: ['superadmin', 'director', 'manager', 'team_lead', 'counsellor'] 
   },
   { icon: PieChart, label: "Reports", href: "/reports" },
   { 
