@@ -6,7 +6,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { SimpleCalendar } from "@/components/ui/simple-calendar";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
@@ -56,23 +56,16 @@ export function FormDateInput<T extends FieldValues>({
               </PopoverTrigger>
 
               <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={field.value ? new Date(field.value) : undefined}
-                  onSelect={(date) => {
-                    if (date) {
+                <SimpleCalendar
+                  value={field.value ? new Date(field.value) : undefined}
+                  onChange={(date) => {
+                    if (date instanceof Date) {
                       field.onChange(date.toISOString());
+                    } else if (Array.isArray(date) && date.length > 0 && date[0] instanceof Date) {
+                      field.onChange(date[0].toISOString());
                     }
-                    setIsOpen(false); // CLOSE AFTER SELECT
+                    setIsOpen(false);
                   }}
-                  disabled={(date) =>
-                    date > new Date("2100-01-01") ||
-                    date < new Date("1900-01-01")
-                  }
-                  captionLayout="dropdown"
-                  fromYear={1900}
-                  toYear={2100}
-                  initialFocus
                 />
               </PopoverContent>
             </Popover>
