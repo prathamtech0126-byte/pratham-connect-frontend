@@ -35,7 +35,7 @@ function Calendar({
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
+        caption_label: "text-sm font-medium hidden",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
           buttonVariants({ variant: "ghost" }),
@@ -73,10 +73,9 @@ function Calendar({
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
         caption_dropdowns: "flex justify-center gap-1",
-        dropdown:
-          "p-1 bg-transparent hover:bg-accent rounded-sm text-sm font-medium cursor-pointer border-none outline-none focus:ring-1 focus:ring-ring",
-        dropdown_month: "relative inline-flex items-center",
-        dropdown_year: "relative inline-flex items-center",
+        dropdown: "bg-transparent p-0 m-0 cursor-pointer outline-none border-none hover:bg-accent rounded-sm font-medium",
+        dropdown_month: "ml-1",
+        dropdown_year: "ml-1",
         dropdown_icon: "hidden",
         ...classNames,
       }}
