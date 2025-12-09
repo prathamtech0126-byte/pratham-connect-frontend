@@ -8,25 +8,54 @@ import {
   Menu,
   PieChart,
   UserPlus,
+  Shield,
+  UserCog,
+  Briefcase
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 import logoUrl from "@/assets/images/Pratham Logo.svg";
+import { useAuth, UserRole } from "@/context/auth-context";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-const sidebarItems = [
+interface SidebarItem {
+  icon: any;
+  label: string;
+  href: string;
+  roles?: UserRole[];
+}
+
+const sidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
   { icon: Users, label: "Clients", href: "/students" },
-  { icon: UserPlus, label: "Add Client", href: "/students/new" },
+  { 
+    icon: UserPlus, 
+    label: "Add Client", 
+    href: "/students/new",
+    roles: ['superadmin', 'manager'] 
+  },
   { icon: PieChart, label: "Reports", href: "/reports" },
-  { icon: Settings, label: "Settings", href: "/settings" },
+  { 
+    icon: Settings, 
+    label: "Settings", 
+    href: "/settings",
+    roles: ['superadmin']
+  },
 ];
 
 export function Sidebar({ className }: { className?: string }) {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
+
+  // Filter items based on user role
+  const filteredItems = sidebarItems.filter(item => {
+    if (!item.roles) return true;
+    return user && item.roles.includes(user.role);
+  });
 
   // Logic to determine the active item based on specificity (longest matching path)
-  const activeItem = sidebarItems.reduce(
+  const activeItem = filteredItems.reduce(
     (best, item) => {
       // If exact match, return this item (highest priority)
       if (location === item.href) return item;
@@ -43,8 +72,32 @@ export function Sidebar({ className }: { className?: string }) {
       }
       return best;
     },
-    sidebarItems.find((i) => i.href === "/") || sidebarItems[0],
+    filteredItems.find((i) => i.href === "/") || filteredItems[0],
   );
+
+  const getRoleBadge = () => {
+    if (!user) return null;
+    
+    const colors = {
+      superadmin: "bg-purple-100 text-purple-700",
+      manager: "bg-blue-100 text-blue-700",
+      team_lead: "bg-orange-100 text-orange-700",
+      consultant: "bg-green-100 text-green-700"
+    };
+
+    const labels = {
+      superadmin: "Super Admin",
+      manager: "Manager",
+      team_lead: "Team Lead",
+      consultant: "Consultant"
+    };
+
+    return (
+      <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider", colors[user.role])}>
+        {labels[user.role]}
+      </span>
+    );
+  };
 
   return (
     <div
@@ -64,7 +117,7 @@ export function Sidebar({ className }: { className?: string }) {
       </div>
 
       <div className="flex-1 py-6 px-3 space-y-1">
-        {sidebarItems.map((item) => (
+        {filteredItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
@@ -81,10 +134,24 @@ export function Sidebar({ className }: { className?: string }) {
         ))}
       </div>
 
-      <div className="p-4 border-t border-sidebar-border/50">
+      <div className="p-4 border-t border-sidebar-border/50 space-y-4">
+        {user && (
+          <div className="flex items-center gap-3 px-2">
+            <Avatar className="h-9 w-9 border border-border">
+              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-sm font-medium truncate">{user.name}</span>
+              {getRoleBadge()}
+            </div>
+          </div>
+        )}
+        
         <Button
           variant="ghost"
-          className="w-full justify-start text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          onClick={logout}
+          className="w-full justify-start text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-red-600 hover:bg-red-50"
         >
           <LogOut className="w-5 h-5 mr-2" />
           Logout
