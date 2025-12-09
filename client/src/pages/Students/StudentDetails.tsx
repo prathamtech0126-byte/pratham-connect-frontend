@@ -21,7 +21,7 @@ export default function StudentDetails() {
   });
 
   if (isLoading || !student) {
-    return <PageWrapper title="Loading..."><div className="p-4">Loading student details...</div></PageWrapper>;
+    return <PageWrapper title="Loading..."><div className="p-4">Loading client details...</div></PageWrapper>;
   }
 
   const overviewTab = (
@@ -30,7 +30,7 @@ export default function StudentDetails() {
         title="Personal Information"
         items={[
           { label: "Full Name", value: student.name },
-          { label: "Student ID", value: student.id },
+          { label: "Client ID", value: student.id },
           { label: "Email", value: student.email || "N/A" },
           { label: "Phone", value: student.phone || "N/A" },
         ]}
@@ -95,15 +95,15 @@ export default function StudentDetails() {
 
   return (
     <PageWrapper 
-      title={`Student: ${student.name}`}
+      title={`Client: ${student.name}`}
       breadcrumbs={[
-        { label: "Students", href: "/students" },
+        { label: "Clients", href: "/students" },
         { label: student.name }
       ]}
       actions={
         <Button onClick={() => setLocation(`/students/${id}/edit`)}>
           <Edit className="w-4 h-4 mr-2" />
-          Edit Student
+          Edit Client
         </Button>
       }
     >

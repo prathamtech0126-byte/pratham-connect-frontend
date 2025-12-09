@@ -32,7 +32,7 @@ export default function Dashboard() {
     <PageWrapper title="Dashboard">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total Students"
+          title="Total Clients"
           value={stats?.totalStudents || 0}
           icon={Users}
           trend={{ value: 12, isPositive: true }}
@@ -49,14 +49,14 @@ export default function Dashboard() {
           title="Pending Amount"
           value={`₹${(stats?.totalPending || 0).toLocaleString()}`}
           icon={Clock}
-          description="across all students"
+          description="across all clients"
           className="border-l-4 border-l-yellow-500"
         />
         <StatCard
           title="Today's Enrollments"
           value={stats?.todaysEnrollments || 0}
           icon={UserPlus}
-          description="new students today"
+          description="new clients today"
         />
       </div>
 
@@ -94,7 +94,7 @@ export default function Dashboard() {
         
         <Card className="col-span-3 border-none shadow-sm">
           <CardHeader>
-            <CardTitle>Recent Enrollments</CardTitle>
+            <CardTitle>Recent Clients</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-8">
@@ -128,7 +128,7 @@ export default function Dashboard() {
              <DataTable 
                data={recentStudents?.slice(0, 5) || []}
                columns={[
-                 { header: "Student", accessorKey: "name", className: "font-medium" },
+                 { header: "Client", accessorKey: "name", className: "font-medium" },
                  { header: "Date", accessorKey: "enrollmentDate" },
                  { header: "Amount", cell: (s) => `₹${s.amountReceived.toLocaleString()}` },
                  { header: "Status", cell: () => <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Paid</Badge> },

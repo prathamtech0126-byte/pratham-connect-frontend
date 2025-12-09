@@ -91,13 +91,13 @@ export default function StudentForm() {
       
       toast({
         title: "Success",
-        description: "Student created successfully",
+        description: "Client created successfully",
       });
       setLocation("/students");
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to create student",
+        description: "Failed to create client",
         variant: "destructive"
       });
     }
@@ -108,7 +108,7 @@ export default function StudentForm() {
       id: "basic",
       title: "Basic Details",
       component: (
-        <FormSection title="Student Information" description="Enter the basic details of the student">
+        <FormSection title="Client Information" description="Enter the basic details of the client">
           <FormTextInput name="name" control={control} label="Full Name" placeholder="e.g. Rahul Kumar" />
           <FormDateInput name="enrollmentDate" control={control} label="Enrollment Date" />
           <FormSelectInput 
@@ -205,15 +205,15 @@ export default function StudentForm() {
 
   return (
     <PageWrapper 
-      title="Add New Student" 
+      title="Add New Client" 
       breadcrumbs={[
-        { label: "Students", href: "/students" },
-        { label: "New Student" }
+        { label: "Clients", href: "/students" },
+        { label: "New Client" }
       ]}
     >
       <div className="max-w-4xl mx-auto pb-12">
         <MultiStepFormWrapper 
-          title="Student Registration" 
+          title="Client Registration" 
           steps={steps} 
           onSubmit={handleSubmit(onSubmit)}
         />

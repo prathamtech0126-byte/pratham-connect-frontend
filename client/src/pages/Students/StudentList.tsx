@@ -51,18 +51,18 @@ export default function StudentList() {
 
   return (
     <PageWrapper 
-      title="Students" 
-      breadcrumbs={[{ label: "Students" }]}
+      title="Clients" 
+      breadcrumbs={[{ label: "Clients" }]}
       actions={
         <Button onClick={() => setLocation("/students/new")}>
           <Plus className="w-4 h-4 mr-2" />
-          Add Student
+          Add Client
         </Button>
       }
     >
       <div className="space-y-4">
         <TableToolbar 
-          searchPlaceholder="Search by name or counsellor..."
+          searchPlaceholder="Search by client or counsellor..."
           onSearch={setSearch}
           filters={
             <Select value={statusFilter} onValueChange={setStatusFilter}>

@@ -16,8 +16,8 @@ import logoUrl from "@/assets/images/Pratham-international-logo.svg";
 
 const sidebarItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-  { icon: Users, label: "Students", href: "/students" },
-  { icon: UserPlus, label: "Add Student", href: "/students/new" },
+  { icon: Users, label: "Clients", href: "/students" },
+  { icon: UserPlus, label: "Add Client", href: "/students/new" },
   { icon: PieChart, label: "Reports", href: "/reports" },
   { icon: Settings, label: "Settings", href: "/settings" },
 ];
