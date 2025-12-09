@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ActivityLog } from "@/components/activity-log/ActivityLog";
+import { DateRangeFilter } from "@/components/ui/date-range-filter";
+import { useState } from "react";
 
 const chartData = [
   { name: "Jan", total: 12000 },
@@ -24,6 +26,8 @@ import { RevenueChart } from "@/components/charts/RevenueChart";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+
   const { data: stats } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: clientService.getDashboardStats
@@ -74,11 +78,21 @@ export default function Dashboard() {
 
   return (
     <PageWrapper title={`Dashboard`}>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold tracking-tight">Welcome back, {user?.name}</h2>
-        <p className="text-muted-foreground">
-          Here's an overview of your {user?.role.replace('_', ' ')} dashboard.
-        </p>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Welcome back, {user?.name}</h2>
+          <p className="text-muted-foreground">
+            Here's an overview of your {user?.role.replace('_', ' ')} dashboard.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+            <DateRangeFilter 
+                date={dateRange} 
+                onDateChange={setDateRange} 
+                placeholder="Custom"
+                align="end"
+            />
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

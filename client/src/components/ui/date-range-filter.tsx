@@ -18,6 +18,7 @@ interface DateRangeFilterProps {
   onDateChange?: (date: [Date | null, Date | null]) => void;
   className?: string;
   placeholder?: string;
+  align?: "center" | "start" | "end";
 }
 
 export function DateRangeFilter({
@@ -25,6 +26,7 @@ export function DateRangeFilter({
   onDateChange,
   className,
   placeholder = "Pick a date range",
+  align = "start",
 }: DateRangeFilterProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [tempDate, setTempDate] = React.useState<Value>(date || [null, null]);
@@ -61,18 +63,18 @@ export function DateRangeFilter({
         <PopoverTrigger asChild>
           <Button
             id="date"
-            variant={"default"}
+            variant={"outline"}
             size="sm"
             className={cn(
-              "h-8 px-3 text-xs font-normal",
+              "h-9 px-4 text-sm font-medium bg-white hover:bg-gray-50 border-gray-200 text-gray-700",
               !date && "text-muted-foreground"
             )}
           >
             {displayText}
-            <CalendarIcon className="ml-2 h-3 w-3" />
+            <CalendarIcon className="ml-2 h-4 w-4 text-gray-500" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-0" align={align}>
             <div className="p-3 bg-white rounded-lg shadow-sm border">
                 <SimpleCalendar
                     selectRange={true}
