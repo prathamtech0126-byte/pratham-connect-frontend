@@ -69,7 +69,7 @@ export function FormDateInput<T extends FieldValues>({
                     date > new Date("2100-01-01") ||
                     date < new Date("1900-01-01")
                   }
-                  captionLayout="dropdown"
+                  captionLayout="label"
                   fromYear={1900}
                   toYear={2100}
                   initialFocus

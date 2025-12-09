@@ -32,15 +32,13 @@ function Calendar({
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
-        caption: "flex flex-col items-center gap-1 py-2",
+        caption: "flex w-full items-center justify-between py-2 px-2",
         caption_label: "text-sm font-medium",
-
-        nav: "flex items-center justify-center gap-4 mt-1",
+        nav: "flex items-center gap-1 ml-auto",
         nav_button: cn(
           buttonVariants({ variant: "ghost" }),
           "h-7 w-7 bg-transparent p-0 hover:bg-muted text-muted-foreground",
         ),
-
         table: "w-full border-collapse space-y-1",
         head_row: "flex w-full",
         head_cell:
