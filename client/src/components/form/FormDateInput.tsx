@@ -51,9 +51,12 @@ export function FormDateInput<T extends FieldValues>({
                 selected={field.value ? new Date(field.value) : undefined}
                 onSelect={(date) => field.onChange(date?.toISOString())}
                 disabled={(date) =>
-                  date > new Date() || date < new Date("1900-01-01")
+                  date > new Date("2100-01-01") || date < new Date("1900-01-01")
                 }
                 initialFocus
+                captionLayout="dropdown"
+                fromYear={1960}
+                toYear={2030}
               />
             </PopoverContent>
           </Popover>
