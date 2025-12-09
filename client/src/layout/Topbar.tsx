@@ -18,14 +18,6 @@ export function Topbar() {
     <header className="h-16 px-4 md:px-6 border-b bg-background flex items-center justify-between sticky top-0 z-10">
       <div className="flex items-center gap-4">
         <MobileSidebar />
-        <div className="hidden md:flex items-center gap-2 text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md w-64">
-          <Search className="w-4 h-4" />
-          <input 
-            type="text" 
-            placeholder="Search anything..." 
-            className="bg-transparent border-none outline-none text-sm w-full placeholder:text-muted-foreground"
-          />
-        </div>
       </div>
 
       <div className="flex items-center gap-4">
