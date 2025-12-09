@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
 
-type TimeRange = "daily" | "weekly" | "monthly" | "yearly";
+type TimeRange = "daily" | "weekly" | "monthly" | "yearly" | "custom";
 
 // Mock data for different ranges
 const mockData: Record<TimeRange, any[]> = {
@@ -37,6 +37,13 @@ const mockData: Record<TimeRange, any[]> = {
     { name: "2022", revenue: 180000 },
     { name: "2023", revenue: 220000 },
     { name: "2024", revenue: 280000 },
+  ],
+  custom: [
+     { name: "Day 1", revenue: 5000 },
+     { name: "Day 2", revenue: 7000 },
+     { name: "Day 3", revenue: 3000 },
+     { name: "Day 4", revenue: 8000 },
+     { name: "Day 5", revenue: 4000 },
   ]
 };
 
@@ -65,11 +72,31 @@ export function RevenueChart() {
                         {range}
                     </Button>
                 ))}
+                
+                {/* Custom Button triggers Date Picker */}
+                <div className="relative">
+                    {timeRange === 'custom' ? (
+                        <DateRangeFilter 
+                            date={dateRange}
+                            onDateChange={(range) => {
+                                setDateRange(range);
+                                // Logic to fetch data based on date range would go here
+                            }}
+                            className="w-auto h-8 px-0"
+                            placeholder="Custom"
+                        />
+                    ) : (
+                         <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-3 capitalize text-xs"
+                            onClick={() => handleRangeChange('custom')}
+                        >
+                            Custom
+                        </Button>
+                    )}
+                </div>
             </div>
-            <DateRangeFilter 
-                date={dateRange}
-                onDateChange={setDateRange}
-            />
         </div>
       </CardHeader>
       <CardContent className="pl-2">

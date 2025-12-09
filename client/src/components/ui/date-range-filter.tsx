@@ -61,14 +61,15 @@ export function DateRangeFilter({
         <PopoverTrigger asChild>
           <Button
             id="date"
-            variant={"outline"}
+            variant={"default"}
+            size="sm"
             className={cn(
-              "w-[260px] justify-start text-left font-normal",
+              "h-8 px-3 text-xs font-normal",
               !date && "text-muted-foreground"
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
             {displayText}
+            <CalendarIcon className="ml-2 h-3 w-3" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
@@ -77,6 +78,7 @@ export function DateRangeFilter({
                     selectRange={true}
                     value={tempDate}
                     onChange={setTempDate}
+                    showDoubleView={true}
                 />
                 <div className="flex justify-end gap-2 mt-2 pt-2 border-t">
                     <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>Cancel</Button>

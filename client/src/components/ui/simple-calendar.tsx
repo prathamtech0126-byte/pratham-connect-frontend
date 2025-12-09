@@ -10,15 +10,17 @@ interface SimpleCalendarProps {
   value?: Value;
   onChange?: (value: Value) => void;
   selectRange?: boolean;
+  showDoubleView?: boolean;
 }
 
-export function SimpleCalendar({ className, value, onChange, selectRange = false }: SimpleCalendarProps) {
+export function SimpleCalendar({ className, value, onChange, selectRange = false, showDoubleView = false }: SimpleCalendarProps) {
   return (
     <div className={cn("p-3 bg-white rounded-lg shadow-sm border", className)}>
       <Calendar 
         onChange={onChange} 
         value={value}
         selectRange={selectRange}
+        showDoubleView={showDoubleView}
         className="w-full border-none font-sans"
         tileClassName={({ activeStartDate, date, view }) => 
           cn(
@@ -41,6 +43,17 @@ export function SimpleCalendar({ className, value, onChange, selectRange = false
             background: white;
             border: none;
             font-family: inherit;
+        }
+        .react-calendar--doubleView {
+            width: 580px;
+        }
+        .react-calendar--doubleView .react-calendar__viewContainer {
+            display: flex;
+            margin: -0.5em;
+        }
+        .react-calendar--doubleView .react-calendar__viewContainer > * {
+            width: 50%;
+            margin: 0.5em;
         }
         .react-calendar__navigation {
             display: flex;
