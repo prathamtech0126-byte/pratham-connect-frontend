@@ -85,24 +85,21 @@ export function ActivityLog({ activities, className, maxHeight = "400px" }: Acti
 
   return (
     <ScrollArea className={cn("pr-4", className)} style={{ maxHeight }}>
-      <div className="space-y-4 relative ml-2">
-        {/* Vertical line connecting items */}
-        <div className="absolute left-4 top-2 bottom-4 w-px bg-border z-0" />
-        
+      <div className="space-y-6">
         {activities.map((activity) => (
-          <div key={activity.id} className="relative z-10 flex gap-4 group">
+          <div key={activity.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card text-card-foreground shadow-sm">
             <div className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border shadow-sm mt-0.5 bg-white transition-colors group-hover:scale-110 duration-200",
-              getActivityColor(activity.type).replace('bg-', 'border-')
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border shadow-sm",
+              getActivityColor(activity.type)
             )}>
               {getActivityIcon(activity.type)}
             </div>
             
-            <div className="flex flex-1 items-center justify-between gap-4 pt-1.5">
+            <div className="flex flex-1 items-center justify-between gap-4">
               <p className="text-sm font-medium text-foreground">
                 {activity.title}
               </p>
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
+              <span className="text-xs text-muted-foreground whitespace-nowrap bg-muted px-2 py-1 rounded-md">
                 {format(new Date(activity.timestamp), "MMM d, h:mm a")}
               </span>
             </div>
