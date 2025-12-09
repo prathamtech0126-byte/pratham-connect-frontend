@@ -1,14 +1,19 @@
 import React from "react";
 import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent } from "@/components/ui/card";
+import { DateInput } from "@/components/ui/date-input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function CalendarDemo() {
   const [date, setDate] = React.useState<Date | undefined>(new Date());
+  const [inputDate, setInputDate] = React.useState<Date | undefined>(new Date());
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 gap-8">
       <Card className="w-auto shadow-lg border-0 rounded-2xl overflow-hidden">
+        <CardHeader>
+            <CardTitle className="text-center">Calendar Component</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           <div className="p-4 bg-white">
             <Calendar
@@ -16,6 +21,9 @@ export default function CalendarDemo() {
               selected={date}
               onSelect={setDate}
               className="rounded-md border-0"
+              captionLayout="dropdown"
+              fromYear={1960}
+              toYear={2030}
             />
             <div className="flex justify-end mt-2 px-3 pb-2">
               <Button 
@@ -28,6 +36,28 @@ export default function CalendarDemo() {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="w-full max-w-sm shadow-lg border-0 rounded-2xl">
+        <CardHeader>
+            <CardTitle>Date Input Component</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        Select a date
+                    </label>
+                    <DateInput 
+                        value={inputDate} 
+                        onChange={setInputDate} 
+                    />
+                </div>
+                <div className="text-sm text-muted-foreground">
+                    Selected: {inputDate ? inputDate.toDateString() : "None"}
+                </div>
+            </div>
         </CardContent>
       </Card>
     </div>
