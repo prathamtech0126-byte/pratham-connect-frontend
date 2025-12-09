@@ -25,6 +25,24 @@ const sidebarItems = [
 export function Sidebar({ className }: { className?: string }) {
   const [location] = useLocation();
 
+  // Logic to determine the active item based on specificity (longest matching path)
+  const activeItem = sidebarItems.reduce((best, item) => {
+    // If exact match, return this item (highest priority)
+    if (location === item.href) return item;
+    
+    // Check if it's a prefix match
+    if (location.startsWith(item.href)) {
+      // Special case: Root "/" only matches if location is exactly "/"
+      if (item.href === "/" && location !== "/") return best;
+
+      // If we don't have a best match yet, or this one is more specific (longer)
+      if (!best || item.href.length > best.href.length) {
+        return item;
+      }
+    }
+    return best;
+  }, sidebarItems.find(i => i.href === "/") || sidebarItems[0]);
+
   return (
     <div className={cn("flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border", className)}>
       <div className="p-6 border-b border-sidebar-border/50 bg-white">
@@ -44,7 +62,7 @@ export function Sidebar({ className }: { className?: string }) {
             href={item.href}
             className={cn(
               "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-              location === item.href || (item.href !== '/' && location.startsWith(item.href))
+              activeItem?.href === item.href
                 ? "bg-sidebar-primary text-sidebar-primary-foreground"
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             )}
