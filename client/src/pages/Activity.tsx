@@ -1,7 +1,6 @@
 import { PageWrapper } from "@/layout/PageWrapper";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ActivityLog, ActivityLogItem } from "@/components/activity-log/ActivityLog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Activity() {
   // Hardcoded data to match the screenshot exactly for the simple prototype
@@ -101,72 +100,17 @@ export default function Activity() {
         </p>
       </div>
 
-      <Tabs defaultValue="cards" className="w-full">
-        <div className="flex items-center justify-between mb-4">
-           <TabsList>
-            <TabsTrigger value="cards">Style 1: Cards</TabsTrigger>
-            <TabsTrigger value="minimal">Style 2: Minimal List</TabsTrigger>
-            <TabsTrigger value="table">Style 3: Compact Table</TabsTrigger>
-            <TabsTrigger value="timeline">Style 4: Timeline</TabsTrigger>
-          </TabsList>
-        </div>
-
-        <TabsContent value="cards">
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-subheader">Activity History - Cards</CardTitle>
-              <CardDescription>
-                Clean, separated cards for each activity. Best for readability.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ActivityLog activities={activities} variant="cards" maxHeight="calc(100vh - 350px)" />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="minimal">
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-subheader">Activity History - Minimal</CardTitle>
-              <CardDescription>
-                Simple list view. Best for high-density information.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ActivityLog activities={activities} variant="minimal" maxHeight="calc(100vh - 350px)" />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="table">
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-subheader">Activity History - Table</CardTitle>
-              <CardDescription>
-                Structured rows. Best for scanning data quickly.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ActivityLog activities={activities} variant="table" maxHeight="calc(100vh - 350px)" />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="timeline">
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-subheader">Activity History - Timeline</CardTitle>
-              <CardDescription>
-                Classic timeline view. Best for showing sequence of events.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ActivityLog activities={activities} variant="timeline" maxHeight="calc(100vh - 350px)" />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <Card className="border-none shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-subheader">Activity History</CardTitle>
+          <CardDescription>
+            Showing {activities.length} recent activities based on your role permissions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ActivityLog activities={activities} variant="table" maxHeight="calc(100vh - 300px)" />
+        </CardContent>
+      </Card>
     </PageWrapper>
   );
 }
