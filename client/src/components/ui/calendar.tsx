@@ -10,13 +10,6 @@ import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 
 function Calendar({
   className,
@@ -77,11 +70,11 @@ function Calendar({
           defaultClassNames.dropdowns
         ),
         dropdown_root: cn(
-          "relative", // Removed background styling as we use Select component now
+          "relative bg-muted/40 rounded-full px-4 py-1.5 flex items-center justify-center hover:bg-muted transition-colors cursor-pointer text-sm font-medium min-w-[100px] after:content-['▼'] after:text-[10px] after:ml-2 after:text-muted-foreground",
           defaultClassNames.dropdown_root
         ),
         dropdown: cn(
-          "hidden", // Hide the native select since we use custom Select
+          "absolute inset-0 opacity-0 z-10 cursor-pointer w-full h-full",
           defaultClassNames.dropdown
         ),
         caption_label: cn(
@@ -129,35 +122,6 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        Dropdown: ({ value, onChange, children, ...props }: any) => {
-          const options = React.Children.toArray(children) as React.ReactElement<React.OptionHTMLAttributes<HTMLOptionElement>>[]
-          const selected = options.find((child) => child.props.value === value)
-          const handleChange = (value: string) => {
-            const changeEvent = {
-              target: { value },
-            } as React.ChangeEvent<HTMLSelectElement>
-            onChange?.(changeEvent)
-          }
-          return (
-            <Select
-              value={value?.toString()}
-              onValueChange={handleChange}
-            >
-              <SelectTrigger
-                className="pr-1.5 focus:ring-0 w-auto h-8 border-none bg-muted/50 hover:bg-muted/70 rounded-full px-3 text-sm font-medium transition-colors gap-1 [&>span]:line-clamp-1 [&>svg]:size-3.5 [&>svg]:opacity-50 [&>svg]:ml-1"
-              >
-                <SelectValue>{selected?.props?.children}</SelectValue>
-              </SelectTrigger>
-              <SelectContent position="popper" className="max-h-[300px]">
-                {options.map((option, id) => (
-                  <SelectItem key={`${option.props.value}-${id}`} value={option.props.value?.toString() ?? ""}>
-                    {option.props.children}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )
-        },
         Root: ({ className, rootRef, ...props }) => {
           return (
             <div
