@@ -9,6 +9,7 @@ import { DataTable } from "@/components/table/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ActivityLog } from "@/components/activity-log/ActivityLog";
 
 const chartData = [
   { name: "Jan", total: 12000 },
@@ -29,6 +30,41 @@ export default function Dashboard() {
   const { data: recentStudents } = useQuery({
     queryKey: ['recent-students'],
     queryFn: studentService.getStudents
+  });
+
+  const { data: activities } = useQuery({
+    queryKey: ['dashboard-activities'],
+    queryFn: studentService.getRecentActivities
+  });
+
+  // Filter activities based on user role
+  const filteredActivities = activities?.filter(activity => {
+    if (!user) return false;
+    
+    switch (user.role) {
+      case 'superadmin':
+        // Super Admin sees everything
+        return true;
+        
+      case 'director':
+        // Director sees Manager, Team Lead, Counsellor (and themselves)
+        return ['manager', 'team_lead', 'counsellor', 'director'].includes(activity.user.role);
+        
+      case 'manager':
+        // Manager sees Team Lead, Counsellor (and themselves)
+        return ['team_lead', 'counsellor', 'manager'].includes(activity.user.role);
+        
+      case 'team_lead':
+        // Team Lead sees Counsellor (and themselves)
+        return ['counsellor', 'team_lead'].includes(activity.user.role);
+        
+      case 'counsellor':
+        // Counsellor only sees their own logs
+        return activity.user.role === 'counsellor' && activity.user.name === user.name;
+        
+      default:
+        return false;
+    }
   });
 
   const canViewFinancials = user?.role === 'superadmin' || user?.role === 'director' || user?.role === 'manager';
@@ -163,27 +199,11 @@ export default function Dashboard() {
         
         <Card className="col-span-3 border-none shadow-sm">
           <CardHeader>
-            <CardTitle className="text-subheader">Recent Clients</CardTitle>
+            <CardTitle className="text-subheader">Recent Activity</CardTitle>
+            <CardDescription>Latest actions across the system</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-8">
-              {recentStudents?.slice(0, 5).map((student) => (
-                <div key={student.id} className="flex items-center">
-                  <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                    {student.name.charAt(0)}
-                  </div>
-                  <div className="ml-4 space-y-1">
-                    <p className="text-paragraph text-sm font-medium leading-none">{student.name}</p>
-                    <p className="text-paragraph text-xs text-muted-foreground">{student.salesType}</p>
-                  </div>
-                  <div className="ml-auto font-medium text-sm">
-                    <Badge variant={student.status === 'Active' ? 'default' : 'secondary'}>
-                      {student.status}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ActivityLog activities={filteredActivities || []} maxHeight="350px" />
           </CardContent>
         </Card>
       </div>

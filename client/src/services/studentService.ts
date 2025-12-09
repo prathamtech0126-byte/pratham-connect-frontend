@@ -145,7 +145,7 @@ export interface ActivityLogItem {
   user: {
     name: string;
     avatar?: string;
-    role: string;
+    role: 'superadmin' | 'manager' | 'team_lead' | 'counsellor' | 'director';
   };
 }
 
@@ -158,7 +158,7 @@ const mockActivities: ActivityLogItem[] = [
     timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 mins ago
     user: {
       name: "Sarah Manager",
-      role: "Manager"
+      role: "manager"
     }
   },
   {
@@ -169,7 +169,7 @@ const mockActivities: ActivityLogItem[] = [
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
     user: {
       name: "Super Admin",
-      role: "Super Admin"
+      role: "superadmin"
     }
   },
   {
@@ -180,7 +180,7 @@ const mockActivities: ActivityLogItem[] = [
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
     user: {
       name: "Tom Lead",
-      role: "Team Lead"
+      role: "team_lead"
     }
   },
   {
@@ -191,7 +191,7 @@ const mockActivities: ActivityLogItem[] = [
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
     user: {
       name: "Dr. Counsellor",
-      role: "Counsellor"
+      role: "counsellor"
     }
   },
   {
@@ -202,7 +202,40 @@ const mockActivities: ActivityLogItem[] = [
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(), // 1 day + 2 hours ago
     user: {
       name: "Sarah Manager",
-      role: "Manager"
+      role: "manager"
+    }
+  },
+  {
+    id: "act-6",
+    type: "create",
+    title: "New Lead Added",
+    description: "Added new lead via phone enquiry",
+    timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+    user: {
+      name: "Dr. Counsellor",
+      role: "counsellor"
+    }
+  },
+  {
+    id: "act-7",
+    type: "status_change",
+    title: "File Submitted",
+    description: "Submitted visa application for ST-002",
+    timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    user: {
+      name: "Tom Lead",
+      role: "team_lead"
+    }
+  },
+  {
+    id: "act-8",
+    type: "update",
+    title: "Policy Update",
+    description: "Updated refund policy document",
+    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+    user: {
+      name: "Director",
+      role: "director"
     }
   }
 ];
