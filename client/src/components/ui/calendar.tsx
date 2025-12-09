@@ -15,10 +15,12 @@ function Calendar({
   className,
   classNames,
   showOutsideDays = true,
-  captionLayout = "label",
+  captionLayout = "dropdown",
   buttonVariant = "ghost",
   formatters,
   components,
+  fromYear = 1960,
+  toYear = 2030,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"];
@@ -28,7 +30,6 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      hideNavigation
       className={cn("p-3", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
@@ -80,73 +81,11 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        // @ts-ignore - Custom Caption to ensure correct positioning
-        Caption: ({ displayMonth, onMonthChange, previousMonth, nextMonth }) => {
-           const months = [
-             "January", "February", "March", "April", "May", "June", 
-             "July", "August", "September", "October", "November", "December"
-           ];
-           
-           const years = Array.from({ length: 20 }, (_, i) => displayMonth.getFullYear() - 10 + i);
-
-           return (
-             <div className="flex justify-center pt-1 relative items-center mb-2">
-               <div className="flex items-center gap-1 text-sm font-medium">
-                 <div className="relative group">
-                    <select
-                      value={displayMonth.getMonth()}
-                      onChange={(e) => {
-                        const newDate = new Date(displayMonth);
-                        newDate.setMonth(parseInt(e.target.value));
-                        onMonthChange(newDate);
-                      }}
-                      className="appearance-none bg-transparent hover:bg-gray-100 rounded px-2 py-1 cursor-pointer outline-none focus:ring-1 focus:ring-blue-500 font-semibold"
-                    >
-                      {months.map((month, index) => (
-                        <option key={month} value={index}>{month}</option>
-                      ))}
-                    </select>
-                 </div>
-                 
-                 <div className="relative group">
-                    <select
-                      value={displayMonth.getFullYear()}
-                      onChange={(e) => {
-                        const newDate = new Date(displayMonth);
-                        newDate.setFullYear(parseInt(e.target.value));
-                        onMonthChange(newDate);
-                      }}
-                      className="appearance-none bg-transparent hover:bg-gray-100 rounded px-2 py-1 cursor-pointer outline-none focus:ring-1 focus:ring-blue-500 font-semibold"
-                    >
-                      {years.map((year) => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                 </div>
-               </div>
-               
-               <div className="absolute left-1">
-                 <Button
-                   variant="ghost"
-                   className="h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
-                   disabled={!previousMonth}
-                   onClick={() => previousMonth && onMonthChange(previousMonth)}
-                 >
-                   <ChevronLeftIcon className="h-4 w-4" />
-                 </Button>
-               </div>
-               <div className="absolute right-1">
-                 <Button
-                   variant="ghost"
-                   className="h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
-                   disabled={!nextMonth}
-                   onClick={() => nextMonth && onMonthChange(nextMonth)}
-                 >
-                   <ChevronRightIcon className="h-4 w-4" />
-                 </Button>
-               </div>
-             </div>
-           );
+        Chevron: ({ ...props }) => {
+            if (props.orientation === "left") {
+                return <ChevronLeftIcon className="h-4 w-4" />
+            }
+            return <ChevronRightIcon className="h-4 w-4" />
         },
         ...components,
       }}
