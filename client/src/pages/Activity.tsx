@@ -8,8 +8,8 @@ export default function Activity() {
     {
       id: "1",
       type: "create",
-      title: "New Client Enrolled",
-      description: "Added Aarav Sharma to Consultancy program",
+      title: "Sarah Manager enrolled new client Aarav Sharma",
+      description: "",
       timestamp: "2024-12-09T12:39:00",
       user: {
         name: "Sarah Manager",
@@ -20,8 +20,8 @@ export default function Activity() {
     {
       id: "2",
       type: "payment",
-      title: "Payment Received",
-      description: "Received ₹25,000 from Aarav Sharma for initial deposit",
+      title: "Super Admin received payment of ₹25,000",
+      description: "",
       timestamp: "2024-12-09T11:09:00",
       user: {
         name: "Super Admin",
@@ -32,8 +32,8 @@ export default function Activity() {
     {
       id: "3",
       type: "status_change",
-      title: "Application Status Updated",
-      description: "Changed Ishita Patel status from Pending to Active",
+      title: "Tom Lead updated status for Ishita Patel",
+      description: "",
       timestamp: "2024-12-09T08:09:00",
       user: {
         name: "Tom Lead",
@@ -44,8 +44,8 @@ export default function Activity() {
     {
       id: "4",
       type: "upload",
-      title: "Document Uploaded",
-      description: "Uploaded Passport copy for Rohan Gupta",
+      title: "Dr. Counsellor uploaded document for Rohan Gupta",
+      description: "",
       timestamp: "2024-12-08T13:09:00",
       user: {
         name: "Dr. Counsellor",
@@ -56,8 +56,8 @@ export default function Activity() {
     {
       id: "5",
       type: "update",
-      title: "Profile Updated",
-      description: "Updated contact details for Meera Iyer",
+      title: "Sarah Manager updated profile for Meera Iyer",
+      description: "",
       timestamp: "2024-12-08T11:09:00",
       user: {
         name: "Sarah Manager",
@@ -68,8 +68,8 @@ export default function Activity() {
     {
       id: "6",
       type: "create",
-      title: "New Lead Added",
-      description: "Added new lead via phone enquiry",
+      title: "Dr. Counsellor added new lead",
+      description: "",
       timestamp: "2024-12-09T12:54:00",
       user: {
         name: "Dr. Counsellor",
@@ -80,8 +80,8 @@ export default function Activity() {
     {
       id: "7",
       type: "status_change",
-      title: "File Submitted",
-      description: "Submitted visa application for ST-002",
+      title: "Tom Lead submitted file for ST-002",
+      description: "",
       timestamp: "2024-12-09T12:24:00",
       user: {
         name: "Tom Lead",

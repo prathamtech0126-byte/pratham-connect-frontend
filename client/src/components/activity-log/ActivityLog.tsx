@@ -98,19 +98,13 @@ export function ActivityLog({ activities, className, maxHeight = "400px" }: Acti
               {getActivityIcon(activity.type)}
             </div>
             
-            <div className="flex flex-col flex-1 gap-1 pb-1">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium leading-none text-foreground">
-                  {activity.title}
-                </p>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {format(new Date(activity.timestamp), "MMM d, h:mm a")}
-                </span>
-              </div>
-              
-              <p className="text-xs text-muted-foreground line-clamp-2">
-                {activity.description}
+            <div className="flex flex-1 items-center justify-between gap-4 pt-1.5">
+              <p className="text-sm font-medium text-foreground">
+                {activity.title}
               </p>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {format(new Date(activity.timestamp), "MMM d, h:mm a")}
+              </span>
             </div>
           </div>
         ))}
