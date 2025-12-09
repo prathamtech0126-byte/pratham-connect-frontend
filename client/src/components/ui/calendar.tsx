@@ -79,26 +79,35 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        Chevron: ({ className, orientation, ...props }) => {
-          if (orientation === "left") {
-            return (
-              <ChevronLeftIcon
-                className={cn("h-4 w-4", className)}
-                {...props}
-              />
-            );
-          }
-          if (orientation === "right") {
-            return (
-              <ChevronRightIcon
-                className={cn("h-4 w-4", className)}
-                {...props}
-              />
-            );
-          }
-          return (
-            <ChevronDownIcon className={cn("h-4 w-4", className)} {...props} />
-          );
+        // @ts-ignore - Custom Caption to ensure correct positioning
+        Caption: ({ displayMonth, onMonthChange, previousMonth, nextMonth }) => {
+           return (
+             <div className="flex justify-center pt-1 relative items-center mb-2">
+               <div className="text-sm font-medium">
+                 {displayMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' })}
+               </div>
+               <div className="absolute left-1">
+                 <Button
+                   variant="ghost"
+                   className="h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+                   disabled={!previousMonth}
+                   onClick={() => previousMonth && onMonthChange(previousMonth)}
+                 >
+                   <ChevronLeftIcon className="h-4 w-4" />
+                 </Button>
+               </div>
+               <div className="absolute right-1">
+                 <Button
+                   variant="ghost"
+                   className="h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+                   disabled={!nextMonth}
+                   onClick={() => nextMonth && onMonthChange(nextMonth)}
+                 >
+                   <ChevronRightIcon className="h-4 w-4" />
+                 </Button>
+               </div>
+             </div>
+           );
         },
         ...components,
       }}
