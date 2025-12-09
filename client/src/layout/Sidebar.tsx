@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
-import logoUrl from "@assets/{E57CB05C-D1CA-4199-B617-F5E269BF372A}_1765258257461.png";
+import logoUrl from "@/assets/images/Pratham-international-logo.svg";
 
 const sidebarItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
