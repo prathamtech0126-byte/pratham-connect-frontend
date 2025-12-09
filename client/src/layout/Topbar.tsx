@@ -25,11 +25,7 @@ export function Topbar() {
       </div>
 
       <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative text-muted-foreground hover:text-foreground"
-        >
+        <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
           <Bell className="w-5 h-5" />
           <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-background" />
         </Button>
@@ -60,25 +56,25 @@ export function Topbar() {
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
-                  {/* <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut> */}
+                  <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
                 </DropdownMenuItem>
               </ProfileDialog>
-              {/* <DropdownMenuItem>
+              <DropdownMenuItem>
                 <CreditCard className="mr-2 h-4 w-4" />
                 <span>Billing</span>
                 <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
-              </DropdownMenuItem> */}
+              </DropdownMenuItem>
               <DropdownMenuItem>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
-                {/* <DropdownMenuShortcut>⌘S</DropdownMenuShortcut> */}
+                <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>
-              {/* <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut> */}
+              <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

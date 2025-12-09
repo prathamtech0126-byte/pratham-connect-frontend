@@ -71,11 +71,11 @@ export function ProfileDialog({ children }: { children: React.ReactNode }) {
                 <AvatarImage src={avatar} alt={profileData.name} />
                 <AvatarFallback className="text-xl">{profileData.name.charAt(0)}</AvatarFallback>
               </Avatar>
-              <div className="absolute -bottom-2 -right-4 flex gap-2">
+              <div className="absolute -bottom-2 -right-2 flex gap-1">
                 <Button 
                   size="icon" 
                   variant="secondary" 
-                  className="h-8 w-8 rounded-full shadow-md hover:scale-105 transition-transform"
+                  className="h-8 w-8 rounded-full shadow-md"
                   onClick={handleImageUpload}
                 >
                   <Camera className="h-4 w-4" />
@@ -84,7 +84,7 @@ export function ProfileDialog({ children }: { children: React.ReactNode }) {
                   <Button 
                     size="icon" 
                     variant="destructive" 
-                    className="h-8 w-8 rounded-full shadow-md hover:scale-105 transition-transform"
+                    className="h-8 w-8 rounded-full shadow-md"
                     onClick={handleRemoveImage}
                   >
                     <Trash2 className="h-4 w-4" />
