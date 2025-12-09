@@ -63,7 +63,7 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7 mt-6">
         <Card className="col-span-4 border-none shadow-sm">
           <CardHeader>
-            <CardTitle>Revenue Overview</CardTitle>
+            <CardTitle className="text-subheader">Revenue Overview</CardTitle>
           </CardHeader>
           <CardContent className="pl-2">
             <ResponsiveContainer width="100%" height={350}>
@@ -94,7 +94,7 @@ export default function Dashboard() {
         
         <Card className="col-span-3 border-none shadow-sm">
           <CardHeader>
-            <CardTitle>Recent Clients</CardTitle>
+            <CardTitle className="text-subheader">Recent Clients</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-8">
@@ -104,8 +104,8 @@ export default function Dashboard() {
                     {student.name.charAt(0)}
                   </div>
                   <div className="ml-4 space-y-1">
-                    <p className="text-sm font-medium leading-none">{student.name}</p>
-                    <p className="text-xs text-muted-foreground">{student.salesType}</p>
+                    <p className="text-paragraph text-sm font-medium leading-none">{student.name}</p>
+                    <p className="text-paragraph text-xs text-muted-foreground">{student.salesType}</p>
                   </div>
                   <div className="ml-auto font-medium text-sm">
                     <Badge variant={student.status === 'Active' ? 'default' : 'secondary'}>
@@ -122,7 +122,7 @@ export default function Dashboard() {
       <div className="mt-6">
         <Card className="border-none shadow-sm">
           <CardHeader>
-            <CardTitle>Recent Payments</CardTitle>
+            <CardTitle className="text-subheader">Recent Payments</CardTitle>
           </CardHeader>
           <CardContent>
              <DataTable 

@@ -20,7 +20,7 @@ export function InfoCard({ title, items, columns = 2, className, action }: InfoC
   return (
     <Card className={cn("h-full border-none shadow-sm", className)}>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-lg font-medium">{title}</CardTitle>
+        <CardTitle className="text-subheader">{title}</CardTitle>
         {action && <div>{action}</div>}
       </CardHeader>
       <CardContent>
@@ -32,11 +32,11 @@ export function InfoCard({ title, items, columns = 2, className, action }: InfoC
         )}>
           {items.map((item, index) => (
             <div key={index} className="space-y-1">
-              <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <p className="text-paragraph text-sm text-muted-foreground flex items-center gap-2">
                 {item.icon && <item.icon className="w-3.5 h-3.5" />}
                 {item.label}
               </p>
-              <div className="font-medium text-sm md:text-base break-words">
+              <div className="text-paragraph font-medium md:text-base break-words">
                 {item.value || "—"}
               </div>
             </div>
