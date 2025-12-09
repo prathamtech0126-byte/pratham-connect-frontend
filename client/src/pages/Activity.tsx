@@ -80,7 +80,7 @@ export default function Activity() {
     {
       id: "7",
       type: "status_change",
-      title: "Tom Lead submitted file for ST-002",
+      title: "Tom Lead submitted file for CL-002",
       description: "Visa application submitted",
       timestamp: "2024-12-09T12:24:00",
       user: {

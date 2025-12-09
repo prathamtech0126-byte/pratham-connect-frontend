@@ -1,8 +1,9 @@
-export interface Student {
+export interface Client {
   id: string;
   name: string;
   enrollmentDate: string;
   counsellor: string;
+  mainCounsellor?: string;
   productManager: string;
   salesType: 'Consultancy' | 'IELTS' | 'Loan' | 'Combined';
   status: 'Active' | 'Completed' | 'Pending' | 'Dropped';
@@ -62,9 +63,9 @@ export interface Student {
 }
 
 // Mock Data
-let students: Student[] = [
+let clients: Client[] = [
   {
-    id: "ST-001",
+    id: "CL-001",
     name: "Aarav Sharma",
     enrollmentDate: "2024-01-15",
     counsellor: "Priya Singh",
@@ -78,7 +79,7 @@ let students: Student[] = [
     phone: "+91 98765 43210"
   },
   {
-    id: "ST-002",
+    id: "CL-002",
     name: "Ishita Patel",
     enrollmentDate: "2024-02-10",
     counsellor: "Priya Singh",
@@ -92,7 +93,7 @@ let students: Student[] = [
     phone: "+91 98765 43211"
   },
   {
-    id: "ST-003",
+    id: "CL-003",
     name: "Rohan Gupta",
     enrollmentDate: "2024-03-05",
     counsellor: "Amit Kumar",
@@ -106,7 +107,7 @@ let students: Student[] = [
     phone: "+91 98765 43212"
   },
   {
-    id: "ST-004",
+    id: "CL-004",
     name: "Meera Iyer",
     enrollmentDate: "2024-03-20",
     counsellor: "Amit Kumar",
@@ -120,7 +121,7 @@ let students: Student[] = [
     phone: "+91 98765 43213"
   },
   {
-    id: "ST-005",
+    id: "CL-005",
     name: "Vikram Malhotra",
     enrollmentDate: "2024-04-12",
     counsellor: "Priya Singh",
@@ -220,7 +221,7 @@ const mockActivities: ActivityLogItem[] = [
     id: "act-7",
     type: "status_change",
     title: "File Submitted",
-    description: "Submitted visa application for ST-002",
+    description: "Submitted visa application for CL-002",
     timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
     user: {
       name: "Tom Lead",
@@ -240,54 +241,54 @@ const mockActivities: ActivityLogItem[] = [
   }
 ];
 
-export const studentService = {
-  getStudents: async (): Promise<Student[]> => {
+export const clientService = {
+  getClients: async (): Promise<Client[]> => {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
-    return [...students];
+    return [...clients];
   },
 
-  getStudentById: async (id: string): Promise<Student | undefined> => {
+  getClientById: async (id: string): Promise<Client | undefined> => {
     await new Promise(resolve => setTimeout(resolve, 300));
-    return students.find(s => s.id === id);
+    return clients.find(s => s.id === id);
   },
 
-  createStudent: async (data: Omit<Student, 'id'>): Promise<Student> => {
+  createClient: async (data: Omit<Client, 'id'>): Promise<Client> => {
     await new Promise(resolve => setTimeout(resolve, 800));
-    const newStudent = {
+    const newClient = {
       ...data,
-      id: `ST-${String(students.length + 1).padStart(3, '0')}`
+      id: `CL-${String(clients.length + 1).padStart(3, '0')}`
     };
-    students.push(newStudent);
-    return newStudent;
+    clients.push(newClient);
+    return newClient;
   },
 
-  updateStudent: async (id: string, data: Partial<Student>): Promise<Student | undefined> => {
+  updateClient: async (id: string, data: Partial<Client>): Promise<Client | undefined> => {
     await new Promise(resolve => setTimeout(resolve, 600));
-    const index = students.findIndex(s => s.id === id);
+    const index = clients.findIndex(s => s.id === id);
     if (index === -1) return undefined;
     
-    students[index] = { ...students[index], ...data };
-    return students[index];
+    clients[index] = { ...clients[index], ...data };
+    return clients[index];
   },
 
-  deleteStudent: async (id: string): Promise<boolean> => {
+  deleteClient: async (id: string): Promise<boolean> => {
     await new Promise(resolve => setTimeout(resolve, 400));
-    const initialLength = students.length;
-    students = students.filter(s => s.id !== id);
-    return students.length !== initialLength;
+    const initialLength = clients.length;
+    clients = clients.filter(s => s.id !== id);
+    return clients.length !== initialLength;
   },
   
   // Dashboard Metrics
   getDashboardStats: async () => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    const totalStudents = students.length;
-    const totalPayment = students.reduce((sum, s) => sum + s.totalPayment, 0);
-    const totalReceived = students.reduce((sum, s) => sum + s.amountReceived, 0);
-    const totalPending = students.reduce((sum, s) => sum + s.amountPending, 0);
+    const totalClients = clients.length;
+    const totalPayment = clients.reduce((sum, s) => sum + s.totalPayment, 0);
+    const totalReceived = clients.reduce((sum, s) => sum + s.amountReceived, 0);
+    const totalPending = clients.reduce((sum, s) => sum + s.amountPending, 0);
     
     return {
-      totalStudents,
+      totalClients,
       totalPayment,
       totalReceived,
       totalPending,

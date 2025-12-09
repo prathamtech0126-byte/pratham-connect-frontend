@@ -11,7 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { studentService } from "@/services/studentService";
+import { clientService } from "@/services/clientService";
 
 // Validation Schema
 const formSchema = z.object({
@@ -81,7 +81,7 @@ const salesTypeOptions = [
   { label: "SPOUSAL PR", value: "SPOUSAL PR" },
 ];
 
-export default function StudentForm() {
+export default function ClientForm() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -110,7 +110,7 @@ export default function StudentForm() {
   const onSubmit = async (data: FormValues) => {
     try {
       // @ts-ignore - mapping simplified for demo
-      await studentService.createStudent({
+      await clientService.createClient({
         ...data,
         status: 'Active',
         // Map other fields as necessary for the service
@@ -120,7 +120,7 @@ export default function StudentForm() {
         title: "Success",
         description: "Client created successfully",
       });
-      setLocation("/students");
+      setLocation("/clients");
     } catch (error) {
       toast({
         title: "Error",
@@ -236,7 +236,7 @@ export default function StudentForm() {
     <PageWrapper 
       title="Add New Client" 
       breadcrumbs={[
-        { label: "Clients", href: "/students" },
+        { label: "Clients", href: "/clients" },
         { label: "New Client" }
       ]}
     >

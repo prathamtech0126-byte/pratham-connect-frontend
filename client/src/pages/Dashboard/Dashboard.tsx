@@ -4,7 +4,7 @@ import { Users, DollarSign, Clock, CreditCard, TrendingUp, UserPlus, ShieldAlert
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { useQuery } from "@tanstack/react-query";
-import { studentService } from "@/services/studentService";
+import { clientService } from "@/services/clientService";
 import { DataTable } from "@/components/table/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
@@ -24,17 +24,17 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { data: stats } = useQuery({
     queryKey: ['dashboard-stats'],
-    queryFn: studentService.getDashboardStats
+    queryFn: clientService.getDashboardStats
   });
 
-  const { data: recentStudents } = useQuery({
-    queryKey: ['recent-students'],
-    queryFn: studentService.getStudents
+  const { data: recentClients } = useQuery({
+    queryKey: ['recent-clients'],
+    queryFn: clientService.getClients
   });
 
   const { data: activities } = useQuery({
     queryKey: ['dashboard-activities'],
-    queryFn: studentService.getRecentActivities
+    queryFn: clientService.getRecentActivities
   });
 
   // Filter activities based on user role
@@ -82,7 +82,7 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Clients"
-          value={stats?.totalStudents || 0}
+          value={stats?.totalClients || 0}
           icon={Users}
           trend={{ value: 12, isPositive: true }}
           description="from last month"
@@ -203,18 +203,18 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-8">
-              {recentStudents?.slice(0, 5).map((student) => (
-                <div key={student.id} className="flex items-center">
+              {recentClients?.slice(0, 5).map((client) => (
+                <div key={client.id} className="flex items-center">
                   <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                    {student.name.charAt(0)}
+                    {client.name.charAt(0)}
                   </div>
                   <div className="ml-4 space-y-1">
-                    <p className="text-paragraph text-sm font-medium leading-none">{student.name}</p>
-                    <p className="text-paragraph text-xs text-muted-foreground">{student.salesType}</p>
+                    <p className="text-paragraph text-sm font-medium leading-none">{client.name}</p>
+                    <p className="text-paragraph text-xs text-muted-foreground">{client.salesType}</p>
                   </div>
                   <div className="ml-auto font-medium text-sm">
-                    <Badge variant={student.status === 'Active' ? 'default' : 'secondary'}>
-                      {student.status}
+                    <Badge variant={client.status === 'Active' ? 'default' : 'secondary'}>
+                      {client.status}
                     </Badge>
                   </div>
                 </div>
@@ -233,7 +233,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
              <DataTable 
-               data={recentStudents?.slice(0, 5) || []}
+               data={recentClients?.slice(0, 5) || []}
                columns={[
                  { header: "Client", accessorKey: "name", className: "font-medium" },
                  { header: "Date", accessorKey: "enrollmentDate" },

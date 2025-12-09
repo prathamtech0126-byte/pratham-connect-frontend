@@ -1,7 +1,7 @@
 import { PageWrapper } from "@/layout/PageWrapper";
 import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { studentService } from "@/services/studentService";
+import { clientService } from "@/services/clientService";
 import { SectionTabs } from "@/components/tabs/SectionTabs";
 import { InfoCard } from "@/components/cards/InfoCard";
 import { PaymentCard } from "@/components/cards/PaymentCard";
@@ -9,18 +9,18 @@ import { Button } from "@/components/ui/button";
 import { Edit, FileText, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-export default function StudentDetails() {
-  const [, params] = useRoute("/students/:id");
+export default function ClientDetails() {
+  const [, params] = useRoute("/clients/:id");
   const [, setLocation] = useLocation();
   const id = params?.id;
 
-  const { data: student, isLoading } = useQuery({
-    queryKey: ['student', id],
-    queryFn: () => studentService.getStudentById(id || ""),
+  const { data: client, isLoading } = useQuery({
+    queryKey: ['client', id],
+    queryFn: () => clientService.getClientById(id || ""),
     enabled: !!id
   });
 
-  if (isLoading || !student) {
+  if (isLoading || !client) {
     return <PageWrapper title="Loading..."><div className="p-4">Loading client details...</div></PageWrapper>;
   }
 
@@ -29,20 +29,20 @@ export default function StudentDetails() {
       <InfoCard
         title="Personal Information"
         items={[
-          { label: "Full Name", value: student.name },
-          { label: "Client ID", value: student.id },
-          { label: "Email", value: student.email || "N/A" },
-          { label: "Phone", value: student.phone || "N/A" },
+          { label: "Full Name", value: client.name },
+          { label: "Client ID", value: client.id },
+          { label: "Email", value: client.email || "N/A" },
+          { label: "Phone", value: client.phone || "N/A" },
         ]}
       />
       <InfoCard
         title="Enrollment Details"
         items={[
-          { label: "Enrollment Date", value: student.enrollmentDate },
-          { label: "Sales Type", value: <Badge variant="secondary">{student.salesType}</Badge> },
-          { label: "Counsellor", value: student.counsellor },
-          { label: "Product Manager", value: student.productManager },
-          { label: "Status", value: <Badge>{student.status}</Badge> },
+          { label: "Enrollment Date", value: client.enrollmentDate },
+          { label: "Sales Type", value: <Badge variant="secondary">{client.salesType}</Badge> },
+          { label: "Counsellor", value: client.counsellor },
+          { label: "Product Manager", value: client.productManager },
+          { label: "Status", value: <Badge>{client.status}</Badge> },
         ]}
       />
     </div>
@@ -53,20 +53,20 @@ export default function StudentDetails() {
       <div className="grid gap-4 md:grid-cols-3">
         <PaymentCard 
           title="Total Payment" 
-          amount={student.totalPayment} 
+          amount={client.totalPayment} 
           status="Pending" 
           className="border-l-blue-500" 
         />
         <PaymentCard 
           title="Received Amount" 
-          amount={student.amountReceived} 
+          amount={client.amountReceived} 
           status="Paid" 
         />
         <PaymentCard 
           title="Pending Amount" 
-          amount={student.amountPending} 
-          status={student.amountPending > 0 ? "Pending" : "Paid"} 
-          className={student.amountPending > 0 ? "border-l-red-500" : "border-l-green-500"}
+          amount={client.amountPending} 
+          status={client.amountPending > 0 ? "Pending" : "Paid"} 
+          className={client.amountPending > 0 ? "border-l-red-500" : "border-l-green-500"}
         />
       </div>
 
@@ -95,13 +95,13 @@ export default function StudentDetails() {
 
   return (
     <PageWrapper 
-      title={`Client: ${student.name}`}
+      title={`Client: ${client.name}`}
       breadcrumbs={[
-        { label: "Clients", href: "/students" },
-        { label: student.name }
+        { label: "Clients", href: "/clients" },
+        { label: client.name }
       ]}
       actions={
-        <Button onClick={() => setLocation(`/students/${id}/edit`)}>
+        <Button onClick={() => setLocation(`/clients/${id}/edit`)}>
           <Edit className="w-4 h-4 mr-2" />
           Edit Client
         </Button>

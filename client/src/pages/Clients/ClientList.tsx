@@ -2,7 +2,7 @@ import { PageWrapper } from "@/layout/PageWrapper";
 import { DataTable } from "@/components/table/DataTable";
 import { TableToolbar } from "@/components/table/TableToolbar";
 import { TableActions } from "@/components/table/TableActions";
-import { studentService, Student } from "@/services/studentService";
+import { clientService, Client } from "@/services/clientService";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,17 +11,17 @@ import { useLocation } from "wouter";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export default function StudentList() {
+export default function ClientList() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const { data: students, isLoading } = useQuery({
-    queryKey: ['students'],
-    queryFn: studentService.getStudents
+  const { data: clients, isLoading } = useQuery({
+    queryKey: ['clients'],
+    queryFn: clientService.getClients
   });
 
-  const filteredStudents = students?.filter(s => {
+  const filteredClients = clients?.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) || 
                           s.counsellor.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || s.status.toLowerCase() === statusFilter.toLowerCase();
@@ -29,22 +29,22 @@ export default function StudentList() {
   }) || [];
 
   const columns = [
-    { header: "Sr No", cell: (_: Student, index: number) => <span className="text-muted-foreground">{index + 1}</span>, className: "w-[80px]" },
-    { header: "Name", accessorKey: "name" as keyof Student, className: "font-medium" },
-    { header: "Enrollment Date", accessorKey: "enrollmentDate" as keyof Student },
-    { header: "Total Payment", cell: (s: Student) => `₹${s.totalPayment.toLocaleString()}` },
-    { header: "Received", cell: (s: Student) => <span className="text-green-600 font-medium">₹{s.amountReceived.toLocaleString()}</span> },
-    { header: "Pending", cell: (s: Student) => <span className={s.amountPending > 0 ? "text-red-600 font-medium" : "text-muted-foreground"}>₹{s.amountPending.toLocaleString()}</span> },
-    { header: "Counsellor", accessorKey: "counsellor" as keyof Student },
-    { header: "Status", cell: (s: Student) => (
+    { header: "Sr No", cell: (_: Client, index: number) => <span className="text-muted-foreground">{index + 1}</span>, className: "w-[80px]" },
+    { header: "Name", accessorKey: "name" as keyof Client, className: "font-medium" },
+    { header: "Enrollment Date", accessorKey: "enrollmentDate" as keyof Client },
+    { header: "Total Payment", cell: (s: Client) => `₹${s.totalPayment.toLocaleString()}` },
+    { header: "Received", cell: (s: Client) => <span className="text-green-600 font-medium">₹{s.amountReceived.toLocaleString()}</span> },
+    { header: "Pending", cell: (s: Client) => <span className={s.amountPending > 0 ? "text-red-600 font-medium" : "text-muted-foreground"}>₹{s.amountPending.toLocaleString()}</span> },
+    { header: "Counsellor", accessorKey: "counsellor" as keyof Client },
+    { header: "Status", cell: (s: Client) => (
       <Badge variant={s.status === 'Active' ? 'default' : s.status === 'Completed' ? 'secondary' : 'outline'}>
         {s.status}
       </Badge>
     )},
-    { header: "Actions", cell: (s: Student) => (
+    { header: "Actions", cell: (s: Client) => (
       <TableActions 
-        onView={() => setLocation(`/students/${s.id}`)}
-        onEdit={() => setLocation(`/students/${s.id}/edit`)}
+        onView={() => setLocation(`/clients/${s.id}`)}
+        onEdit={() => setLocation(`/clients/${s.id}/edit`)}
       />
     )}
   ];
@@ -54,7 +54,7 @@ export default function StudentList() {
       title="Clients" 
       breadcrumbs={[{ label: "Clients" }]}
       actions={
-        <Button onClick={() => setLocation("/students/new")}>
+        <Button onClick={() => setLocation("/clients/new")}>
           <Plus className="w-4 h-4 mr-2" />
           Add Client
         </Button>
@@ -80,9 +80,9 @@ export default function StudentList() {
         />
         
         <DataTable 
-          data={filteredStudents} 
+          data={filteredClients} 
           columns={columns} 
-          onRowClick={(s) => setLocation(`/students/${s.id}`)}
+          onRowClick={(s) => setLocation(`/clients/${s.id}`)}
         />
       </div>
     </PageWrapper>

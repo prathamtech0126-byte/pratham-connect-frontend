@@ -30,7 +30,7 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-  { icon: Users, label: "Clients", href: "/students" },
+  { icon: Users, label: "Clients", href: "/clients" },
   { 
     icon: Activity, 
     label: "Activity Log", 
@@ -39,7 +39,7 @@ const sidebarItems: SidebarItem[] = [
   { 
     icon: UserPlus, 
     label: "Add Client", 
-    href: "/students/new",
+    href: "/clients/new",
     roles: ['superadmin', 'director', 'manager', 'team_lead', 'counsellor'] 
   },
   { icon: PieChart, label: "Reports", href: "/reports" },

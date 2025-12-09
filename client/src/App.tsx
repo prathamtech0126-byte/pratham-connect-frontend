@@ -8,9 +8,9 @@ import { MainLayout } from "@/layout/MainLayout";
 import { AuthProvider, useAuth } from "@/context/auth-context";
 
 import Dashboard from "@/pages/Dashboard/Dashboard";
-import StudentList from "@/pages/Students/StudentList";
-import StudentForm from "@/pages/Students/StudentForm";
-import StudentDetails from "@/pages/Students/StudentDetails";
+import ClientList from "@/pages/Clients/ClientList";
+import ClientForm from "@/pages/Clients/ClientForm";
+import ClientDetails from "@/pages/Clients/ClientDetails";
 import Login from "@/pages/Login";
 import Activity from "@/pages/Activity";
 
@@ -45,18 +45,18 @@ function Router() {
         {params => <ProtectedRoute component={Activity} />}
       </Route>
       
-      {/* Student Routes */}
-      <Route path="/students">
-        {params => <ProtectedRoute component={StudentList} />}
+      {/* Client Routes */}
+      <Route path="/clients">
+        {params => <ProtectedRoute component={ClientList} />}
       </Route>
-      <Route path="/students/new">
-        {params => <ProtectedRoute component={StudentForm} />}
+      <Route path="/clients/new">
+        {params => <ProtectedRoute component={ClientForm} />}
       </Route>
-      <Route path="/students/:id/edit">
-        {params => <ProtectedRoute component={StudentForm} params={params} />}
+      <Route path="/clients/:id/edit">
+        {params => <ProtectedRoute component={ClientForm} params={params} />}
       </Route>
-      <Route path="/students/:id">
-        {params => <ProtectedRoute component={StudentDetails} params={params} />}
+      <Route path="/clients/:id">
+        {params => <ProtectedRoute component={ClientDetails} params={params} />}
       </Route>
       
       {/* Placeholder for other sidebar links to avoid 404s during demo */}
