@@ -169,7 +169,7 @@ function Calendar({
               }}
             >
               <SelectTrigger className="pr-1.5 focus:ring-0">
-                <SelectValue>{selected?.props?.children}</SelectValue>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper">
                 <ScrollArea className="h-80">
