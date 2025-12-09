@@ -85,7 +85,7 @@ export function ActivityLog({ activities, className, maxHeight = "400px" }: Acti
 
   return (
     <ScrollArea className={cn("pr-4", className)} style={{ maxHeight }}>
-      <div className="space-y-6 relative ml-2">
+      <div className="space-y-4 relative ml-2">
         {/* Vertical line connecting items */}
         <div className="absolute left-4 top-2 bottom-4 w-px bg-border z-0" />
         
@@ -111,19 +111,6 @@ export function ActivityLog({ activities, className, maxHeight = "400px" }: Acti
               <p className="text-xs text-muted-foreground line-clamp-2">
                 {activity.description}
               </p>
-              
-              <div className="flex items-center gap-2 mt-1.5">
-                <Avatar className="h-5 w-5 border border-border">
-                  <AvatarImage src={activity.user.avatar} />
-                  <AvatarFallback className="text-[10px] bg-primary/5 text-primary">
-                    {activity.user.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">{activity.user.name}</span>
-                  <span className="opacity-70"> ({activity.user.role.replace('_', ' ')})</span>
-                </span>
-              </div>
             </div>
           </div>
         ))}
