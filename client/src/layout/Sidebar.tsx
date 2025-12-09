@@ -10,7 +10,8 @@ import {
   UserPlus,
   Shield,
   UserCog,
-  Briefcase
+  Briefcase,
+  Crown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -33,14 +34,14 @@ const sidebarItems: SidebarItem[] = [
     icon: UserPlus, 
     label: "Add Client", 
     href: "/students/new",
-    roles: ['superadmin', 'manager'] 
+    roles: ['superadmin', 'director', 'manager'] 
   },
   { icon: PieChart, label: "Reports", href: "/reports" },
   { 
     icon: Settings, 
     label: "Settings", 
     href: "/settings",
-    roles: ['superadmin']
+    roles: ['superadmin', 'director']
   },
 ];
 
@@ -80,16 +81,18 @@ export function Sidebar({ className }: { className?: string }) {
     
     const colors = {
       superadmin: "bg-purple-100 text-purple-700",
+      director: "bg-indigo-100 text-indigo-700",
       manager: "bg-blue-100 text-blue-700",
       team_lead: "bg-orange-100 text-orange-700",
-      consultant: "bg-green-100 text-green-700"
+      counsellor: "bg-green-100 text-green-700"
     };
 
     const labels = {
       superadmin: "Super Admin",
+      director: "Director",
       manager: "Manager",
       team_lead: "Team Lead",
-      consultant: "Consultant"
+      counsellor: "Counsellor"
     };
 
     return (

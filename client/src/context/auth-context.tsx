@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useLocation } from "wouter";
 
-export type UserRole = 'superadmin' | 'manager' | 'team_lead' | 'consultant';
+export type UserRole = 'superadmin' | 'manager' | 'team_lead' | 'counsellor' | 'director';
 
 interface User {
   id: string;
@@ -43,13 +43,20 @@ const MOCK_USERS: Record<UserRole, User> = {
     role: 'team_lead',
     avatar: 'https://images.unsplash.com/photo-1519244703995-f4e0f30006d5?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
   },
-  consultant: {
+  counsellor: {
     id: '4',
-    username: 'consultant',
-    name: 'Dr. Consultant',
-    role: 'consultant',
+    username: 'counsellor',
+    name: 'Dr. Counsellor',
+    role: 'counsellor',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
   },
+  director: {
+    id: '5',
+    username: 'director',
+    name: 'Director',
+    role: 'director',
+    avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+  }
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {

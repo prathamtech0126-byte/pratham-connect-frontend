@@ -31,8 +31,8 @@ export default function Dashboard() {
     queryFn: studentService.getStudents
   });
 
-  const canViewFinancials = user?.role === 'superadmin' || user?.role === 'manager';
-  const canCreateUsers = user?.role === 'superadmin' || user?.role === 'manager';
+  const canViewFinancials = user?.role === 'superadmin' || user?.role === 'director' || user?.role === 'manager';
+  const canCreateUsers = user?.role === 'superadmin' || user?.role === 'director' || user?.role === 'manager';
 
   return (
     <PageWrapper title={`Dashboard`}>

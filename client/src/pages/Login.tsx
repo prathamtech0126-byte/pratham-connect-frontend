@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, Shield, Users, UserCog, Briefcase } from "lucide-react";
+import { Lock, Shield, Users, UserCog, Briefcase, Crown } from "lucide-react";
 
 export default function Login() {
   const { login, isLoading } = useAuth();
@@ -35,11 +35,13 @@ export default function Login() {
     switch (role) {
       case "superadmin":
         return <Shield className="h-5 w-5 text-purple-600" />;
+      case "director":
+        return <Crown className="h-5 w-5 text-indigo-600" />;
       case "manager":
         return <Users className="h-5 w-5 text-blue-600" />;
       case "team_lead":
         return <UserCog className="h-5 w-5 text-orange-600" />;
-      case "consultant":
+      case "counsellor":
         return <Briefcase className="h-5 w-5 text-green-600" />;
       default:
         return <Shield className="h-5 w-5" />;
@@ -83,6 +85,12 @@ export default function Login() {
                       <span>Super Admin</span>
                     </div>
                   </SelectItem>
+                  <SelectItem value="director">
+                    <div className="flex items-center gap-2">
+                      <Crown className="h-4 w-4 text-indigo-600" />
+                      <span>Director</span>
+                    </div>
+                  </SelectItem>
                   <SelectItem value="manager">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-blue-600" />
@@ -95,10 +103,10 @@ export default function Login() {
                       <span>Team Lead</span>
                     </div>
                   </SelectItem>
-                  <SelectItem value="consultant">
+                  <SelectItem value="counsellor">
                     <div className="flex items-center gap-2">
                       <Briefcase className="h-4 w-4 text-green-600" />
-                      <span>Consultant</span>
+                      <span>Counsellor</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
