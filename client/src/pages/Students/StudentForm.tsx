@@ -21,7 +21,6 @@ const formSchema = z.object({
   salesType: z.string(),
   coreSales: z.string().optional(),
   counsellor: z.string().min(1, "Counsellor is required"),
-  mainCounsellor: z.string().optional(),
   productManager: z.string().min(1, "Product Manager is required"),
   
   // Step 2: Consultancy Payment
@@ -90,9 +89,6 @@ export default function StudentForm() {
     defaultValues: {
       name: "",
       salesType: "Canada Student",
-      counsellor: "",
-      mainCounsellor: "",
-      productManager: "",
       totalPayment: 0,
       amountReceived: 0,
       amountPending: 0,
@@ -149,7 +145,6 @@ export default function StudentForm() {
           />
           <FormTextInput name="coreSales" control={control} label="Core Sales" />
           <FormTextInput name="counsellor" control={control} label="Counsellor Name" />
-          <FormTextInput name="mainCounsellor" control={control} label="Main Counsellor" />
           <FormTextInput name="productManager" control={control} label="Product Manager" />
         </FormSection>
       )
