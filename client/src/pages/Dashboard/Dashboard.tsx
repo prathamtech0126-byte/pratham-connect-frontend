@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ActivityLog } from "@/components/activity-log/ActivityLog";
-import { DateRangeFilter } from "@/components/ui/date-range-filter";
+import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
 import { useState } from "react";
 
 const chartData = [
@@ -86,7 +86,7 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-            <DateRangeFilter 
+            <DashboardDateFilter 
                 date={dateRange} 
                 onDateChange={setDateRange} 
                 placeholder="Custom"
