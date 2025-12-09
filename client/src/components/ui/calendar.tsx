@@ -61,11 +61,11 @@ function Calendar({
         day_range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
-        caption_dropdowns: "flex justify-center gap-2",
-        dropdown_icon: "hidden",
+        caption_dropdowns: "flex justify-center gap-1",
         dropdown: "appearance-none absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer",
-        dropdown_month: "relative inline-flex items-center",
-        dropdown_year: "relative inline-flex items-center",
+        dropdown_month: "relative inline-flex items-center ml-2",
+        dropdown_year: "relative inline-flex items-center ml-2",
+        dropdown_icon: "ml-1 h-4 w-4",
         ...classNames,
       }}
       components={{
