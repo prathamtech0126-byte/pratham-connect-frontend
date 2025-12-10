@@ -140,11 +140,6 @@ export default function Activity() {
 
   const columns = [
     { 
-      header: "Sr No", 
-      cell: (_: ActivityLogItem, index: number) => <span className="text-muted-foreground">{index + 1}</span>,
-      className: "w-[60px]"
-    },
-    { 
       header: "User", 
       cell: (item: ActivityLogItem) => (
         <div className="flex items-center gap-3">
