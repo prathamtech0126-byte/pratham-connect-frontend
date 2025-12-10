@@ -1,9 +1,12 @@
 import { PageWrapper } from "@/layout/PageWrapper";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { DataTable } from "@/components/table/DataTable";
+import { TableToolbar } from "@/components/table/TableToolbar";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
+import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   UserPlus, 
   CreditCard, 
@@ -28,6 +31,10 @@ interface ActivityLogItem {
 }
 
 export default function Activity() {
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
+
   // Hardcoded data to match the screenshot exactly for the simple prototype
   const activities: ActivityLogItem[] = [
     {
@@ -116,6 +123,20 @@ export default function Activity() {
     }
   ];
 
+  const filteredActivities = activities.filter(item => {
+    const matchesSearch = 
+      item.title.toLowerCase().includes(search.toLowerCase()) || 
+      item.description.toLowerCase().includes(search.toLowerCase()) ||
+      item.user.name.toLowerCase().includes(search.toLowerCase());
+      
+    const matchesType = typeFilter === "all" || item.type === typeFilter;
+    const matchesRole = roleFilter === "all" || item.user.role === roleFilter;
+
+    return matchesSearch && matchesType && matchesRole;
+  });
+
+  const uniqueRoles = Array.from(new Set(activities.map(a => a.user.role))).sort();
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "create": return <UserPlus className="h-4 w-4 text-blue-500" />;
@@ -201,14 +222,52 @@ export default function Activity() {
         <CardHeader>
           <CardTitle className="text-subheader">Activity History</CardTitle>
           <CardDescription>
-            Showing {activities.length} recent activities based on your role permissions.
+            Showing {filteredActivities.length} recent activities based on your role permissions.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DataTable 
-            data={activities} 
-            columns={columns} 
-          />
+          <div className="space-y-4">
+            <TableToolbar 
+              searchPlaceholder="Search activity..."
+              onSearch={setSearch}
+              filters={
+                <div className="flex items-center gap-2">
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-[150px] bg-white">
+                      <SelectValue placeholder="Activity Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="create">New Entry</SelectItem>
+                      <SelectItem value="payment">Payment</SelectItem>
+                      <SelectItem value="status_change">Status Change</SelectItem>
+                      <SelectItem value="upload">Upload</SelectItem>
+                      <SelectItem value="update">Update</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger className="w-[150px] bg-white">
+                      <SelectValue placeholder="User Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      {uniqueRoles.map(role => (
+                        <SelectItem key={role} value={role} className="capitalize">
+                          {role.replace('_', ' ')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              }
+            />
+            
+            <DataTable 
+              data={filteredActivities} 
+              columns={columns} 
+            />
+          </div>
         </CardContent>
       </Card>
     </PageWrapper>
