@@ -62,7 +62,7 @@ export default function Reports() {
   const [salesTypeFilter, setSalesTypeFilter] = useState("all");
   const [userFilter, setUserFilter] = useState("all");
 
-  const canViewAll = user?.role === 'superadmin' || user?.role === 'director';
+  const canViewAll = user?.role === 'superadmin' || user?.role === 'director' || user?.role === 'manager';
 
   // Mock filtering logic for demonstration
   const getFilteredData = (data: any[]) => {
