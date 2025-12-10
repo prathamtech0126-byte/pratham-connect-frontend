@@ -17,19 +17,20 @@ export default function TeamList() {
   
   // Team State
   const [teamMembers, setTeamMembers] = useState([
-    { id: 1, name: "Sarah Manager", email: "sarah@pratham.com", role: "Manager", status: "Active", avatar: "" },
-    { id: 2, name: "Tom Lead", email: "tom@pratham.com", role: "Team Lead", status: "Active", avatar: "" },
-    { id: 3, name: "Dr. Counsellor", email: "doc@pratham.com", role: "Counsellor", status: "Away", avatar: "" },
-    { id: 4, name: "Priya Singh", email: "priya@pratham.com", role: "Counsellor", status: "Active", avatar: "" },
-    { id: 5, name: "Amit Director", email: "amit@pratham.com", role: "Director", status: "Active", avatar: "" },
+    { id: 1, name: "Sarah Manager", email: "sarah@pratham.com", role: "Manager", status: "Active", avatar: "", assignedTo: "", password: "" },
+    { id: 2, name: "Tom Lead", email: "tom@pratham.com", role: "Team Lead", status: "Active", avatar: "", assignedTo: "Sarah Manager", password: "" },
+    { id: 3, name: "Dr. Counsellor", email: "doc@pratham.com", role: "Counsellor", status: "Away", avatar: "", assignedTo: "Tom Lead", password: "" },
+    { id: 4, name: "Priya Singh", email: "priya@pratham.com", role: "Counsellor", status: "Active", avatar: "", assignedTo: "Tom Lead", password: "" },
+    { id: 5, name: "Amit Director", email: "amit@pratham.com", role: "Director", status: "Active", avatar: "", assignedTo: "", password: "" },
   ]);
 
   // Filter State
   const [roleFilter, setRoleFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Add Member State
+  // Add/Edit Member State
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [newMember, setNewMember] = useState({
     name: "",
     email: "",
@@ -47,33 +48,68 @@ export default function TeamList() {
     setNewMember(prev => ({ ...prev, password }));
   };
 
-  const handleAddMember = () => {
-    if (!newMember.name || !newMember.email || !newMember.password) {
+  const handleSaveMember = () => {
+    if (!newMember.name || !newMember.email || (!editingId && !newMember.password)) {
       toast({
         title: "Error",
-        description: "Please fill in all fields",
+        description: "Please fill in all required fields",
         variant: "destructive",
       });
       return;
     }
 
-    const member = {
-      id: Date.now(),
-      name: newMember.name,
-      email: newMember.email,
-      role: newMember.role,
-      status: "Active",
-      avatar: "",
-      assignedTo: newMember.assignedTo
-    };
+    if (editingId) {
+      setTeamMembers(teamMembers.map(member => 
+        member.id === editingId 
+          ? { ...member, ...newMember, password: newMember.password || member.password } // Keep old password if not changed
+          : member
+      ));
+      toast({
+        title: "Success",
+        description: "Team member updated successfully",
+      });
+    } else {
+      const member = {
+        id: Date.now(),
+        name: newMember.name,
+        email: newMember.email,
+        role: newMember.role,
+        status: "Active",
+        avatar: "",
+        assignedTo: newMember.assignedTo,
+        password: newMember.password
+      };
+      setTeamMembers([...teamMembers, member]);
+      toast({
+        title: "Success",
+        description: "Team member added successfully",
+      });
+    }
 
-    setTeamMembers([...teamMembers, member]);
     setIsAddMemberOpen(false);
+    resetForm();
+  };
+
+  const resetForm = () => {
     setNewMember({ name: "", email: "", password: "", role: "Counsellor", assignedTo: "" });
-    toast({
-      title: "Success",
-      description: "Team member added successfully",
+    setEditingId(null);
+  };
+
+  const openAddMember = () => {
+    resetForm();
+    setIsAddMemberOpen(true);
+  };
+
+  const openEditMember = (member: any) => {
+    setEditingId(member.id);
+    setNewMember({
+      name: member.name,
+      email: member.email,
+      password: "", // Don't show existing password
+      role: member.role,
+      assignedTo: member.assignedTo || ""
     });
+    setIsAddMemberOpen(true);
   };
 
   const assignableManagers = teamMembers.filter(m => m.role === "Manager");
@@ -94,18 +130,21 @@ export default function TeamList() {
             <CardTitle>Team Members</CardTitle>
             <CardDescription>Manage your organization's team members.</CardDescription>
           </div>
-          <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
+            <Dialog open={isAddMemberOpen} onOpenChange={(open) => {
+              setIsAddMemberOpen(open);
+              if (!open) resetForm();
+            }}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" onClick={openAddMember}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Member
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add Team Member</DialogTitle>
+                <DialogTitle>{editingId ? "Edit Team Member" : "Add Team Member"}</DialogTitle>
                 <DialogDescription>
-                  Create a new user account. They will receive an email to set their password.
+                  {editingId ? "Update user details." : "Create a new user account. They will receive an email to set their password."}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -129,12 +168,12 @@ export default function TeamList() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">Password {editingId && "(Leave blank to keep current)"}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="password"
                       type="text"
-                      placeholder="Password"
+                      placeholder={editingId ? "New Password (Optional)" : "Password"}
                       value={newMember.password}
                       onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}
                     />
@@ -205,7 +244,7 @@ export default function TeamList() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddMemberOpen(false)}>Cancel</Button>
-                <Button onClick={handleAddMember}>Create Account</Button>
+                <Button onClick={handleSaveMember}>{editingId ? "Update Member" : "Create Account"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -282,7 +321,12 @@ export default function TeamList() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 mr-1 text-muted-foreground hover:text-primary">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 mr-1 text-muted-foreground hover:text-primary"
+                          onClick={() => openEditMember(member)}
+                        >
                           <Pencil className="w-4 h-4" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
