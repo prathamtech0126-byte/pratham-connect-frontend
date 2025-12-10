@@ -23,7 +23,7 @@ const formSchema = z.object({
   counsellor: z.string().optional(),
   mainCounsellor: z.string().optional(),
   productManager: z.string().optional(),
-  
+
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
   amountReceived: z.number().min(0),
@@ -93,16 +93,17 @@ export default function ClientForm() {
       totalPayment: 0,
       amountReceived: 0,
       amountPending: 0,
-    }
+    },
   });
 
   const { control, handleSubmit } = form;
   const salesType = useWatch({ control, name: "salesType" });
 
   const isStudent = salesType?.toLowerCase().includes("student");
-  const isSpouse = salesType?.toLowerCase().includes("spouse") || salesType === "SPOUSAL PR";
-  
-  // Logic: 
+  const isSpouse =
+    salesType?.toLowerCase().includes("spouse") || salesType === "SPOUSAL PR";
+
+  // Logic:
   // - Students see IELTS/Loan
   // - Spouses see Legal Services, Employment (assuming NOC/Work permit related)
   // - Everyone sees Basic, Payment, Visa & Travel, Finance (unless specified otherwise, keeping these general)
@@ -112,10 +113,10 @@ export default function ClientForm() {
       // @ts-ignore - mapping simplified for demo
       await clientService.createClient({
         ...data,
-        status: 'Active',
+        status: "Active",
         // Map other fields as necessary for the service
       });
-      
+
       toast({
         title: "Success",
         description: "Client created successfully",
@@ -125,7 +126,7 @@ export default function ClientForm() {
       toast({
         title: "Error",
         description: "Failed to create client",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -135,40 +136,75 @@ export default function ClientForm() {
       id: "basic",
       title: "Basic Details",
       component: (
-        <FormSection title="Client Information" description="Enter the basic details of the client">
-          <FormTextInput name="name" control={control} label="Full Name" placeholder="e.g. Rahul Kumar" />
-          <FormDateInput name="enrollmentDate" control={control} label="Enrollment Date" />
-          <FormSelectInput 
-            name="salesType" 
-            control={control} 
-            label="Sales Type" 
-            options={salesTypeOptions} 
+        <FormSection
+          title="Client Information"
+          description="Enter the basic details of the client"
+        >
+          <FormTextInput
+            name="name"
+            control={control}
+            label="Full Name"
+            placeholder="e.g. Rahul Kumar"
           />
-          <FormSelectInput 
-            name="coreSales" 
-            control={control} 
-            label="Core Sales" 
+          <FormDateInput
+            name="enrollmentDate"
+            control={control}
+            label="Enrollment Date"
+          />
+          <FormSelectInput
+            name="salesType"
+            control={control}
+            label="Sales Type"
+            options={salesTypeOptions}
+          />
+          <FormSelectInput
+            name="coreSales"
+            control={control}
+            label="Core Sales"
             placeholder="Select Core Sale Options"
             options={[
               { label: "Yes", value: "Yes" },
-              { label: "No", value: "No" }
+              { label: "No", value: "No" },
             ]}
           />
         </FormSection>
-      )
+      ),
     },
     {
       id: "consultancy",
       title: "Consultancy Payment",
       component: (
-        <FormSection title="Payment Details" description="Consultancy charges and payment status">
-          <FormCurrencyInput name="totalPayment" control={control} label="Total Payment" />
-          <FormCurrencyInput name="amountReceived" control={control} label="Amount Received" />
-          <FormCurrencyInput name="amountPending" control={control} label="Amount Pending" />
-          <FormCurrencyInput name="productPaymentAmount" control={control} label="Product Payment Amount" />
-          <FormDateInput name="productPaymentDate" control={control} label="Product Payment Date" />
+        <FormSection
+          title="Payment Details"
+          description="Consultancy charges and payment status"
+        >
+          <FormCurrencyInput
+            name="totalPayment"
+            control={control}
+            label="Total Payment"
+          />
+          <FormCurrencyInput
+            name="amountReceived"
+            control={control}
+            label="Initial Amount Received"
+          />
+          <FormCurrencyInput
+            name="amountPending"
+            control={control}
+            label="Amount Pending"
+          />
+          <FormCurrencyInput
+            name="productPaymentAmount"
+            control={control}
+            label="Product Payment Amount"
+          />
+          <FormDateInput
+            name="productPaymentDate"
+            control={control}
+            label="Product Payment Date"
+          />
         </FormSection>
-      )
+      ),
     },
     {
       id: "ielts_loan",
@@ -176,12 +212,28 @@ export default function ClientForm() {
       condition: isStudent, // Only for students
       component: (
         <FormSection title="IELTS & Loan Services">
-          <FormCurrencyInput name="ieltsAmount" control={control} label="IELTS Amount" />
-          <FormDateInput name="ieltsDate" control={control} label="IELTS Payment Date" />
-          <FormCurrencyInput name="loanAmount" control={control} label="Loan Amount" />
-          <FormDateInput name="loanDisbursementDate" control={control} label="Loan Disbursement Date" />
+          <FormCurrencyInput
+            name="ieltsAmount"
+            control={control}
+            label="IELTS Amount"
+          />
+          <FormDateInput
+            name="ieltsDate"
+            control={control}
+            label="IELTS Payment Date"
+          />
+          <FormCurrencyInput
+            name="loanAmount"
+            control={control}
+            label="Loan Amount"
+          />
+          <FormDateInput
+            name="loanDisbursementDate"
+            control={control}
+            label="Loan Disbursement Date"
+          />
         </FormSection>
-      )
+      ),
     },
     {
       id: "legal",
@@ -189,13 +241,33 @@ export default function ClientForm() {
       condition: isSpouse, // Only for spouses
       component: (
         <FormSection title="Legal Services Charges">
-          <FormCurrencyInput name="commonLawAffidavit" control={control} label="Common Law Affidavit" />
-          <FormCurrencyInput name="lawyerCharges" control={control} label="Lawyer Charges (Refusal)" />
-          <FormCurrencyInput name="marriagePhotos" control={control} label="Marriage Photos" />
-          <FormCurrencyInput name="relationshipAffidavit" control={control} label="Relationship Affidavit" />
-          <FormCurrencyInput name="marriageCert" control={control} label="Marriage Cert + Photos" />
+          <FormCurrencyInput
+            name="commonLawAffidavit"
+            control={control}
+            label="Common Law Affidavit"
+          />
+          <FormCurrencyInput
+            name="lawyerCharges"
+            control={control}
+            label="Lawyer Charges (Refusal)"
+          />
+          <FormCurrencyInput
+            name="marriagePhotos"
+            control={control}
+            label="Marriage Photos"
+          />
+          <FormCurrencyInput
+            name="relationshipAffidavit"
+            control={control}
+            label="Relationship Affidavit"
+          />
+          <FormCurrencyInput
+            name="marriageCert"
+            control={control}
+            label="Marriage Cert + Photos"
+          />
         </FormSection>
-      )
+      ),
     },
     {
       id: "employment",
@@ -203,53 +275,99 @@ export default function ClientForm() {
       condition: isSpouse, // Assuming employment/NOC is more relevant for spouse/work cases than students
       component: (
         <FormSection title="Employment Services">
-          <FormCurrencyInput name="partTimeEmployment" control={control} label="Part-time Employment" />
-          <FormCurrencyInput name="nocArrangement" control={control} label="NOC Arrangement" />
-          <FormCurrencyInput name="employmentVerification" control={control} label="Verification Charges" />
+          <FormCurrencyInput
+            name="partTimeEmployment"
+            control={control}
+            label="Part-time Employment"
+          />
+          <FormCurrencyInput
+            name="nocArrangement"
+            control={control}
+            label="NOC Arrangement"
+          />
+          <FormCurrencyInput
+            name="employmentVerification"
+            control={control}
+            label="Verification Charges"
+          />
         </FormSection>
-      )
+      ),
     },
     {
       id: "visa",
       title: "Visa & Travel",
       component: (
         <FormSection title="Visa & Travel Services">
-          <FormCurrencyInput name="extensionFee" control={control} label="TRV/Permit Extension Fee" />
-          <FormCurrencyInput name="insuranceAmount" control={control} label="Insurance Amount" />
-          <FormCurrencyInput name="airTicket" control={control} label="Air Ticket Charges" />
-          <FormTextInput name="simPlan" control={control} label="SIM Plan Details" />
+          <FormCurrencyInput
+            name="extensionFee"
+            control={control}
+            label="TRV/Permit Extension Fee"
+          />
+          <FormCurrencyInput
+            name="insuranceAmount"
+            control={control}
+            label="Insurance Amount"
+          />
+          <FormCurrencyInput
+            name="airTicket"
+            control={control}
+            label="Air Ticket Charges"
+          />
+          <FormTextInput
+            name="simPlan"
+            control={control}
+            label="SIM Plan Details"
+          />
         </FormSection>
-      )
+      ),
     },
     {
       id: "finance",
       title: "Finance",
       component: (
         <FormSection title="Finance & Settlement">
-          <FormCurrencyInput name="canadaFinance" control={control} label="Canada Side Finance" />
-          <FormDateInput name="beaconDate" control={control} label="Beacon A/C Date" />
-          <FormCurrencyInput name="totalCad" control={control} label="Total CAD" />
-          <FormCurrencyInput name="judicialReview" control={control} label="Judicial Review Charges" />
+          <FormCurrencyInput
+            name="canadaFinance"
+            control={control}
+            label="Canada Side Finance"
+          />
+          <FormDateInput
+            name="beaconDate"
+            control={control}
+            label="Beacon A/C Date"
+          />
+          <FormCurrencyInput
+            name="totalCad"
+            control={control}
+            label="Total CAD"
+          />
+          <FormCurrencyInput
+            name="judicialReview"
+            control={control}
+            label="Judicial Review Charges"
+          />
         </FormSection>
-      )
-    }
+      ),
+    },
   ];
 
   // Filter steps based on condition (default to true if condition is undefined)
-  const steps = allSteps.filter(step => step.condition === undefined || step.condition === true);
+  const steps = allSteps.filter(
+    (step) => step.condition === undefined || step.condition === true,
+  );
 
   return (
-    <PageWrapper 
-      title="Add New Client" 
+    <PageWrapper
+      title="Add New Client"
       breadcrumbs={[
         { label: "Clients", href: "/clients" },
-        { label: "New Client" }
+        { label: "New Client" },
       ]}
     >
       <div className="max-w-4xl mx-auto pb-12">
-        <MultiStepFormWrapper 
-          title="Client Registration" 
-          steps={steps} 
+        <MultiStepFormWrapper
+          title="Client Registration"
+          steps={steps}
           onSubmit={handleSubmit(onSubmit)}
         />
       </div>
