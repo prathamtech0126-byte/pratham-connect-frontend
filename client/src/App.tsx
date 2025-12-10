@@ -13,7 +13,6 @@ import ClientForm from "@/pages/Clients/ClientForm";
 import ClientDetails from "@/pages/Clients/ClientDetails";
 import Login from "@/pages/Login";
 import Reports from "@/pages/Reports";
-import Settings from "@/pages/Settings";
 import TeamList from "@/pages/Team/TeamList";
 import Activity from "@/pages/Activity";
 import CalendarDemo from "@/pages/CalendarDemo";
@@ -70,9 +69,6 @@ function Router() {
       {/* Placeholder for other sidebar links to avoid 404s during demo */}
       <Route path="/reports">
         {params => <ProtectedRoute component={Reports} />}
-      </Route>
-      <Route path="/settings">
-        {params => <ProtectedRoute component={Settings} />}
       </Route>
       <Route path="/team">
         {params => <ProtectedRoute component={TeamList} />}

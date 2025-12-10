@@ -49,12 +49,6 @@ const sidebarItems: SidebarItem[] = [
     href: "/team",
     roles: ['superadmin', 'director']
   },
-  { 
-    icon: Settings, 
-    label: "Settings", 
-    href: "/settings",
-    roles: ['superadmin', 'director']
-  },
 ];
 
 import { ProfileDialog } from "@/components/profile-dialog";
