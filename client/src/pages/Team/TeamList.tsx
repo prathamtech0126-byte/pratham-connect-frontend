@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Trash2, Plus, Filter, Search } from "lucide-react";
+import { Trash2, Plus, Filter, Search, Pencil } from "lucide-react";
 
 export default function TeamList() {
   const { toast } = useToast();
@@ -282,6 +282,9 @@ export default function TeamList() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 mr-1 text-muted-foreground hover:text-primary">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
                           <Trash2 className="w-4 h-4" />
                         </Button>
