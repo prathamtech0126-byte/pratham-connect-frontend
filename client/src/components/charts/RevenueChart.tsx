@@ -9,13 +9,13 @@ type TimeRange = "daily" | "weekly" | "monthly" | "yearly" | "custom";
 // Mock data for different ranges
 const mockData: Record<TimeRange, any[]> = {
   daily: [
-    { name: "Mon", revenue: 4000 },
-    { name: "Tue", revenue: 3000 },
-    { name: "Wed", revenue: 2000 },
-    { name: "Thu", revenue: 2780 },
-    { name: "Fri", revenue: 1890 },
-    { name: "Sat", revenue: 2390 },
-    { name: "Sun", revenue: 3490 },
+    { name: "00:00", revenue: 500 },
+    { name: "04:00", revenue: 1200 },
+    { name: "08:00", revenue: 2500 },
+    { name: "12:00", revenue: 3800 },
+    { name: "16:00", revenue: 3100 },
+    { name: "20:00", revenue: 1900 },
+    { name: "23:59", revenue: 800 },
   ],
   weekly: [
     { name: "Week 1", revenue: 12000 },
