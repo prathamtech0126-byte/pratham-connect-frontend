@@ -1,6 +1,31 @@
 import { PageWrapper } from "@/layout/PageWrapper";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ActivityLog, ActivityLogItem } from "@/components/activity-log/ActivityLog";
+import { DataTable } from "@/components/table/DataTable";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { format } from "date-fns";
+import { 
+  UserPlus, 
+  CreditCard, 
+  FileText, 
+  Upload, 
+  RefreshCw, 
+  CheckCircle2,
+  AlertCircle
+} from "lucide-react";
+
+interface ActivityLogItem {
+  id: string;
+  type: "create" | "payment" | "status_change" | "upload" | "update";
+  title: string;
+  description: string;
+  timestamp: string;
+  user: {
+    name: string;
+    role: string;
+    avatar: string;
+  };
+}
 
 export default function Activity() {
   // Hardcoded data to match the screenshot exactly for the simple prototype
@@ -91,6 +116,78 @@ export default function Activity() {
     }
   ];
 
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "create": return <UserPlus className="h-4 w-4 text-blue-500" />;
+      case "payment": return <CreditCard className="h-4 w-4 text-green-500" />;
+      case "status_change": return <CheckCircle2 className="h-4 w-4 text-orange-500" />;
+      case "upload": return <Upload className="h-4 w-4 text-purple-500" />;
+      case "update": return <RefreshCw className="h-4 w-4 text-indigo-500" />;
+      default: return <FileText className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getTypeBadge = (type: string) => {
+    switch (type) {
+      case "create": return <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">New Entry</Badge>;
+      case "payment": return <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Payment</Badge>;
+      case "status_change": return <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">Status</Badge>;
+      case "upload": return <Badge variant="outline" className="text-purple-600 border-purple-200 bg-purple-50">Upload</Badge>;
+      case "update": return <Badge variant="outline" className="text-indigo-600 border-indigo-200 bg-indigo-50">Update</Badge>;
+      default: return <Badge variant="outline">Activity</Badge>;
+    }
+  };
+
+  const columns = [
+    { 
+      header: "User", 
+      cell: (item: ActivityLogItem) => (
+        <div className="flex items-center gap-3">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={item.user.avatar} />
+            <AvatarFallback className="bg-primary/10 text-primary text-xs">
+              {item.user.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col">
+            <span className="text-sm font-medium">{item.user.name}</span>
+            <span className="text-xs text-muted-foreground capitalize">{item.user.role.replace('_', ' ')}</span>
+          </div>
+        </div>
+      ),
+      className: "w-[250px]"
+    },
+    { 
+      header: "Type", 
+      cell: (item: ActivityLogItem) => (
+        <div className="flex items-center gap-2">
+          {getTypeIcon(item.type)}
+          {getTypeBadge(item.type)}
+        </div>
+      ),
+      className: "w-[150px]"
+    },
+    { 
+      header: "Activity", 
+      cell: (item: ActivityLogItem) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-medium">{item.title}</span>
+          <span className="text-xs text-muted-foreground">{item.description}</span>
+        </div>
+      )
+    },
+    { 
+      header: "Date & Time", 
+      cell: (item: ActivityLogItem) => (
+        <div className="flex flex-col">
+          <span className="text-sm">{format(new Date(item.timestamp), "MMM d, yyyy")}</span>
+          <span className="text-xs text-muted-foreground">{format(new Date(item.timestamp), "h:mm a")}</span>
+        </div>
+      ),
+      className: "w-[150px] text-right"
+    }
+  ];
+
   return (
     <PageWrapper title="Activity Log">
       <div className="mb-6">
@@ -108,7 +205,10 @@ export default function Activity() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ActivityLog activities={activities} variant="table" maxHeight="calc(100vh - 300px)" />
+          <DataTable 
+            data={activities} 
+            columns={columns} 
+          />
         </CardContent>
       </Card>
     </PageWrapper>
