@@ -243,154 +243,142 @@ export default function ClientForm() {
       ),
     },
     {
-      id: "ielts_loan",
-      title: "IELTS & Loan",
-      condition: isStudent, // Only for students
+      id: "additional_info",
+      title: "Additional Information",
       component: (
-        <FormSection title="IELTS & Loan Services">
-          <FormCurrencyInput
-            name="ieltsAmount"
-            control={control}
-            label="IELTS Amount"
-          />
-          <FormDateInput
-            name="ieltsDate"
-            control={control}
-            label="IELTS Payment Date"
-          />
-          <FormCurrencyInput
-            name="loanAmount"
-            control={control}
-            label="Loan Amount"
-          />
-          <FormDateInput
-            name="loanDisbursementDate"
-            control={control}
-            label="Loan Disbursement Date"
-          />
-        </FormSection>
-      ),
-    },
-    {
-      id: "legal",
-      title: "Legal Services",
-      condition: isSpouse, // Only for spouses
-      component: (
-        <FormSection title="Legal Services Charges">
-          <FormCurrencyInput
-            name="commonLawAffidavit"
-            control={control}
-            label="Common Law Affidavit"
-          />
-          <FormCurrencyInput
-            name="lawyerCharges"
-            control={control}
-            label="Lawyer Charges (Refusal)"
-          />
-          <FormCurrencyInput
-            name="marriagePhotos"
-            control={control}
-            label="Marriage Photos"
-          />
-          <FormCurrencyInput
-            name="relationshipAffidavit"
-            control={control}
-            label="Relationship Affidavit"
-          />
-          <FormCurrencyInput
-            name="marriageCert"
-            control={control}
-            label="Marriage Cert + Photos"
-          />
-        </FormSection>
-      ),
-    },
-    {
-      id: "employment",
-      title: "Employment",
-      condition: isSpouse, // Assuming employment/NOC is more relevant for spouse/work cases than students
-      component: (
-        <FormSection title="Employment Services">
-          <FormCurrencyInput
-            name="partTimeEmployment"
-            control={control}
-            label="Part-time Employment"
-          />
-          <FormCurrencyInput
-            name="nocArrangement"
-            control={control}
-            label="NOC Arrangement"
-          />
-          <FormCurrencyInput
-            name="employmentVerification"
-            control={control}
-            label="Verification Charges"
-          />
-        </FormSection>
-      ),
-    },
-    {
-      id: "visa",
-      title: "Visa & Travel",
-      component: (
-        <FormSection title="Visa & Travel Services">
-          <FormCurrencyInput
-            name="extensionFee"
-            control={control}
-            label="TRV/Permit Extension Fee"
-          />
-          <FormCurrencyInput
-            name="insuranceAmount"
-            control={control}
-            label="Insurance Amount"
-          />
-          <FormCurrencyInput
-            name="airTicket"
-            control={control}
-            label="Air Ticket Charges"
-          />
-          <FormTextInput
-            name="simPlan"
-            control={control}
-            label="SIM Plan Details"
-          />
-        </FormSection>
-      ),
-    },
-    {
-      id: "finance",
-      title: "Finance",
-      component: (
-        <FormSection title="Finance & Settlement">
-          <FormCurrencyInput
-            name="canadaFinance"
-            control={control}
-            label="Canada Side Finance"
-          />
-          <FormDateInput
-            name="beaconDate"
-            control={control}
-            label="Beacon A/C Date"
-          />
-          <FormCurrencyInput
-            name="totalCad"
-            control={control}
-            label="Total CAD"
-          />
-          <FormCurrencyInput
-            name="judicialReview"
-            control={control}
-            label="Judicial Review Charges"
-          />
-        </FormSection>
+        <div className="space-y-6">
+          {/* IELTS & Loan - Only for Students */}
+          {isStudent && (
+            <FormSection title="IELTS & Loan Services">
+              <FormCurrencyInput
+                name="ieltsAmount"
+                control={control}
+                label="IELTS Amount"
+              />
+              <FormDateInput
+                name="ieltsDate"
+                control={control}
+                label="IELTS Payment Date"
+              />
+              <FormCurrencyInput
+                name="loanAmount"
+                control={control}
+                label="Loan Amount"
+              />
+              <FormDateInput
+                name="loanDisbursementDate"
+                control={control}
+                label="Loan Disbursement Date"
+              />
+            </FormSection>
+          )}
+
+          {/* Legal Services - Only for Spouse */}
+          {isSpouse && (
+            <FormSection title="Legal Services Charges">
+              <FormCurrencyInput
+                name="commonLawAffidavit"
+                control={control}
+                label="Common Law Affidavit"
+              />
+              <FormCurrencyInput
+                name="lawyerCharges"
+                control={control}
+                label="Lawyer Charges (Refusal)"
+              />
+              <FormCurrencyInput
+                name="marriagePhotos"
+                control={control}
+                label="Marriage Photos"
+              />
+              <FormCurrencyInput
+                name="relationshipAffidavit"
+                control={control}
+                label="Relationship Affidavit"
+              />
+              <FormCurrencyInput
+                name="marriageCert"
+                control={control}
+                label="Marriage Cert + Photos"
+              />
+            </FormSection>
+          )}
+
+          {/* Employment Services - Only for Spouse */}
+          {isSpouse && (
+            <FormSection title="Employment Services">
+              <FormCurrencyInput
+                name="partTimeEmployment"
+                control={control}
+                label="Part-time Employment"
+              />
+              <FormCurrencyInput
+                name="nocArrangement"
+                control={control}
+                label="NOC Arrangement"
+              />
+              <FormCurrencyInput
+                name="employmentVerification"
+                control={control}
+                label="Verification Charges"
+              />
+            </FormSection>
+          )}
+
+          {/* Visa & Travel Services - For Everyone */}
+          <FormSection title="Visa & Travel Services">
+            <FormCurrencyInput
+              name="extensionFee"
+              control={control}
+              label="TRV/Permit Extension Fee"
+            />
+            <FormCurrencyInput
+              name="insuranceAmount"
+              control={control}
+              label="Insurance Amount"
+            />
+            <FormCurrencyInput
+              name="airTicket"
+              control={control}
+              label="Air Ticket Charges"
+            />
+            <FormTextInput
+              name="simPlan"
+              control={control}
+              label="SIM Plan Details"
+            />
+          </FormSection>
+
+          {/* Finance & Settlement - For Everyone */}
+          <FormSection title="Finance & Settlement">
+            <FormCurrencyInput
+              name="canadaFinance"
+              control={control}
+              label="Canada Side Finance"
+            />
+            <FormDateInput
+              name="beaconDate"
+              control={control}
+              label="Beacon A/C Date"
+            />
+            <FormCurrencyInput
+              name="totalCad"
+              control={control}
+              label="Total CAD"
+            />
+            <FormCurrencyInput
+              name="judicialReview"
+              control={control}
+              label="Judicial Review Charges"
+            />
+          </FormSection>
+        </div>
       ),
     },
   ];
 
   // Filter steps based on condition (default to true if condition is undefined)
-  const steps = allSteps.filter(
-    (step) => step.condition === undefined || step.condition === true,
-  );
+  const steps = allSteps;
 
   return (
     <PageWrapper
