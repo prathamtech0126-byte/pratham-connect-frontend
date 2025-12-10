@@ -34,7 +34,8 @@ export default function TeamList() {
     name: "",
     email: "",
     password: "",
-    role: "Counsellor"
+    role: "Counsellor",
+    assignedTo: ""
   });
 
   const generatePassword = () => {
@@ -62,17 +63,21 @@ export default function TeamList() {
       email: newMember.email,
       role: newMember.role,
       status: "Active",
-      avatar: ""
+      avatar: "",
+      assignedTo: newMember.assignedTo
     };
 
     setTeamMembers([...teamMembers, member]);
     setIsAddMemberOpen(false);
-    setNewMember({ name: "", email: "", password: "", role: "Counsellor" });
+    setNewMember({ name: "", email: "", password: "", role: "Counsellor", assignedTo: "" });
     toast({
       title: "Success",
       description: "Team member added successfully",
     });
   };
+
+  const assignableManagers = teamMembers.filter(m => m.role === "Manager");
+  const assignableTeamLeads = teamMembers.filter(m => m.role === "Team Lead");
 
   const filteredMembers = teamMembers.filter(member => {
     const matchesRole = roleFilter === "all" || member.role === roleFilter;
@@ -155,6 +160,48 @@ export default function TeamList() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {newMember.role === "Team Lead" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="assignedTo">Assign to Manager</Label>
+                    <Select
+                      value={newMember.assignedTo}
+                      onValueChange={(value) => setNewMember({ ...newMember, assignedTo: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Manager" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {assignableManagers.map((manager) => (
+                          <SelectItem key={manager.id} value={manager.name}>
+                            {manager.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {newMember.role === "Counsellor" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="assignedTo">Assign to Team Lead</Label>
+                    <Select
+                      value={newMember.assignedTo}
+                      onValueChange={(value) => setNewMember({ ...newMember, assignedTo: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Team Lead" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {assignableTeamLeads.map((lead) => (
+                          <SelectItem key={lead.id} value={lead.name}>
+                            {lead.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddMemberOpen(false)}>Cancel</Button>
