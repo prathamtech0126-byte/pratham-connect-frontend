@@ -16,6 +16,8 @@ type Value = ValuePiece | [ValuePiece, ValuePiece];
 interface DashboardDateFilterProps {
   date?: [Date | null, Date | null];
   onDateChange?: (date: [Date | null, Date | null]) => void;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
   className?: string;
   placeholder?: string;
   align?: "center" | "start" | "end";
@@ -24,12 +26,25 @@ interface DashboardDateFilterProps {
 export function DashboardDateFilter({
   date,
   onDateChange,
+  activeTab: controlledTab,
+  onTabChange,
   className,
   placeholder = "Filter",
   align = "end",
 }: DashboardDateFilterProps) {
-  const [activeTab, setActiveTab] = React.useState<string>("Custom");
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [internalTab, setInternalTab] = React.useState<string>("Custom");
+  const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
+  const setIsOpen = (open: boolean) => {
+    if (open) {
+        // Only allow opening if it's custom tab
+        if (activeTab === "Custom") {
+             _setIsOpen(open);
+        }
+    } else {
+        _setIsOpen(open);
+    }
+  }
+  const [isOpen, _setIsOpen] = React.useState(false);
   
   // Custom date range state
   const [startDate, setStartDate] = React.useState<Date | undefined>(date?.[0] || undefined);
@@ -44,27 +59,35 @@ export function DashboardDateFilter({
   }, [date]);
 
   const handleTabClick = (tab: string) => {
-    setActiveTab(tab);
-    if (tab === "Custom") {
-      setIsOpen(true);
+    if (onTabChange) {
+        onTabChange(tab);
     } else {
-      // Logic for other tabs would go here (e.g. set date range for 'Daily')
-      setIsOpen(false); 
+        setInternalTab(tab);
+    }
+
+    if (tab === "Custom") {
+      _setIsOpen(true);
+    } else {
+      _setIsOpen(false); 
     }
   };
+
+  const handleCustomClick = () => {
+    handleTabClick("Custom");
+  }
 
   const handleApplyCustom = () => {
     if (onDateChange) {
       onDateChange([startDate || null, endDate || null]);
     }
-    setIsOpen(false);
+    _setIsOpen(false);
   };
 
   const handleCancelCustom = () => {
     // Reset to props
     setStartDate(date?.[0] || undefined);
     setEndDate(date?.[1] || undefined);
-    setIsOpen(false);
+    _setIsOpen(false);
   };
 
   return (
@@ -84,10 +107,10 @@ export function DashboardDateFilter({
         </button>
       ))}
 
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <Popover open={isOpen} onOpenChange={_setIsOpen}>
         <PopoverTrigger asChild>
           <button
-            onClick={() => setActiveTab("Custom")}
+            onClick={handleCustomClick}
             className={cn(
               "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
               activeTab === "Custom"

@@ -62,7 +62,9 @@ export function RevenueChart() {
         <div className="flex items-center gap-2">
             <DashboardDateFilter 
                 date={dateRange} 
-                onDateChange={setDateRange} 
+                onDateChange={setDateRange}
+                activeTab={timeRange === 'monthly' ? 'Monthly' : timeRange === 'yearly' ? 'Yearly' : timeRange === 'weekly' ? 'Weekly' : timeRange === 'daily' ? 'Daily' : 'Custom'}
+                onTabChange={(tab) => setTimeRange(tab.toLowerCase() as TimeRange)}
                 placeholder="Custom"
                 align="end"
             />
