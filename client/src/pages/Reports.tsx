@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { TableToolbar } from "@/components/table/TableToolbar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
+import { useAuth } from "@/context/auth-context";
 import { 
   BarChart, 
   Bar, 
@@ -56,8 +57,34 @@ const counsellorData = [
 ];
 
 export default function Reports() {
+  const { user } = useAuth();
   const [periodFilter, setPeriodFilter] = useState("6m");
   const [salesTypeFilter, setSalesTypeFilter] = useState("all");
+  const [userFilter, setUserFilter] = useState("all");
+
+  const canViewAll = user?.role === 'superadmin' || user?.role === 'director';
+
+  // Mock filtering logic for demonstration
+  const getFilteredData = (data: any[]) => {
+    if (userFilter === 'all') return data;
+    // Simulate specific user data by reducing values
+    return data.map(item => {
+      const newItem = { ...item };
+      if (typeof newItem.revenue === 'number') newItem.revenue = Math.round(newItem.revenue * 0.3);
+      if (typeof newItem.pending === 'number') newItem.pending = Math.round(newItem.pending * 0.3);
+      if (typeof newItem.students === 'number') newItem.students = Math.round(newItem.students * 0.3);
+      if (typeof newItem.value === 'number') newItem.value = Math.round(newItem.value * 0.3);
+      return newItem;
+    });
+  };
+
+  const currentFinancialData = getFilteredData(financialData);
+  const currentEnrollmentData = getFilteredData(enrollmentData);
+  const currentServiceData = getFilteredData(serviceData);
+  
+  const currentCounsellorData = userFilter === 'all' 
+    ? counsellorData 
+    : counsellorData.filter(c => c.name === userFilter);
 
   return (
     <PageWrapper 
@@ -82,6 +109,20 @@ export default function Reports() {
                   <SelectItem value="1y">Last Year</SelectItem>
                 </SelectContent>
               </Select>
+
+              {canViewAll && (
+                <Select value={userFilter} onValueChange={setUserFilter}>
+                  <SelectTrigger className="w-[180px] bg-white">
+                    <SelectValue placeholder="Select User" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {counsellorData.map(c => (
+                      <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
               <Select value={salesTypeFilter} onValueChange={setSalesTypeFilter}>
                 <SelectTrigger className="w-[180px] bg-white">
@@ -108,7 +149,7 @@ export default function Reports() {
             <CardContent>
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={financialData}>
+                  <BarChart data={currentFinancialData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis 
@@ -139,7 +180,7 @@ export default function Reports() {
             <CardContent>
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={enrollmentData}>
+                  <LineChart data={currentEnrollmentData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis fontSize={12} tickLine={false} axisLine={false} />
@@ -170,7 +211,7 @@ export default function Reports() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={serviceData}
+                      data={currentServiceData}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
@@ -178,7 +219,7 @@ export default function Reports() {
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {serviceData.map((entry, index) => (
+                      {currentServiceData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -198,7 +239,7 @@ export default function Reports() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {counsellorData.map((counsellor, index) => (
+                {currentCounsellorData.map((counsellor, index) => (
                   <div key={index} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-xs">
