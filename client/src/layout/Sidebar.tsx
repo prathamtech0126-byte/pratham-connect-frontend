@@ -12,7 +12,8 @@ import {
   UserCog,
   Briefcase,
   Crown,
-  Activity
+  Activity,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -47,6 +48,12 @@ const sidebarItems: SidebarItem[] = [
     icon: Users, 
     label: "Team", 
     href: "/team",
+    roles: ['superadmin', 'director']
+  },
+  { 
+    icon: FileText, 
+    label: "Additional Info", 
+    href: "/additional-info",
     roles: ['superadmin', 'director']
   },
 ];
