@@ -44,6 +44,12 @@ const sidebarItems: SidebarItem[] = [
   },
   { icon: PieChart, label: "Reports", href: "/reports" },
   { 
+    icon: Users, 
+    label: "Team", 
+    href: "/team",
+    roles: ['superadmin', 'director']
+  },
+  { 
     icon: Settings, 
     label: "Settings", 
     href: "/settings",
