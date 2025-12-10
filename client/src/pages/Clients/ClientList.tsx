@@ -135,17 +135,6 @@ export default function ClientList() {
                   <SelectItem value="completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
-
-              <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
-                <SelectTrigger className="w-[160px] bg-white">
-                  <SelectValue placeholder="Payment Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Payments</SelectItem>
-                  <SelectItem value="fully_paid">Fully Paid</SelectItem>
-                  <SelectItem value="has_pending">Has Pending</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           }
         />
