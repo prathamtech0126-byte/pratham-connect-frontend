@@ -83,13 +83,17 @@ function Router() {
   );
 }
 
+import { LayoutProvider } from "@/layout/LayoutContext";
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
-          <Router />
-          <Toaster />
+          <LayoutProvider>
+            <Router />
+            <Toaster />
+          </LayoutProvider>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

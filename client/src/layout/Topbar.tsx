@@ -3,6 +3,8 @@ import { Bell, Search, User, Settings, CreditCard, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MobileSidebar } from "./Sidebar";
+import { Breadcrumbs } from "./Breadcrumbs";
+import { useLayout } from "./LayoutContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,13 +20,20 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileDialog } from "@/components/profile-dialog";
 
 export function Topbar() {
+  const { title, breadcrumbs, actions } = useLayout();
+
   return (
     <header className="h-16 px-4 md:px-6 border-b bg-background flex items-center justify-between sticky top-0 z-10">
       <div className="flex items-center gap-4">
         <MobileSidebar />
+        <div className="flex flex-col justify-center">
+          {breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} className="mb-0 p-0" />}
+          {title && <h1 className="text-lg font-semibold text-foreground leading-none">{title}</h1>}
+        </div>
       </div>
 
       <div className="flex items-center gap-4">
+        {actions && <div className="flex items-center gap-2 mr-2">{actions}</div>}
         <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
           <Bell className="w-5 h-5" />
           <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full border-2 border-background" />
