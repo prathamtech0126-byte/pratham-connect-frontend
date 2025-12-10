@@ -144,7 +144,15 @@ export default function ClientForm() {
             label="Sales Type" 
             options={salesTypeOptions} 
           />
-          <FormTextInput name="coreSales" control={control} label="Core Sales" />
+          <FormSelectInput 
+            name="coreSales" 
+            control={control} 
+            label="Core Sales" 
+            options={[
+              { label: "Yes", value: "Yes" },
+              { label: "No", value: "No" }
+            ]}
+          />
           <FormTextInput name="counsellor" control={control} label="Counsellor Name" />
           <FormTextInput name="mainCounsellor" control={control} label="Main Counsellor" />
           <FormTextInput name="productManager" control={control} label="Product Manager" />
