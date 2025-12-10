@@ -26,7 +26,7 @@ const formSchema = z.object({
 
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
-  amountReceived: z.number().min(0),
+  initialAmountReceived: z.number().min(0),
   amountPending: z.number().min(0),
   productPaymentAmount: z.number().optional(),
   productPaymentDate: z.string().optional(),
@@ -91,7 +91,7 @@ export default function ClientForm() {
       name: "",
       salesType: "Canada Student",
       totalPayment: 0,
-      amountReceived: 0,
+      initialAmountReceived: 0,
       amountPending: 0,
     },
   });
