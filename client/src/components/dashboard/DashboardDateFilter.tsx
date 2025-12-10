@@ -92,7 +92,7 @@ export function DashboardDateFilter({
 
   return (
     <div className={cn("flex items-center bg-gray-100/50 p-1 rounded-lg border border-gray-200", className)}>
-      {(["Daily", "Weekly", "Monthly", "Yearly"] as const).map((tab) => (
+      {(["Today", "Weekly", "Monthly", "Yearly"] as const).map((tab) => (
         <button
           key={tab}
           onClick={() => handleTabClick(tab)}

@@ -63,8 +63,8 @@ export function RevenueChart() {
             <DashboardDateFilter 
                 date={dateRange} 
                 onDateChange={setDateRange}
-                activeTab={timeRange === 'monthly' ? 'Monthly' : timeRange === 'yearly' ? 'Yearly' : timeRange === 'weekly' ? 'Weekly' : timeRange === 'daily' ? 'Daily' : 'Custom'}
-                onTabChange={(tab) => setTimeRange(tab.toLowerCase() as TimeRange)}
+                activeTab={timeRange === 'monthly' ? 'Monthly' : timeRange === 'yearly' ? 'Yearly' : timeRange === 'weekly' ? 'Weekly' : timeRange === 'daily' ? 'Today' : 'Custom'}
+                onTabChange={(tab) => setTimeRange(tab === 'Today' ? 'daily' : tab.toLowerCase() as TimeRange)}
                 placeholder="Custom"
                 align="end"
             />
