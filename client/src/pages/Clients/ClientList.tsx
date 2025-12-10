@@ -17,6 +17,8 @@ export default function ClientList() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [salesTypeFilter, setSalesTypeFilter] = useState("all");
   const [pmFilter, setPmFilter] = useState("all");
+  const [counsellorFilter, setCounsellorFilter] = useState("all");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ['clients'],
@@ -29,13 +31,22 @@ export default function ClientList() {
     const matchesStatus = statusFilter === "all" || s.status.toLowerCase() === statusFilter.toLowerCase();
     const matchesSalesType = salesTypeFilter === "all" || s.salesType === salesTypeFilter;
     const matchesPm = pmFilter === "all" || s.productManager === pmFilter;
+    const matchesCounsellor = counsellorFilter === "all" || s.counsellor === counsellorFilter;
     
-    return matchesSearch && matchesStatus && matchesSalesType && matchesPm;
+    let matchesPaymentStatus = true;
+    if (paymentStatusFilter === "fully_paid") {
+      matchesPaymentStatus = s.amountPending === 0;
+    } else if (paymentStatusFilter === "has_pending") {
+      matchesPaymentStatus = s.amountPending > 0;
+    }
+
+    return matchesSearch && matchesStatus && matchesSalesType && matchesPm && matchesCounsellor && matchesPaymentStatus;
   }) || [];
 
   // Get unique values for filters
   const uniqueSalesTypes = Array.from(new Set(clients?.map(c => c.salesType) || [])).sort();
   const uniqueProductManagers = Array.from(new Set(clients?.map(c => c.productManager) || [])).sort();
+  const uniqueCounsellors = Array.from(new Set(clients?.map(c => c.counsellor) || [])).sort();
 
   const columns = [
     { header: "Sr No", cell: (_: Client, index: number) => <span className="text-muted-foreground">{index + 1}</span>, className: "w-[60px]" },
@@ -101,6 +112,18 @@ export default function ClientList() {
                 </SelectContent>
               </Select>
 
+              <Select value={counsellorFilter} onValueChange={setCounsellorFilter}>
+                <SelectTrigger className="w-[160px] bg-white">
+                  <SelectValue placeholder="Counsellor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Counsellors</SelectItem>
+                  {uniqueCounsellors.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[130px] bg-white">
                   <SelectValue placeholder="Status" />
@@ -110,6 +133,17 @@ export default function ClientList() {
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+                <SelectTrigger className="w-[160px] bg-white">
+                  <SelectValue placeholder="Payment Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Payments</SelectItem>
+                  <SelectItem value="fully_paid">Fully Paid</SelectItem>
+                  <SelectItem value="has_pending">Has Pending</SelectItem>
                 </SelectContent>
               </Select>
             </div>
