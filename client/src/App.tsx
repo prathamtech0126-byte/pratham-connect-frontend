@@ -13,6 +13,7 @@ import ClientForm from "@/pages/Clients/ClientForm";
 import ClientDetails from "@/pages/Clients/ClientDetails";
 import Login from "@/pages/Login";
 import Reports from "@/pages/Reports";
+import Settings from "@/pages/Settings";
 import Activity from "@/pages/Activity";
 import CalendarDemo from "@/pages/CalendarDemo";
 
@@ -70,7 +71,7 @@ function Router() {
         {params => <ProtectedRoute component={Reports} />}
       </Route>
       <Route path="/settings">
-         <Redirect to="/" />
+        {params => <ProtectedRoute component={Settings} />}
       </Route>
 
       <Route component={NotFound} />
