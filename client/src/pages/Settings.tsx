@@ -9,12 +9,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/context/auth-context";
+import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Trash2, Plus, Camera, Moon, Sun, Monitor, User, MapPin, Phone, Mail, Hash, Briefcase } from "lucide-react";
 
 export default function Settings() {
   const { user } = useAuth();
+  const { toast } = useToast();
   
   // Profile State
   const [profile, setProfile] = useState({
@@ -36,6 +40,42 @@ export default function Settings() {
     { id: 3, name: "Dr. Counsellor", email: "doc@pratham.com", role: "Counsellor", status: "Away", avatar: "" },
     { id: 4, name: "Priya Singh", email: "priya@pratham.com", role: "Counsellor", status: "Active", avatar: "" },
   ]);
+
+  // Add Member State
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [newMember, setNewMember] = useState({
+    name: "",
+    email: "",
+    role: "Counsellor"
+  });
+
+  const handleAddMember = () => {
+    if (!newMember.name || !newMember.email) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const member = {
+      id: Date.now(),
+      name: newMember.name,
+      email: newMember.email,
+      role: newMember.role,
+      status: "Active",
+      avatar: ""
+    };
+
+    setTeamMembers([...teamMembers, member]);
+    setIsAddMemberOpen(false);
+    setNewMember({ name: "", email: "", role: "Counsellor" });
+    toast({
+      title: "Success",
+      description: "Team member added successfully",
+    });
+  };
 
   // System State
   const [notifications, setNotifications] = useState({
@@ -209,10 +249,63 @@ export default function Settings() {
                 <CardTitle>Team Members</CardTitle>
                 <CardDescription>Manage your team members and their permissions.</CardDescription>
               </div>
-              <Button size="sm">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Member
-              </Button>
+              <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Member
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Team Member</DialogTitle>
+                    <DialogDescription>
+                      Create a new user account. They will receive an email to set their password.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input
+                        id="name"
+                        placeholder="John Doe"
+                        value={newMember.name}
+                        onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email Address</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="john@pratham.com"
+                        value={newMember.email}
+                        onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="role">Role</Label>
+                      <Select
+                        value={newMember.role}
+                        onValueChange={(value) => setNewMember({ ...newMember, role: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Manager">Manager</SelectItem>
+                          <SelectItem value="Team Lead">Team Lead</SelectItem>
+                          <SelectItem value="Counsellor">Counsellor</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsAddMemberOpen(false)}>Cancel</Button>
+                    <Button onClick={handleAddMember}>Create Account</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent>
               <Table>
