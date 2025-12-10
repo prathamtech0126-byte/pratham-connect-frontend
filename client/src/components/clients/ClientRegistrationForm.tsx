@@ -1,4 +1,3 @@
-import { PageWrapper } from "@/layout/PageWrapper";
 import { MultiStepFormWrapper } from "@/components/form/MultiStepFormWrapper";
 import { FormSection } from "@/components/form/FormSection";
 import { FormTextInput } from "@/components/form/FormTextInput";
@@ -10,7 +9,6 @@ import { FormSwitchInput } from "@/components/form/FormSwitchInput";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { clientService } from "@/services/clientService";
 
@@ -86,8 +84,11 @@ const salesTypeOptions = [
   { label: "SPOUSAL PR", value: "SPOUSAL PR" },
 ];
 
-export default function ClientForm() {
-  const [, setLocation] = useLocation();
+interface ClientRegistrationFormProps {
+  onSuccess: () => void;
+}
+
+export function ClientRegistrationForm({ onSuccess }: ClientRegistrationFormProps) {
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
@@ -110,25 +111,19 @@ export default function ClientForm() {
   const isSpouse =
     salesType?.toLowerCase().includes("spouse") || salesType === "SPOUSAL PR";
 
-  // Logic:
-  // - Students see IELTS/Loan
-  // - Spouses see Legal Services, Employment (assuming NOC/Work permit related)
-  // - Everyone sees Basic, Payment, Visa & Travel, Finance (unless specified otherwise, keeping these general)
-
   const onSubmit = async (data: FormValues) => {
     try {
       // @ts-ignore - mapping simplified for demo
       await clientService.createClient({
         ...data,
         status: "Active",
-        // Map other fields as necessary for the service
       });
 
       toast({
         title: "Success",
         description: "Client created successfully",
       });
-      setLocation("/clients");
+      onSuccess();
     } catch (error) {
       toast({
         title: "Error",
@@ -330,7 +325,7 @@ export default function ClientForm() {
             <FormCurrencyInput
               name="extensionFee"
               control={control}
-              label="Permit Extension Fee"
+              label="TRV/Permit Extension Fee"
             />
             <FormCurrencyInput
               name="insuranceAmount"
@@ -377,24 +372,11 @@ export default function ClientForm() {
     },
   ];
 
-  // Filter steps based on condition (default to true if condition is undefined)
-  const steps = allSteps;
-
   return (
-    <PageWrapper
-      title="Add New Client"
-      breadcrumbs={[
-        { label: "Clients", href: "/clients" },
-        { label: "New Client" },
-      ]}
-    >
-      <div className="max-w-4xl mx-auto pb-12">
-        <MultiStepFormWrapper
-          title="Client Registration"
-          steps={steps}
-          onSubmit={handleSubmit(onSubmit)}
-        />
-      </div>
-    </PageWrapper>
+    <MultiStepFormWrapper
+      title="Client Registration"
+      steps={allSteps}
+      onSubmit={handleSubmit(onSubmit)}
+    />
   );
 }
