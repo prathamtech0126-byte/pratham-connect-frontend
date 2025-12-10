@@ -6,10 +6,12 @@ import { clientService, Client } from "@/services/clientService";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Download } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { pdf } from "@react-pdf/renderer";
+import { ClientReportPDF } from "@/components/pdf/ClientReportPDF";
 
 export default function ClientList() {
   const [, setLocation] = useLocation();
@@ -71,15 +73,49 @@ export default function ClientList() {
     )}
   ];
 
+  const handleExportPDF = async () => {
+    if (!filteredClients || filteredClients.length === 0) return;
+
+    try {
+      const blob = await pdf(
+        <ClientReportPDF 
+          clients={filteredClients} 
+          filterDescription={
+            [
+              salesTypeFilter !== "all" ? `Sales: ${salesTypeFilter}` : "",
+              statusFilter !== "all" ? `Status: ${statusFilter}` : ""
+            ].filter(Boolean).join(", ")
+          }
+        />
+      ).toBlob();
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `clients-report-${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    }
+  };
+
   return (
     <PageWrapper 
       title="Clients" 
       breadcrumbs={[{ label: "Clients" }]}
       actions={
-        <Button onClick={() => setLocation("/clients/new")}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Client
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportPDF}>
+            <Download className="w-4 h-4 mr-2" />
+            Export PDF
+          </Button>
+          <Button onClick={() => setLocation("/clients/new")}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Client
+          </Button>
+        </div>
       }
     >
       <div className="space-y-4">
