@@ -190,6 +190,26 @@ export default function ClientForm() {
             control={control}
             label="Total Payment"
           />
+          <FormCurrencyInput
+            name="initialAmountReceived"
+            control={control}
+            label="Initial Amount Received"
+          />
+          <FormCurrencyInput
+            name="amountPending"
+            control={control}
+            label="Amount Pending"
+          />
+          <FormCurrencyInput
+            name="productPaymentAmount"
+            control={control}
+            label="Product Payment Amount"
+          />
+          <FormDateInput
+            name="productPaymentDate"
+            control={control}
+            label="Product Payment Date"
+          />
           <div className="space-y-4">
             <FormSwitchInput
               name="showDiscount"
@@ -204,16 +224,6 @@ export default function ClientForm() {
               />
             )}
           </div>
-          <FormCurrencyInput
-            name="initialAmountReceived"
-            control={control}
-            label="Initial Amount Received"
-          />
-          <FormCurrencyInput
-            name="amountPending"
-            control={control}
-            label="Amount Pending"
-          />
           <div className="space-y-4">
             <FormSwitchInput
               name="showExtraPayment"
@@ -228,16 +238,6 @@ export default function ClientForm() {
               />
             )}
           </div>
-          <FormCurrencyInput
-            name="productPaymentAmount"
-            control={control}
-            label="Product Payment Amount"
-          />
-          <FormDateInput
-            name="productPaymentDate"
-            control={control}
-            label="Product Payment Date"
-          />
         </FormSection>
       ),
     },
