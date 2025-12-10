@@ -23,9 +23,12 @@ const chartData = [
 
 import { RevenueChart } from "@/components/charts/RevenueChart";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [selectedBranch, setSelectedBranch] = useState("all");
 
   const { data: stats } = useQuery({
     queryKey: ['dashboard-stats'],
@@ -84,6 +87,24 @@ export default function Dashboard() {
             Here's an overview of your {user?.role.replace('_', ' ')} dashboard.
           </p>
         </div>
+        
+        {(user?.role === 'superadmin' || user?.role === 'director') && (
+            <div className="w-[200px]">
+                <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                    <SelectTrigger className="w-full bg-white">
+                        <SelectValue placeholder="Select Branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Branches</SelectItem>
+                        <SelectItem value="main">Main Branch</SelectItem>
+                        <SelectItem value="north">North Branch</SelectItem>
+                        <SelectItem value="south">South Branch</SelectItem>
+                        <SelectItem value="east">East Branch</SelectItem>
+                        <SelectItem value="west">West Branch</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
