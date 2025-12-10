@@ -210,6 +210,7 @@ export default function ClientForm() {
             control={control}
             label="Product Payment Date"
           />
+          <div className="hidden md:block"></div>
           <div className="space-y-4">
             <FormSwitchInput
               name="showDiscount"
