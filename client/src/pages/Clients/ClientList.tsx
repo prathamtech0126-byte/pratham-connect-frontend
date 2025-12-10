@@ -78,7 +78,7 @@ export default function ClientList() {
           filters={
             <div className="flex items-center gap-2">
               <Select value={salesTypeFilter} onValueChange={setSalesTypeFilter}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[160px] bg-white">
                   <SelectValue placeholder="Sales Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -90,7 +90,7 @@ export default function ClientList() {
               </Select>
 
               <Select value={pmFilter} onValueChange={setPmFilter}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[160px] bg-white">
                   <SelectValue placeholder="Product Manager" />
                 </SelectTrigger>
                 <SelectContent>
@@ -102,7 +102,7 @@ export default function ClientList() {
               </Select>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[130px]">
+                <SelectTrigger className="w-[130px] bg-white">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
