@@ -1,27 +1,32 @@
 import { PageWrapper } from "@/layout/PageWrapper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/auth-context";
 import { useState } from "react";
-import { Trash2, Plus, Save, Bell, Moon, Sun, Monitor, User } from "lucide-react";
+import { Trash2, Plus, Camera, Moon, Sun, Monitor, User, MapPin, Phone, Mail, Hash, Briefcase } from "lucide-react";
 
 export default function Settings() {
   const { user } = useAuth();
   
   // Profile State
   const [profile, setProfile] = useState({
-    name: user?.username || "Super Admin",
-    email: "admin@pratham.com",
-    role: "Super Admin"
+    name: "Super Admin",
+    email: "superadmin@pratham.com",
+    role: "Super Admin",
+    designation: "Senior System Administrator",
+    employeeId: "EMP-2024-001",
+    officeLocation: "Mumbai Head Office",
+    companyPhone: "+91 22 1234 5678",
+    personalPhone: "+91 98765 43210",
+    username: "Superadmin"
   });
 
   // Team State
@@ -77,54 +82,122 @@ export default function Settings() {
 
         {/* Profile Settings */}
         <TabsContent value="profile">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
-              <CardDescription>Update your personal details and role.</CardDescription>
+          <Card className="border-none shadow-none">
+            <CardHeader className="pb-2">
+              <CardTitle>User Profile</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center gap-6">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src="" />
-                  <AvatarFallback className="text-xl bg-primary/10 text-primary">
-                    {profile.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                  </AvatarFallback>
-                </Avatar>
-                <Button variant="outline" size="sm">Change Avatar</Button>
+            <CardContent className="space-y-8">
+              {/* Header Section with Avatar */}
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <div className="relative">
+                  <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
+                    <AvatarImage src="" />
+                    <AvatarFallback className="text-3xl bg-muted text-muted-foreground">
+                      {profile.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -bottom-2 flex w-full justify-center gap-2">
+                    <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full shadow-md">
+                      <Camera className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="destructive" className="h-8 w-8 rounded-full shadow-md">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="text-center space-y-1">
+                  <h2 className="text-2xl font-bold">{profile.name}</h2>
+                  <p className="text-sm text-muted-foreground">{profile.username}</p>
+                </div>
               </div>
-              
-              <div className="grid gap-4 md:grid-cols-2">
+
+              {/* Fields Grid */}
+              <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label className="flex items-center gap-2 text-muted-foreground">
+                    <Briefcase className="h-4 w-4" />
+                    Designation
+                  </Label>
                   <Input 
-                    id="name" 
+                    value={profile.designation} 
+                    readOnly 
+                    className="bg-muted/50 border-none shadow-sm" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-muted-foreground">
+                    <Hash className="h-4 w-4" />
+                    Employee ID
+                  </Label>
+                  <Input 
+                    value={profile.employeeId} 
+                    readOnly 
+                    className="bg-muted/50 border-none shadow-sm" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-muted-foreground">
+                    <User className="h-4 w-4" />
+                    Full Name
+                  </Label>
+                  <Input 
                     value={profile.name} 
-                    onChange={(e) => setProfile({...profile, name: e.target.value})} 
+                    readOnly 
+                    className="bg-muted/50 border-none shadow-sm" 
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label className="flex items-center gap-2 text-muted-foreground">
+                    <Mail className="h-4 w-4" />
+                    Email Address
+                  </Label>
                   <Input 
-                    id="email" 
                     value={profile.email} 
-                    onChange={(e) => setProfile({...profile, email: e.target.value})} 
+                    readOnly 
+                    className="bg-muted/50 border-none shadow-sm" 
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Input id="role" value={profile.role} disabled className="bg-muted" />
-                  <p className="text-[0.8rem] text-muted-foreground">
-                    Role management is handled by system administrators.
-                  </p>
+                  <Label className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="h-4 w-4" />
+                    Office Location
+                  </Label>
+                  <Input 
+                    value={profile.officeLocation} 
+                    readOnly 
+                    className="bg-muted/50 border-none shadow-sm" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-muted-foreground">
+                    <Briefcase className="h-4 w-4" />
+                    Company Phone
+                  </Label>
+                  <Input 
+                    value={profile.companyPhone} 
+                    readOnly 
+                    className="bg-muted/50 border-none shadow-sm" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-muted-foreground">
+                    <Phone className="h-4 w-4" />
+                    Personal Phone
+                  </Label>
+                  <Input 
+                    value={profile.personalPhone} 
+                    readOnly 
+                    className="bg-muted/50 border-none shadow-sm" 
+                  />
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="flex justify-end">
-              <Button>
-                <Save className="w-4 h-4 mr-2" />
-                Save Changes
-              </Button>
-            </CardFooter>
           </Card>
         </TabsContent>
 
