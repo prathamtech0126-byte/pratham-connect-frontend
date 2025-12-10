@@ -33,11 +33,21 @@ export default function TeamList() {
   const [newMember, setNewMember] = useState({
     name: "",
     email: "",
+    password: "",
     role: "Counsellor"
   });
 
+  const generatePassword = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+    let password = "";
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setNewMember(prev => ({ ...prev, password }));
+  };
+
   const handleAddMember = () => {
-    if (!newMember.name || !newMember.email) {
+    if (!newMember.name || !newMember.email || !newMember.password) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -57,7 +67,7 @@ export default function TeamList() {
 
     setTeamMembers([...teamMembers, member]);
     setIsAddMemberOpen(false);
-    setNewMember({ name: "", email: "", role: "Counsellor" });
+    setNewMember({ name: "", email: "", password: "", role: "Counsellor" });
     toast({
       title: "Success",
       description: "Team member added successfully",
@@ -112,6 +122,21 @@ export default function TeamList() {
                     value={newMember.email}
                     onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="password"
+                      type="text"
+                      placeholder="Password"
+                      value={newMember.password}
+                      onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}
+                    />
+                    <Button variant="outline" type="button" onClick={generatePassword}>
+                      Generate
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
