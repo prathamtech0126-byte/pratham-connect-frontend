@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ActivityLog } from "@/components/activity-log/ActivityLog";
-import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
 import { useState } from "react";
 
 const chartData = [
@@ -84,14 +83,6 @@ export default function Dashboard() {
           <p className="text-muted-foreground">
             Here's an overview of your {user?.role.replace('_', ' ')} dashboard.
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-            <DashboardDateFilter 
-                date={dateRange} 
-                onDateChange={setDateRange} 
-                placeholder="Custom"
-                align="end"
-            />
         </div>
       </div>
 

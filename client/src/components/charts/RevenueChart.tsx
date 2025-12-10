@@ -2,7 +2,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGri
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { DateRangeFilter } from "@/components/ui/date-range-filter";
+import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
 
 type TimeRange = "daily" | "weekly" | "monthly" | "yearly" | "custom";
 
@@ -59,44 +59,13 @@ export function RevenueChart() {
     <Card className="col-span-4 border-none shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
         <CardTitle className="text-subheader">Revenue Overview</CardTitle>
-        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 space-x-2">
-            <div className="flex bg-muted rounded-md p-1">
-                {(["daily", "weekly", "monthly", "yearly"] as TimeRange[]).map((range) => (
-                    <Button
-                        key={range}
-                        variant={timeRange === range ? "default" : "ghost"}
-                        size="sm"
-                        className="h-8 px-3 capitalize text-xs"
-                        onClick={() => handleRangeChange(range)}
-                    >
-                        {range}
-                    </Button>
-                ))}
-                
-                {/* Custom Button triggers Date Picker */}
-                <div className="relative">
-                    {timeRange === 'custom' ? (
-                        <DateRangeFilter 
-                            date={dateRange}
-                            onDateChange={(range) => {
-                                setDateRange(range);
-                                // Logic to fetch data based on date range would go here
-                            }}
-                            className="w-auto h-8 px-0"
-                            placeholder="Custom"
-                        />
-                    ) : (
-                         <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-3 capitalize text-xs"
-                            onClick={() => handleRangeChange('custom')}
-                        >
-                            Custom
-                        </Button>
-                    )}
-                </div>
-            </div>
+        <div className="flex items-center gap-2">
+            <DashboardDateFilter 
+                date={dateRange} 
+                onDateChange={setDateRange} 
+                placeholder="Custom"
+                align="end"
+            />
         </div>
       </CardHeader>
       <CardContent className="pl-2">
