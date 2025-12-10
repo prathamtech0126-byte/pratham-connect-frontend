@@ -6,6 +6,7 @@ import { FormNumberInput } from "@/components/form/FormNumberInput";
 import { FormDateInput } from "@/components/form/FormDateInput";
 import { FormSelectInput } from "@/components/form/FormSelectInput";
 import { FormCurrencyInput } from "@/components/form/FormCurrencyInput";
+import { FormSwitchInput } from "@/components/form/FormSwitchInput";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -26,9 +27,11 @@ const formSchema = z.object({
 
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
+  showDiscount: z.boolean().optional(),
   discount: z.number().min(0).optional(),
   initialAmountReceived: z.number().min(0),
   amountPending: z.number().min(0),
+  showExtraPayment: z.boolean().optional(),
   extraPayment: z.number().min(0).optional(),
   productPaymentAmount: z.number().optional(),
   productPaymentDate: z.string().optional(),
@@ -100,6 +103,8 @@ export default function ClientForm() {
 
   const { control, handleSubmit } = form;
   const salesType = useWatch({ control, name: "salesType" });
+  const showDiscount = useWatch({ control, name: "showDiscount" });
+  const showExtraPayment = useWatch({ control, name: "showExtraPayment" });
 
   const isStudent = salesType?.toLowerCase().includes("student");
   const isSpouse =
@@ -185,11 +190,20 @@ export default function ClientForm() {
             control={control}
             label="Total Payment"
           />
-          <FormCurrencyInput
-            name="discount"
-            control={control}
-            label="Discount"
-          />
+          <div className="space-y-4">
+            <FormSwitchInput
+              name="showDiscount"
+              control={control}
+              label="Add Discount"
+            />
+            {showDiscount && (
+              <FormCurrencyInput
+                name="discount"
+                control={control}
+                label="Discount"
+              />
+            )}
+          </div>
           <FormCurrencyInput
             name="initialAmountReceived"
             control={control}
@@ -200,11 +214,20 @@ export default function ClientForm() {
             control={control}
             label="Amount Pending"
           />
-          <FormCurrencyInput
-            name="extraPayment"
-            control={control}
-            label="Extra Payment"
-          />
+          <div className="space-y-4">
+            <FormSwitchInput
+              name="showExtraPayment"
+              control={control}
+              label="Add Extra Payment"
+            />
+            {showExtraPayment && (
+              <FormCurrencyInput
+                name="extraPayment"
+                control={control}
+                label="Extra Payment"
+              />
+            )}
+          </div>
           <FormCurrencyInput
             name="productPaymentAmount"
             control={control}
