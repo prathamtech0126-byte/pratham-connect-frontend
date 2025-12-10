@@ -26,8 +26,10 @@ const formSchema = z.object({
 
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
+  discount: z.number().min(0).optional(),
   initialAmountReceived: z.number().min(0),
   amountPending: z.number().min(0),
+  extraPayment: z.number().min(0).optional(),
   productPaymentAmount: z.number().optional(),
   productPaymentDate: z.string().optional(),
 
@@ -184,7 +186,12 @@ export default function ClientForm() {
             label="Total Payment"
           />
           <FormCurrencyInput
-            name="amountReceived"
+            name="discount"
+            control={control}
+            label="Discount"
+          />
+          <FormCurrencyInput
+            name="initialAmountReceived"
             control={control}
             label="Initial Amount Received"
           />
@@ -192,6 +199,11 @@ export default function ClientForm() {
             name="amountPending"
             control={control}
             label="Amount Pending"
+          />
+          <FormCurrencyInput
+            name="extraPayment"
+            control={control}
+            label="Extra Payment"
           />
           <FormCurrencyInput
             name="productPaymentAmount"
