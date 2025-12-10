@@ -6,7 +6,6 @@ import { FormNumberInput } from "@/components/form/FormNumberInput";
 import { FormDateInput } from "@/components/form/FormDateInput";
 import { FormSelectInput } from "@/components/form/FormSelectInput";
 import { FormCurrencyInput } from "@/components/form/FormCurrencyInput";
-import { FormRadioInput } from "@/components/form/FormRadioInput";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -145,15 +144,7 @@ export default function ClientForm() {
             label="Sales Type" 
             options={salesTypeOptions} 
           />
-          <FormRadioInput 
-            name="coreSales" 
-            control={control} 
-            label="Core Sales" 
-            options={[
-              { label: "Yes", value: "yes" },
-              { label: "No", value: "no" }
-            ]}
-          />
+          <FormTextInput name="coreSales" control={control} label="Core Sales" />
           <FormTextInput name="counsellor" control={control} label="Counsellor Name" />
           <FormTextInput name="mainCounsellor" control={control} label="Main Counsellor" />
           <FormTextInput name="productManager" control={control} label="Product Manager" />
