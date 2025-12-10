@@ -91,11 +91,11 @@ export function DashboardDateFilter({
             className={cn(
               "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
               activeTab === "Custom"
-                ? "bg-orange-600 text-white shadow-sm"
+                ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
                 : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/50"
             )}
           >
-            Custom {activeTab === "Custom" ? <CalendarIcon className="h-3.5 w-3.5 text-white" /> : <CalendarIcon className="h-3.5 w-3.5" />}
+            Custom <CalendarIcon className="h-3.5 w-3.5" />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-0" align={align}>
