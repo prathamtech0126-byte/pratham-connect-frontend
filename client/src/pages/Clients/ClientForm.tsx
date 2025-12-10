@@ -20,9 +20,9 @@ const formSchema = z.object({
   enrollmentDate: z.string().min(1, "Date is required"),
   salesType: z.string(),
   coreSales: z.string().optional(),
-  counsellor: z.string().min(1, "Counsellor is required"),
+  counsellor: z.string().optional(),
   mainCounsellor: z.string().optional(),
-  productManager: z.string().min(1, "Product Manager is required"),
+  productManager: z.string().optional(),
   
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
@@ -154,9 +154,6 @@ export default function ClientForm() {
               { label: "No", value: "No" }
             ]}
           />
-          <FormTextInput name="counsellor" control={control} label="Counsellor Name" />
-          <FormTextInput name="mainCounsellor" control={control} label="Main Counsellor" />
-          <FormTextInput name="productManager" control={control} label="Product Manager" />
         </FormSection>
       )
     },
