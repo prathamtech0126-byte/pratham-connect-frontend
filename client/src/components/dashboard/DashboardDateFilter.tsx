@@ -1,19 +1,14 @@
 import * as React from "react";
 import { format } from "date-fns";
-import { CalendarIcon, ChevronRight } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { SimpleCalendar } from "@/components/ui/simple-calendar";
+import { DateInput } from "@/components/ui/date-input";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from "@/components/ui/dropdown-menu";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type ValuePiece = Date | null;
 type Value = ValuePiece | [ValuePiece, ValuePiece];
@@ -33,114 +28,123 @@ export function DashboardDateFilter({
   placeholder = "Filter",
   align = "end",
 }: DashboardDateFilterProps) {
-  const [filterType, setFilterType] = React.useState<string>("Custom");
-  const [tempDate, setTempDate] = React.useState<Value>(date || [null, null]);
+  const [activeTab, setActiveTab] = React.useState<string>("Custom");
   const [isOpen, setIsOpen] = React.useState(false);
+  
+  // Custom date range state
+  const [startDate, setStartDate] = React.useState<Date | undefined>(date?.[0] || undefined);
+  const [endDate, setEndDate] = React.useState<Date | undefined>(date?.[1] || undefined);
 
-  // Update temp date when prop changes
+  // Update local state when prop changes
   React.useEffect(() => {
     if (date) {
-      setTempDate(date);
+      setStartDate(date[0] || undefined);
+      setEndDate(date[1] || undefined);
     }
   }, [date]);
 
-  const handleApplyCustom = () => {
-    if (Array.isArray(tempDate) && onDateChange) {
-      onDateChange(tempDate as [Date | null, Date | null]);
-      setFilterType("Custom");
-      setIsOpen(false);
+  const handleTabClick = (tab: string) => {
+    setActiveTab(tab);
+    if (tab === "Custom") {
+      setIsOpen(true);
+    } else {
+      // Logic for other tabs would go here (e.g. set date range for 'Daily')
+      setIsOpen(false); 
     }
   };
 
-  const handlePresetSelect = (type: string) => {
-    setFilterType(type);
-    // In a real app, you'd calculate the date range for the preset here
-    // For now we just close the menu and update the label
+  const handleApplyCustom = () => {
+    if (onDateChange) {
+      onDateChange([startDate || null, endDate || null]);
+    }
     setIsOpen(false);
   };
 
-  const displayText = React.useMemo(() => {
-    if (filterType !== "Custom") return <span>{filterType}</span>;
-    
-    if (!date || !date[0]) return <span>{placeholder}</span>;
-    if (date[0] && date[1]) {
-      return (
-        <>
-          {format(date[0], "MMM dd")} - {format(date[1], "MMM dd, yyyy")}
-        </>
-      );
-    }
-    return format(date[0], "MMM dd, yyyy");
-  }, [date, placeholder, filterType]);
+  const handleCancelCustom = () => {
+    // Reset to props
+    setStartDate(date?.[0] || undefined);
+    setEndDate(date?.[1] || undefined);
+    setIsOpen(false);
+  };
 
   return (
-    <div className={cn("grid gap-2", className)}>
-      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            id="date"
-            variant={"outline"}
-            size="sm"
+    <div className={cn("flex items-center bg-gray-100/50 p-1 rounded-lg border border-gray-200", className)}>
+      {(["Daily", "Weekly", "Monthly", "Yearly"] as const).map((tab) => (
+        <button
+          key={tab}
+          onClick={() => handleTabClick(tab)}
+          className={cn(
+            "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
+            activeTab === tab
+              ? "bg-white text-orange-600 shadow-sm"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/50"
+          )}
+        >
+          {tab}
+        </button>
+      ))}
+
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <button
+            onClick={() => setActiveTab("Custom")}
             className={cn(
-              "h-9 px-4 text-sm font-medium bg-white hover:bg-gray-50 border-gray-200 text-gray-700",
-              !date && filterType === "Custom" && "text-muted-foreground"
+              "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
+              activeTab === "Custom"
+                ? "bg-white text-orange-600 shadow-sm"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/50"
             )}
           >
-            {displayText}
-            <CalendarIcon className="ml-2 h-4 w-4 text-gray-500" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56" align={align}>
-          <DropdownMenuItem onClick={() => handlePresetSelect("Daily")}>
-            Daily
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handlePresetSelect("Weekly")}>
-            Weekly
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handlePresetSelect("Monthly")}>
-            Monthly
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handlePresetSelect("Yearly")}>
-            Yearly
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>Custom</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="p-0 bg-white border shadow-lg">
-                <div className="p-3">
-                    <SimpleCalendar
-                        selectRange={true}
-                        value={tempDate}
-                        onChange={setTempDate}
-                        showDoubleView={true}
+            Custom <CalendarIcon className="h-3.5 w-3.5" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0" align={align}>
+          <div className="p-4 space-y-4 bg-white rounded-lg shadow-lg border">
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-blue-600">After</label>
+                <div className="relative">
+                    <DateInput 
+                        value={startDate} 
+                        onChange={setStartDate} 
+                        placeholder="Select start date"
+                        className="border-blue-600 ring-1 ring-blue-600"
                     />
-                    <div className="flex justify-end gap-2 mt-2 pt-2 border-t">
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={(e) => {
-                                e.preventDefault();
-                                setIsOpen(false);
-                            }}
-                        >
-                            Cancel
-                        </Button>
-                        <Button 
-                            size="sm" 
-                            onClick={(e) => {
-                                e.preventDefault();
-                                handleApplyCustom();
-                            }}
-                        >
-                            Apply
-                        </Button>
-                    </div>
                 </div>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        </DropdownMenuContent>
-      </DropdownMenu>
+              </div>
+              
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Before</label>
+                <div className="relative">
+                    <DateInput 
+                        value={endDate} 
+                        onChange={setEndDate} 
+                        placeholder="Select end date"
+                    />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t mt-4">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleCancelCustom}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={handleApplyCustom}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
