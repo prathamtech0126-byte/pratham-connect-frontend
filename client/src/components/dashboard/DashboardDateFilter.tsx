@@ -95,7 +95,7 @@ export function DashboardDateFilter({
                 : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/50"
             )}
           >
-            Custom <CalendarIcon className="h-3.5 w-3.5" />
+            Custom {activeTab === "Custom" && <CalendarIcon className="h-3.5 w-3.5" />}
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-0" align={align}>
