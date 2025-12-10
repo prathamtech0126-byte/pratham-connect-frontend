@@ -148,6 +148,7 @@ export default function ClientForm() {
             name="coreSales" 
             control={control} 
             label="Core Sales" 
+            placeholder="Select Core Sale Options"
             options={[
               { label: "Yes", value: "Yes" },
               { label: "No", value: "No" }
