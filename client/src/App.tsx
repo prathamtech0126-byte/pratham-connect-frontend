@@ -10,7 +10,6 @@ import { AuthProvider, useAuth } from "@/context/auth-context";
 import Dashboard from "@/pages/Dashboard/Dashboard";
 import ClientList from "@/pages/Clients/ClientList";
 import ClientForm from "@/pages/Clients/ClientForm";
-import CounselorIntakeForm from "@/pages/Clients/CounselorIntakeForm";
 import ClientDetails from "@/pages/Clients/ClientDetails";
 import Login from "@/pages/Login";
 import Reports from "@/pages/Reports";
@@ -60,9 +59,6 @@ function Router() {
       </Route>
       <Route path="/clients/new">
         {params => <ProtectedRoute component={ClientForm} />}
-      </Route>
-      <Route path="/clients/intake">
-        {params => <ProtectedRoute component={CounselorIntakeForm} />}
       </Route>
       <Route path="/clients/:id/edit">
         {params => <ProtectedRoute component={ClientForm} params={params} />}
