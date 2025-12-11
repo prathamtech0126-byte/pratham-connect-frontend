@@ -3,7 +3,7 @@ import { DataTable } from "@/components/table/DataTable";
 import { TableToolbar } from "@/components/table/TableToolbar";
 import { TableActions } from "@/components/table/TableActions";
 import { clientService, Client } from "@/services/clientService";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Download } from "lucide-react";
@@ -12,9 +12,19 @@ import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { pdf } from "@react-pdf/renderer";
 import { ClientReportPDF } from "@/components/pdf/ClientReportPDF";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { ClientRegistrationForm } from "@/components/clients/ClientRegistrationForm";
 
 export default function ClientList() {
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [salesTypeFilter, setSalesTypeFilter] = useState("all");
@@ -111,10 +121,27 @@ export default function ClientList() {
             <Download className="w-4 h-4 mr-2" />
             Export PDF
           </Button>
-          <Button onClick={() => setLocation("/clients/new")}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Client
-          </Button>
+          <Sheet open={isAddClientOpen} onOpenChange={setIsAddClientOpen}>
+            <SheetTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Client
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="sm:max-w-4xl w-full overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Add New Client</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6">
+                <ClientRegistrationForm 
+                  onSuccess={() => {
+                    setIsAddClientOpen(false);
+                    queryClient.invalidateQueries({ queryKey: ['clients'] });
+                  }} 
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       }
     >
