@@ -376,9 +376,11 @@ export default function ClientForm() {
                      <FinancialEntry control={control} name="spouseFields.nocLevelJob" label="3. NOC Level Job Arrangement" />
                      <FinancialEntry control={control} name="spouseFields.lawyerRefuge" label="4. Lawyer Refuge Charge" />
 
-                     {/* Item 5 - TRV Dropdown */}
+                     <FinancialEntry control={control} name="spouseFields.onshorePartTime" label="5. Onshore Part-Time Employment" />
+
+                     {/* Item 6 - TRV Dropdown */}
                      <div className="col-span-1 md:col-span-2 space-y-3 p-4 border rounded-lg bg-muted/20">
-                        <Label className="text-base font-semibold">5. TRV/ Work Permit Ext. / Study Permit Extension</Label>
+                        <Label className="text-base font-semibold">6. TRV/ Work Permit Ext. / Study Permit Extension</Label>
                         <div className="grid grid-cols-1 gap-4">
                            <FormSelectInput
                               name="spouseFields.trvExtension.type"
@@ -400,8 +402,6 @@ export default function ClientForm() {
                             <FormTextInput name="spouseFields.trvExtension.invoiceNo" control={control} label="Invoice No" />
                         </div>
                      </div>
-
-                     <FinancialEntry control={control} name="spouseFields.onshorePartTime" label="6. Onshore Part-Time Employment" />
                   </AccordionContent>
                 </AccordionItem>
 
