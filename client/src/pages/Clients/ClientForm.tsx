@@ -49,12 +49,20 @@ const simCardSchema = z.object({
   date: z.string().optional(),
 });
 
+const trvExtensionSchema = z.object({
+  type: z.string().optional(),
+  amount: z.number().optional(),
+  date: z.string().optional(),
+  invoiceNo: z.string().optional(),
+});
+
 // Product Specific Schemas
 const spouseFieldsSchema = z.object({
   financeAndEmployment: financialEntrySchema,
   indianSideEmployment: financialEntrySchema,
   nocLevelJob: financialEntrySchema,
   lawyerRefuge: financialEntrySchema,
+  trvExtension: trvExtensionSchema,
   onshorePartTime: financialEntrySchema,
   employmentNoc: financialEntrySchema,
   marriagePhoto: financialEntrySchema,
@@ -368,23 +376,49 @@ export default function ClientForm() {
                      <FinancialEntry control={control} name="spouseFields.indianSideEmployment" label="2. Indian Side Employment" />
                      <FinancialEntry control={control} name="spouseFields.nocLevelJob" label="3. NOC Level Job Arrangement" />
                      <FinancialEntry control={control} name="spouseFields.lawyerRefuge" label="4. Lawyer Refuge Charge" />
-                     <FinancialEntry control={control} name="spouseFields.onshorePartTime" label="5. Onshore Part-Time Employment" />
-                     <FinancialEntry control={control} name="spouseFields.employmentNoc" label="6. Employment NOC Arrangement" />
+
+                     {/* Item 5 - TRV Dropdown */}
+                     <div className="col-span-1 md:col-span-2 space-y-3 p-4 border rounded-lg bg-muted/20">
+                        <Label className="text-base font-semibold">5. TRV/ Work Permit Ext. / Study Permit Extension</Label>
+                        <div className="grid grid-cols-1 gap-4">
+                           <FormSelectInput
+                              name="spouseFields.trvExtension.type"
+                              control={control}
+                              label="Type"
+                              placeholder="Select Type"
+                              options={[
+                                { label: "TRV", value: "TRV" },
+                                { label: "Study Permit Ext.", value: "Study Permit Ext." },
+                                { label: "Work Permit Ext.", value: "Work Permit Ext." },
+                                { label: "PGWP", value: "PGWP" },
+                                { label: "Visitor Record", value: "Visitor Record" },
+                              ]}
+                           />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <FormCurrencyInput name="spouseFields.trvExtension.amount" control={control} label="Amount" />
+                            <FormDateInput name="spouseFields.trvExtension.date" control={control} label="Date" />
+                            <FormTextInput name="spouseFields.trvExtension.invoiceNo" control={control} label="Invoice No" />
+                        </div>
+                     </div>
+
+                     <FinancialEntry control={control} name="spouseFields.onshorePartTime" label="6. Onshore Part-Time Employment" />
+                     <FinancialEntry control={control} name="spouseFields.employmentNoc" label="7. Employment NOC Arrangement" />
                   </AccordionContent>
                 </AccordionItem>
 
                 <AccordionItem value="legal">
                   <AccordionTrigger>Legal & Documentation</AccordionTrigger>
                   <AccordionContent className="pt-4 space-y-4">
-                     <FinancialEntry control={control} name="spouseFields.marriagePhoto" label="7. Marriage Photo for Court Marriage" />
-                     <FinancialEntry control={control} name="spouseFields.marriageCertificate" label="8. Marriage Photo + Certificate (Common Law)" />
+                     <FinancialEntry control={control} name="spouseFields.marriagePhoto" label="8. Marriage Photo for Court Marriage" />
+                     <FinancialEntry control={control} name="spouseFields.marriageCertificate" label="9. Marriage Photo + Certificate (Common Law)" />
                      
                      <div className="col-span-1 md:col-span-2 space-y-3 p-4 border rounded-lg bg-muted/20">
-                        <Label className="text-base font-semibold">9. Recent Marriage / Relationship Affidavit</Label>
+                        <Label className="text-base font-semibold">10. Recent Marriage / Relationship Affidavit</Label>
                         <FormCurrencyInput name="spouseFields.relationshipAffidavit.amount" control={control} label="Amount" />
                      </div>
 
-                     <FinancialEntry control={control} name="spouseFields.judicialReview" label="10. Judicial Review Charge" />
+                     <FinancialEntry control={control} name="spouseFields.judicialReview" label="11. Judicial Review Charge" />
                   </AccordionContent>
                 </AccordionItem>
 
@@ -392,7 +426,7 @@ export default function ClientForm() {
                   <AccordionTrigger>Services & Settlement</AccordionTrigger>
                   <AccordionContent className="pt-4 space-y-4">
                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-                        <Label className="text-base font-semibold">11. SIM Card Activation</Label>
+                        <Label className="text-base font-semibold">12. SIM Card Activation</Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                            <FormSwitchInput name="spouseFields.simCard.isActivated" control={control} label="Activated" />
                         </div>
@@ -402,7 +436,7 @@ export default function ClientForm() {
                      </div>
 
                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-                        <Label className="text-base font-semibold">12. Insurance</Label>
+                        <Label className="text-base font-semibold">13. Insurance</Label>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                            <FormCurrencyInput name="spouseFields.insurance.amount" control={control} label="Amount" />
                            <FormTextInput name="spouseFields.insurance.insuranceNo" control={control} label="Insurance No" />
@@ -411,7 +445,7 @@ export default function ClientForm() {
                      </div>
 
                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-                        <Label className="text-base font-semibold">13. My Beacon Account</Label>
+                        <Label className="text-base font-semibold">14. My Beacon Account</Label>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                            <FormDateInput name="spouseFields.myBeacon.openingDate" control={control} label="Opening Date" />
                            <FormDateInput name="spouseFields.myBeacon.fundingDate" control={control} label="Funding Date" />
@@ -420,7 +454,7 @@ export default function ClientForm() {
                      </div>
 
                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-                        <Label className="text-base font-semibold">14. Air Ticket</Label>
+                        <Label className="text-base font-semibold">15. Air Ticket</Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                            <FormSwitchInput name="spouseFields.airTicket.isBooked" control={control} label="Ticket Booked" />
                         </div>
