@@ -45,7 +45,7 @@ const airTicketSchema = z.object({
 });
 
 const simCardSchema = z.object({
-  isActivated: z.boolean().optional(),
+  isActivated: z.string().optional(),
   date: z.string().optional(),
 });
 
@@ -426,7 +426,16 @@ export default function ClientForm() {
                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                         <Label className="text-base font-semibold">12. SIM Card Activation</Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                           <FormSwitchInput name="spouseFields.simCard.isActivated" control={control} label="Activated" />
+                           <FormSelectInput
+                              name="spouseFields.simCard.isActivated"
+                              control={control}
+                              label="Activated"
+                              placeholder="Select Status"
+                              options={[
+                                { label: "Yes", value: "Yes" },
+                                { label: "No", value: "No" },
+                              ]}
+                           />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                            <FormDateInput name="spouseFields.simCard.date" control={control} label="Activation Date" />
@@ -497,7 +506,16 @@ export default function ClientForm() {
                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                         <Label className="text-base font-semibold">4. SIM Card Activation</Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                           <FormSwitchInput name="visitorFields.simCard.isActivated" control={control} label="Activated" />
+                           <FormSelectInput
+                              name="visitorFields.simCard.isActivated"
+                              control={control}
+                              label="Activated"
+                              placeholder="Select Status"
+                              options={[
+                                { label: "Yes", value: "Yes" },
+                                { label: "No", value: "No" },
+                              ]}
+                           />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                            <FormDateInput name="visitorFields.simCard.date" control={control} label="Activation Date" />
@@ -586,7 +604,16 @@ export default function ClientForm() {
                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                         <Label className="text-base font-semibold">6. SIM Card Activation</Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                           <FormSwitchInput name="studentFields.simCard.isActivated" control={control} label="Activated" />
+                           <FormSelectInput
+                              name="studentFields.simCard.isActivated"
+                              control={control}
+                              label="Activated"
+                              placeholder="Select Status"
+                              options={[
+                                { label: "Yes", value: "Yes" },
+                                { label: "No", value: "No" },
+                              ]}
+                           />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                            <FormDateInput name="studentFields.simCard.date" control={control} label="Activation Date" />
