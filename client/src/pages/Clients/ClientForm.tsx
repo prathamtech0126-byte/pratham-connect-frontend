@@ -44,6 +44,11 @@ const airTicketSchema = z.object({
   date: z.string().optional(),
 });
 
+const simCardSchema = z.object({
+  isActivated: z.boolean().optional(),
+  date: z.string().optional(),
+});
+
 // Product Specific Schemas
 const spouseFieldsSchema = z.object({
   financeAndEmployment: financialEntrySchema,
@@ -56,7 +61,7 @@ const spouseFieldsSchema = z.object({
   marriageCertificate: financialEntrySchema,
   relationshipAffidavit: z.object({ amount: z.number().optional() }),
   judicialReview: financialEntrySchema,
-  simCard: z.boolean().optional(),
+  simCard: simCardSchema,
   insurance: insuranceSchema,
   myBeacon: beaconSchema,
   airTicket: airTicketSchema,
@@ -66,7 +71,7 @@ const visitorFieldsSchema = z.object({
   baseFee: financialEntrySchema,
   indianSideEmployment: financialEntrySchema,
   sponsorCharges: z.object({ amount: z.number().optional() }),
-  simCard: z.boolean().optional(),
+  simCard: simCardSchema,
   insurance: insuranceSchema,
   airTicket: airTicketSchema,
   beaconAccount: beaconSchema,
@@ -78,7 +83,7 @@ const studentFieldsSchema = z.object({
   ieltsEnrollment: z.object({ isEnrolled: z.boolean().optional(), amount: z.number().optional(), date: z.string().optional() }),
   loan: z.object({ amount: z.number().optional(), disbursementDate: z.string().optional() }),
   forex: z.boolean().optional(),
-  simCard: z.boolean().optional(),
+  simCard: simCardSchema,
   beaconAccount: z.object({ openingDate: z.string().optional(), fundingDate: z.string().optional(), cadAmount: z.number().optional() }),
   creditCard: z.object({ info: z.string().optional() }),
   airTicket: airTicketSchema,
@@ -386,8 +391,14 @@ export default function ClientForm() {
                 <AccordionItem value="services">
                   <AccordionTrigger>Services & Settlement</AccordionTrigger>
                   <AccordionContent className="pt-4 space-y-4">
-                     <div className="p-4 border rounded-lg bg-muted/20">
-                        <FormSwitchInput name="spouseFields.simCard" control={control} label="11. SIM Card Activation" />
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">11. SIM Card Activation</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                           <FormSwitchInput name="spouseFields.simCard.isActivated" control={control} label="Activated" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <FormDateInput name="spouseFields.simCard.date" control={control} label="Activation Date" />
+                        </div>
                      </div>
 
                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -451,8 +462,14 @@ export default function ClientForm() {
                 <AccordionItem value="services">
                   <AccordionTrigger>Additional Services</AccordionTrigger>
                   <AccordionContent className="pt-4 space-y-4">
-                     <div className="p-4 border rounded-lg bg-muted/20">
-                        <FormSwitchInput name="visitorFields.simCard" control={control} label="4. SIM Card Activation" />
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">4. SIM Card Activation</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                           <FormSwitchInput name="visitorFields.simCard.isActivated" control={control} label="Activated" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <FormDateInput name="visitorFields.simCard.date" control={control} label="Activation Date" />
+                        </div>
                      </div>
 
                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -534,8 +551,14 @@ export default function ClientForm() {
                  <AccordionItem value="services">
                   <AccordionTrigger>Additional Services</AccordionTrigger>
                   <AccordionContent className="pt-4 space-y-4">
-                     <div className="p-4 border rounded-lg bg-muted/20">
-                        <FormSwitchInput name="studentFields.simCard" control={control} label="6. SIM Card Activation" />
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">6. SIM Card Activation</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                           <FormSwitchInput name="studentFields.simCard.isActivated" control={control} label="Activated" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <FormDateInput name="studentFields.simCard.date" control={control} label="Activation Date" />
+                        </div>
                      </div>
 
                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
