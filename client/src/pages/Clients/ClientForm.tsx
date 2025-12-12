@@ -94,11 +94,25 @@ const formSchema = z.object({
 
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
+  
+  // Initial Amount Group
   initialAmountReceived: z.number().min(0),
-  // amountPending is calculated, not usually validated as input, but good to have in schema
+  initialAmountReceivedDate: z.string().optional(),
+  initialAmountReceivedInvoiceNo: z.string().optional(),
+
+  // amountPending is calculated
   amountPending: z.number().optional(),
-  productPaymentAmount: z.number().optional(),
-  productPaymentDate: z.string().optional(),
+
+  // Before Visa Payment Group
+  beforeVisaPaymentAmount: z.number().optional(),
+  beforeVisaPaymentInvoiceNo: z.string().optional(),
+  beforeVisaPaymentDate: z.string().optional(),
+
+  // After Visa Payment Group
+  afterVisaPaymentAmount: z.number().optional(),
+  afterVisaPaymentInvoiceNo: z.string().optional(),
+  afterVisaPaymentDate: z.string().optional(),
+
   showDiscount: z.boolean().optional(),
   discount: z.number().min(0).optional(),
   showExtraPayment: z.boolean().optional(),
@@ -265,11 +279,28 @@ export default function ClientForm() {
             control={control}
             label="Total Payment"
           />
-          <FormCurrencyInput
-            name="initialAmountReceived"
-            control={control}
-            label="Initial Amount Received"
-          />
+
+          <div className="space-y-4 pt-4 border-t">
+            <h4 className="font-medium text-sm text-muted-foreground">Initial Amount Received</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormCurrencyInput
+                    name="initialAmountReceived"
+                    control={control}
+                    label="Amount"
+                />
+                <FormDateInput
+                    name="initialAmountReceivedDate"
+                    control={control}
+                    label="Date"
+                />
+                <FormTextInput
+                    name="initialAmountReceivedInvoiceNo"
+                    control={control}
+                    label="Invoice No"
+                    placeholder="Enter Invoice No"
+                />
+            </div>
+          </div>
           
           <div className="space-y-2">
             <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Amount Pending (Auto-calculated)</label>
@@ -278,16 +309,49 @@ export default function ClientForm() {
             </div>
           </div>
 
-          <FormCurrencyInput
-            name="productPaymentAmount"
-            control={control}
-            label="Product Payment Amount"
-          />
-          <FormDateInput
-            name="productPaymentDate"
-            control={control}
-            label="Product Payment Date"
-          />
+          <div className="space-y-4 pt-4 border-t">
+            <h4 className="font-medium text-sm text-muted-foreground">Before Visa Payment</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormCurrencyInput
+                    name="beforeVisaPaymentAmount"
+                    control={control}
+                    label="Amount"
+                />
+                 <FormTextInput
+                    name="beforeVisaPaymentInvoiceNo"
+                    control={control}
+                    label="Invoice No"
+                    placeholder="Enter Invoice No"
+                />
+                <FormDateInput
+                    name="beforeVisaPaymentDate"
+                    control={control}
+                    label="Date"
+                />
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t">
+            <h4 className="font-medium text-sm text-muted-foreground">After Visa Payment</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormCurrencyInput
+                    name="afterVisaPaymentAmount"
+                    control={control}
+                    label="Amount"
+                />
+                 <FormTextInput
+                    name="afterVisaPaymentInvoiceNo"
+                    control={control}
+                    label="Invoice No"
+                    placeholder="Enter Invoice No"
+                />
+                <FormDateInput
+                    name="afterVisaPaymentDate"
+                    control={control}
+                    label="Date"
+                />
+            </div>
+          </div>
           
           <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
              <div className="space-y-4 p-4 border rounded-lg">
