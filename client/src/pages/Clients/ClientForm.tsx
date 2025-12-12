@@ -488,7 +488,7 @@ export default function ClientForm() {
                         />
                       </div>
                     </div>
-                    <div className="pt-4">
+                    <div className="p-4 border rounded-lg bg-muted/20 mt-4">
                       <FormTextareaInput
                         name="spouseFields.financeRemarks"
                         control={control}
@@ -529,7 +529,7 @@ export default function ClientForm() {
                       name="spouseFields.judicialReview"
                       label="11. Judicial Review Charge"
                     />
-                    <div className="pt-4">
+                    <div className="p-4 border rounded-lg bg-muted/20 mt-4">
                       <FormTextareaInput
                         name="spouseFields.legalRemarks"
                         control={control}
@@ -648,7 +648,7 @@ export default function ClientForm() {
                         />
                       </div>
                     </div>
-                    <div className="pt-4">
+                    <div className="p-4 border rounded-lg bg-muted/20 mt-4">
                       <FormTextareaInput
                         name="spouseFields.servicesRemarks"
                         control={control}
@@ -705,7 +705,7 @@ export default function ClientForm() {
                         label="Amount (₹10,000 + GST)"
                       />
                     </div>
-                    <div className="pt-4">
+                    <div className="p-4 border rounded-lg bg-muted/20 mt-4">
                       <FormTextareaInput
                         name="visitorFields.financeRemarks"
                         control={control}
@@ -824,7 +824,7 @@ export default function ClientForm() {
                         />
                       </div>
                     </div>
-                    <div className="pt-4">
+                    <div className="p-4 border rounded-lg bg-muted/20 mt-4">
                       <FormTextareaInput
                         name="visitorFields.servicesRemarks"
                         control={control}
@@ -919,7 +919,7 @@ export default function ClientForm() {
                         label="5. Forex"
                       />
                     </div>
-                    <div className="pt-4">
+                    <div className="p-4 border rounded-lg bg-muted/20 mt-4">
                       <FormTextareaInput
                         name="studentFields.financeRemarks"
                         control={control}
@@ -1049,7 +1049,7 @@ export default function ClientForm() {
                         />
                       </div>
                     </div>
-                    <div className="pt-4">
+                    <div className="p-4 border rounded-lg bg-muted/20 mt-4">
                       <FormTextareaInput
                         name="studentFields.servicesRemarks"
                         control={control}
