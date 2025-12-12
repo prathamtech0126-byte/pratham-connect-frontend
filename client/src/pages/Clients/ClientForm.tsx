@@ -47,6 +47,7 @@ const airTicketSchema = z.object({
 const simCardSchema = z.object({
   isActivated: z.string().optional(),
   date: z.string().optional(),
+  startDate: z.string().optional(),
 });
 
 const trvExtensionSchema = z.object({
@@ -439,6 +440,7 @@ export default function ClientForm() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                            <FormDateInput name="spouseFields.simCard.date" control={control} label="Activation Date" />
+                           <FormDateInput name="spouseFields.simCard.startDate" control={control} label="Usage Start Date" />
                         </div>
                      </div>
 
@@ -519,6 +521,7 @@ export default function ClientForm() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                            <FormDateInput name="visitorFields.simCard.date" control={control} label="Activation Date" />
+                           <FormDateInput name="visitorFields.simCard.startDate" control={control} label="Usage Start Date" />
                         </div>
                      </div>
 
@@ -617,6 +620,7 @@ export default function ClientForm() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                            <FormDateInput name="studentFields.simCard.date" control={control} label="Activation Date" />
+                           <FormDateInput name="studentFields.simCard.startDate" control={control} label="Usage Start Date" />
                         </div>
                      </div>
 
