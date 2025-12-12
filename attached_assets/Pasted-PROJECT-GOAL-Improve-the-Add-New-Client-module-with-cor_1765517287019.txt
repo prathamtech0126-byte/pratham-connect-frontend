@@ -1,0 +1,365 @@
+PROJECT GOAL
+
+Improve the Add New Client module with correct Step-1, Step-2, Step-3 logic, dynamic fields, validations, and product-based form rendering for:
+
+Spouse Visa
+
+Visitor Visa
+
+Student Visa
+
+The current UI screenshot (Step 3 old modal) should be replaced with a new dynamic system based on the rules below.
+
+🟩 STEP 1 — BASIC DETAILS (Same for All Products)
+
+Fields:
+
+Full Name
+
+Enrollment Date
+
+Sales Type (Product selection dropdown)
+
+Core Sales (Yes/No)
+
+Sales Type includes:
+
+Canada Student
+
+Canada Onshore Student
+
+UK Student
+
+Finland Student
+
+USA Student
+
+Germany Student
+
+Canada Spouse
+
+UK Spouse
+
+Finland Spouse
+
+UK Visitor
+
+Canada Visitor
+
+USA Visitor
+
+Schengen Visitor
+
+Spousal PR
+(etc.)
+
+🟩 STEP 2 — CONSULTANCY PAYMENT (Same for All Products)
+
+Fields:
+
+Total Payment
+
+Initial Amount Received
+
+Amount Pending
+
+Product Payment Amount
+
+Product Payment Date
+
+Toggle → Add Discount → Discount Amount
+
+Toggle → Add Extra Payment → Extra Payment Amount
+
+🟧 STEP 3 — DYNAMIC FIELDS (Different for Each Product)
+
+System must show only the fields belonging to the selected product.
+
+🟥 PRODUCT A — SPOUSE VISA
+Core Base Fees
+
+Base Amount (Fixed): ₹75,000
+
+Counsellor can add extra fees
+
+Counsellor cannot reduce base fee
+
+Step 3 Fields
+1. All Finance & Employment
+
+Paid Invoice No
+
+Date
+
+Base Amount 75,000 + Extra Allowed
+
+2. Indian Side Employment
+
+Amount: ₹6,000 per year
+
+Date
+
+Invoice No
+
+3. NOC Level Job Arrangement
+
+Amount: ₹40,000 + GST
+
+Date
+
+Invoice No
+
+4. Lawyer Refuge Charge
+
+Amount: ₹30,000 + GST
+
+Date
+
+Invoice No
+
+5. Onshore Part-Time Employment
+
+Amount: ₹15,000 + GST
+
+Date
+
+Invoice No
+
+6. Employment NOC Arrangement
+
+Amount: ₹40,000 + GST
+
+Date
+
+Invoice No
+
+7. Marriage Photo for Court Marriage
+
+₹10,000 + GST
+
+Date
+
+Invoice No
+
+8. Marriage Photo + Certificate (Common Law)
+
+₹60,000 + GST
+
+Date
+
+Invoice No
+
+9. Recent Marriage / Relationship Affidavit (Lawyer Charge)
+
+₹10,000 + GST
+
+10. Judicial Review Charge
+
+₹80,000 + GST
+
+Date
+
+Invoice No
+
+11. SIM Card
+
+Activation: Yes / No
+
+12. Insurance
+
+Insurance Amount
+
+Insurance No
+
+Date
+
+13. My Beacon Account
+
+Opening Date
+
+Funding Date
+
+Funding Amount (CAD)
+
+Min 1750
+
+Max 2000+
+
+14. Air Ticket
+
+Yes / No
+
+Amount
+
+Invoice No
+
+Date
+
+🟦 PRODUCT B — VISITOR VISA
+Core Base Fees
+
+Base Amount: ₹49,000
+
+Extra allowed
+
+Never less
+
+Step 3 Fields
+1. All Finance & Employment
+
+Base Fee 49,000
+
+Date
+
+Invoice No
+
+2. Indian Side Employment
+
+Same as spouse
+
+Amount: ₹6,000 per year
+
+3. Sponsor Charges
+
+₹10,000 + GST
+
+4. SIM Card
+
+Same as spouse
+
+5. Insurance
+
+Amount
+
+Insurance No
+
+Date
+
+6. Air Ticket
+
+Yes / No
+
+Amount
+
+Invoice No
+
+Date
+
+7. Beacon Account
+
+Opening Date
+
+Funding Date
+
+Funding Amount (CAD)
+
+🟩 PRODUCT C — STUDENT VISA
+Core Base Fees
+
+Base Amount: ₹12,000
+
+Extra allowed
+
+Never less
+
+Step 3 Fields
+1. All Finance & Employment
+
+Same as spouse
+
+2. Indian Side Employment
+
+same as spouse
+
+₹6,000 per year
+
+3. IELTS Enrollment
+
+Yes / No
+
+Payment Amount
+
+Date
+
+4. Loan
+
+Loan Amount
+
+Disbursement Date
+
+5. Forex
+
+Yes / No
+
+6. SIM Card
+
+Same as spouse
+
+7. Beacon Account
+
+Opening Date
+
+Funding Date
+
+CAD Amount
+
+8. Credit Card Account
+
+Add Credit Card Info
+
+9. Air Ticket
+
+Yes / No
+
+Amount
+
+Invoice No
+
+Date
+
+10. Insurance
+
+Amount
+
+Policy No
+
+Date
+
+🟧 ADDITIONAL REQUIREMENTS
+✔ Step 3 must be completely dynamic
+
+When user selects Sales Type = Spouse Visa → show ONLY spouse fields
+
+When Visitor Visa → show ONLY visitor fields
+
+When Student Visa → show ONLY student fields
+
+✔ Validation Rules
+
+Base fees cannot be lower than fixed value
+
+Date picker required where applicable
+
+Currency fields numeric only
+
+✔ Save Structure
+
+Data must be stored according to product type
+
+spouse: spouse_fields:{}
+
+visitor: visitor_fields:{}
+
+student: student_fields:{}
+
+✔ UI Requirements
+
+Clean sections
+
+Collapsible groups recommended
+
+Auto-calc pending amounts
+
+🟩 DELIVERABLE
+
+Build improved Step-1, Step-2, Step-3 forms based on this specification with full dynamic field rendering, validation, UI updates, and saving structure.

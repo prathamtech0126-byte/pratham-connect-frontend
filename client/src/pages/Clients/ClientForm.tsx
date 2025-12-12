@@ -2,69 +2,112 @@ import { PageWrapper } from "@/layout/PageWrapper";
 import { MultiStepFormWrapper } from "@/components/form/MultiStepFormWrapper";
 import { FormSection } from "@/components/form/FormSection";
 import { FormTextInput } from "@/components/form/FormTextInput";
-import { FormNumberInput } from "@/components/form/FormNumberInput";
 import { FormDateInput } from "@/components/form/FormDateInput";
 import { FormSelectInput } from "@/components/form/FormSelectInput";
 import { FormCurrencyInput } from "@/components/form/FormCurrencyInput";
 import { FormSwitchInput } from "@/components/form/FormSwitchInput";
+import { FinancialEntry } from "@/components/form/FinancialEntry";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { clientService } from "@/services/clientService";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 
-// Validation Schema
+// --- Schema Definitions ---
+
+const financialEntrySchema = z.object({
+  amount: z.number().optional(),
+  date: z.string().optional(),
+  invoiceNo: z.string().optional(),
+});
+
+const insuranceSchema = z.object({
+  amount: z.number().optional(),
+  insuranceNo: z.string().optional(),
+  date: z.string().optional(),
+});
+
+const beaconSchema = z.object({
+  openingDate: z.string().optional(),
+  fundingDate: z.string().optional(),
+  fundingAmount: z.number().optional(),
+});
+
+const airTicketSchema = z.object({
+  isBooked: z.boolean().optional(),
+  amount: z.number().optional(),
+  invoiceNo: z.string().optional(),
+  date: z.string().optional(),
+});
+
+// Product Specific Schemas
+const spouseFieldsSchema = z.object({
+  financeAndEmployment: financialEntrySchema,
+  indianSideEmployment: financialEntrySchema,
+  nocLevelJob: financialEntrySchema,
+  lawyerRefuge: financialEntrySchema,
+  onshorePartTime: financialEntrySchema,
+  employmentNoc: financialEntrySchema,
+  marriagePhoto: financialEntrySchema,
+  marriageCertificate: financialEntrySchema,
+  relationshipAffidavit: z.object({ amount: z.number().optional() }),
+  judicialReview: financialEntrySchema,
+  simCard: z.boolean().optional(),
+  insurance: insuranceSchema,
+  myBeacon: beaconSchema,
+  airTicket: airTicketSchema,
+});
+
+const visitorFieldsSchema = z.object({
+  baseFee: financialEntrySchema,
+  indianSideEmployment: financialEntrySchema,
+  sponsorCharges: z.object({ amount: z.number().optional() }),
+  simCard: z.boolean().optional(),
+  insurance: insuranceSchema,
+  airTicket: airTicketSchema,
+  beaconAccount: beaconSchema,
+});
+
+const studentFieldsSchema = z.object({
+  financeAndEmployment: financialEntrySchema,
+  indianSideEmployment: financialEntrySchema,
+  ieltsEnrollment: z.object({ isEnrolled: z.boolean().optional(), amount: z.number().optional(), date: z.string().optional() }),
+  loan: z.object({ amount: z.number().optional(), disbursementDate: z.string().optional() }),
+  forex: z.boolean().optional(),
+  simCard: z.boolean().optional(),
+  beaconAccount: z.object({ openingDate: z.string().optional(), fundingDate: z.string().optional(), cadAmount: z.number().optional() }),
+  creditCard: z.object({ info: z.string().optional() }),
+  airTicket: airTicketSchema,
+  insurance: z.object({ amount: z.number().optional(), policyNo: z.string().optional(), date: z.string().optional() }),
+});
+
 const formSchema = z.object({
   // Step 1: Basic Details
   name: z.string().min(2, "Name is required"),
   enrollmentDate: z.string().min(1, "Date is required"),
-  salesType: z.string(),
+  salesType: z.string({ required_error: "Sales Type is required" }),
   coreSales: z.string().optional(),
-  counsellor: z.string().optional(),
-  mainCounsellor: z.string().optional(),
-  productManager: z.string().optional(),
 
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
-  showDiscount: z.boolean().optional(),
-  discount: z.number().min(0).optional(),
   initialAmountReceived: z.number().min(0),
-  amountPending: z.number().min(0),
-  showExtraPayment: z.boolean().optional(),
-  extraPayment: z.number().min(0).optional(),
+  // amountPending is calculated, not usually validated as input, but good to have in schema
+  amountPending: z.number().optional(),
   productPaymentAmount: z.number().optional(),
   productPaymentDate: z.string().optional(),
+  showDiscount: z.boolean().optional(),
+  discount: z.number().min(0).optional(),
+  showExtraPayment: z.boolean().optional(),
+  extraPayment: z.number().min(0).optional(),
 
-  // Step 3: IELTS & Loan
-  ieltsAmount: z.number().optional(),
-  ieltsDate: z.string().optional(),
-  loanAmount: z.number().optional(),
-  loanDisbursementDate: z.string().optional(),
-
-  // Step 4: Legal Services
-  commonLawAffidavit: z.number().optional(),
-  lawyerCharges: z.number().optional(),
-  marriagePhotos: z.number().optional(),
-  relationshipAffidavit: z.number().optional(),
-  marriageCert: z.number().optional(),
-
-  // Step 5: Employment
-  partTimeEmployment: z.number().optional(),
-  nocArrangement: z.number().optional(),
-  employmentVerification: z.number().optional(),
-
-  // Step 6: Visa & Travel
-  extensionFee: z.number().optional(),
-  insuranceAmount: z.number().optional(),
-  airTicket: z.number().optional(),
-  simPlan: z.string().optional(),
-
-  // Step 7: Finance
-  canadaFinance: z.number().optional(),
-  beaconDate: z.string().optional(),
-  totalCad: z.number().optional(),
-  judicialReview: z.number().optional(),
+  // Step 3: Product Fields (Optional containers)
+  spouseFields: spouseFieldsSchema.optional(),
+  visitorFields: visitorFieldsSchema.optional(),
+  studentFields: studentFieldsSchema.optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -82,9 +125,18 @@ const salesTypeOptions = [
   { label: "UK Visitor", value: "UK Visitor" },
   { label: "Canada Visitor", value: "Canada Visitor" },
   { label: "USA Visitor", value: "USA Visitor" },
-  { label: "Schengen visa", value: "Schengen visa" },
+  { label: "Schengen Visitor", value: "Schengen Visitor" },
   { label: "SPOUSAL PR", value: "SPOUSAL PR" },
 ];
+
+const getProductType = (salesType: string | undefined): "spouse" | "visitor" | "student" | null => {
+  if (!salesType) return null;
+  const lower = salesType.toLowerCase();
+  if (lower.includes("spouse") || lower === "spousal pr") return "spouse";
+  if (lower.includes("visitor") || lower.includes("schengen")) return "visitor";
+  if (lower.includes("student")) return "student";
+  return null;
+};
 
 export default function ClientForm() {
   const [, setLocation] = useLocation();
@@ -94,34 +146,56 @@ export default function ClientForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      salesType: "Canada Student",
       totalPayment: 0,
       initialAmountReceived: 0,
       amountPending: 0,
+      showDiscount: false,
+      showExtraPayment: false,
+      // Initialize sub-objects to avoid undefined errors in deep nested components if needed
+      spouseFields: {},
+      visitorFields: {},
+      studentFields: {},
     },
   });
 
-  const { control, handleSubmit } = form;
+  const { control, handleSubmit, setValue, watch } = form;
   const salesType = useWatch({ control, name: "salesType" });
   const showDiscount = useWatch({ control, name: "showDiscount" });
   const showExtraPayment = useWatch({ control, name: "showExtraPayment" });
 
-  const isStudent = salesType?.toLowerCase().includes("student");
-  const isSpouse =
-    salesType?.toLowerCase().includes("spouse") || salesType === "SPOUSAL PR";
+  // Auto-calc pending amount
+  const totalPayment = useWatch({ control, name: "totalPayment" }) || 0;
+  const initialAmountReceived = useWatch({ control, name: "initialAmountReceived" }) || 0;
+  const discount = useWatch({ control, name: "discount" }) || 0;
+  const extraPayment = useWatch({ control, name: "extraPayment" }) || 0;
 
-  // Logic:
-  // - Students see IELTS/Loan
-  // - Spouses see Legal Services, Employment (assuming NOC/Work permit related)
-  // - Everyone sees Basic, Payment, Visa & Travel, Finance (unless specified otherwise, keeping these general)
+  // Effect to update pending amount
+  // Formula: (Total + Extra) - (Initial + Discount) ? Or Total - Initial - Discount + Extra?
+  // Usually: Total Due = (Base + Extra) - Discount. Pending = Total Due - Initial.
+  // Let's assume Total Payment is the agreed base.
+  // Pending = (TotalPayment + ExtraPayment) - (InitialAmountReceived + Discount)
+  const calculatedPending = (totalPayment + extraPayment) - (initialAmountReceived + discount);
+  
+  // We can just display this or set it in form state. Setting in form state is better for submission.
+  // Using a useEffect to keep it in sync might cause re-renders but is safe for now.
+  // Alternatively, just calculate it on render for display and on submit for data.
+  // Let's set it in form so the input updates visually if we want it to be readonly.
+
+  const productType = getProductType(salesType);
 
   const onSubmit = async (data: FormValues) => {
     try {
-      // @ts-ignore - mapping simplified for demo
+      // Clean up data before sending: only include relevant product fields
+      const finalData = { ...data, amountPending: calculatedPending };
+      
+      if (productType !== "spouse") delete finalData.spouseFields;
+      if (productType !== "visitor") delete finalData.visitorFields;
+      if (productType !== "student") delete finalData.studentFields;
+
+      // @ts-ignore
       await clientService.createClient({
-        ...data,
+        ...finalData,
         status: "Active",
-        // Map other fields as necessary for the service
       });
 
       toast({
@@ -130,6 +204,7 @@ export default function ClientForm() {
       });
       setLocation("/clients");
     } catch (error) {
+      console.error(error);
       toast({
         title: "Error",
         description: "Failed to create client",
@@ -138,7 +213,7 @@ export default function ClientForm() {
     }
   };
 
-  const allSteps = [
+  const steps = [
     {
       id: "basic",
       title: "Basic Details",
@@ -195,11 +270,14 @@ export default function ClientForm() {
             control={control}
             label="Initial Amount Received"
           />
-          <FormCurrencyInput
-            name="amountPending"
-            control={control}
-            label="Amount Pending"
-          />
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Amount Pending (Auto-calculated)</label>
+            <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+             ₹ {calculatedPending.toLocaleString()}
+            </div>
+          </div>
+
           <FormCurrencyInput
             name="productPaymentAmount"
             control={control}
@@ -210,175 +288,285 @@ export default function ClientForm() {
             control={control}
             label="Product Payment Date"
           />
-          <div className="hidden md:block"></div>
-          <div className="space-y-4">
-            <FormSwitchInput
-              name="showDiscount"
-              control={control}
-              label="Add Discount"
-            />
-            {showDiscount && (
-              <FormCurrencyInput
-                name="discount"
-                control={control}
-                label="Discount"
-              />
-            )}
-          </div>
-          <div className="space-y-4">
-            <FormSwitchInput
-              name="showExtraPayment"
-              control={control}
-              label="Add Extra Payment"
-            />
-            {showExtraPayment && (
-              <FormCurrencyInput
-                name="extraPayment"
-                control={control}
-                label="Extra Payment"
-              />
-            )}
+          
+          <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+             <div className="space-y-4 p-4 border rounded-lg">
+                <FormSwitchInput
+                  name="showDiscount"
+                  control={control}
+                  label="Add Discount"
+                />
+                {showDiscount && (
+                  <FormCurrencyInput
+                    name="discount"
+                    control={control}
+                    label="Discount Amount"
+                  />
+                )}
+              </div>
+              <div className="space-y-4 p-4 border rounded-lg">
+                <FormSwitchInput
+                  name="showExtraPayment"
+                  control={control}
+                  label="Add Extra Payment"
+                />
+                {showExtraPayment && (
+                  <FormCurrencyInput
+                    name="extraPayment"
+                    control={control}
+                    label="Extra Payment Amount"
+                  />
+                )}
+              </div>
           </div>
         </FormSection>
       ),
     },
     {
-      id: "additional_info",
-      title: "Additional Information",
+      id: "product_fields",
+      title: "Product Details",
       component: (
         <div className="space-y-6">
-          {/* IELTS & Loan - Only for Students */}
-          {isStudent && (
-            <FormSection title="IELTS & Loan Services">
-              <FormCurrencyInput
-                name="ieltsAmount"
-                control={control}
-                label="IELTS Amount"
-              />
-              <FormDateInput
-                name="ieltsDate"
-                control={control}
-                label="IELTS Payment Date"
-              />
-              <FormCurrencyInput
-                name="loanAmount"
-                control={control}
-                label="Loan Amount"
-              />
-              <FormDateInput
-                name="loanDisbursementDate"
-                control={control}
-                label="Loan Disbursement Date"
-              />
-            </FormSection>
+          {!productType && (
+            <div className="text-center p-8 text-muted-foreground">
+              Please select a Sales Type in Step 1 to view product fields.
+            </div>
           )}
 
-          {/* Legal Services - Only for Spouse */}
-          {isSpouse && (
-            <FormSection title="Legal Services Charges">
-              <FormCurrencyInput
-                name="commonLawAffidavit"
-                control={control}
-                label="Common Law Affidavit"
-              />
-              <FormCurrencyInput
-                name="lawyerCharges"
-                control={control}
-                label="Lawyer Charges (Refusal)"
-              />
-              <FormCurrencyInput
-                name="marriagePhotos"
-                control={control}
-                label="Marriage Photos"
-              />
-              <FormCurrencyInput
-                name="relationshipAffidavit"
-                control={control}
-                label="Relationship Affidavit"
-              />
-              <FormCurrencyInput
-                name="marriageCert"
-                control={control}
-                label="Marriage Cert + Photos"
-              />
-            </FormSection>
+          {/* PRODUCT A — SPOUSE VISA */}
+          {productType === "spouse" && (
+            <div className="space-y-6">
+              <div className="bg-primary/10 p-4 rounded-md mb-4 border border-primary/20">
+                <h3 className="font-semibold text-primary">Spouse Visa Configuration</h3>
+                <p className="text-sm text-muted-foreground">Base Fee: ₹75,000 (Fixed)</p>
+              </div>
+
+              <Accordion type="single" collapsible defaultValue="finance" className="w-full">
+                <AccordionItem value="finance">
+                  <AccordionTrigger>Finance & Employment</AccordionTrigger>
+                  <AccordionContent className="pt-4 space-y-4">
+                     <FinancialEntry control={control} name="spouseFields.financeAndEmployment" label="1. All Finance & Employment (Base Fee)" />
+                     <FinancialEntry control={control} name="spouseFields.indianSideEmployment" label="2. Indian Side Employment" />
+                     <FinancialEntry control={control} name="spouseFields.nocLevelJob" label="3. NOC Level Job Arrangement" />
+                     <FinancialEntry control={control} name="spouseFields.lawyerRefuge" label="4. Lawyer Refuge Charge" />
+                     <FinancialEntry control={control} name="spouseFields.onshorePartTime" label="5. Onshore Part-Time Employment" />
+                     <FinancialEntry control={control} name="spouseFields.employmentNoc" label="6. Employment NOC Arrangement" />
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="legal">
+                  <AccordionTrigger>Legal & Documentation</AccordionTrigger>
+                  <AccordionContent className="pt-4 space-y-4">
+                     <FinancialEntry control={control} name="spouseFields.marriagePhoto" label="7. Marriage Photo for Court Marriage" />
+                     <FinancialEntry control={control} name="spouseFields.marriageCertificate" label="8. Marriage Photo + Certificate (Common Law)" />
+                     
+                     <div className="col-span-1 md:col-span-2 space-y-3 p-4 border rounded-lg bg-muted/20">
+                        <Label className="text-base font-semibold">9. Recent Marriage / Relationship Affidavit</Label>
+                        <FormCurrencyInput name="spouseFields.relationshipAffidavit.amount" control={control} label="Amount" />
+                     </div>
+
+                     <FinancialEntry control={control} name="spouseFields.judicialReview" label="10. Judicial Review Charge" />
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="services">
+                  <AccordionTrigger>Services & Settlement</AccordionTrigger>
+                  <AccordionContent className="pt-4 space-y-4">
+                     <div className="p-4 border rounded-lg bg-muted/20">
+                        <FormSwitchInput name="spouseFields.simCard" control={control} label="11. SIM Card Activation" />
+                     </div>
+
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">12. Insurance</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <FormCurrencyInput name="spouseFields.insurance.amount" control={control} label="Amount" />
+                           <FormTextInput name="spouseFields.insurance.insuranceNo" control={control} label="Insurance No" />
+                           <FormDateInput name="spouseFields.insurance.date" control={control} label="Date" />
+                        </div>
+                     </div>
+
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">13. My Beacon Account</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <FormDateInput name="spouseFields.myBeacon.openingDate" control={control} label="Opening Date" />
+                           <FormDateInput name="spouseFields.myBeacon.fundingDate" control={control} label="Funding Date" />
+                           <FormCurrencyInput name="spouseFields.myBeacon.fundingAmount" control={control} label="Funding Amount (CAD)" />
+                        </div>
+                     </div>
+
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">14. Air Ticket</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                           <FormSwitchInput name="spouseFields.airTicket.isBooked" control={control} label="Ticket Booked" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <FormCurrencyInput name="spouseFields.airTicket.amount" control={control} label="Amount" />
+                           <FormTextInput name="spouseFields.airTicket.invoiceNo" control={control} label="Invoice No" />
+                           <FormDateInput name="spouseFields.airTicket.date" control={control} label="Date" />
+                        </div>
+                     </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
           )}
 
-          {/* Employment Services - Only for Spouse */}
-          {isSpouse && (
-            <FormSection title="Employment Services">
-              <FormCurrencyInput
-                name="partTimeEmployment"
-                control={control}
-                label="Part-time Employment"
-              />
-              <FormCurrencyInput
-                name="nocArrangement"
-                control={control}
-                label="NOC Arrangement"
-              />
-              <FormCurrencyInput
-                name="employmentVerification"
-                control={control}
-                label="Verification Charges"
-              />
-            </FormSection>
+          {/* PRODUCT B — VISITOR VISA */}
+          {productType === "visitor" && (
+            <div className="space-y-6">
+              <div className="bg-primary/10 p-4 rounded-md mb-4 border border-primary/20">
+                <h3 className="font-semibold text-primary">Visitor Visa Configuration</h3>
+                <p className="text-sm text-muted-foreground">Base Fee: ₹49,000 (Fixed)</p>
+              </div>
+
+               <Accordion type="single" collapsible defaultValue="main" className="w-full">
+                <AccordionItem value="main">
+                  <AccordionTrigger>Visitor Fees & Employment</AccordionTrigger>
+                  <AccordionContent className="pt-4 space-y-4">
+                    <FinancialEntry control={control} name="visitorFields.baseFee" label="1. Base Fee (All Finance & Employment)" />
+                    
+                    <FinancialEntry control={control} name="visitorFields.indianSideEmployment" label="2. Indian Side Employment (₹6,000/yr)" />
+
+                    <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                       <Label className="text-base font-semibold">3. Sponsor Charges</Label>
+                       <FormCurrencyInput name="visitorFields.sponsorCharges.amount" control={control} label="Amount (₹10,000 + GST)" />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="services">
+                  <AccordionTrigger>Additional Services</AccordionTrigger>
+                  <AccordionContent className="pt-4 space-y-4">
+                     <div className="p-4 border rounded-lg bg-muted/20">
+                        <FormSwitchInput name="visitorFields.simCard" control={control} label="4. SIM Card Activation" />
+                     </div>
+
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">5. Insurance</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <FormCurrencyInput name="visitorFields.insurance.amount" control={control} label="Amount" />
+                           <FormTextInput name="visitorFields.insurance.insuranceNo" control={control} label="Insurance No" />
+                           <FormDateInput name="visitorFields.insurance.date" control={control} label="Date" />
+                        </div>
+                     </div>
+
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">6. Air Ticket</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                           <FormSwitchInput name="visitorFields.airTicket.isBooked" control={control} label="Ticket Booked" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <FormCurrencyInput name="visitorFields.airTicket.amount" control={control} label="Amount" />
+                           <FormTextInput name="visitorFields.airTicket.invoiceNo" control={control} label="Invoice No" />
+                           <FormDateInput name="visitorFields.airTicket.date" control={control} label="Date" />
+                        </div>
+                     </div>
+
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">7. Beacon Account</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <FormDateInput name="visitorFields.beaconAccount.openingDate" control={control} label="Opening Date" />
+                           <FormDateInput name="visitorFields.beaconAccount.fundingDate" control={control} label="Funding Date" />
+                           <FormCurrencyInput name="visitorFields.beaconAccount.fundingAmount" control={control} label="Funding Amount (CAD)" />
+                        </div>
+                     </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
           )}
 
-          {/* Visa & Travel Services - For Everyone */}
-          <FormSection title="Visa & Travel Services">
-            <FormCurrencyInput
-              name="extensionFee"
-              control={control}
-              label="Permit Extension Fee"
-            />
-            <FormCurrencyInput
-              name="insuranceAmount"
-              control={control}
-              label="Insurance Amount"
-            />
-            <FormCurrencyInput
-              name="airTicket"
-              control={control}
-              label="Air Ticket Charges"
-            />
-            <FormTextInput
-              name="simPlan"
-              control={control}
-              label="SIM Plan Details"
-            />
-          </FormSection>
+          {/* PRODUCT C — STUDENT VISA */}
+          {productType === "student" && (
+            <div className="space-y-6">
+              <div className="bg-primary/10 p-4 rounded-md mb-4 border border-primary/20">
+                <h3 className="font-semibold text-primary">Student Visa Configuration</h3>
+                <p className="text-sm text-muted-foreground">Base Fee: ₹12,000 (Fixed)</p>
+              </div>
 
-          {/* Finance & Settlement - For Everyone */}
-          <FormSection title="Finance & Settlement">
-            <FormCurrencyInput
-              name="canadaFinance"
-              control={control}
-              label="Canada Side Finance"
-            />
-            <FormDateInput
-              name="beaconDate"
-              control={control}
-              label="Beacon A/C Date"
-            />
-            <FormCurrencyInput
-              name="totalCad"
-              control={control}
-              label="Total CAD"
-            />
-            <FormCurrencyInput
-              name="judicialReview"
-              control={control}
-              label="Judicial Review Charges"
-            />
-          </FormSection>
+              <Accordion type="single" collapsible defaultValue="main" className="w-full">
+                <AccordionItem value="main">
+                  <AccordionTrigger>Student Fees & Employment</AccordionTrigger>
+                  <AccordionContent className="pt-4 space-y-4">
+                    <FinancialEntry control={control} name="studentFields.financeAndEmployment" label="1. All Finance & Employment" />
+                    
+                    <FinancialEntry control={control} name="studentFields.indianSideEmployment" label="2. Indian Side Employment (₹6,000/yr)" />
+
+                    <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">3. IELTS Enrollment</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                           <FormSwitchInput name="studentFields.ieltsEnrollment.isEnrolled" control={control} label="Is Enrolled" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <FormCurrencyInput name="studentFields.ieltsEnrollment.amount" control={control} label="Payment Amount" />
+                           <FormDateInput name="studentFields.ieltsEnrollment.date" control={control} label="Date" />
+                        </div>
+                    </div>
+
+                    <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">4. Loan</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <FormCurrencyInput name="studentFields.loan.amount" control={control} label="Loan Amount" />
+                           <FormDateInput name="studentFields.loan.disbursementDate" control={control} label="Disbursement Date" />
+                        </div>
+                    </div>
+
+                     <div className="p-4 border rounded-lg bg-muted/20">
+                        <FormSwitchInput name="studentFields.forex" control={control} label="5. Forex" />
+                     </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                 <AccordionItem value="services">
+                  <AccordionTrigger>Additional Services</AccordionTrigger>
+                  <AccordionContent className="pt-4 space-y-4">
+                     <div className="p-4 border rounded-lg bg-muted/20">
+                        <FormSwitchInput name="studentFields.simCard" control={control} label="6. SIM Card Activation" />
+                     </div>
+
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">7. Beacon Account</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <FormDateInput name="studentFields.beaconAccount.openingDate" control={control} label="Opening Date" />
+                           <FormDateInput name="studentFields.beaconAccount.fundingDate" control={control} label="Funding Date" />
+                           <FormCurrencyInput name="studentFields.beaconAccount.cadAmount" control={control} label="CAD Amount" />
+                        </div>
+                     </div>
+
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">8. Credit Card Account</Label>
+                        <FormTextInput name="studentFields.creditCard.info" control={control} label="Credit Card Info" />
+                     </div>
+
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">9. Air Ticket</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                           <FormSwitchInput name="studentFields.airTicket.isBooked" control={control} label="Ticket Booked" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <FormCurrencyInput name="studentFields.airTicket.amount" control={control} label="Amount" />
+                           <FormTextInput name="studentFields.airTicket.invoiceNo" control={control} label="Invoice No" />
+                           <FormDateInput name="studentFields.airTicket.date" control={control} label="Date" />
+                        </div>
+                     </div>
+
+                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">10. Insurance</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                           <FormCurrencyInput name="studentFields.insurance.amount" control={control} label="Amount" />
+                           <FormTextInput name="studentFields.insurance.policyNo" control={control} label="Policy No" />
+                           <FormDateInput name="studentFields.insurance.date" control={control} label="Date" />
+                        </div>
+                     </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          )}
         </div>
       ),
     },
   ];
-
-  // Filter steps based on condition (default to true if condition is undefined)
-  const steps = allSteps;
 
   return (
     <PageWrapper
