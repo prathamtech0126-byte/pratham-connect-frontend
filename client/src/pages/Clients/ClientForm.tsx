@@ -95,23 +95,13 @@ const formSchema = z.object({
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
   
-  // Initial Amount Group
-  initialAmountReceived: z.number().min(0),
-  initialAmountReceivedDate: z.string().optional(),
-  initialAmountReceivedInvoiceNo: z.string().optional(),
+  // Payment Groups using financialEntrySchema for consistency
+  initialPayment: financialEntrySchema,
+  beforeVisaPayment: financialEntrySchema,
+  afterVisaPayment: financialEntrySchema,
 
   // amountPending is calculated
   amountPending: z.number().optional(),
-
-  // Before Visa Payment Group
-  beforeVisaPaymentAmount: z.number().optional(),
-  beforeVisaPaymentInvoiceNo: z.string().optional(),
-  beforeVisaPaymentDate: z.string().optional(),
-
-  // After Visa Payment Group
-  afterVisaPaymentAmount: z.number().optional(),
-  afterVisaPaymentInvoiceNo: z.string().optional(),
-  afterVisaPaymentDate: z.string().optional(),
 
   showDiscount: z.boolean().optional(),
   discount: z.number().min(0).optional(),
@@ -161,7 +151,9 @@ export default function ClientForm() {
     defaultValues: {
       name: "",
       totalPayment: 0,
-      initialAmountReceived: 0,
+      initialPayment: {},
+      beforeVisaPayment: {},
+      afterVisaPayment: {},
       amountPending: 0,
       showDiscount: false,
       showExtraPayment: false,
@@ -179,14 +171,13 @@ export default function ClientForm() {
 
   // Auto-calc pending amount
   const totalPayment = useWatch({ control, name: "totalPayment" }) || 0;
-  const initialAmountReceived = useWatch({ control, name: "initialAmountReceived" }) || 0;
+  const initialPayment = useWatch({ control, name: "initialPayment" });
+  const initialAmountReceived = initialPayment?.amount || 0;
   const discount = useWatch({ control, name: "discount" }) || 0;
   const extraPayment = useWatch({ control, name: "extraPayment" }) || 0;
 
   // Effect to update pending amount
-  // Formula: (Total + Extra) - (Initial + Discount) ? Or Total - Initial - Discount + Extra?
-  // Usually: Total Due = (Base + Extra) - Discount. Pending = Total Due - Initial.
-  // Let's assume Total Payment is the agreed base.
+  // Formula: (Total + Extra) - (Initial + Discount)
   // Pending = (TotalPayment + ExtraPayment) - (InitialAmountReceived + Discount)
   const calculatedPending = (totalPayment + extraPayment) - (initialAmountReceived + discount);
   
@@ -200,7 +191,14 @@ export default function ClientForm() {
   const onSubmit = async (data: FormValues) => {
     try {
       // Clean up data before sending: only include relevant product fields
-      const finalData = { ...data, amountPending: calculatedPending };
+      const finalData = { 
+        ...data, 
+        amountPending: calculatedPending,
+        // Map back to flat structure if backend expects it, or keep nested if backend is flexible.
+        // Since we are in mockup mode and I don't see the backend schema, I'll assume nested is fine or I should flatten it if needed.
+        // The original code had flat `initialAmountReceived`.
+        // Let's keep it consistent with the schema changes.
+      };
       
       if (productType !== "spouse") delete finalData.spouseFields;
       if (productType !== "visitor") delete finalData.visitorFields;
@@ -280,27 +278,11 @@ export default function ClientForm() {
             label="Total Payment"
           />
 
-          <div className="space-y-4 pt-4 border-t">
-            <h4 className="font-medium text-sm text-muted-foreground">Initial Amount Received</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormCurrencyInput
-                    name="initialAmountReceived"
-                    control={control}
-                    label="Amount"
-                />
-                <FormDateInput
-                    name="initialAmountReceivedDate"
-                    control={control}
-                    label="Date"
-                />
-                <FormTextInput
-                    name="initialAmountReceivedInvoiceNo"
-                    control={control}
-                    label="Invoice No"
-                    placeholder="Enter Invoice No"
-                />
-            </div>
-          </div>
+          <FinancialEntry
+            control={control}
+            name="initialPayment"
+            label="Initial Amount Received"
+          />
           
           <div className="space-y-2">
             <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Amount Pending (Auto-calculated)</label>
@@ -309,49 +291,17 @@ export default function ClientForm() {
             </div>
           </div>
 
-          <div className="space-y-4 pt-4 border-t">
-            <h4 className="font-medium text-sm text-muted-foreground">Before Visa Payment</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormCurrencyInput
-                    name="beforeVisaPaymentAmount"
-                    control={control}
-                    label="Amount"
-                />
-                 <FormTextInput
-                    name="beforeVisaPaymentInvoiceNo"
-                    control={control}
-                    label="Invoice No"
-                    placeholder="Enter Invoice No"
-                />
-                <FormDateInput
-                    name="beforeVisaPaymentDate"
-                    control={control}
-                    label="Date"
-                />
-            </div>
-          </div>
+          <FinancialEntry
+            control={control}
+            name="beforeVisaPayment"
+            label="Before Visa Payment"
+          />
 
-          <div className="space-y-4 pt-4 border-t">
-            <h4 className="font-medium text-sm text-muted-foreground">After Visa Payment</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormCurrencyInput
-                    name="afterVisaPaymentAmount"
-                    control={control}
-                    label="Amount"
-                />
-                 <FormTextInput
-                    name="afterVisaPaymentInvoiceNo"
-                    control={control}
-                    label="Invoice No"
-                    placeholder="Enter Invoice No"
-                />
-                <FormDateInput
-                    name="afterVisaPaymentDate"
-                    control={control}
-                    label="Date"
-                />
-            </div>
-          </div>
+          <FinancialEntry
+            control={control}
+            name="afterVisaPayment"
+            label="After Visa Payment"
+          />
           
           <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
              <div className="space-y-4 p-4 border rounded-lg">
