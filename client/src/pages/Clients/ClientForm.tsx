@@ -64,7 +64,6 @@ const spouseFieldsSchema = z.object({
   lawyerRefuge: financialEntrySchema,
   trvExtension: trvExtensionSchema,
   onshorePartTime: financialEntrySchema,
-  employmentNoc: financialEntrySchema,
   marriagePhoto: financialEntrySchema,
   marriageCertificate: financialEntrySchema,
   relationshipAffidavit: z.object({ amount: z.number().optional() }),
@@ -403,7 +402,6 @@ export default function ClientForm() {
                      </div>
 
                      <FinancialEntry control={control} name="spouseFields.onshorePartTime" label="6. Onshore Part-Time Employment" />
-                     <FinancialEntry control={control} name="spouseFields.employmentNoc" label="7. Employment NOC Arrangement" />
                   </AccordionContent>
                 </AccordionItem>
 
