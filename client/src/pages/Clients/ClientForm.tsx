@@ -146,8 +146,10 @@ const formSchema = z.object({
 
   showDiscount: z.boolean().optional(),
   discount: z.number().min(0).optional(),
+  discountRemarks: z.string().optional(),
   showExtraPayment: z.boolean().optional(),
   extraPayment: z.number().min(0).optional(),
+  extraPaymentRemarks: z.string().optional(),
 
   // Step 3: Product Fields (Optional containers)
   spouseFields: spouseFieldsSchema.optional(),
@@ -357,11 +359,19 @@ export default function ClientForm() {
                 label="Add Discount"
               />
               {showDiscount && (
-                <FormCurrencyInput
-                  name="discount"
-                  control={control}
-                  label="Discount Amount"
-                />
+                <div className="space-y-4">
+                  <FormCurrencyInput
+                    name="discount"
+                    control={control}
+                    label="Discount Amount"
+                  />
+                  <FormTextareaInput
+                    name="discountRemarks"
+                    control={control}
+                    label="Remarks"
+                    placeholder="Reason for discount..."
+                  />
+                </div>
               )}
             </div>
             <div className="space-y-4 p-4 border rounded-lg">
@@ -371,11 +381,19 @@ export default function ClientForm() {
                 label="Add Extra Payment"
               />
               {showExtraPayment && (
-                <FormCurrencyInput
-                  name="extraPayment"
-                  control={control}
-                  label="Extra Payment Amount"
-                />
+                <div className="space-y-4">
+                  <FormCurrencyInput
+                    name="extraPayment"
+                    control={control}
+                    label="Extra Payment Amount"
+                  />
+                  <FormTextareaInput
+                    name="extraPaymentRemarks"
+                    control={control}
+                    label="Remarks"
+                    placeholder="Reason for extra payment..."
+                  />
+                </div>
               )}
             </div>
           </div>
