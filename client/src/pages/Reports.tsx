@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { TableToolbar } from "@/components/table/TableToolbar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, ArrowLeft, Users, TrendingUp, DollarSign } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { 
@@ -58,25 +58,33 @@ const counsellorData = [
   { name: 'Neha Gupta', clients: 22, revenue: 550000, avatar: '' },
 ];
 
+const managerData = [
+    { name: 'Sarah Manager', teamSize: 5, revenue: 4500000, avatar: '' },
+    { name: 'Mike Director', teamSize: 8, revenue: 7800000, avatar: '' },
+];
+
 export default function Reports() {
   const { user } = useAuth();
   const [periodFilter, setPeriodFilter] = useState("6m");
   const [salesTypeFilter, setSalesTypeFilter] = useState("all");
-  const [userFilter, setUserFilter] = useState("all");
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
   const handleClearFilters = () => {
     setPeriodFilter("6m");
     setSalesTypeFilter("all");
-    setUserFilter("all");
+    setSelectedUser(null);
   };
 
-  const isFilterActive = periodFilter !== "6m" || salesTypeFilter !== "all" || userFilter !== "all";
+  const isFilterActive = periodFilter !== "6m" || salesTypeFilter !== "all" || selectedUser !== null;
 
-  const canViewAll = user?.role === 'superadmin' || user?.role === 'director' || user?.role === 'manager' || user?.role === 'team_lead';
+  const canViewAll = user?.role === 'superadmin' || user?.role === 'director';
+  const canViewCounselors = user?.role === 'manager';
+  const isIndividual = !canViewAll && !canViewCounselors;
 
   // Mock filtering logic for demonstration
   const getFilteredData = (data: any[]) => {
-    if (userFilter === 'all') return data;
+    if (!selectedUser && (canViewAll || canViewCounselors)) return data; // Aggregate view if needed, or maybe just show charts for "All" if user explicitly selects "All" (not implemented yet, but keeping logic simpler)
+    
     // Simulate specific user data by reducing values
     return data.map(item => {
       const newItem = { ...item };
@@ -88,13 +96,11 @@ export default function Reports() {
     });
   };
 
-  const currentFinancialData = getFilteredData(financialData);
-  const currentEnrollmentData = getFilteredData(enrollmentData);
-  const currentServiceData = getFilteredData(serviceData);
+  const currentFinancialData = selectedUser || isIndividual ? getFilteredData(financialData) : financialData;
+  const currentEnrollmentData = selectedUser || isIndividual ? getFilteredData(enrollmentData) : enrollmentData;
+  const currentServiceData = selectedUser || isIndividual ? getFilteredData(serviceData) : serviceData;
   
-  const currentCounsellorData = userFilter === 'all' 
-    ? counsellorData 
-    : counsellorData.filter(c => c.name === userFilter);
+  const showLists = !selectedUser && !isIndividual;
 
   return (
     <PageWrapper 
@@ -108,6 +114,11 @@ export default function Reports() {
           onSearch={() => {}} // Placeholder search
           filters={
             <div className="flex items-center gap-2">
+                {selectedUser && (
+                    <Button variant="ghost" onClick={() => setSelectedUser(null)} className="gap-2">
+                        <ArrowLeft className="w-4 h-4" /> Back to List
+                    </Button>
+                )}
               <Select value={periodFilter} onValueChange={setPeriodFilter}>
                 <SelectTrigger className="w-[150px] bg-white">
                   <SelectValue placeholder="Time Period" />
@@ -119,20 +130,6 @@ export default function Reports() {
                   <SelectItem value="1y">Last Year</SelectItem>
                 </SelectContent>
               </Select>
-
-              {canViewAll && (
-                <Select value={userFilter} onValueChange={setUserFilter}>
-                  <SelectTrigger className="w-[180px] bg-white">
-                    <SelectValue placeholder="Select User" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Users</SelectItem>
-                    {counsellorData.map(c => (
-                      <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
 
               <Select value={salesTypeFilter} onValueChange={setSalesTypeFilter}>
                 <SelectTrigger className="w-[180px] bg-white">
@@ -160,133 +157,223 @@ export default function Reports() {
           }
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Financial Overview */}
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Financial Overview</CardTitle>
-              <CardDescription>Total Revenue vs Pending Payments</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={currentFinancialData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis 
-                      fontSize={12} 
-                      tickLine={false} 
-                      axisLine={false}
-                      tickFormatter={(value) => `₹${value/1000}k`}
-                    />
-                    <Tooltip 
-                      formatter={(value: number) => [`₹${value.toLocaleString()}`, undefined]}
-                      cursor={{ fill: 'transparent' }}
-                    />
-                    <Legend />
-                    <Bar dataKey="revenue" name="Revenue" fill="#0f172a" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="pending" name="Pending" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+        {showLists ? (
+            <div className="grid gap-6 md:grid-cols-2">
+                {canViewAll && (
+                    <Card className="border-none shadow-card bg-white">
+                        <CardHeader>
+                            <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                <Users className="w-5 h-5 text-primary" />
+                                Managers
+                            </CardTitle>
+                            <CardDescription>Select a manager to view detailed reports</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {managerData.map((manager, index) => (
+                                    <div 
+                                        key={index} 
+                                        className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors border border-transparent hover:border-slate-100"
+                                        onClick={() => setSelectedUser(manager.name)}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-10 w-10 border border-slate-200">
+                                                <AvatarImage src={manager.avatar} />
+                                                <AvatarFallback className="bg-primary/10 text-primary">
+                                                    {manager.name.charAt(0)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <p className="font-semibold text-slate-900">{manager.name}</p>
+                                                <p className="text-xs text-slate-500">Team Size: {manager.teamSize}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="font-bold text-slate-900">₹{(manager.revenue / 100000).toFixed(1)}L</div>
+                                            <p className="text-xs text-slate-500">Revenue</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
-          {/* Enrollment Trends */}
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Enrollment Trends</CardTitle>
-              <CardDescription>New client enrollments over time</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={currentEnrollmentData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                    <Tooltip />
-                    <Line 
-                      type="monotone" 
-                      dataKey="students" 
-                      name="New Clients"
-                      stroke="#f97316" 
-                      strokeWidth={2}
-                      dot={{ r: 4, fill: "#f97316" }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+                <Card className={`border-none shadow-card bg-white ${!canViewAll ? 'col-span-2' : ''}`}>
+                    <CardHeader>
+                        <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <Users className="w-5 h-5 text-primary" />
+                            Counselors
+                        </CardTitle>
+                        <CardDescription>Select a counselor to view detailed reports</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {counsellorData.map((counsellor, index) => (
+                                <div 
+                                    key={index} 
+                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors border border-transparent hover:border-slate-100"
+                                    onClick={() => setSelectedUser(counsellor.name)}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="h-10 w-10 border border-slate-200">
+                                            <AvatarImage src={counsellor.avatar} />
+                                            <AvatarFallback className="bg-primary/10 text-primary">
+                                                {counsellor.name.charAt(0)}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-semibold text-slate-900">{counsellor.name}</p>
+                                            <p className="text-xs text-slate-500">{counsellor.clients} Active Clients</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="font-bold text-slate-900">₹{(counsellor.revenue / 100000).toFixed(1)}L</div>
+                                        <p className="text-xs text-slate-500">Revenue</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Financial Overview */}
+            <Card className="border-none shadow-sm">
+                <CardHeader>
+                <CardTitle className="text-lg font-semibold">
+                    {selectedUser ? `${selectedUser}'s Financial Overview` : 'Financial Overview'}
+                </CardTitle>
+                <CardDescription>Total Revenue vs Pending Payments</CardDescription>
+                </CardHeader>
+                <CardContent>
+                <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={currentFinancialData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis 
+                        fontSize={12} 
+                        tickLine={false} 
+                        axisLine={false}
+                        tickFormatter={(value) => `₹${value/1000}k`}
+                        />
+                        <Tooltip 
+                        formatter={(value: number) => [`₹${value.toLocaleString()}`, undefined]}
+                        cursor={{ fill: 'transparent' }}
+                        />
+                        <Legend />
+                        <Bar dataKey="revenue" name="Revenue" fill="#0f172a" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="pending" name="Pending" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                    </ResponsiveContainer>
+                </div>
+                </CardContent>
+            </Card>
 
-          {/* Service Distribution */}
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Service Distribution</CardTitle>
-              <CardDescription>Breakdown by sales type</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] w-full flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={currentServiceData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {currentServiceData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend verticalAlign="bottom" height={36}/>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Enrollment Trends */}
+            <Card className="border-none shadow-sm">
+                <CardHeader>
+                <CardTitle className="text-lg font-semibold">Enrollment Trends</CardTitle>
+                <CardDescription>New client enrollments over time</CardDescription>
+                </CardHeader>
+                <CardContent>
+                <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={currentEnrollmentData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                        <Tooltip />
+                        <Line 
+                        type="monotone" 
+                        dataKey="students" 
+                        name="New Clients"
+                        stroke="#f97316" 
+                        strokeWidth={2}
+                        dot={{ r: 4, fill: "#f97316" }}
+                        activeDot={{ r: 6 }}
+                        />
+                    </LineChart>
+                    </ResponsiveContainer>
+                </div>
+                </CardContent>
+            </Card>
 
-          {/* Counsellor Performance */}
-          <Card className="border-none shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Counsellor Performance</CardTitle>
-              <CardDescription>Top performers by active clients and revenue</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {currentCounsellorData.map((counsellor, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-xs">
-                        {index + 1}
-                      </div>
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={counsellor.avatar} />
-                        <AvatarFallback className="bg-muted text-xs">
-                          {counsellor.name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium leading-none">{counsellor.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{counsellor.clients} Active Clients</p>
-                      </div>
+            {/* Service Distribution */}
+            <Card className="border-none shadow-sm">
+                <CardHeader>
+                <CardTitle className="text-lg font-semibold">Service Distribution</CardTitle>
+                <CardDescription>Breakdown by sales type</CardDescription>
+                </CardHeader>
+                <CardContent>
+                <div className="h-[300px] w-full flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                        data={currentServiceData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                        >
+                        {currentServiceData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend verticalAlign="bottom" height={36}/>
+                    </PieChart>
+                    </ResponsiveContainer>
+                </div>
+                </CardContent>
+            </Card>
+            
+            {/* Show Top Performers only if looking at aggregate or if it makes sense. 
+                If looking at individual report, maybe show their top clients? 
+                For now, let's hide the Counselor Performance list when viewing an individual report 
+                because the user is already selected. 
+            */}
+            {!selectedUser && (
+                <Card className="border-none shadow-sm">
+                    <CardHeader>
+                    <CardTitle className="text-lg font-semibold">Counsellor Performance</CardTitle>
+                    <CardDescription>Top performers by active clients and revenue</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                    <div className="space-y-4">
+                        {counsellorData.map((counsellor, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg transition-colors">
+                            <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-xs">
+                                {index + 1}
+                            </div>
+                            <Avatar className="h-8 w-8">
+                                <AvatarImage src={counsellor.avatar} />
+                                <AvatarFallback className="bg-muted text-xs">
+                                {counsellor.name.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div>
+                                <p className="text-sm font-medium leading-none">{counsellor.name}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{counsellor.clients} Active Clients</p>
+                            </div>
+                            </div>
+                            <div className="text-right">
+                            <p className="text-sm font-bold">₹{(counsellor.revenue / 100000).toFixed(1)}L</p>
+                            <p className="text-xs text-muted-foreground">Revenue</p>
+                            </div>
+                        </div>
+                        ))}
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold">₹{(counsellor.revenue / 100000).toFixed(1)}L</p>
-                      <p className="text-xs text-muted-foreground">Revenue</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                    </CardContent>
+                </Card>
+            )}
+            </div>
+        )}
       </div>
     </PageWrapper>
   );
