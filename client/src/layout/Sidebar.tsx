@@ -16,11 +16,12 @@ import {
   FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { useState } from "react";
 import logoUrl from "@/assets/images/Pratham Logo.svg";
 import { useAuth, UserRole } from "@/context/auth-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ProfileDialog } from "@/components/profile-dialog";
 
 interface SidebarItem {
   icon: any;
@@ -58,8 +59,6 @@ const sidebarItems: SidebarItem[] = [
   },
 ];
 
-import { ProfileDialog } from "@/components/profile-dialog";
-
 export function Sidebar({ className }: { className?: string }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
@@ -95,11 +94,11 @@ export function Sidebar({ className }: { className?: string }) {
     if (!user) return null;
     
     const colors = {
-      superadmin: "bg-purple-100 text-purple-700",
-      director: "bg-indigo-100 text-indigo-700",
-      manager: "bg-blue-100 text-blue-700",
-      team_lead: "bg-orange-100 text-orange-700",
-      counsellor: "bg-green-100 text-green-700"
+      superadmin: "bg-purple-50 text-purple-700 border-purple-200",
+      director: "bg-indigo-50 text-indigo-700 border-indigo-200",
+      manager: "bg-blue-50 text-blue-700 border-blue-200",
+      team_lead: "bg-orange-50 text-orange-700 border-orange-200",
+      counsellor: "bg-emerald-50 text-emerald-700 border-emerald-200"
     };
 
     const labels = {
@@ -111,7 +110,7 @@ export function Sidebar({ className }: { className?: string }) {
     };
 
     return (
-      <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider", colors[user.role])}>
+      <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider border", colors[user.role])}>
         {labels[user.role]}
       </span>
     );
@@ -120,49 +119,56 @@ export function Sidebar({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border",
+        "flex flex-col h-full bg-sidebar text-sidebar-foreground",
         className,
       )}
     >
-      <div className="p-6 border-b border-sidebar-border/50 bg-white">
-        <div className="flex items-center justify-center">
-          <img
-            src={logoUrl}
-            alt="Consultancy Logo"
-            className="h-16 w-auto object-contain"
-          />
+      <div className="h-20 flex items-center justify-center border-b border-sidebar-border/60 px-6">
+        <img
+          src={logoUrl}
+          alt="Consultancy Logo"
+          className="h-12 w-auto object-contain transition-all hover:scale-105"
+        />
+      </div>
+
+      <div className="flex-1 py-8 px-4 space-y-1.5 overflow-y-auto custom-scrollbar">
+        <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Menu
         </div>
+        {filteredItems.map((item) => {
+          const isActive = activeItem?.href === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative",
+                isActive
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-orange-500/20"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-white" : "text-slate-400 group-hover:text-primary")} />
+              {item.label}
+              {isActive && (
+                <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white/50" />
+              )}
+            </Link>
+          );
+        })}
       </div>
 
-      <div className="flex-1 py-6 px-3 space-y-1">
-        {filteredItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-              activeItem?.href === item.href
-                ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-            )}
-          >
-            <item.icon className="w-5 h-5" />
-            {item.label}
-          </Link>
-        ))}
-      </div>
-
-      <div className="p-4 border-t border-sidebar-border/50 space-y-4">
+      <div className="p-4 border-t border-sidebar-border/60 space-y-2 bg-sidebar-accent/10">
         {user && (
           <ProfileDialog>
-            <div className="flex items-center gap-3 px-2 cursor-pointer hover:bg-sidebar-accent/50 p-2 rounded-md transition-colors group">
-              <Avatar className="h-9 w-9 border border-border group-hover:border-primary/50 transition-colors">
+            <div className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-white/80 hover:shadow-sm rounded-xl transition-all border border-transparent hover:border-sidebar-border group">
+              <Avatar className="h-10 w-10 border-2 border-white shadow-sm group-hover:border-primary/20 transition-colors">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="bg-primary/10 text-primary font-bold">{user.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-medium truncate group-hover:text-primary transition-colors">{user.name}</span>
-                {getRoleBadge()}
+                <span className="text-sm font-semibold truncate text-slate-900 group-hover:text-primary transition-colors">{user.name}</span>
+                <div className="mt-1">{getRoleBadge()}</div>
               </div>
             </div>
           </ProfileDialog>
@@ -171,10 +177,10 @@ export function Sidebar({ className }: { className?: string }) {
         <Button
           variant="ghost"
           onClick={logout}
-          className="w-full justify-start text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-red-600 hover:bg-red-50"
+          className="w-full justify-start text-muted-foreground hover:bg-red-50 hover:text-red-600 rounded-lg"
         >
-          <LogOut className="w-5 h-5 mr-2" />
-          Logout
+          <LogOut className="w-4 h-4 mr-2" />
+          Sign Out
         </Button>
       </div>
     </div>
@@ -187,7 +193,7 @@ export function MobileSidebar() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden">
+        <Button variant="ghost" size="icon" className="md:hidden -ml-2 text-muted-foreground hover:text-foreground">
           <Menu className="w-6 h-6" />
         </Button>
       </SheetTrigger>
@@ -195,6 +201,7 @@ export function MobileSidebar() {
         side="left"
         className="p-0 w-72 bg-sidebar border-r-sidebar-border text-sidebar-foreground"
       >
+        <SheetTitle className="sr-only">Menu</SheetTitle>
         <Sidebar />
       </SheetContent>
     </Sheet>

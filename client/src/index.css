@@ -9,6 +9,7 @@
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -56,100 +57,106 @@
   --font-sans: 'Inter', sans-serif;
   --font-heading: 'Plus Jakarta Sans', sans-serif;
   
-  --radius: 0.5rem;
+  --radius: 0.75rem;
+  
+  --shadow-subtle: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-floating: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
 }
 
 :root {
   /* Brand Colors */
-  /* Logo Orange #ec6801 -> 26 99% 46% */
-  /* Gray #878786 -> 240 1% 53% */
+  /* Logo Orange #eb6801 -> 26 99% 46% */
+  /* Premium Slate/Gray Palette */
 
-  --background: 0 0% 100%;
-  --foreground: 240 1% 15%;
+  --background: 210 40% 98%; /* Slate 50 - slightly cool off-white */
+  --foreground: 222 47% 11%; /* Slate 900 */
 
   --card: 0 0% 100%;
-  --card-foreground: 240 1% 15%;
+  --card-foreground: 222 47% 11%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 240 1% 15%;
+  --popover-foreground: 222 47% 11%;
 
-  /* Primary Brand Orange #ec6801 */
+  /* Primary Brand Orange #eb6801 */
   --primary: 26 99% 46%;
   --primary-foreground: 0 0% 100%;
 
-  /* Secondary Brand Gray #878786 - Used for backgrounds/muted */
-  --secondary: 240 5% 96%;
-  --secondary-foreground: 240 1% 15%;
+  /* Secondary - Slate 100 */
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222 47% 11%;
 
-  --muted: 240 5% 96%;
-  --muted-foreground: 240 1% 53%; /* #878786 */
+  /* Muted - Slate 100/500 */
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215 16% 47%;
 
-  --accent: 240 5% 96%;
+  /* Accent - Orange Tint */
+  --accent: 26 100% 97%; /* Very light orange tint */
   --accent-foreground: 26 99% 46%;
 
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 240 1% 90%;
-  --input: 240 1% 90%;
+  --border: 214 32% 91%; /* Slate 200 */
+  --input: 214 32% 91%;
   --ring: 26 99% 46%;
 
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 
   /* Chart Colors */
   --chart-1: 26 99% 46%;  /* Brand Orange */
-  --chart-2: 35 90% 50%;
-  --chart-3: 240 1% 53%;  /* Brand Gray */
-  --chart-4: 197 37% 24%;
-  --chart-5: 27 87% 67%;
+  --chart-2: 215 25% 27%; /* Slate 800 */
+  --chart-3: 215 16% 47%; /* Slate 500 */
+  --chart-4: 35 90% 50%;  /* Secondary Orange/Yellow */
+  --chart-5: 210 40% 96%; /* Slate 100 */
 
-  /* Sidebar - LIGHT THEME to make Logo Visible */
-  --sidebar: 0 0% 100%; /* White background */
-  --sidebar-foreground: 240 1% 30%; /* Dark gray text */
-  --sidebar-primary: 26 99% 46%; /* Orange active background */
-  --sidebar-primary-foreground: 0 0% 100%; /* White text on active */
-  --sidebar-accent: 240 5% 96%; /* Light gray hover */
-  --sidebar-accent-foreground: 26 99% 46%; /* Orange text on hover */
-  --sidebar-border: 240 1% 90%; /* Light border */
+  /* Sidebar - Clean White with subtle borders */
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 215 25% 27%; /* Slate 800 */
+  --sidebar-primary: 26 99% 46%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 26 100% 97%; /* Light orange tint */
+  --sidebar-accent-foreground: 26 99% 46%;
+  --sidebar-border: 214 32% 91%;
   --sidebar-ring: 26 99% 46%;
 }
 
 .dark {
-  --background: 240 1% 10%;
-  --foreground: 240 5% 96%;
+  --background: 222 47% 11%;
+  --foreground: 210 40% 98%;
 
-  --card: 240 1% 12%;
-  --card-foreground: 240 5% 96%;
+  --card: 222 47% 11%;
+  --card-foreground: 210 40% 98%;
 
-  --popover: 240 1% 12%;
-  --popover-foreground: 240 5% 96%;
+  --popover: 222 47% 11%;
+  --popover-foreground: 210 40% 98%;
 
   --primary: 26 99% 46%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 240 1% 15%;
-  --secondary-foreground: 240 5% 96%;
+  --secondary: 217 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
 
-  --muted: 240 1% 15%;
-  --muted-foreground: 240 1% 53%;
+  --muted: 217 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
 
-  --accent: 240 1% 15%;
-  --accent-foreground: 26 99% 46%;
+  --accent: 217 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
 
   --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 240 5% 96%;
+  --destructive-foreground: 210 40% 98%;
 
-  --border: 240 1% 15%;
-  --input: 240 1% 15%;
+  --border: 217 32.6% 17.5%;
+  --input: 217 32.6% 17.5%;
   --ring: 26 99% 46%;
 
-  --sidebar: 240 1% 8%;
-  --sidebar-foreground: 240 5% 96%;
+  --sidebar: 222 47% 11%;
+  --sidebar-foreground: 210 40% 98%;
   --sidebar-primary: 26 99% 46%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 240 1% 12%;
-  --sidebar-accent-foreground: 240 5% 96%;
-  --sidebar-border: 240 1% 12%;
+  --sidebar-accent: 217 32.6% 17.5%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-border: 217 32.6% 17.5%;
   --sidebar-ring: 26 99% 46%;
 }
 
@@ -161,7 +168,7 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-heading tracking-tight;
+    @apply font-heading tracking-tight text-slate-900 dark:text-slate-100;
   }
 
   /* Remove arrows/spinners from number inputs */
@@ -179,14 +186,18 @@
   /* Reusable Typography Classes */
   
   .text-header {
-    @apply font-heading text-3xl font-bold tracking-tight text-primary;
+    @apply font-heading text-3xl font-bold tracking-tight text-slate-900 dark:text-white;
   }
 
   .text-subheader {
-    @apply font-heading text-xl font-semibold tracking-normal text-muted-foreground;
+    @apply font-heading text-xl font-semibold tracking-tight text-slate-700 dark:text-slate-300;
   }
 
   .text-paragraph {
-    @apply font-sans text-base font-normal leading-relaxed text-foreground;
+    @apply font-sans text-base font-normal leading-relaxed text-slate-600 dark:text-slate-400;
+  }
+  
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
   }
 }

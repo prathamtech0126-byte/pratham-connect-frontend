@@ -1,8 +1,8 @@
 import { PageWrapper } from "@/layout/PageWrapper";
 import { StatCard } from "@/components/cards/StatCard";
-import { Users, DollarSign, Clock, CreditCard, TrendingUp, UserPlus, ShieldAlert, Activity } from "lucide-react";
+import { Users, DollarSign, Clock, CreditCard, TrendingUp, UserPlus, ShieldAlert, Activity, ArrowUpRight, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Area, AreaChart, CartesianGrid } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { clientService } from "@/services/clientService";
 import { DataTable } from "@/components/table/DataTable";
@@ -11,6 +11,7 @@ import { useAuth } from "@/context/auth-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ActivityLog } from "@/components/activity-log/ActivityLog";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 const chartData = [
   { name: "Jan", total: 12000 },
@@ -45,53 +46,23 @@ export default function Dashboard() {
     queryFn: clientService.getRecentActivities
   });
 
-  // Filter activities based on user role
-  const filteredActivities = activities?.filter(activity => {
-    if (!user) return false;
-    
-    switch (user.role) {
-      case 'superadmin':
-        // Super Admin sees everything
-        return true;
-        
-      case 'director':
-        // Director sees Manager, Team Lead, Counsellor (and themselves)
-        return ['manager', 'team_lead', 'counsellor', 'director'].includes(activity.user.role);
-        
-      case 'manager':
-        // Manager sees Team Lead, Counsellor (and themselves)
-        return ['team_lead', 'counsellor', 'manager'].includes(activity.user.role);
-        
-      case 'team_lead':
-        // Team Lead sees Counsellor (and themselves)
-        return ['counsellor', 'team_lead'].includes(activity.user.role);
-        
-      case 'counsellor':
-        // Counsellor only sees their own logs
-        return activity.user.role === 'counsellor' && activity.user.name === user.name;
-        
-      default:
-        return false;
-    }
-  });
-
   const canViewFinancials = user?.role === 'superadmin' || user?.role === 'director' || user?.role === 'manager';
-  const canCreateUsers = user?.role === 'superadmin' || user?.role === 'director' || user?.role === 'manager';
 
   return (
-    <PageWrapper title={`Dashboard`}>
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+    <div className="space-y-8 pb-8">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Welcome back, {user?.name}</h2>
-          <p className="text-muted-foreground">
-            Here's an overview of your {user?.role.replace('_', ' ')} dashboard.
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+          <p className="text-slate-500 mt-1">
+            Welcome back, <span className="font-semibold text-primary">{user?.name}</span>. Here's what's happening today.
           </p>
         </div>
         
         {(user?.role === 'superadmin' || user?.role === 'director') && (
             <div className="w-[200px]">
                 <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                    <SelectTrigger className="w-full bg-white">
+                    <SelectTrigger className="w-full bg-white border-slate-200 shadow-sm rounded-lg h-10">
                         <SelectValue placeholder="Select Branch" />
                     </SelectTrigger>
                     <SelectContent>
@@ -107,13 +78,15 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Stats Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Clients"
           value={stats?.totalClients || 0}
           icon={Users}
           trend={{ value: 12, isPositive: true }}
           description="from last month"
+          className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
         />
         
         {canViewFinancials ? (
@@ -124,13 +97,14 @@ export default function Dashboard() {
               icon={DollarSign}
               trend={{ value: 8, isPositive: true }}
               description="from last month"
+              className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
             />
             <StatCard
               title="Pending Amount"
               value={`₹${(stats?.totalPending || 0).toLocaleString()}`}
               icon={Clock}
               description="across all clients"
-              className="border-l-4 border-l-yellow-500"
+              className="shadow-card hover:shadow-lg transition-shadow border-l-4 border-l-yellow-500 bg-white"
             />
           </>
         ) : (
@@ -141,13 +115,14 @@ export default function Dashboard() {
               icon={Activity}
               trend={{ value: 5, isPositive: true }}
               description="currently processing"
+              className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
             />
             <StatCard
               title="Pending Actions"
               value={7}
               icon={ShieldAlert}
               description="require attention"
-              className="border-l-4 border-l-red-500"
+              className="shadow-card hover:shadow-lg transition-shadow border-l-4 border-l-red-500 bg-white"
             />
           </>
         )}
@@ -157,18 +132,20 @@ export default function Dashboard() {
           value={stats?.todaysEnrollments || 0}
           icon={UserPlus}
           description="new clients today"
+          className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7 mt-6">
+      {/* Main Content Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
         {canViewFinancials ? (
-            <div className="col-span-4">
+            <div className="col-span-4 rounded-xl shadow-card bg-white p-1">
                 <RevenueChart />
             </div>
         ) : (
-          <Card className="col-span-4 border-none shadow-sm">
+          <Card className="col-span-4 border-none shadow-card bg-white rounded-xl overflow-hidden">
             <CardHeader>
-              <CardTitle className="text-subheader">Team Performance</CardTitle>
+              <CardTitle className="text-lg font-bold text-slate-900">Team Performance</CardTitle>
               <CardDescription>Monthly client enrollment trends</CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
@@ -189,32 +166,35 @@ export default function Dashboard() {
                   />
                   <Tooltip 
                     cursor={{ fill: 'transparent' }}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                   />
-                  <Bar dataKey="total" name="Enrollments" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="total" name="Enrollments" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
         )}
         
-        <Card className="col-span-3 border-none shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-subheader">Recent Clients</CardTitle>
+        <Card className="col-span-3 border-none shadow-card bg-white rounded-xl overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg font-bold text-slate-900">Recent Clients</CardTitle>
+            <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80 p-0 h-auto font-medium">
+              View All <ArrowRight className="ml-1 w-4 h-4" />
+            </Button>
           </CardHeader>
           <CardContent>
-            <div className="space-y-8">
+            <div className="space-y-6">
               {recentClients?.slice(0, 5).map((client) => (
-                <div key={client.id} className="flex items-center">
-                  <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                <div key={client.id} className="flex items-center group cursor-pointer hover:bg-slate-50 p-2 -mx-2 rounded-lg transition-colors">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm ring-2 ring-white shadow-sm">
                     {client.name.charAt(0)}
                   </div>
-                  <div className="ml-4 space-y-1">
-                    <p className="text-paragraph text-sm font-medium leading-none">{client.name}</p>
-                    <p className="text-paragraph text-xs text-muted-foreground">{client.salesType}</p>
+                  <div className="ml-4 space-y-1 flex-1">
+                    <p className="text-sm font-semibold leading-none text-slate-900">{client.name}</p>
+                    <p className="text-xs text-slate-500">{client.salesType}</p>
                   </div>
                   <div className="ml-auto font-medium text-sm">
-                    <Badge variant={client.status === 'Active' ? 'default' : 'secondary'}>
+                    <Badge variant={client.status === 'Active' ? 'default' : 'secondary'} className="rounded-md px-2.5 py-0.5">
                       {client.status}
                     </Badge>
                   </div>
@@ -225,26 +205,65 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="mt-6">
-        <Card className="border-none shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-subheader">
-              {canViewFinancials ? "Recent Payments" : "Recent Enrollments"}
+      {/* Bottom Section */}
+      <div className="grid grid-cols-1">
+        <Card className="border-none shadow-card bg-white rounded-xl overflow-hidden">
+          <CardHeader className="px-6 py-5 border-b border-slate-100">
+            <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              {canViewFinancials ? <CreditCard className="w-5 h-5 text-primary" /> : <UserPlus className="w-5 h-5 text-primary" />}
+              {canViewFinancials ? "Recent Transactions" : "Recent Enrollments"}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
              <DataTable 
                data={recentClients?.slice(0, 5) || []}
                columns={[
-                 { header: "Client", accessorKey: "name", className: "font-medium" },
-                 { header: "Date", accessorKey: "enrollmentDate" },
-                 ...(canViewFinancials ? [{ header: "Amount", cell: (s: any) => `₹${s.amountReceived.toLocaleString()}` }] : []),
-                 { header: "Status", cell: () => <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">Active</Badge> },
+                 { 
+                   header: "Client", 
+                   accessorKey: "name", 
+                   cell: (client) => (
+                     <div className="font-semibold text-slate-900">{client.name}</div>
+                   )
+                 },
+                 { 
+                   header: "Date", 
+                   accessorKey: "enrollmentDate",
+                   cell: (client) => (
+                     <div className="text-slate-500">{new Date(client.enrollmentDate).toLocaleDateString()}</div>
+                   )
+                 },
+                 ...(canViewFinancials ? [{ 
+                   header: "Amount", 
+                   accessorKey: "amountReceived",
+                   cell: (client: any) => (
+                     <div className="font-mono font-medium text-slate-700">₹{client.amountReceived?.toLocaleString()}</div>
+                   ) 
+                 }] : []),
+                 { 
+                   header: "Status", 
+                   accessorKey: "status",
+                   cell: (client) => (
+                     <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 shadow-none font-medium">
+                       Active
+                     </Badge>
+                   ) 
+                 },
+                 {
+                    header: "",
+                    cell: () => (
+                        <div className="text-right">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <ArrowUpRight className="h-4 w-4 text-slate-400" />
+                            </Button>
+                        </div>
+                    )
+                 }
                ]}
              />
           </CardContent>
         </Card>
       </div>
-    </PageWrapper>
+    </div>
   );
 }

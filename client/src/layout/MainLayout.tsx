@@ -10,16 +10,16 @@ export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
       {/* Desktop Sidebar - Hidden on mobile */}
-      <div className="hidden md:block w-64 lg:w-72 shrink-0 h-full">
+      <div className="hidden md:block w-72 shrink-0 h-full border-r border-sidebar-border bg-sidebar shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] z-20">
         <Sidebar />
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-background relative">
         <Topbar />
         
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-muted/30">
-          <div className="max-w-7xl mx-auto w-full">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+          <div className="max-w-7xl mx-auto w-full animate-in fade-in duration-500 slide-in-from-bottom-4">
             {children}
           </div>
         </main>
