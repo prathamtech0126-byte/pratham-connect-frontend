@@ -4,7 +4,7 @@ import { Users, DollarSign, Clock, CreditCard, TrendingUp, UserPlus, ShieldAlert
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Area, AreaChart, CartesianGrid } from "recharts";
 import { useQuery } from "@tanstack/react-query";
-import { clientService } from "@/services/clientService";
+import { clientService, Client } from "@/services/clientService";
 import { DataTable } from "@/components/table/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/auth-context";
@@ -221,28 +221,28 @@ export default function Dashboard() {
                  { 
                    header: "Client", 
                    accessorKey: "name", 
-                   cell: (client) => (
+                   cell: (client: Client) => (
                      <div className="font-semibold text-slate-900">{client.name}</div>
                    )
                  },
                  { 
                    header: "Date", 
                    accessorKey: "enrollmentDate",
-                   cell: (client) => (
+                   cell: (client: Client) => (
                      <div className="text-slate-500">{new Date(client.enrollmentDate).toLocaleDateString()}</div>
                    )
                  },
                  ...(canViewFinancials ? [{ 
                    header: "Amount", 
                    accessorKey: "amountReceived",
-                   cell: (client: any) => (
+                   cell: (client: Client) => (
                      <div className="font-mono font-medium text-slate-700">₹{client.amountReceived?.toLocaleString()}</div>
                    ) 
                  }] : []),
                  { 
                    header: "Status", 
                    accessorKey: "status",
-                   cell: (client) => (
+                   cell: (client: Client) => (
                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 shadow-none font-medium">
                        Active
                      </Badge>

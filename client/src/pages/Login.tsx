@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, Shield, Users, UserCog, Briefcase, Crown } from "lucide-react";
+import { Lock, Shield, Users, UserCog, Briefcase, Crown, ArrowRight, CheckCircle2 } from "lucide-react";
+import logoUrl from "@/assets/images/Pratham Logo.svg";
 
 export default function Login() {
   const { login, isLoading } = useAuth();
@@ -31,127 +32,165 @@ export default function Login() {
     login(selectedRole);
   };
 
-  const getRoleIcon = (role: UserRole) => {
-    switch (role) {
-      case "superadmin":
-        return <Shield className="h-5 w-5 text-purple-600" />;
-      case "director":
-        return <Crown className="h-5 w-5 text-indigo-600" />;
-      case "manager":
-        return <Users className="h-5 w-5 text-blue-600" />;
-      case "team_lead":
-        return <UserCog className="h-5 w-5 text-orange-600" />;
-      case "counsellor":
-        return <Briefcase className="h-5 w-5 text-green-600" />;
-      default:
-        return <Shield className="h-5 w-5" />;
-    }
-  };
-
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 bg-[url('https://images.unsplash.com/photo-1497294815431-9365093b7331?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80')] bg-cover bg-center">
-      <div className="absolute inset-0 bg-white/70 backdrop-blur-sm" />
-      
-      <Card className="w-full max-w-md relative z-10 shadow-xl border-t-4 border-t-primary">
-        <CardHeader className="space-y-1 text-center">
-          <div className="mx-auto bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mb-2">
-            <Lock className="h-8 w-8 text-primary" />
-          </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-gray-900">
-            Welcome Back
-          </CardTitle>
-          <CardDescription>
-            Enter your credentials to access the admin panel
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="role">Select Role (Demo Mode)</Label>
-              <Select
-                value={selectedRole}
-                onValueChange={(value) => setSelectedRole(value as UserRole)}
-              >
-                <SelectTrigger className="h-11">
-                  <div className="flex items-center gap-2">
-                    <SelectValue placeholder="Select a role" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="superadmin">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-purple-600" />
-                      <span>Super Admin</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="director">
-                    <div className="flex items-center gap-2">
-                      <Crown className="h-4 w-4 text-indigo-600" />
-                      <span>Director</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="manager">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-blue-600" />
-                      <span>Manager</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="team_lead">
-                    <div className="flex items-center gap-2">
-                      <UserCog className="h-4 w-4 text-orange-600" />
-                      <span>Team Lead</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="counsellor">
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4 text-green-600" />
-                      <span>Counsellor</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                placeholder="Enter username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="h-11"
-              />
+    <div className="min-h-screen w-full flex bg-slate-50">
+      {/* Left Panel - Branding */}
+      <div className="hidden lg:flex w-1/2 bg-slate-900 relative overflow-hidden items-center justify-center p-12">
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1497294815431-9365093b7331?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80')] bg-cover bg-center opacity-20 mix-blend-overlay" />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-primary/20" />
+        
+        <div className="relative z-10 max-w-lg text-white space-y-8">
+            <div className="h-20 w-auto bg-white/10 backdrop-blur-md p-4 rounded-xl inline-block mb-4 border border-white/10">
+                <img src={logoUrl} alt="Logo" className="h-full w-auto brightness-0 invert" />
             </div>
             
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-              </div>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-11"
-              />
+            <h1 className="text-5xl font-bold tracking-tight leading-tight">
+                Professional Consultancy Management
+            </h1>
+            
+            <p className="text-xl text-slate-300 leading-relaxed">
+                Streamline your operations, manage clients efficiently, and track performance with our comprehensive admin solution.
+            </p>
+
+            <div className="grid grid-cols-2 gap-6 pt-4">
+                <div className="flex items-start gap-3">
+                    <div className="mt-1 p-1 bg-primary/20 rounded-full">
+                        <CheckCircle2 className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-white">Client Tracking</h3>
+                        <p className="text-sm text-slate-400 mt-1">Full lifecycle management</p>
+                    </div>
+                </div>
+                <div className="flex items-start gap-3">
+                    <div className="mt-1 p-1 bg-primary/20 rounded-full">
+                        <CheckCircle2 className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-white">Financial Reports</h3>
+                        <p className="text-sm text-slate-400 mt-1">Real-time revenue insights</p>
+                    </div>
+                </div>
+                <div className="flex items-start gap-3">
+                    <div className="mt-1 p-1 bg-primary/20 rounded-full">
+                        <CheckCircle2 className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-white">Team Performance</h3>
+                        <p className="text-sm text-slate-400 mt-1">Monitor productivity</p>
+                    </div>
+                </div>
+                <div className="flex items-start gap-3">
+                    <div className="mt-1 p-1 bg-primary/20 rounded-full">
+                        <CheckCircle2 className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-white">Secure Access</h3>
+                        <p className="text-sm text-slate-400 mt-1">Role-based permissions</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+      </div>
+
+      {/* Right Panel - Login Form */}
+      <div className="flex-1 flex items-center justify-center p-8 lg:p-12">
+        <div className="w-full max-w-[420px] space-y-8">
+            <div className="text-center lg:text-left space-y-2">
+                <h2 className="text-3xl font-bold tracking-tight text-slate-900">Welcome back</h2>
+                <p className="text-slate-500">Please sign in to your account to continue.</p>
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full h-11 text-base mt-2" 
-              disabled={isLoading}
-            >
-              {isLoading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="flex justify-center border-t p-4 bg-gray-50/50 rounded-b-xl">
-          <p className="text-xs text-gray-500 text-center">
-            Secured by Pratham Consultancy System
-          </p>
-        </CardFooter>
-      </Card>
+            <Card className="border-none shadow-floating bg-white/80 backdrop-blur-sm">
+                <CardContent className="pt-6 pb-6">
+                    <form onSubmit={handleLogin} className="space-y-5">
+                        <div className="space-y-2">
+                            <Label htmlFor="role" className="text-slate-700 font-medium">Select Role (Demo)</Label>
+                            <Select
+                                value={selectedRole}
+                                onValueChange={(value) => setSelectedRole(value as UserRole)}
+                            >
+                                <SelectTrigger className="h-12 bg-slate-50 border-slate-200 focus:ring-primary/20 focus:border-primary">
+                                    <SelectValue placeholder="Select a role" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="superadmin" className="focus:bg-purple-50 focus:text-purple-700">
+                                        <div className="flex items-center gap-2">
+                                            <Shield className="h-4 w-4 text-purple-600" />
+                                            <span>Super Admin</span>
+                                        </div>
+                                    </SelectItem>
+                                    <SelectItem value="director" className="focus:bg-indigo-50 focus:text-indigo-700">
+                                        <div className="flex items-center gap-2">
+                                            <Crown className="h-4 w-4 text-indigo-600" />
+                                            <span>Director</span>
+                                        </div>
+                                    </SelectItem>
+                                    <SelectItem value="manager" className="focus:bg-blue-50 focus:text-blue-700">
+                                        <div className="flex items-center gap-2">
+                                            <Users className="h-4 w-4 text-blue-600" />
+                                            <span>Manager</span>
+                                        </div>
+                                    </SelectItem>
+                                    <SelectItem value="team_lead" className="focus:bg-orange-50 focus:text-orange-700">
+                                        <div className="flex items-center gap-2">
+                                            <UserCog className="h-4 w-4 text-orange-600" />
+                                            <span>Team Lead</span>
+                                        </div>
+                                    </SelectItem>
+                                    <SelectItem value="counsellor" className="focus:bg-emerald-50 focus:text-emerald-700">
+                                        <div className="flex items-center gap-2">
+                                            <Briefcase className="h-4 w-4 text-green-600" />
+                                            <span>Counsellor</span>
+                                        </div>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="username" className="text-slate-700 font-medium">Username</Label>
+                            <Input
+                                id="username"
+                                placeholder="name@company.com"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="h-12 bg-slate-50 border-slate-200 focus:ring-primary/20 focus:border-primary"
+                            />
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="password" className="text-slate-700 font-medium">Password</Label>
+                                <a href="#" className="text-xs font-medium text-primary hover:text-primary/80">Forgot password?</a>
+                            </div>
+                            <Input
+                                id="password"
+                                type="password"
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="h-12 bg-slate-50 border-slate-200 focus:ring-primary/20 focus:border-primary"
+                            />
+                        </div>
+
+                        <Button 
+                            type="submit" 
+                            className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all" 
+                            disabled={isLoading}
+                        >
+                            {isLoading ? "Signing in..." : "Sign In"}
+                            {!isLoading && <ArrowRight className="ml-2 w-4 h-4" />}
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
+
+            <p className="text-center text-sm text-slate-500">
+                &copy; {new Date().getFullYear()} Pratham Consultancy. All rights reserved.
+            </p>
+        </div>
+      </div>
     </div>
   );
 }
