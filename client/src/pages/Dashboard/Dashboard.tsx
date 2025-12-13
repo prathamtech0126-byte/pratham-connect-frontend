@@ -92,6 +92,7 @@ export default function Dashboard() {
       </div>
 
       {/* Target & Leaderboard Section */}
+      {!canViewFinancials && (
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
         {/* Your Target Card */}
         <Card className="border-none shadow-card bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl overflow-hidden relative">
@@ -186,6 +187,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
