@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { TableToolbar } from "@/components/table/TableToolbar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { X, ArrowLeft, Users, TrendingUp, DollarSign } from "lucide-react";
+import { X, ArrowLeft, Users, TrendingUp, DollarSign, ArrowUpRight } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { 
@@ -22,6 +22,10 @@ import {
   Cell 
 } from 'recharts';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useQuery } from "@tanstack/react-query";
+import { clientService, Client } from "@/services/clientService";
+import { DataTable } from "@/components/table/DataTable";
+import { Badge } from "@/components/ui/badge";
 
 // Mock Data
 const financialData = [
@@ -69,6 +73,11 @@ export default function Reports() {
   const [salesTypeFilter, setSalesTypeFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
+  const { data: recentClients } = useQuery({
+    queryKey: ['recent-clients'],
+    queryFn: clientService.getClients
+  });
+
   const handleClearFilters = () => {
     setPeriodFilter("6m");
     setSalesTypeFilter("all");
@@ -83,7 +92,7 @@ export default function Reports() {
 
   // Mock filtering logic for demonstration
   const getFilteredData = (data: any[]) => {
-    if (!selectedUser && (canViewAll || canViewCounselors)) return data; // Aggregate view if needed, or maybe just show charts for "All" if user explicitly selects "All" (not implemented yet, but keeping logic simpler)
+    if (!selectedUser && (canViewAll || canViewCounselors)) return data; 
     
     // Simulate specific user data by reducing values
     return data.map(item => {
@@ -101,6 +110,11 @@ export default function Reports() {
   const currentServiceData = selectedUser || isIndividual ? getFilteredData(serviceData) : serviceData;
   
   const showLists = !selectedUser && !isIndividual;
+
+  // Filter clients based on selected user (mock logic)
+  const filteredClients = selectedUser 
+    ? recentClients?.filter(c => c.counsellor === selectedUser || c.productManager === selectedUser) 
+    : recentClients;
 
   return (
     <PageWrapper 
@@ -238,140 +252,199 @@ export default function Reports() {
                 </Card>
             </div>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Financial Overview */}
-            <Card className="border-none shadow-sm">
-                <CardHeader>
-                <CardTitle className="text-lg font-semibold">
-                    {selectedUser ? `${selectedUser}'s Financial Overview` : 'Financial Overview'}
-                </CardTitle>
-                <CardDescription>Total Revenue vs Pending Payments</CardDescription>
-                </CardHeader>
-                <CardContent>
-                <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={currentFinancialData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis 
-                        fontSize={12} 
-                        tickLine={false} 
-                        axisLine={false}
-                        tickFormatter={(value) => `₹${value/1000}k`}
-                        />
-                        <Tooltip 
-                        formatter={(value: number) => [`₹${value.toLocaleString()}`, undefined]}
-                        cursor={{ fill: 'transparent' }}
-                        />
-                        <Legend />
-                        <Bar dataKey="revenue" name="Revenue" fill="#0f172a" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="pending" name="Pending" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                    </ResponsiveContainer>
-                </div>
-                </CardContent>
-            </Card>
-
-            {/* Enrollment Trends */}
-            <Card className="border-none shadow-sm">
-                <CardHeader>
-                <CardTitle className="text-lg font-semibold">Enrollment Trends</CardTitle>
-                <CardDescription>New client enrollments over time</CardDescription>
-                </CardHeader>
-                <CardContent>
-                <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={currentEnrollmentData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                        <Tooltip />
-                        <Line 
-                        type="monotone" 
-                        dataKey="students" 
-                        name="New Clients"
-                        stroke="#f97316" 
-                        strokeWidth={2}
-                        dot={{ r: 4, fill: "#f97316" }}
-                        activeDot={{ r: 6 }}
-                        />
-                    </LineChart>
-                    </ResponsiveContainer>
-                </div>
-                </CardContent>
-            </Card>
-
-            {/* Service Distribution */}
-            <Card className="border-none shadow-sm">
-                <CardHeader>
-                <CardTitle className="text-lg font-semibold">Service Distribution</CardTitle>
-                <CardDescription>Breakdown by sales type</CardDescription>
-                </CardHeader>
-                <CardContent>
-                <div className="h-[300px] w-full flex items-center justify-center">
-                    <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                        <Pie
-                        data={currentServiceData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                        >
-                        {currentServiceData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend verticalAlign="bottom" height={36}/>
-                    </PieChart>
-                    </ResponsiveContainer>
-                </div>
-                </CardContent>
-            </Card>
-            
-            {/* Show Top Performers only if looking at aggregate or if it makes sense. 
-                If looking at individual report, maybe show their top clients? 
-                For now, let's hide the Counselor Performance list when viewing an individual report 
-                because the user is already selected. 
-            */}
-            {!selectedUser && (
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Financial Overview */}
                 <Card className="border-none shadow-sm">
                     <CardHeader>
-                    <CardTitle className="text-lg font-semibold">Counsellor Performance</CardTitle>
-                    <CardDescription>Top performers by active clients and revenue</CardDescription>
+                    <CardTitle className="text-lg font-semibold">
+                        {selectedUser ? `${selectedUser}'s Financial Overview` : 'Financial Overview'}
+                    </CardTitle>
+                    <CardDescription>Total Revenue vs Pending Payments</CardDescription>
                     </CardHeader>
                     <CardContent>
-                    <div className="space-y-4">
-                        {counsellorData.map((counsellor, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg transition-colors">
-                            <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-xs">
-                                {index + 1}
-                            </div>
-                            <Avatar className="h-8 w-8">
-                                <AvatarImage src={counsellor.avatar} />
-                                <AvatarFallback className="bg-muted text-xs">
-                                {counsellor.name.split(' ').map(n => n[0]).join('')}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div>
-                                <p className="text-sm font-medium leading-none">{counsellor.name}</p>
-                                <p className="text-xs text-muted-foreground mt-1">{counsellor.clients} Active Clients</p>
-                            </div>
-                            </div>
-                            <div className="text-right">
-                            <p className="text-sm font-bold">₹{(counsellor.revenue / 100000).toFixed(1)}L</p>
-                            <p className="text-xs text-muted-foreground">Revenue</p>
-                            </div>
-                        </div>
-                        ))}
+                    <div className="h-[300px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={currentFinancialData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis 
+                            fontSize={12} 
+                            tickLine={false} 
+                            axisLine={false}
+                            tickFormatter={(value) => `₹${value/1000}k`}
+                            />
+                            <Tooltip 
+                            formatter={(value: number) => [`₹${value.toLocaleString()}`, undefined]}
+                            cursor={{ fill: 'transparent' }}
+                            />
+                            <Legend />
+                            <Bar dataKey="revenue" name="Revenue" fill="#0f172a" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="pending" name="Pending" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                        </ResponsiveContainer>
                     </div>
                     </CardContent>
                 </Card>
-            )}
+
+                {/* Enrollment Trends */}
+                <Card className="border-none shadow-sm">
+                    <CardHeader>
+                    <CardTitle className="text-lg font-semibold">Enrollment Trends</CardTitle>
+                    <CardDescription>New client enrollments over time</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                    <div className="h-[300px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={currentEnrollmentData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                            <Tooltip />
+                            <Line 
+                            type="monotone" 
+                            dataKey="students" 
+                            name="New Clients"
+                            stroke="#f97316" 
+                            strokeWidth={2}
+                            dot={{ r: 4, fill: "#f97316" }}
+                            activeDot={{ r: 6 }}
+                            />
+                        </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                    </CardContent>
+                </Card>
+
+                {/* Service Distribution */}
+                <Card className="border-none shadow-sm">
+                    <CardHeader>
+                    <CardTitle className="text-lg font-semibold">Service Distribution</CardTitle>
+                    <CardDescription>Breakdown by sales type</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                    <div className="h-[300px] w-full flex items-center justify-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                            data={currentServiceData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                            >
+                            {currentServiceData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                            </Pie>
+                            <Tooltip />
+                            <Legend verticalAlign="bottom" height={36}/>
+                        </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                    </CardContent>
+                </Card>
+                
+                {/* Show Top Performers only if looking at aggregate or if it makes sense. 
+                    If looking at individual report, maybe show their top clients? 
+                    For now, let's hide the Counselor Performance list when viewing an individual report 
+                    because the user is already selected. 
+                */}
+                {!selectedUser && (
+                    <Card className="border-none shadow-sm">
+                        <CardHeader>
+                        <CardTitle className="text-lg font-semibold">Counsellor Performance</CardTitle>
+                        <CardDescription>Top performers by active clients and revenue</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                        <div className="space-y-4">
+                            {counsellorData.map((counsellor, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg transition-colors">
+                                <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-xs">
+                                    {index + 1}
+                                </div>
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src={counsellor.avatar} />
+                                    <AvatarFallback className="bg-muted text-xs">
+                                    {counsellor.name.split(' ').map(n => n[0]).join('')}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="text-sm font-medium leading-none">{counsellor.name}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{counsellor.clients} Active Clients</p>
+                                </div>
+                                </div>
+                                <div className="text-right">
+                                <p className="text-sm font-bold">₹{(counsellor.revenue / 100000).toFixed(1)}L</p>
+                                <p className="text-xs text-muted-foreground">Revenue</p>
+                                </div>
+                            </div>
+                            ))}
+                        </div>
+                        </CardContent>
+                    </Card>
+                )}
+                </div>
+
+                {/* Client List for the selected user */}
+                {(selectedUser || isIndividual) && (
+                    <Card className="border-none shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="text-lg font-semibold flex items-center justify-between">
+                                <span>Client List</span>
+                                {canViewAll && (
+                                    <Button size="sm" variant="outline">Edit Mode</Button>
+                                )}
+                            </CardTitle>
+                            <CardDescription>All clients managed by {selectedUser || user?.name}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <DataTable 
+                               data={filteredClients || []}
+                               columns={[
+                                 { 
+                                   header: "Client Name", 
+                                   accessorKey: "name", 
+                                   cell: (client: Client) => (
+                                     <div className="font-semibold text-slate-900">{client.name}</div>
+                                   )
+                                 },
+                                 { 
+                                   header: "Sales Type", 
+                                   accessorKey: "salesType"
+                                 },
+                                 { 
+                                   header: "Date", 
+                                   accessorKey: "enrollmentDate",
+                                   cell: (client: Client) => (
+                                     <div className="text-slate-500">{new Date(client.enrollmentDate).toLocaleDateString()}</div>
+                                   )
+                                 },
+                                 { 
+                                   header: "Status", 
+                                   accessorKey: "status",
+                                   cell: (client: Client) => (
+                                     <Badge variant={client.status === 'Active' ? 'default' : 'secondary'} className="rounded-md">
+                                       {client.status}
+                                     </Badge>
+                                   ) 
+                                 },
+                                 { 
+                                    header: "Action", 
+                                    cell: () => (
+                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                            <ArrowUpRight className="h-4 w-4 text-slate-400" />
+                                        </Button>
+                                    )
+                                 }
+                               ]}
+                             />
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         )}
       </div>
