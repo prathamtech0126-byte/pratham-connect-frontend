@@ -212,6 +212,7 @@ export default function ClientForm() {
 
   const { control, handleSubmit, setValue, watch } = form;
   const salesType = useWatch({ control, name: "salesType" });
+  const coreSales = useWatch({ control, name: "coreSales" });
   const showDiscount = useWatch({ control, name: "showDiscount" });
   const showExtraPayment = useWatch({ control, name: "showExtraPayment" });
 
@@ -1089,6 +1090,17 @@ export default function ClientForm() {
     },
   ];
 
+  let filteredSteps = steps;
+  if (coreSales === "Yes") {
+    filteredSteps = steps.filter(
+      (step) => step.id === "basic" || step.id === "consultancy"
+    );
+  } else if (coreSales === "No") {
+    filteredSteps = steps.filter(
+      (step) => step.id === "basic" || step.id === "product_fields"
+    );
+  }
+
   return (
     <PageWrapper
       title="Add New Client"
@@ -1100,7 +1112,7 @@ export default function ClientForm() {
       <div className="max-w-4xl mx-auto pb-12">
         <MultiStepFormWrapper
           title="Client Registration"
-          steps={steps}
+          steps={filteredSteps}
           onSubmit={handleSubmit(onSubmit)}
         />
       </div>
