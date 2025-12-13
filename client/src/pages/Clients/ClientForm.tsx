@@ -29,6 +29,7 @@ const financialEntrySchema = z.object({
   amount: z.number().optional(),
   date: z.string().optional(),
   invoiceNo: z.string().optional(),
+  remarks: z.string().optional(),
 });
 
 const insuranceSchema = z.object({
@@ -328,18 +329,21 @@ export default function ClientForm() {
             control={control}
             name="initialPayment"
             label="Initial Amount Received"
+            hasRemarks={true}
           />
 
           <FinancialEntry
             control={control}
             name="beforeVisaPayment"
             label="Before Visa Payment"
+            hasRemarks={true}
           />
 
           <FinancialEntry
             control={control}
             name="afterVisaPayment"
             label="After Visa Payment"
+            hasRemarks={true}
           />
 
           <div className="space-y-2">
