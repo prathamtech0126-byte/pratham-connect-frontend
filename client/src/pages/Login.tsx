@@ -132,12 +132,6 @@ export default function Login() {
                                             <span>Manager</span>
                                         </div>
                                     </SelectItem>
-                                    <SelectItem value="team_lead" className="focus:bg-orange-50 focus:text-orange-700">
-                                        <div className="flex items-center gap-2">
-                                            <UserCog className="h-4 w-4 text-orange-600" />
-                                            <span>Team Lead</span>
-                                        </div>
-                                    </SelectItem>
                                     <SelectItem value="counsellor" className="focus:bg-emerald-50 focus:text-emerald-700">
                                         <div className="flex items-center gap-2">
                                             <Briefcase className="h-4 w-4 text-green-600" />
