@@ -6,6 +6,7 @@ export interface Client {
   mainCounsellor?: string;
   productManager: string;
   salesType: string;
+  coreSales?: string;
   status: 'Active' | 'Completed' | 'Pending' | 'Dropped';
   
   // Finance
@@ -71,6 +72,7 @@ let clients: Client[] = [
     counsellor: "Priya Singh",
     productManager: "Rahul Verma",
     salesType: "Canada Student",
+    coreSales: "Yes",
     status: "Active",
     totalPayment: 50000,
     amountReceived: 25000,
@@ -85,6 +87,7 @@ let clients: Client[] = [
     counsellor: "Priya Singh",
     productManager: "Rahul Verma",
     salesType: "UK Student",
+    coreSales: "Yes",
     status: "Pending",
     totalPayment: 15000,
     amountReceived: 5000,
@@ -99,6 +102,7 @@ let clients: Client[] = [
     counsellor: "Amit Kumar",
     productManager: "Sneha Reddy",
     salesType: "Canada Spouse",
+    coreSales: "No",
     status: "Active",
     totalPayment: 120000,
     amountReceived: 80000,
@@ -113,6 +117,7 @@ let clients: Client[] = [
     counsellor: "Amit Kumar",
     productManager: "Sneha Reddy",
     salesType: "USA Visitor",
+    coreSales: "No",
     status: "Completed",
     totalPayment: 5000,
     amountReceived: 5000,
@@ -127,12 +132,118 @@ let clients: Client[] = [
     counsellor: "Priya Singh",
     productManager: "Rahul Verma",
     salesType: "SPOUSAL PR",
+    coreSales: "Yes",
     status: "Active",
     totalPayment: 60000,
     amountReceived: 10000,
     amountPending: 50000,
     email: "vikram.m@example.com",
     phone: "+91 98765 43214"
+  },
+  {
+    id: "CL-006",
+    name: "Ananya Singh",
+    enrollmentDate: "2024-05-01",
+    counsellor: "Amit Kumar",
+    productManager: "Sneha Reddy",
+    salesType: "Germany Student",
+    coreSales: "Yes",
+    status: "Dropped",
+    totalPayment: 20000,
+    amountReceived: 5000,
+    amountPending: 15000,
+    email: "ananya.s@example.com",
+    phone: "+91 98765 43215"
+  },
+  {
+    id: "CL-007",
+    name: "Rahul Verma",
+    enrollmentDate: "2024-05-15",
+    counsellor: "Priya Singh",
+    productManager: "Rahul Verma",
+    salesType: "Canada Visitor",
+    coreSales: "No",
+    status: "Active",
+    totalPayment: 10000,
+    amountReceived: 10000,
+    amountPending: 0,
+    email: "rahul.v@example.com",
+    phone: "+91 98765 43216"
+  },
+  {
+    id: "CL-008",
+    name: "Sanya Kapoor",
+    enrollmentDate: "2024-06-01",
+    counsellor: "Amit Kumar",
+    productManager: "Sneha Reddy",
+    salesType: "UK Spouse",
+    coreSales: "Yes",
+    status: "Pending",
+    totalPayment: 80000,
+    amountReceived: 20000,
+    amountPending: 60000,
+    email: "sanya.k@example.com",
+    phone: "+91 98765 43217"
+  },
+  {
+    id: "CL-009",
+    name: "Arjun Reddy",
+    enrollmentDate: "2024-06-10",
+    counsellor: "Priya Singh",
+    productManager: "Rahul Verma",
+    salesType: "USA Student",
+    coreSales: "No",
+    status: "Active",
+    totalPayment: 45000,
+    amountReceived: 45000,
+    amountPending: 0,
+    email: "arjun.r@example.com",
+    phone: "+91 98765 43218"
+  },
+  {
+    id: "CL-010",
+    name: "Zara Khan",
+    enrollmentDate: "2024-06-20",
+    counsellor: "Amit Kumar",
+    productManager: "Sneha Reddy",
+    salesType: "Schengen Visitor",
+    coreSales: "No",
+    status: "Completed",
+    totalPayment: 8000,
+    amountReceived: 8000,
+    amountPending: 0,
+    email: "zara.k@example.com",
+    phone: "+91 98765 43219"
+  },
+  {
+    id: "CL-011",
+    name: "Kabir Das",
+    enrollmentDate: "2024-07-05",
+    counsellor: "Priya Singh",
+    productManager: "Rahul Verma",
+    salesType: "Finland Student",
+    coreSales: "Yes",
+    status: "Active",
+    totalPayment: 30000,
+    amountReceived: 15000,
+    amountPending: 15000,
+    email: "kabir.d@example.com",
+    phone: "+91 98765 43220"
+  },
+  {
+    id: "CL-012",
+    name: "Neha Sharma",
+    enrollmentDate: "2024-07-15",
+    counsellor: "Amit Kumar",
+    productManager: "Sneha Reddy",
+    salesType: "Canada Onshore Student",
+    coreSales: "Yes",
+    status: "Active",
+    totalPayment: 25000,
+    amountReceived: 25000,
+    amountPending: 0,
+    email: "neha.s@example.com",
+    phone: "+91 98765 43221"
   }
 ];
 
