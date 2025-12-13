@@ -19,12 +19,22 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+interface ChangeDetail {
+  field: string;
+  oldValue: string;
+  newValue: string;
+}
+
 interface ActivityLogItem {
   id: string;
   type: "create" | "payment" | "status_change" | "upload" | "update";
   title: string;
   description: string;
   timestamp: string;
+  changes?: ChangeDetail[];
   user: {
     name: string;
     role: string;
@@ -36,6 +46,7 @@ export default function Activity() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [selectedActivity, setSelectedActivity] = useState<ActivityLogItem | null>(null);
 
   const handleClearFilters = () => {
     setTypeFilter("all");
@@ -76,6 +87,9 @@ export default function Activity() {
       title: "Tom Lead updated status for Ishita Patel",
       description: "Changed from Pending to Active",
       timestamp: "2024-12-09T08:09:00",
+      changes: [
+        { field: "Status", oldValue: "Pending", newValue: "Active" }
+      ],
       user: {
         name: "Tom Lead",
         role: "team_lead",
@@ -88,6 +102,9 @@ export default function Activity() {
       title: "Dr. Counsellor uploaded document for Rohan Gupta",
       description: "Passport copy uploaded",
       timestamp: "2024-12-08T13:09:00",
+      changes: [
+        { field: "Document", oldValue: "None", newValue: "passport_scan.pdf" }
+      ],
       user: {
         name: "Dr. Counsellor",
         role: "counsellor",
@@ -100,6 +117,10 @@ export default function Activity() {
       title: "Sarah Manager updated profile for Meera Iyer",
       description: "Contact details updated",
       timestamp: "2024-12-08T11:09:00",
+      changes: [
+        { field: "Email", oldValue: "meera.old@example.com", newValue: "meera.iyer@example.com" },
+        { field: "Phone", oldValue: "+91 98765 00000", newValue: "+91 98765 43213" }
+      ],
       user: {
         name: "Sarah Manager",
         role: "manager",
@@ -286,7 +307,63 @@ export default function Activity() {
             <DataTable 
               data={filteredActivities} 
               columns={columns} 
+              onRowClick={(item) => setSelectedActivity(item)}
             />
+
+            <Dialog open={!!selectedActivity} onOpenChange={(open) => !open && setSelectedActivity(null)}>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Activity Details</DialogTitle>
+                  <DialogDescription>
+                    {selectedActivity?.title}
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="py-4">
+                  <div className="flex items-center gap-4 mb-6 p-4 bg-muted/30 rounded-lg">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={selectedActivity?.user.avatar} />
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {selectedActivity?.user.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium text-sm">{selectedActivity?.user.name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {selectedActivity?.user.role.replace('_', ' ')} • {selectedActivity && format(new Date(selectedActivity.timestamp), "MMM d, yyyy h:mm a")}
+                      </p>
+                    </div>
+                  </div>
+
+                  {selectedActivity?.changes && selectedActivity.changes.length > 0 ? (
+                    <div className="border rounded-md">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[150px]">Field</TableHead>
+                            <TableHead className="text-red-600">Old Value</TableHead>
+                            <TableHead className="text-green-600">New Value</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedActivity.changes.map((change, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{change.field}</TableCell>
+                              <TableCell className="text-red-600/80 line-through text-sm">{change.oldValue}</TableCell>
+                              <TableCell className="text-green-600 font-medium text-sm">{change.newValue}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground bg-muted/10 rounded-lg border border-dashed">
+                      <p>No detailed changes recorded for this activity.</p>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </CardContent>
       </Card>
