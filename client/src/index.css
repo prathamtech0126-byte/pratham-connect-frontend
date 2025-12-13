@@ -61,15 +61,13 @@
   
   --shadow-subtle: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-  --shadow-floating: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  --shadow-floating: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
 :root {
-  /* Brand Colors */
-  /* Logo Orange #eb6801 -> 26 99% 46% */
-  /* Premium Slate/Gray Palette */
-
-  --background: 210 40% 98%; /* Slate 50 - slightly cool off-white */
+  /* ApplyBoard Inspired Theme - Blue & Clean White */
+  
+  --background: 0 0% 100%; /* Pure White */
   --foreground: 222 47% 11%; /* Slate 900 */
 
   --card: 0 0% 100%;
@@ -78,47 +76,47 @@
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
 
-  /* Primary Brand Orange #eb6801 */
-  --primary: 26 99% 46%;
+  /* ApplyBoard Blue #0056b3 approx */
+  --primary: 211 100% 40%; 
   --primary-foreground: 0 0% 100%;
 
-  /* Secondary - Slate 100 */
+  /* Secondary - Soft Blue/Gray */
   --secondary: 210 40% 96.1%;
   --secondary-foreground: 222 47% 11%;
 
-  /* Muted - Slate 100/500 */
+  /* Muted */
   --muted: 210 40% 96.1%;
   --muted-foreground: 215 16% 47%;
 
-  /* Accent - Orange Tint */
-  --accent: 26 100% 97%; /* Very light orange tint */
-  --accent-foreground: 26 99% 46%;
+  /* Accent - Light Blue Tint */
+  --accent: 211 100% 96%;
+  --accent-foreground: 211 100% 40%;
 
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 214 32% 91%; /* Slate 200 */
+  --border: 214 32% 91%;
   --input: 214 32% 91%;
-  --ring: 26 99% 46%;
+  --ring: 211 100% 40%;
 
-  --radius: 0.75rem;
+  --radius: 1rem; /* More rounded */
 
-  /* Chart Colors */
-  --chart-1: 26 99% 46%;  /* Brand Orange */
-  --chart-2: 215 25% 27%; /* Slate 800 */
-  --chart-3: 215 16% 47%; /* Slate 500 */
-  --chart-4: 35 90% 50%;  /* Secondary Orange/Yellow */
-  --chart-5: 210 40% 96%; /* Slate 100 */
+  /* Colorful Charts / Accents */
+  --chart-1: 211 100% 40%; /* Blue */
+  --chart-2: 326 100% 60%; /* Pink */
+  --chart-3: 170 100% 40%; /* Teal */
+  --chart-4: 35 100% 50%;  /* Orange */
+  --chart-5: 260 100% 65%; /* Purple */
 
-  /* Sidebar - Clean White with subtle borders */
+  /* Sidebar - White with Blue Accents */
   --sidebar: 0 0% 100%;
-  --sidebar-foreground: 215 25% 27%; /* Slate 800 */
-  --sidebar-primary: 26 99% 46%;
+  --sidebar-foreground: 215 25% 27%;
+  --sidebar-primary: 211 100% 40%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 26 100% 97%; /* Light orange tint */
-  --sidebar-accent-foreground: 26 99% 46%;
+  --sidebar-accent: 211 100% 96%;
+  --sidebar-accent-foreground: 211 100% 40%;
   --sidebar-border: 214 32% 91%;
-  --sidebar-ring: 26 99% 46%;
+  --sidebar-ring: 211 100% 40%;
 }
 
 .dark {
@@ -131,7 +129,7 @@
   --popover: 222 47% 11%;
   --popover-foreground: 210 40% 98%;
 
-  --primary: 26 99% 46%;
+  --primary: 211 100% 60%; /* Lighter blue for dark mode */
   --primary-foreground: 0 0% 100%;
 
   --secondary: 217 32.6% 17.5%;
@@ -148,16 +146,16 @@
 
   --border: 217 32.6% 17.5%;
   --input: 217 32.6% 17.5%;
-  --ring: 26 99% 46%;
+  --ring: 211 100% 60%;
 
   --sidebar: 222 47% 11%;
   --sidebar-foreground: 210 40% 98%;
-  --sidebar-primary: 26 99% 46%;
+  --sidebar-primary: 211 100% 60%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 217 32.6% 17.5%;
   --sidebar-accent-foreground: 210 40% 98%;
   --sidebar-border: 217 32.6% 17.5%;
-  --sidebar-ring: 26 99% 46%;
+  --sidebar-ring: 211 100% 60%;
 }
 
 @layer base {

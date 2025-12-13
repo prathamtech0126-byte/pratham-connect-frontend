@@ -144,11 +144,11 @@ export function Sidebar({ className }: { className?: string }) {
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative",
                 isActive
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-orange-500/20"
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-primary/20"
                   : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
             >
-              <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-white" : "text-slate-400 group-hover:text-primary")} />
+              <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-sidebar-primary-foreground" : "text-slate-400 group-hover:text-sidebar-primary")} />
               {item.label}
               {isActive && (
                 <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white/50" />
