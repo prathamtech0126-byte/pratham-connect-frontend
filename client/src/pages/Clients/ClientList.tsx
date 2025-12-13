@@ -6,7 +6,7 @@ import { clientService, Client } from "@/services/clientService";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Download } from "lucide-react";
+import { Plus, Download, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -101,6 +101,15 @@ export default function ClientList() {
     }
   };
 
+  const handleClearFilters = () => {
+    setSalesTypeFilter("all");
+    setPmFilter("all");
+    setCounsellorFilter("all");
+    setStatusFilter("all");
+  };
+
+  const isFilterActive = salesTypeFilter !== "all" || pmFilter !== "all" || counsellorFilter !== "all" || statusFilter !== "all";
+
   return (
     <PageWrapper 
       title="Clients" 
@@ -171,6 +180,17 @@ export default function ClientList() {
                   <SelectItem value="completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
+              
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={handleClearFilters}
+                disabled={!isFilterActive}
+                title="Clear Filters"
+                className={!isFilterActive ? "opacity-50" : ""}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           }
         />
