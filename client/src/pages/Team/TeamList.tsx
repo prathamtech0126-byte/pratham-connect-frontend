@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Trash2, Plus, Filter, Search, Pencil } from "lucide-react";
+import { Trash2, Plus, Filter, Search, Pencil, X } from "lucide-react";
 
 export default function TeamList() {
   const { toast } = useToast();
@@ -27,6 +27,12 @@ export default function TeamList() {
   // Filter State
   const [roleFilter, setRoleFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const handleClearFilters = () => {
+    setRoleFilter("all");
+  };
+
+  const isFilterActive = roleFilter !== "all";
 
   // Add/Edit Member State
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
@@ -277,6 +283,17 @@ export default function TeamList() {
                 </SelectContent>
               </Select>
             </div>
+
+            {isFilterActive && (
+              <Button 
+                variant="outline" 
+                onClick={handleClearFilters}
+                className="bg-white text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
+              >
+                Clear All
+                <X className="ml-2 h-4 w-4" />
+              </Button>
+            )}
           </div>
 
           <div className="rounded-md border">

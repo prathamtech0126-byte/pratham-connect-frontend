@@ -14,8 +14,10 @@ import {
   Upload, 
   RefreshCw, 
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  X
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ActivityLogItem {
   id: string;
@@ -34,6 +36,13 @@ export default function Activity() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
+
+  const handleClearFilters = () => {
+    setTypeFilter("all");
+    setRoleFilter("all");
+  };
+
+  const isFilterActive = typeFilter !== "all" || roleFilter !== "all";
 
   // Hardcoded data to match the screenshot exactly for the simple prototype
   const activities: ActivityLogItem[] = [
@@ -259,6 +268,17 @@ export default function Activity() {
                       ))}
                     </SelectContent>
                   </Select>
+
+                  {isFilterActive && (
+                    <Button 
+                      variant="outline" 
+                      onClick={handleClearFilters}
+                      className="bg-white text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
+                    >
+                      Clear All
+                      <X className="ml-2 h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               }
             />

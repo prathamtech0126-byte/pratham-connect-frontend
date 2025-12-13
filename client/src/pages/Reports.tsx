@@ -2,6 +2,8 @@ import { PageWrapper } from "@/layout/PageWrapper";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { TableToolbar } from "@/components/table/TableToolbar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { 
@@ -61,6 +63,14 @@ export default function Reports() {
   const [periodFilter, setPeriodFilter] = useState("6m");
   const [salesTypeFilter, setSalesTypeFilter] = useState("all");
   const [userFilter, setUserFilter] = useState("all");
+
+  const handleClearFilters = () => {
+    setPeriodFilter("6m");
+    setSalesTypeFilter("all");
+    setUserFilter("all");
+  };
+
+  const isFilterActive = periodFilter !== "6m" || salesTypeFilter !== "all" || userFilter !== "all";
 
   const canViewAll = user?.role === 'superadmin' || user?.role === 'director' || user?.role === 'manager' || user?.role === 'team_lead';
 
@@ -135,6 +145,17 @@ export default function Reports() {
                   <SelectItem value="spouse">Spouse Visa</SelectItem>
                 </SelectContent>
               </Select>
+
+              {isFilterActive && (
+                <Button 
+                  variant="outline" 
+                  onClick={handleClearFilters}
+                  className="bg-white text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
+                >
+                  Clear All
+                  <X className="ml-2 h-4 w-4" />
+                </Button>
+              )}
             </div>
           }
         />
