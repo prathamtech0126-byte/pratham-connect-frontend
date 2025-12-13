@@ -73,7 +73,10 @@ export function Topbar() {
             <DropdownMenuSeparator className="bg-border/60" />
             <DropdownMenuGroup>
               <ProfileDialog>
-                <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary">
+                <DropdownMenuItem 
+                  className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary"
+                  onSelect={(e) => e.preventDefault()}
+                >
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
