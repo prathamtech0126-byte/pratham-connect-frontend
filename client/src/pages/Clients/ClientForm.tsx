@@ -36,7 +36,6 @@ const insuranceSchema = z.object({
   amount: z.number().optional(),
   insuranceNo: z.string().optional(),
   date: z.string().optional(),
-  remarks: z.string().optional(),
 });
 
 const beaconSchema = z.object({
@@ -123,7 +122,6 @@ const studentFieldsSchema = z.object({
     amount: z.number().optional(),
     policyNo: z.string().optional(),
     date: z.string().optional(),
-    remarks: z.string().optional(),
   }),
   financeRemarks: z.string().optional(),
   servicesRemarks: z.string().optional(),
@@ -618,14 +616,6 @@ export default function ClientForm() {
                           label="Date"
                         />
                       </div>
-                      <div className="mt-4">
-                        <FormTextareaInput
-                          name="spouseFields.insurance.remarks"
-                          control={control}
-                          label="Remarks"
-                          placeholder="Add remarks..."
-                        />
-                      </div>
                     </div>
 
                     <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -800,14 +790,6 @@ export default function ClientForm() {
                           name="visitorFields.insurance.date"
                           control={control}
                           label="Date"
-                        />
-                      </div>
-                      <div className="mt-4">
-                        <FormTextareaInput
-                          name="visitorFields.insurance.remarks"
-                          control={control}
-                          label="Remarks"
-                          placeholder="Add remarks..."
                         />
                       </div>
                     </div>
@@ -1086,14 +1068,6 @@ export default function ClientForm() {
                           name="studentFields.insurance.date"
                           control={control}
                           label="Date"
-                        />
-                      </div>
-                      <div className="mt-4">
-                        <FormTextareaInput
-                          name="studentFields.insurance.remarks"
-                          control={control}
-                          label="Remarks"
-                          placeholder="Add remarks..."
                         />
                       </div>
                     </div>
