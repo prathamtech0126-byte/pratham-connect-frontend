@@ -181,16 +181,16 @@ export default function ClientList() {
                 </SelectContent>
               </Select>
               
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={handleClearFilters}
-                disabled={!isFilterActive}
-                title="Clear Filters"
-                className={!isFilterActive ? "opacity-50" : ""}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              {isFilterActive && (
+                <Button 
+                  variant="outline" 
+                  onClick={handleClearFilters}
+                  className="bg-white text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
+                >
+                  Clear All
+                  <X className="ml-2 h-4 w-4" />
+                </Button>
+              )}
             </div>
           }
         />
