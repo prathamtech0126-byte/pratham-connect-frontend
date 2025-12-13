@@ -71,24 +71,6 @@ export default function Dashboard() {
             Welcome back, <span className="font-semibold text-primary">{user?.name}</span>. Here's what's happening today.
           </p>
         </div>
-        
-        {(user?.role === 'superadmin' || user?.role === 'director') && (
-            <div className="w-[200px]">
-                <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                    <SelectTrigger className="w-full bg-white border-slate-200 shadow-sm rounded-lg h-10">
-                        <SelectValue placeholder="Select Branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
-                        <SelectItem value="main">Main Branch</SelectItem>
-                        <SelectItem value="north">North Branch</SelectItem>
-                        <SelectItem value="south">South Branch</SelectItem>
-                        <SelectItem value="east">East Branch</SelectItem>
-                        <SelectItem value="west">West Branch</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-        )}
       </div>
 
       {/* Target & Leaderboard Section */}
