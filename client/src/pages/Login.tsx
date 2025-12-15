@@ -4,10 +4,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Select,
@@ -18,8 +14,9 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, Shield, Users, UserCog, Briefcase, Crown, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Shield, Users, Briefcase, Crown, ArrowRight, CheckCircle2 } from "lucide-react";
 import logoUrl from "@/assets/images/Pratham Logo.svg";
+import { ModeToggle } from "@/components/mode-toggle";
 
 export default function Login() {
   const { login, isLoading } = useAuth();
@@ -33,18 +30,22 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-slate-50">
+    <div className="min-h-screen w-full flex bg-background transition-colors duration-300">
+        <div className="absolute top-4 right-4 z-50">
+            <ModeToggle />
+        </div>
+
       {/* Left Panel - Branding */}
-      <div className="hidden lg:flex w-1/2 bg-slate-900 relative overflow-hidden items-center justify-center p-12">
+      <div className="hidden lg:flex w-1/2 bg-slate-950 relative overflow-hidden items-center justify-center p-12 border-r border-border/10">
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1497294815431-9365093b7331?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80')] bg-cover bg-center opacity-20 mix-blend-overlay" />
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-primary/20" />
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950/90 via-slate-900/80 to-primary/20" />
         
         <div className="relative z-10 max-w-lg text-white space-y-8">
-            <div className="h-20 w-auto bg-white/10 backdrop-blur-md p-4 rounded-xl inline-block mb-4 border border-white/10">
+            <div className="h-20 w-auto bg-white/10 backdrop-blur-md p-4 rounded-xl inline-block mb-4 border border-white/10 shadow-xl">
                 <img src={logoUrl} alt="Logo" className="h-full w-auto brightness-0 invert" />
             </div>
             
-            <h1 className="text-5xl font-bold tracking-tight leading-tight">
+            <h1 className="text-5xl font-bold tracking-tight leading-tight text-white drop-shadow-sm">
                 Professional Consultancy Management
             </h1>
             
@@ -53,8 +54,8 @@ export default function Login() {
             </p>
 
             <div className="grid grid-cols-2 gap-6 pt-4">
-                <div className="flex items-start gap-3">
-                    <div className="mt-1 p-1 bg-primary/20 rounded-full">
+                <div className="flex items-start gap-3 group">
+                    <div className="mt-1 p-1 bg-primary/20 rounded-full group-hover:bg-primary/30 transition-colors">
                         <CheckCircle2 className="w-5 h-5 text-primary" />
                     </div>
                     <div>
@@ -62,8 +63,8 @@ export default function Login() {
                         <p className="text-sm text-slate-400 mt-1">Full lifecycle management</p>
                     </div>
                 </div>
-                <div className="flex items-start gap-3">
-                    <div className="mt-1 p-1 bg-primary/20 rounded-full">
+                <div className="flex items-start gap-3 group">
+                    <div className="mt-1 p-1 bg-primary/20 rounded-full group-hover:bg-primary/30 transition-colors">
                         <CheckCircle2 className="w-5 h-5 text-primary" />
                     </div>
                     <div>
@@ -71,8 +72,8 @@ export default function Login() {
                         <p className="text-sm text-slate-400 mt-1">Real-time revenue insights</p>
                     </div>
                 </div>
-                <div className="flex items-start gap-3">
-                    <div className="mt-1 p-1 bg-primary/20 rounded-full">
+                <div className="flex items-start gap-3 group">
+                    <div className="mt-1 p-1 bg-primary/20 rounded-full group-hover:bg-primary/30 transition-colors">
                         <CheckCircle2 className="w-5 h-5 text-primary" />
                     </div>
                     <div>
@@ -80,8 +81,8 @@ export default function Login() {
                         <p className="text-sm text-slate-400 mt-1">Monitor productivity</p>
                     </div>
                 </div>
-                <div className="flex items-start gap-3">
-                    <div className="mt-1 p-1 bg-primary/20 rounded-full">
+                <div className="flex items-start gap-3 group">
+                    <div className="mt-1 p-1 bg-primary/20 rounded-full group-hover:bg-primary/30 transition-colors">
                         <CheckCircle2 className="w-5 h-5 text-primary" />
                     </div>
                     <div>
@@ -94,47 +95,47 @@ export default function Login() {
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-8 lg:p-12">
+      <div className="flex-1 flex items-center justify-center p-8 lg:p-12 relative">
         <div className="w-full max-w-[420px] space-y-8">
             <div className="text-center lg:text-left space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight text-slate-900">Welcome back</h2>
-                <p className="text-slate-500">Please sign in to your account to continue.</p>
+                <h2 className="text-3xl font-bold tracking-tight text-foreground">Welcome back</h2>
+                <p className="text-muted-foreground">Please sign in to your account to continue.</p>
             </div>
 
-            <Card className="border-none shadow-floating bg-white/80 backdrop-blur-sm">
-                <CardContent className="pt-6 pb-6">
-                    <form onSubmit={handleLogin} className="space-y-5">
+            <Card className="border border-border/50 shadow-2xl shadow-primary/5 bg-card/50 backdrop-blur-sm">
+                <CardContent className="pt-8 pb-8 px-8">
+                    <form onSubmit={handleLogin} className="space-y-6">
                         <div className="space-y-2">
-                            <Label htmlFor="role" className="text-slate-700 font-medium">Select Role (Demo)</Label>
+                            <Label htmlFor="role" className="text-foreground font-medium">Select Role (Demo)</Label>
                             <Select
                                 value={selectedRole}
                                 onValueChange={(value) => setSelectedRole(value as UserRole)}
                             >
-                                <SelectTrigger className="h-12 bg-slate-50 border-slate-200 focus:ring-primary/20 focus:border-primary">
+                                <SelectTrigger className="h-12 bg-background border-input focus:ring-primary/20 focus:border-primary text-foreground">
                                     <SelectValue placeholder="Select a role" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="superadmin" className="focus:bg-purple-50 focus:text-purple-700">
+                                    <SelectItem value="superadmin" className="focus:bg-primary/10">
                                         <div className="flex items-center gap-2">
-                                            <Shield className="h-4 w-4 text-purple-600" />
+                                            <Shield className="h-4 w-4 text-primary" />
                                             <span>Super Admin</span>
                                         </div>
                                     </SelectItem>
-                                    <SelectItem value="director" className="focus:bg-indigo-50 focus:text-indigo-700">
+                                    <SelectItem value="director" className="focus:bg-primary/10">
                                         <div className="flex items-center gap-2">
-                                            <Crown className="h-4 w-4 text-indigo-600" />
+                                            <Crown className="h-4 w-4 text-primary" />
                                             <span>Director</span>
                                         </div>
                                     </SelectItem>
-                                    <SelectItem value="manager" className="focus:bg-blue-50 focus:text-blue-700">
+                                    <SelectItem value="manager" className="focus:bg-primary/10">
                                         <div className="flex items-center gap-2">
-                                            <Users className="h-4 w-4 text-blue-600" />
+                                            <Users className="h-4 w-4 text-primary" />
                                             <span>Manager</span>
                                         </div>
                                     </SelectItem>
-                                    <SelectItem value="counsellor" className="focus:bg-emerald-50 focus:text-emerald-700">
+                                    <SelectItem value="counsellor" className="focus:bg-primary/10">
                                         <div className="flex items-center gap-2">
-                                            <Briefcase className="h-4 w-4 text-green-600" />
+                                            <Briefcase className="h-4 w-4 text-primary" />
                                             <span>Counsellor</span>
                                         </div>
                                     </SelectItem>
@@ -143,19 +144,19 @@ export default function Login() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="username" className="text-slate-700 font-medium">Username</Label>
+                            <Label htmlFor="username" className="text-foreground font-medium">Username</Label>
                             <Input
                                 id="username"
                                 placeholder="name@company.com"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
-                                className="h-12 bg-slate-50 border-slate-200 focus:ring-primary/20 focus:border-primary"
+                                className="h-12 bg-background border-input focus:ring-primary/20 focus:border-primary text-foreground placeholder:text-muted-foreground"
                             />
                         </div>
                         
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <Label htmlFor="password" className="text-slate-700 font-medium">Password</Label>
+                                <Label htmlFor="password" className="text-foreground font-medium">Password</Label>
                                 <a href="#" className="text-xs font-medium text-primary hover:text-primary/80">Forgot password?</a>
                             </div>
                             <Input
@@ -164,7 +165,7 @@ export default function Login() {
                                 placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="h-12 bg-slate-50 border-slate-200 focus:ring-primary/20 focus:border-primary"
+                                className="h-12 bg-background border-input focus:ring-primary/20 focus:border-primary text-foreground placeholder:text-muted-foreground"
                             />
                         </div>
 
@@ -180,7 +181,7 @@ export default function Login() {
                 </CardContent>
             </Card>
 
-            <p className="text-center text-sm text-slate-500">
+            <p className="text-center text-sm text-muted-foreground">
                 &copy; {new Date().getFullYear()} Pratham Consultancy. All rights reserved.
             </p>
         </div>
