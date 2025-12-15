@@ -33,8 +33,7 @@ const counselorTargets = [
 
 import { RevenueChart } from "@/components/charts/RevenueChart";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -85,15 +84,14 @@ export default function Dashboard() {
           </p>
         </div>
         
-        <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex items-center">
-             <Tabs defaultValue="today" value={timeFilter} onValueChange={setTimeFilter} className="w-auto">
-                <TabsList className="grid w-full grid-cols-4 h-9">
-                    <TabsTrigger value="today" className="text-xs px-3">Today</TabsTrigger>
-                    <TabsTrigger value="weekly" className="text-xs px-3">Weekly</TabsTrigger>
-                    <TabsTrigger value="monthly" className="text-xs px-3">Monthly</TabsTrigger>
-                    <TabsTrigger value="yearly" className="text-xs px-3">Yearly</TabsTrigger>
-                </TabsList>
-            </Tabs>
+        <div className="flex items-center">
+             <DashboardDateFilter 
+                date={dateRange} 
+                onDateChange={setDateRange}
+                activeTab={timeFilter === 'today' ? 'Today' : timeFilter === 'weekly' ? 'Weekly' : timeFilter === 'monthly' ? 'Monthly' : timeFilter === 'yearly' ? 'Yearly' : 'Custom'}
+                onTabChange={(tab) => setTimeFilter(tab === 'Today' ? 'today' : tab.toLowerCase())}
+                align="end"
+            />
         </div>
       </div>
 
