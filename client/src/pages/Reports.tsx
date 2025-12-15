@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { X, ArrowLeft, Users, TrendingUp, DollarSign, ArrowUpRight, CalendarRange } from "lucide-react";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/context/auth-context";
 import { 
   BarChart, 
@@ -67,6 +68,7 @@ type YearFilter = '2025' | '2024' | '2023';
 
 export default function Reports() {
   const { user } = useAuth();
+  const [location, setLocation] = useLocation();
   const [periodFilter, setPeriodFilter] = useState("6m");
   const [salesTypeFilter, setSalesTypeFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
@@ -468,6 +470,7 @@ export default function Reports() {
                         <CardContent className="p-0">
                             <DataTable 
                                data={filteredClients || []}
+                               onRowClick={(client: Client) => setLocation(`/clients/${client.id}`)}
                                columns={[
                                  { 
                                    header: "Client Name", 
