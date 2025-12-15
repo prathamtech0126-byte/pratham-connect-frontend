@@ -97,121 +97,138 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Target & Leaderboard Section */}
-      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
-        {/* Your Target Card - Only for non-admins or if admin has personal targets */}
-        {!canViewFinancials && (
-        <Card className="border-none shadow-card bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl overflow-hidden relative">
-          <div className="absolute top-4 right-4 opacity-10">
-            <Target className="w-24 h-24 text-primary" />
-          </div>
-          <CardHeader>
-            <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <div className="p-2 bg-white rounded-lg shadow-sm">
-                <Target className="w-5 h-5 text-primary" />
-              </div>
-              Your Target
-            </CardTitle>
-            <CardDescription>Monthly enrollment goal</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-               <div className="flex items-end justify-between relative z-10">
-                  <div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-5xl font-bold text-slate-900 tracking-tight">{currentUserTarget?.achieved}</span>
-                      <span className="text-slate-500 font-medium text-lg">/ {currentUserTarget?.target} achieved</span>
+      {/* Target & Stats Section */}
+      {!canViewFinancials ? (
+        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
+            {/* Target Card - Takes 1/3 width */}
+            <div className="h-full">
+                <Card className="h-full border-none shadow-card bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl overflow-hidden relative flex flex-col justify-center">
+                <div className="absolute top-4 right-4 opacity-10">
+                    <Target className="w-24 h-24 text-primary" />
+                </div>
+                <CardHeader>
+                    <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <div className="p-2 bg-white rounded-lg shadow-sm">
+                        <Target className="w-5 h-5 text-primary" />
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-medium text-slate-500 block mb-1">Remaining</span>
-                    <div className="text-3xl font-bold text-primary tabular-nums">{remainingTarget}</div>
-                  </div>
-               </div>
-               
-               <div className="space-y-2 relative z-10">
-                 <Progress value={progressPercentage} className="h-3 bg-white/50" />
-                 <p className="text-xs text-slate-500 text-right font-medium">
-                   {progressPercentage.toFixed(0)}% completed
-                 </p>
-               </div>
+                    Your Target
+                    </CardTitle>
+                    <CardDescription>Monthly enrollment goal</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-6">
+                    <div className="flex items-end justify-between relative z-10">
+                        <div>
+                            <div className="flex items-baseline gap-2">
+                            <span className="text-5xl font-bold text-slate-900 tracking-tight">{currentUserTarget?.achieved}</span>
+                            <span className="text-slate-500 font-medium text-lg">/ {currentUserTarget?.target} achieved</span>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-sm font-medium text-slate-500 block mb-1">Remaining</span>
+                            <div className="text-3xl font-bold text-primary tabular-nums">{remainingTarget}</div>
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-2 relative z-10">
+                        <Progress value={progressPercentage} className="h-3 bg-white/50" />
+                        <p className="text-xs text-slate-500 text-right font-medium">
+                        {progressPercentage.toFixed(0)}% completed
+                        </p>
+                    </div>
 
-               <div className="bg-white/80 rounded-xl p-4 text-sm text-slate-700 backdrop-blur-md border border-white/60 shadow-sm relative z-10">
-                 <div className="flex items-start gap-3">
-                   <div className="p-1.5 bg-primary/10 rounded-full mt-0.5">
-                     <Trophy className="w-4 h-4 text-primary" />
-                   </div>
-                   <div>
-                     <p className="font-bold text-slate-900">Keep it up! 🚀</p>
-                     <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-                       You need <span className="font-bold text-primary">{remainingTarget}</span> more enrollments to hit your monthly target.
-                     </p>
-                   </div>
-                 </div>
-               </div>
+                    <div className="bg-white/80 rounded-xl p-4 text-sm text-slate-700 backdrop-blur-md border border-white/60 shadow-sm relative z-10">
+                        <div className="flex items-start gap-3">
+                        <div className="p-1.5 bg-primary/10 rounded-full mt-0.5">
+                            <Trophy className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                            <p className="font-bold text-slate-900">Keep it up! 🚀</p>
+                            <p className="text-slate-500 text-xs mt-1 leading-relaxed">
+                            You need <span className="font-bold text-primary">{remainingTarget}</span> more enrollments to hit your monthly target.
+                            </p>
+                        </div>
+                        </div>
+                    </div>
+                    </div>
+                </CardContent>
+                </Card>
             </div>
-          </CardContent>
-        </Card>
-        )}
-      </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Clients"
-          value={getAdjustedValue(stats?.totalClients || 120)}
-          icon={Users}
-          trend={{ value: 12, isPositive: true }}
-          description={`for ${timeFilter}`}
-          className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
-        />
-        
-        {canViewFinancials ? (
-          <>
+            {/* Stats - Takes 2/3 width, displayed as 2x2 grid */}
+            <div className="lg:col-span-2 grid gap-6 sm:grid-cols-2">
+                <StatCard
+                    title="Total Clients"
+                    value={getAdjustedValue(stats?.totalClients || 120)}
+                    icon={Users}
+                    trend={{ value: 12, isPositive: true }}
+                    description={`for ${timeFilter}`}
+                    className="shadow-card hover:shadow-lg transition-shadow border-none bg-white h-full"
+                />
+                
+                <StatCard
+                    title="Active Cases"
+                    value={getAdjustedValue(42)}
+                    icon={Activity}
+                    trend={{ value: 5, isPositive: true }}
+                    description="currently processing"
+                    className="shadow-card hover:shadow-lg transition-shadow border-none bg-white h-full"
+                />
+
+                <StatCard
+                    title="Pending Actions"
+                    value={7}
+                    icon={ShieldAlert}
+                    description="require attention"
+                    className="shadow-card hover:shadow-lg transition-shadow border-l-4 border-l-red-500 bg-white h-full"
+                />
+                
+                <StatCard
+                    title="New Enrollments"
+                    value={getAdjustedValue(stats?.todaysEnrollments || 5)}
+                    icon={UserPlus}
+                    description={`new clients ${timeFilter}`}
+                    className="shadow-card hover:shadow-lg transition-shadow border-none bg-white h-full"
+                />
+            </div>
+        </div>
+      ) : (
+        /* Admin View: Just 4 stats in a row */
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             <StatCard
-              title="Total Revenue"
-              value={`₹${getAdjustedValue(stats?.totalReceived || 2500000).toLocaleString()}`}
-              icon={DollarSign}
-              trend={{ value: 8, isPositive: true }}
-              description={`for ${timeFilter}`}
-              className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
+                title="Total Clients"
+                value={getAdjustedValue(stats?.totalClients || 120)}
+                icon={Users}
+                trend={{ value: 12, isPositive: true }}
+                description={`for ${timeFilter}`}
+                className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
+            />
+            
+            <StatCard
+                title="Total Revenue"
+                value={`₹${getAdjustedValue(stats?.totalReceived || 2500000).toLocaleString()}`}
+                icon={DollarSign}
+                trend={{ value: 8, isPositive: true }}
+                description={`for ${timeFilter}`}
+                className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
             />
             <StatCard
-              title="Pending Amount"
-              value={`₹${(stats?.totalPending || 0).toLocaleString()}`}
-              icon={Clock}
-              description="total outstanding"
-              className="shadow-card hover:shadow-lg transition-shadow border-l-4 border-l-yellow-500 bg-white"
+                title="Pending Amount"
+                value={`₹${(stats?.totalPending || 0).toLocaleString()}`}
+                icon={Clock}
+                description="total outstanding"
+                className="shadow-card hover:shadow-lg transition-shadow border-l-4 border-l-yellow-500 bg-white"
             />
-          </>
-        ) : (
-          <>
+            
             <StatCard
-              title="Active Cases"
-              value={getAdjustedValue(42)}
-              icon={Activity}
-              trend={{ value: 5, isPositive: true }}
-              description="currently processing"
-              className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
+                title="New Enrollments"
+                value={getAdjustedValue(stats?.todaysEnrollments || 5)}
+                icon={UserPlus}
+                description={`new clients ${timeFilter}`}
+                className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
             />
-            <StatCard
-              title="Pending Actions"
-              value={7}
-              icon={ShieldAlert}
-              description="require attention"
-              className="shadow-card hover:shadow-lg transition-shadow border-l-4 border-l-red-500 bg-white"
-            />
-          </>
-        )}
-        
-        <StatCard
-          title="New Enrollments"
-          value={getAdjustedValue(stats?.todaysEnrollments || 5)}
-          icon={UserPlus}
-          description={`new clients ${timeFilter}`}
-          className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
-        />
-      </div>
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
