@@ -8,6 +8,7 @@ export interface Client {
   salesType: string;
   coreSales?: string;
   status: 'Active' | 'Completed' | 'Pending' | 'Dropped';
+  stage?: 'Initial' | 'Financial' | 'Before Visa' | 'After Visa Payment' | 'Visa Submitted';
   
   // Finance
   totalPayment: number;
@@ -74,9 +75,10 @@ let clients: Client[] = [
     salesType: "Canada Student",
     coreSales: "Yes",
     status: "Active",
+    stage: "Initial",
     totalPayment: 50000,
-    amountReceived: 25000,
-    amountPending: 25000,
+    amountReceived: 5900,
+    amountPending: 44100,
     email: "aarav.s@example.com",
     phone: "+91 98765 43210"
   },
@@ -89,6 +91,7 @@ let clients: Client[] = [
     salesType: "UK Student",
     coreSales: "Yes",
     status: "Pending",
+    stage: "Financial",
     totalPayment: 15000,
     amountReceived: 5000,
     amountPending: 10000,
@@ -104,6 +107,7 @@ let clients: Client[] = [
     salesType: "Canada Spouse",
     coreSales: "No",
     status: "Active",
+    stage: "Before Visa",
     totalPayment: 120000,
     amountReceived: 80000,
     amountPending: 40000,
@@ -119,6 +123,7 @@ let clients: Client[] = [
     salesType: "USA Visitor",
     coreSales: "No",
     status: "Completed",
+    stage: "Visa Submitted",
     totalPayment: 5000,
     amountReceived: 5000,
     amountPending: 0,
@@ -134,6 +139,7 @@ let clients: Client[] = [
     salesType: "SPOUSAL PR",
     coreSales: "Yes",
     status: "Active",
+    stage: "After Visa Payment",
     totalPayment: 60000,
     amountReceived: 10000,
     amountPending: 50000,
@@ -149,9 +155,10 @@ let clients: Client[] = [
     salesType: "Germany Student",
     coreSales: "Yes",
     status: "Dropped",
+    stage: "Initial",
     totalPayment: 20000,
-    amountReceived: 5000,
-    amountPending: 15000,
+    amountReceived: 5900,
+    amountPending: 14100,
     email: "ananya.s@example.com",
     phone: "+91 98765 43215"
   },
@@ -164,6 +171,7 @@ let clients: Client[] = [
     salesType: "Canada Visitor",
     coreSales: "No",
     status: "Active",
+    stage: "Financial",
     totalPayment: 10000,
     amountReceived: 10000,
     amountPending: 0,
@@ -179,6 +187,7 @@ let clients: Client[] = [
     salesType: "UK Spouse",
     coreSales: "Yes",
     status: "Pending",
+    stage: "Before Visa",
     totalPayment: 80000,
     amountReceived: 20000,
     amountPending: 60000,
@@ -194,6 +203,7 @@ let clients: Client[] = [
     salesType: "USA Student",
     coreSales: "No",
     status: "Active",
+    stage: "After Visa Payment",
     totalPayment: 45000,
     amountReceived: 45000,
     amountPending: 0,
@@ -209,6 +219,7 @@ let clients: Client[] = [
     salesType: "Schengen Visitor",
     coreSales: "No",
     status: "Completed",
+    stage: "Visa Submitted",
     totalPayment: 8000,
     amountReceived: 8000,
     amountPending: 0,
@@ -224,9 +235,10 @@ let clients: Client[] = [
     salesType: "Finland Student",
     coreSales: "Yes",
     status: "Active",
+    stage: "Initial",
     totalPayment: 30000,
-    amountReceived: 15000,
-    amountPending: 15000,
+    amountReceived: 5900,
+    amountPending: 24100,
     email: "kabir.d@example.com",
     phone: "+91 98765 43220"
   },
@@ -239,6 +251,7 @@ let clients: Client[] = [
     salesType: "Canada Onshore Student",
     coreSales: "Yes",
     status: "Active",
+    stage: "Financial",
     totalPayment: 25000,
     amountReceived: 25000,
     amountPending: 0,

@@ -85,6 +85,21 @@ export default function ClientList() {
     { header: "Product Manager", accessorKey: "productManager", className: "whitespace-nowrap text-slate-500" },
     { header: "Total Payment", cell: (s: Client) => `₹${s.totalPayment.toLocaleString()}` },
     { header: "Received", cell: (s: Client) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString()}</span> },
+    { header: "Stage", cell: (s: Client) => {
+      const stage = s.stage || 'Initial';
+      let badgeClass = "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800";
+      
+      if (stage === 'Financial') badgeClass = "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800";
+      if (stage === 'Before Visa') badgeClass = "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800";
+      if (stage === 'After Visa Payment') badgeClass = "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800";
+      if (stage === 'Visa Submitted') badgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800";
+      
+      return (
+        <Badge variant="outline" className={`font-medium whitespace-nowrap ${badgeClass}`}>
+          {stage}
+        </Badge>
+      );
+    }},
     { header: "Pending", cell: (s: Client) => <span className={s.amountPending > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>₹{s.amountPending.toLocaleString()}</span> },
     // Removed Counsellor column since it's now grouped
     { header: "Status", cell: (s: Client) => (

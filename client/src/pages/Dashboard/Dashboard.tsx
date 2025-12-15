@@ -414,19 +414,18 @@ export default function Dashboard() {
                      header: "Stage", 
                      accessorKey: "status",
                      cell: (client: Client) => {
-                       // Mock stage logic based on user request
-                       const stages = ["Initial", "Before Visa", "Visa Applied", "In Progress"];
-                       const randomStage = stages[Math.floor(Math.random() * stages.length)];
+                       const stage = client.stage || 'Initial';
                        
                        return (
                          <Badge variant="outline" className={`
                            font-medium border-0
-                           ${randomStage === 'Initial' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : ''}
-                           ${randomStage === 'Before Visa' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : ''}
-                           ${randomStage === 'Visa Applied' ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : ''}
-                           ${randomStage === 'In Progress' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : ''}
+                           ${stage === 'Initial' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : ''}
+                           ${stage === 'Financial' ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : ''}
+                           ${stage === 'Before Visa' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : ''}
+                           ${stage === 'After Visa Payment' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' : ''}
+                           ${stage === 'Visa Submitted' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : ''}
                          `}>
-                           {randomStage}
+                           {stage}
                          </Badge>
                        );
                      } 
