@@ -172,45 +172,49 @@ export default function Reports() {
                     </Button>
                 )}
               
-              <div className="bg-slate-100 p-1 rounded-lg flex items-center mr-2">
-                  <Button 
-                    variant={viewMode === 'monthly' ? 'default' : 'ghost'} 
-                    size="sm" 
-                    onClick={() => setViewMode('monthly')}
-                    className={viewMode === 'monthly' ? 'shadow-sm bg-white text-slate-900 hover:bg-white/90' : 'hover:bg-transparent text-slate-500 hover:text-slate-900'}
-                  >
-                    Monthly
-                  </Button>
-                  <Button 
-                    variant={viewMode === 'quarterly' ? 'default' : 'ghost'} 
-                    size="sm" 
-                    onClick={() => setViewMode('quarterly')}
-                    className={viewMode === 'quarterly' ? 'shadow-sm bg-white text-slate-900 hover:bg-white/90' : 'hover:bg-transparent text-slate-500 hover:text-slate-900'}
-                  >
-                    Quarterly
-                  </Button>
-                  <Button 
-                    variant={viewMode === 'yearly' ? 'default' : 'ghost'} 
-                    size="sm" 
-                    onClick={() => setViewMode('yearly')}
-                    className={viewMode === 'yearly' ? 'shadow-sm bg-white text-slate-900 hover:bg-white/90' : 'hover:bg-transparent text-slate-500 hover:text-slate-900'}
-                  >
-                    Yearly
-                  </Button>
-              </div>
+              {(selectedUser || isIndividual) && (
+                <>
+                  <div className="bg-slate-100 p-1 rounded-lg flex items-center mr-2">
+                      <Button 
+                        variant={viewMode === 'monthly' ? 'default' : 'ghost'} 
+                        size="sm" 
+                        onClick={() => setViewMode('monthly')}
+                        className={viewMode === 'monthly' ? 'shadow-sm bg-white text-slate-900 hover:bg-white/90' : 'hover:bg-transparent text-slate-500 hover:text-slate-900'}
+                      >
+                        Monthly
+                      </Button>
+                      <Button 
+                        variant={viewMode === 'quarterly' ? 'default' : 'ghost'} 
+                        size="sm" 
+                        onClick={() => setViewMode('quarterly')}
+                        className={viewMode === 'quarterly' ? 'shadow-sm bg-white text-slate-900 hover:bg-white/90' : 'hover:bg-transparent text-slate-500 hover:text-slate-900'}
+                      >
+                        Quarterly
+                      </Button>
+                      <Button 
+                        variant={viewMode === 'yearly' ? 'default' : 'ghost'} 
+                        size="sm" 
+                        onClick={() => setViewMode('yearly')}
+                        className={viewMode === 'yearly' ? 'shadow-sm bg-white text-slate-900 hover:bg-white/90' : 'hover:bg-transparent text-slate-500 hover:text-slate-900'}
+                      >
+                        Yearly
+                      </Button>
+                  </div>
 
-              {/* Year Filter */}
-              <Select value={yearFilter} onValueChange={(value) => setYearFilter(value as YearFilter)}>
-                <SelectTrigger className="w-[120px] bg-white border-slate-200">
-                    <CalendarRange className="w-4 h-4 mr-2 text-muted-foreground" />
-                    <SelectValue placeholder="Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="2025">2025</SelectItem>
-                  <SelectItem value="2024">2024</SelectItem>
-                  <SelectItem value="2023">2023</SelectItem>
-                </SelectContent>
-              </Select>
+                  {/* Year Filter */}
+                  <Select value={yearFilter} onValueChange={(value) => setYearFilter(value as YearFilter)}>
+                    <SelectTrigger className="w-[120px] bg-white border-slate-200">
+                        <CalendarRange className="w-4 h-4 mr-2 text-muted-foreground" />
+                        <SelectValue placeholder="Year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2025">2025</SelectItem>
+                      <SelectItem value="2024">2024</SelectItem>
+                      <SelectItem value="2023">2023</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
+              )}
 
               <Select value={salesTypeFilter} onValueChange={setSalesTypeFilter}>
                 <SelectTrigger className="w-[180px] bg-white">
