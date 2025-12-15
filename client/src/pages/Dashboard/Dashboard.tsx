@@ -98,9 +98,9 @@ export default function Dashboard() {
       </div>
 
       {/* Target & Leaderboard Section */}
-      {!canViewFinancials && (
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
-        {/* Your Target Card */}
+        {/* Your Target Card - Only for non-admins or if admin has personal targets */}
+        {!canViewFinancials && (
         <Card className="border-none shadow-card bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl overflow-hidden relative">
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <Target className="w-24 h-24 text-primary" />
@@ -139,15 +139,16 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+        )}
 
-        {/* Leaderboard Card */}
-        <Card className="lg:col-span-2 border-none shadow-card bg-white rounded-xl overflow-hidden">
+        {/* Leaderboard Card - Visible to everyone now, but adapted for admins */}
+        <Card className={`border-none shadow-card bg-white rounded-xl overflow-hidden ${!canViewFinancials ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
           <CardHeader>
             <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <Trophy className="w-5 h-5 text-yellow-500" />
-              Counselor Leaderboard
+              {canViewFinancials ? "Performance Leaderboard" : "Counselor Leaderboard"}
             </CardTitle>
-            <CardDescription>Top performing counselors this month</CardDescription>
+            <CardDescription>Top performing {canViewFinancials ? "team members" : "counselors"} this month</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -193,7 +194,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-      )}
 
       {/* Stats Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
