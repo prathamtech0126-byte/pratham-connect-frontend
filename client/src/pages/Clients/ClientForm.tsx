@@ -132,10 +132,10 @@ const studentFieldsSchema = z.object({
 
 const formSchema = z.object({
   // Step 1: Basic Details
-  name: z.string().min(1, "Please enter full name").regex(/^[a-zA-Z]+ [a-zA-Z]+$/, "Please enter full name (First Last)"),
-  enrollmentDate: z.string().min(1, "Please select an enrollment date"),
-  salesType: z.string().min(1, "Please select a sales type"),
-  coreSales: z.string().min(1, "Please select a core sales option"),
+  name: z.string({ required_error: "Please enter full name" }).min(1, "Please enter full name").regex(/^[a-zA-Z]+ [a-zA-Z]+$/, "Please enter full name (First Last)"),
+  enrollmentDate: z.string({ required_error: "Please select an enrollment date" }).min(1, "Please select an enrollment date"),
+  salesType: z.string({ required_error: "Please select a sales type" }).min(1, "Please select a sales type"),
+  coreSales: z.string({ required_error: "Please select a core sales option" }).min(1, "Please select a core sales option"),
 
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
@@ -197,6 +197,7 @@ export default function ClientForm() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
+    mode: "onChange",
     defaultValues: {
       name: "",
       totalPayment: 0,
