@@ -3,7 +3,7 @@ import { DataTable } from "@/components/table/DataTable";
 import { TableToolbar } from "@/components/table/TableToolbar";
 import { TableActions } from "@/components/table/TableActions";
 import { clientService, Client } from "@/services/clientService";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Download, X, Filter, ChevronRight, User } from "lucide-react";
@@ -16,6 +16,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/context/auth-context";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
+import ClientForm from "./ClientForm";
 
 export default function ClientList() {
   const { user } = useAuth();
@@ -26,6 +28,8 @@ export default function ClientList() {
   const [pmFilter, setPmFilter] = useState("all");
   const [counsellorFilter, setCounsellorFilter] = useState("all");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+  const [isAddClientOpen, setIsAddClientOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ['clients'],
@@ -163,10 +167,24 @@ export default function ClientList() {
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
-          <Button onClick={() => setLocation("/clients/new")} className="shadow-md shadow-primary/20">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Client
-          </Button>
+          <Dialog open={isAddClientOpen} onOpenChange={setIsAddClientOpen}>
+            <DialogTrigger asChild>
+              <Button className="shadow-md shadow-primary/20">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Client
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogTitle className="sr-only">Add New Client</DialogTitle>
+              <ClientForm 
+                mode="modal" 
+                onSuccess={() => {
+                  setIsAddClientOpen(false);
+                  queryClient.invalidateQueries({ queryKey: ['clients'] });
+                }} 
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       }
     >

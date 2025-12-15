@@ -22,10 +22,6 @@ import {
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
-
-const DRAFT_STORAGE_KEY = "client_registration_draft";
 
 // --- Schema Definitions ---
 
@@ -192,7 +188,12 @@ const getProductType = (
   return null;
 };
 
-export default function ClientForm() {
+interface ClientFormProps {
+  mode?: "page" | "modal";
+  onSuccess?: () => void;
+}
+
+export default function ClientForm({ mode = "page", onSuccess }: ClientFormProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -240,46 +241,6 @@ export default function ClientForm() {
 
   const productType = getProductType(salesType);
 
-  // Load draft on mount
-  useEffect(() => {
-    const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-    if (savedDraft) {
-      try {
-        const parsedDraft = JSON.parse(savedDraft);
-        
-        // Show a toast with an action to restore
-        toast({
-          title: "Draft Found",
-          description: "We found an unsaved draft. Would you like to restore it?",
-          action: (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => {
-                form.reset(parsedDraft);
-                toast({ title: "Draft Restored", description: "Your form has been restored from draft." });
-              }}
-            >
-              Restore
-            </Button>
-          ),
-          duration: 10000,
-        });
-      } catch (e) {
-        console.error("Failed to parse draft", e);
-      }
-    }
-  }, []);
-
-  const saveDraft = () => {
-    const currentValues = form.getValues();
-    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(currentValues));
-    toast({
-      title: "Draft Saved",
-      description: "Your progress has been saved locally.",
-    });
-  };
-
   const onSubmit = async (data: FormValues) => {
     try {
       // Clean up data before sending: only include relevant product fields
@@ -302,14 +263,16 @@ export default function ClientForm() {
         status: "Active",
       });
 
-      // Clear draft on success
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
-
       toast({
         title: "Success",
         description: "Client created successfully",
       });
-      setLocation("/clients");
+      
+      if (mode === "modal" && onSuccess) {
+        onSuccess();
+      } else {
+        setLocation("/clients");
+      }
     } catch (error) {
       console.error(error);
       toast({
@@ -1148,6 +1111,20 @@ export default function ClientForm() {
     );
   }
 
+  const content = (
+    <div className={mode === "page" ? "max-w-4xl mx-auto pb-12" : ""}>
+      <MultiStepFormWrapper
+        title="Client Registration"
+        steps={filteredSteps}
+        onSubmit={handleSubmit(onSubmit)}
+      />
+    </div>
+  );
+
+  if (mode === "modal") {
+    return content;
+  }
+
   return (
     <PageWrapper
       title="Add New Client"
@@ -1156,14 +1133,7 @@ export default function ClientForm() {
         { label: "New Client" },
       ]}
     >
-      <div className="max-w-4xl mx-auto pb-12">
-        <MultiStepFormWrapper
-          title="Client Registration"
-          steps={filteredSteps}
-          onSubmit={handleSubmit(onSubmit)}
-          onSaveDraft={saveDraft}
-        />
-      </div>
+      {content}
     </PageWrapper>
   );
 }
