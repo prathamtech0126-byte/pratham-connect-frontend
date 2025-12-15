@@ -25,6 +25,15 @@ import { ModeToggle } from "@/components/mode-toggle";
 
 export function Topbar() {
   const { user, logout } = useAuth();
+  const { pendingAlert, activatePendingAlert } = useAlert();
+  
+  // Check if pending alert targets this user
+  const hasRelevantPendingAlert = pendingAlert && user && (
+    pendingAlert.targetRoles.includes('all') || 
+    pendingAlert.targetRoles.includes(user.role) ||
+    user.role === 'superadmin' || 
+    user.role === 'director'
+  );
   
   return (
     <header className="h-20 px-6 md:px-8 border-b border-border/40 bg-background/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-10 transition-all duration-200">
@@ -63,10 +72,41 @@ export function Topbar() {
           </BroadcastDialog>
         )}
 
-        <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full transition-colors w-10 h-10">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-background animate-pulse" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full transition-colors w-10 h-10">
+              <Bell className="w-5 h-5" />
+              {hasRelevantPendingAlert && (
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-background animate-pulse" />
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-80 mt-2 p-1 rounded-xl shadow-lg border-border/60" align="end">
+             {hasRelevantPendingAlert ? (
+                <DropdownMenuItem 
+                  className="p-3 cursor-pointer bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg focus:bg-red-100"
+                  onClick={activatePendingAlert}
+                >
+                  <div className="flex gap-3 items-start w-full">
+                    <div className="bg-red-200 p-2 rounded-full mt-1">
+                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <p className="font-semibold text-red-900 text-sm">Emergency Alert</p>
+                      <p className="text-xs text-red-700 line-clamp-2 leading-relaxed">
+                        {pendingAlert.message}
+                      </p>
+                      <p className="text-[10px] text-red-500 font-medium uppercase tracking-wide pt-1">Click to view</p>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+             ) : (
+                <div className="p-8 text-center text-muted-foreground text-sm">
+                  No new notifications
+                </div>
+             )}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <div className="h-8 w-px bg-border/60 hidden sm:block mx-1" />
 
