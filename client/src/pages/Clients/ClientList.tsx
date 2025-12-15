@@ -13,6 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { pdf } from "@react-pdf/renderer";
 import { ClientReportPDF } from "@/components/pdf/ClientReportPDF";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export default function ClientList() {
   const [, setLocation] = useLocation();
@@ -112,9 +118,29 @@ export default function ClientList() {
 
   const isFilterActive = salesTypeFilter !== "all" || pmFilter !== "all" || counsellorFilter !== "all" || statusFilter !== "all" || paymentStatusFilter !== "all";
 
+  // Grouping Logic
+  const groupedData = (filteredClients || []).reduce((acc, client) => {
+    const counselor = client.counsellor || 'Unassigned';
+    const date = new Date(client.enrollmentDate);
+    const year = date.getFullYear().toString();
+    const month = date.toLocaleString('default', { month: 'long' });
+
+    if (!acc[counselor]) acc[counselor] = { total: 0, years: {} };
+    acc[counselor].total++;
+
+    if (!acc[counselor].years[year]) acc[counselor].years[year] = {};
+    if (!acc[counselor].years[year][month]) acc[counselor].years[year][month] = [];
+
+    acc[counselor].years[year][month].push(client);
+    return acc;
+  }, {} as Record<string, { total: number, years: Record<string, Record<string, Client[]>> }>);
+
+  // Sort counselors by total clients (Highest to Lowest)
+  const sortedCounselors = Object.entries(groupedData).sort((a, b) => b[1].total - a[1].total);
+
   return (
     <PageWrapper 
-      title="Clients" 
+      title="Clients"  
       breadcrumbs={[{ label: "Clients" }]}
       actions={
         <div className="flex gap-3">
@@ -209,11 +235,58 @@ export default function ClientList() {
             </div>
         </div>
         
-        <DataTable 
-          data={filteredClients} 
-          columns={columns} 
-          onRowClick={(s) => setLocation(`/clients/${s.id}`)}
-        />
+        {sortedCounselors.length > 0 ? (
+            <Accordion type="multiple" className="w-full space-y-4" defaultValue={sortedCounselors.map(([name]) => name)}>
+                {sortedCounselors.map(([counselor, data]) => (
+                    <AccordionItem value={counselor} key={counselor} className="border border-slate-200 rounded-lg bg-white px-4 shadow-sm">
+                        <AccordionTrigger className="hover:no-underline py-4">
+                            <div className="flex items-center gap-3">
+                                <span className="text-lg font-bold text-slate-900">{counselor}</span>
+                                <Badge variant="secondary" className="text-xs font-normal">
+                                    {data.total} Clients
+                                </Badge>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-4">
+                             <Accordion type="multiple" className="w-full pl-4 border-l-2 border-slate-100 ml-2">
+                                {Object.keys(data.years).sort((a, b) => Number(b) - Number(a)).map(year => (
+                                    <AccordionItem value={`${counselor}-${year}`} key={`${counselor}-${year}`} className="border-b-0">
+                                        <AccordionTrigger className="text-base font-semibold hover:no-underline py-3 text-slate-800">
+                                            {year}
+                                        </AccordionTrigger>
+                                        <AccordionContent>
+                                            <Accordion type="multiple" className="w-full pl-4 border-l-2 border-slate-100 ml-2">
+                                                {Object.entries(data.years[year]).map(([month, clients]) => (
+                                                    <AccordionItem value={`${counselor}-${year}-${month}`} key={`${counselor}-${year}-${month}`} className="border-b-0">
+                                                        <AccordionTrigger className="text-sm font-medium hover:no-underline py-2 text-slate-600">
+                                                            {month} ({clients.length})
+                                                        </AccordionTrigger>
+                                                        <AccordionContent>
+                                                            <div className="mt-2 border rounded-md overflow-hidden">
+                                                                <DataTable 
+                                                                    data={clients} 
+                                                                    columns={columns} 
+                                                                    onRowClick={(s) => setLocation(`/clients/${s.id}`)}
+                                                                />
+                                                            </div>
+                                                        </AccordionContent>
+                                                    </AccordionItem>
+                                                ))}
+                                            </Accordion>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                ))}
+                             </Accordion>
+                        </AccordionContent>
+                    </AccordionItem>
+                ))}
+            </Accordion>
+        ) : (
+            <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-300">
+                <p className="text-slate-500">No clients found matching your filters.</p>
+                <Button variant="link" onClick={handleClearFilters} className="mt-2">Clear all filters</Button>
+            </div>
+        )}
       </div>
     </PageWrapper>
   );
