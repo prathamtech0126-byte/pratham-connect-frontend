@@ -47,7 +47,7 @@ export function EmergencyAlert() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-red-600 text-white p-4"
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-red-600/85 backdrop-blur-md text-white p-4"
         >
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-10 pointer-events-none"></div>
           
@@ -55,7 +55,7 @@ export function EmergencyAlert() {
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.1, type: "spring" }}
-            className="relative max-w-2xl w-full bg-red-700/50 backdrop-blur-sm border-4 border-red-400 rounded-xl p-8 md:p-12 shadow-2xl flex flex-col items-center text-center space-y-8"
+            className="relative max-w-2xl w-full bg-red-700/80 backdrop-blur-md border-4 border-red-400 rounded-xl p-8 md:p-12 shadow-2xl flex flex-col items-center text-center space-y-8"
           >
             {/* Pulsing Warning Icon */}
             <div className="relative">
