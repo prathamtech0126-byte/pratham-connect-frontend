@@ -132,10 +132,10 @@ const studentFieldsSchema = z.object({
 
 const formSchema = z.object({
   // Step 1: Basic Details
-  name: z.string().min(2, "Name is required"),
-  enrollmentDate: z.string().min(1, "Date is required"),
-  salesType: z.string({ required_error: "Sales Type is required" }),
-  coreSales: z.string().optional(),
+  name: z.string().min(1, "Name is required").regex(/^[a-zA-Z]+ [a-zA-Z]+$/, "Please enter full name (First Last)"),
+  enrollmentDate: z.string().min(1, "Enrollment Date is required"),
+  salesType: z.string().min(1, "Sales Type is required"),
+  coreSales: z.string().min(1, "Core Sales is required"),
 
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
