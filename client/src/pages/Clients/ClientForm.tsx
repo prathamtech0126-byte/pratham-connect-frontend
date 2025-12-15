@@ -132,10 +132,10 @@ const studentFieldsSchema = z.object({
 
 const formSchema = z.object({
   // Step 1: Basic Details
-  name: z.string().min(1, "Name is required").regex(/^[a-zA-Z]+ [a-zA-Z]+$/, "Please enter full name (First Last)"),
-  enrollmentDate: z.string().min(1, "Enrollment Date is required"),
-  salesType: z.string().min(1, "Sales Type is required"),
-  coreSales: z.string().min(1, "Core Sales is required"),
+  name: z.string().min(1, "Please enter full name").regex(/^[a-zA-Z]+ [a-zA-Z]+$/, "Please enter full name (First Last)"),
+  enrollmentDate: z.string().min(1, "Please select an enrollment date"),
+  salesType: z.string().min(1, "Please select a sales type"),
+  coreSales: z.string().min(1, "Please select a core sales option"),
 
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
@@ -213,7 +213,7 @@ export default function ClientForm() {
     },
   });
 
-  const { control, handleSubmit, setValue, watch, trigger } = form;
+  const { control, handleSubmit, setValue, watch, trigger, formState: { errors } } = form;
   const salesType = useWatch({ control, name: "salesType" });
   const coreSales = useWatch({ control, name: "coreSales" });
   const showDiscount = useWatch({ control, name: "showDiscount" });
@@ -1119,7 +1119,9 @@ export default function ClientForm() {
       }
       
       if (fieldsToValidate.length > 0) {
-        const isValid = await trigger(fieldsToValidate);
+        // Trigger validation for the specific fields
+        const isValid = await trigger(fieldsToValidate as any);
+
         if (!isValid) {
             toast({
                 title: "Validation Error",
