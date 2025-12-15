@@ -27,6 +27,12 @@ import { useQuery } from "@tanstack/react-query";
 import { clientService, Client } from "@/services/clientService";
 import { DataTable } from "@/components/table/DataTable";
 import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 // Mock Data Generator
 const generateMockData = (year: string) => {
@@ -153,6 +159,21 @@ export default function Reports() {
   const filteredClients = selectedUser 
     ? recentClients?.filter(c => c.counsellor === selectedUser || c.productManager === selectedUser) 
     : recentClients;
+
+  const groupedClients = (filteredClients || []).reduce((acc, client) => {
+    const date = new Date(client.enrollmentDate);
+    const year = date.getFullYear().toString();
+    const month = date.toLocaleString('default', { month: 'long' });
+
+    if (!acc[year]) acc[year] = {};
+    if (!acc[year][month]) acc[year][month] = [];
+
+    acc[year][month].push(client);
+    return acc;
+  }, {} as Record<string, Record<string, Client[]>>);
+
+  // Sort years descending
+  const sortedYears = Object.keys(groupedClients).sort((a, b) => Number(b) - Number(a));
 
   return (
     <PageWrapper 
@@ -472,47 +493,71 @@ export default function Reports() {
                             <CardDescription>All clients managed by {selectedUser || user?.name}</CardDescription>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <DataTable 
-                               data={filteredClients || []}
-                               onRowClick={(client: Client) => setLocation(`/clients/${client.id}`)}
-                               columns={[
-                                 { 
-                                   header: "Client Name", 
-                                   accessorKey: "name", 
-                                   cell: (client: Client) => (
-                                     <div className="font-semibold text-slate-900">{client.name}</div>
-                                   )
-                                 },
-                                 { 
-                                   header: "Sales Type", 
-                                   accessorKey: "salesType"
-                                 },
-                                 { 
-                                   header: "Date", 
-                                   accessorKey: "enrollmentDate",
-                                   cell: (client: Client) => (
-                                     <div className="text-slate-500">{new Date(client.enrollmentDate).toLocaleDateString()}</div>
-                                   )
-                                 },
-                                 { 
-                                   header: "Status", 
-                                   accessorKey: "status",
-                                   cell: (client: Client) => (
-                                     <Badge variant={client.status === 'Active' ? 'default' : 'secondary'} className="rounded-md">
-                                       {client.status}
-                                     </Badge>
-                                   ) 
-                                 },
-                                 { 
-                                    header: "Action", 
-                                    cell: () => (
-                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                            <ArrowUpRight className="h-4 w-4 text-slate-400" />
-                                        </Button>
-                                    )
-                                 }
-                               ]}
-                             />
+                            {sortedYears.length > 0 ? (
+                                <Accordion type="multiple" className="w-full px-4 pb-4">
+                                    {sortedYears.map((year) => (
+                                        <AccordionItem value={year} key={year} className="border-b-0">
+                                            <AccordionTrigger className="text-xl font-bold hover:no-underline py-4">
+                                                {year}
+                                            </AccordionTrigger>
+                                            <AccordionContent>
+                                                <Accordion type="multiple" className="w-full pl-4 border-l-2 border-slate-100 ml-2">
+                                                    {Object.entries(groupedClients[year]).map(([month, clients]) => (
+                                                        <AccordionItem value={`${year}-${month}`} key={`${year}-${month}`} className="border-b-0">
+                                                            <AccordionTrigger className="text-base font-semibold hover:no-underline py-2 text-slate-700">
+                                                                {month} ({clients.length})
+                                                            </AccordionTrigger>
+                                                            <AccordionContent>
+                                                                <DataTable 
+                                                                    data={clients}
+                                                                    onRowClick={(client: Client) => setLocation(`/clients/${client.id}`)}
+                                                                    columns={[
+                                                                        { 
+                                                                            header: "Client Name", 
+                                                                            accessorKey: "name",
+                                                                            cell: (client: Client) => (
+                                                                                <div className="font-medium">{client.name}</div>
+                                                                            )
+                                                                        },
+                                                                        { header: "Sales Type", accessorKey: "salesType" },
+                                                                        { 
+                                                                            header: "Date", 
+                                                                            accessorKey: "enrollmentDate",
+                                                                            cell: (client: Client) => new Date(client.enrollmentDate).toLocaleDateString()
+                                                                        },
+                                                                        { 
+                                                                            header: "Status", 
+                                                                            accessorKey: "status",
+                                                                            cell: (client: Client) => (
+                                                                                <Badge variant={
+                                                                                    client.status === 'Active' ? 'default' : 
+                                                                                    client.status === 'Pending' ? 'secondary' : 
+                                                                                    client.status === 'Completed' ? 'outline' : 'destructive'
+                                                                                }>
+                                                                                    {client.status}
+                                                                                </Badge>
+                                                                            )
+                                                                        },
+                                                                        {
+                                                                            header: "Action",
+                                                                            accessorKey: "id",
+                                                                            cell: () => <ArrowUpRight className="h-4 w-4 text-slate-400" />
+                                                                        }
+                                                                    ]}
+                                                                />
+                                                            </AccordionContent>
+                                                        </AccordionItem>
+                                                    ))}
+                                                </Accordion>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    ))}
+                                </Accordion>
+                            ) : (
+                                <div className="p-8 text-center text-slate-500">
+                                    No clients found for this period.
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 )}
