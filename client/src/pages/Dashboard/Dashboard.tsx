@@ -346,6 +346,10 @@ export default function Dashboard() {
              {canViewFinancials ? (
                <DataTable 
                  data={counselorRevenue}
+                 onRowClick={(counselor) => {
+                    // Navigate to Reports page with counselor pre-selected
+                    window.location.href = `/reports?counselor=${encodeURIComponent(counselor.name)}`;
+                 }}
                  columns={[
                    { 
                      header: "Counselor", 

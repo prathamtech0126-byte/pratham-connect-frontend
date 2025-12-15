@@ -76,11 +76,30 @@ type YearFilter = '2025' | '2024' | '2023';
 export default function Reports() {
   const { user } = useAuth();
   const [location, setLocation] = useLocation();
+  
+  // Parse query params to see if a counselor is pre-selected
+  const searchParams = new URLSearchParams(window.location.search);
+  const initialUser = searchParams.get('counselor');
+
   const [periodFilter, setPeriodFilter] = useState("6m");
   const [salesTypeFilter, setSalesTypeFilter] = useState("all");
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<string | null>(initialUser);
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
   const [yearFilter, setYearFilter] = useState<YearFilter>('2025');
+
+  // Update URL when selectedUser changes, or clear it
+  const updateSelectedUser = (name: string | null) => {
+    setSelectedUser(name);
+    if (name) {
+      const params = new URLSearchParams(window.location.search);
+      params.set('counselor', name);
+      window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
+    } else {
+        const params = new URLSearchParams(window.location.search);
+        params.delete('counselor');
+        window.history.pushState({}, '', `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`);
+    }
+  };
 
   const { data: recentClients } = useQuery({
     queryKey: ['recent-clients'],
@@ -189,7 +208,7 @@ export default function Reports() {
           filters={
             <div className="flex items-center gap-2">
                 {selectedUser && (
-                    <Button variant="ghost" onClick={() => setSelectedUser(null)} className="gap-2 text-muted-foreground hover:text-foreground">
+                    <Button variant="ghost" onClick={() => updateSelectedUser(null)} className="gap-2 text-muted-foreground hover:text-foreground">
                         <ArrowLeft className="w-4 h-4" /> Back to List
                     </Button>
                 )}
@@ -281,7 +300,7 @@ export default function Reports() {
                                     <div 
                                         key={index} 
                                         className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors border border-transparent hover:border-border/50"
-                                        onClick={() => setSelectedUser(manager.name)}
+                                        onClick={() => updateSelectedUser(manager.name)}
                                     >
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-10 w-10 border border-border">
@@ -320,7 +339,7 @@ export default function Reports() {
                                 <div 
                                     key={index} 
                                     className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors border border-transparent hover:border-border/50"
-                                    onClick={() => setSelectedUser(counsellor.name)}
+                                    onClick={() => updateSelectedUser(counsellor.name)}
                                 >
                                     <div className="flex items-center gap-3">
                                         <Avatar className="h-10 w-10 border border-border">
