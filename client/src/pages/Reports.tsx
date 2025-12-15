@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { TableToolbar } from "@/components/table/TableToolbar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { X, ArrowLeft, Users, TrendingUp, DollarSign, ArrowUpRight } from "lucide-react";
+import { X, ArrowLeft, Users, TrendingUp, DollarSign, ArrowUpRight, CalendarRange } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { 
@@ -27,18 +27,19 @@ import { clientService, Client } from "@/services/clientService";
 import { DataTable } from "@/components/table/DataTable";
 import { Badge } from "@/components/ui/badge";
 
-// Mock Data
-const generateMockData = () => {
+// Mock Data Generator
+const generateMockData = (year: string) => {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const baseRevenue = year === '2025' ? 20000 : year === '2024' ? 15000 : 10000;
+  const growthFactor = year === '2025' ? 1.5 : year === '2024' ? 1.2 : 1.0;
+
   return months.map(month => ({
     name: month,
-    revenue: Math.floor(Math.random() * 50000) + 20000,
-    pending: Math.floor(Math.random() * 20000) + 5000,
-    students: Math.floor(Math.random() * 20) + 10
+    revenue: Math.floor((Math.random() * 50000 + baseRevenue) * growthFactor),
+    pending: Math.floor((Math.random() * 20000 + 5000) * growthFactor),
+    students: Math.floor((Math.random() * 20 + 10) * growthFactor)
   }));
 };
-
-const fullYearData = generateMockData();
 
 const serviceData = [
   { name: 'Canada Student', value: 45, color: '#0088FE' },
@@ -62,6 +63,7 @@ const managerData = [
 ];
 
 type ViewMode = 'monthly' | 'quarterly' | 'yearly';
+type YearFilter = '2025' | '2024' | '2023';
 
 export default function Reports() {
   const { user } = useAuth();
@@ -69,20 +71,24 @@ export default function Reports() {
   const [salesTypeFilter, setSalesTypeFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+  const [yearFilter, setYearFilter] = useState<YearFilter>('2025');
 
   const { data: recentClients } = useQuery({
     queryKey: ['recent-clients'],
     queryFn: clientService.getClients
   });
 
+  const fullYearData = generateMockData(yearFilter);
+
   const handleClearFilters = () => {
     setPeriodFilter("6m");
     setSalesTypeFilter("all");
     setSelectedUser(null);
     setViewMode('monthly');
+    setYearFilter('2025');
   };
 
-  const isFilterActive = periodFilter !== "6m" || salesTypeFilter !== "all" || selectedUser !== null || viewMode !== 'monthly';
+  const isFilterActive = periodFilter !== "6m" || salesTypeFilter !== "all" || selectedUser !== null || viewMode !== 'monthly' || yearFilter !== '2025';
 
   const canViewAll = user?.role === 'superadmin' || user?.role === 'director';
   const canViewCounselors = user?.role === 'manager';
@@ -122,7 +128,7 @@ export default function Reports() {
 
     if (mode === 'yearly') {
        return [{
-          name: '2024',
+          name: yearFilter,
           revenue: data.reduce((sum, item) => sum + (item.revenue || 0), 0),
           pending: data.reduce((sum, item) => sum + (item.pending || 0), 0),
           students: data.reduce((sum, item) => sum + (item.students || 0), 0)
@@ -191,6 +197,19 @@ export default function Reports() {
                   </Button>
               </div>
 
+              {/* Year Filter */}
+              <Select value={yearFilter} onValueChange={(value) => setYearFilter(value as YearFilter)}>
+                <SelectTrigger className="w-[120px] bg-white border-slate-200">
+                    <CalendarRange className="w-4 h-4 mr-2 text-muted-foreground" />
+                    <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2025">2025</SelectItem>
+                  <SelectItem value="2024">2024</SelectItem>
+                  <SelectItem value="2023">2023</SelectItem>
+                </SelectContent>
+              </Select>
+
               <Select value={salesTypeFilter} onValueChange={setSalesTypeFilter}>
                 <SelectTrigger className="w-[180px] bg-white">
                   <SelectValue placeholder="Sales Type" />
@@ -226,7 +245,7 @@ export default function Reports() {
                                 <Users className="w-5 h-5 text-primary" />
                                 Managers
                             </CardTitle>
-                            <CardDescription>Select a manager to view detailed reports</CardDescription>
+                            <CardDescription>Select a manager to view detailed reports for {yearFilter}</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
@@ -265,7 +284,7 @@ export default function Reports() {
                             <Users className="w-5 h-5 text-primary" />
                             Counselors
                         </CardTitle>
-                        <CardDescription>Select a counselor to view detailed reports</CardDescription>
+                        <CardDescription>Select a counselor to view detailed reports for {yearFilter}</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
@@ -304,7 +323,7 @@ export default function Reports() {
                 <Card className="border-none shadow-sm">
                     <CardHeader>
                     <CardTitle className="text-lg font-semibold">
-                        {selectedUser ? `${selectedUser}'s Financial Overview` : 'Financial Overview'}
+                        {selectedUser ? `${selectedUser}'s Financial Overview` : 'Financial Overview'} - {yearFilter}
                     </CardTitle>
                     <CardDescription>Total Revenue vs Pending Payments</CardDescription>
                     </CardHeader>
@@ -336,7 +355,7 @@ export default function Reports() {
                 {/* Enrollment Trends */}
                 <Card className="border-none shadow-sm">
                     <CardHeader>
-                    <CardTitle className="text-lg font-semibold">Enrollment Trends</CardTitle>
+                    <CardTitle className="text-lg font-semibold">Enrollment Trends - {yearFilter}</CardTitle>
                     <CardDescription>New client enrollments over time</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -366,7 +385,7 @@ export default function Reports() {
                 <Card className="border-none shadow-sm">
                     <CardHeader>
                     <CardTitle className="text-lg font-semibold">Service Distribution</CardTitle>
-                    <CardDescription>Breakdown by sales type</CardDescription>
+                    <CardDescription>Breakdown by sales type for {yearFilter}</CardDescription>
                     </CardHeader>
                     <CardContent>
                     <div className="h-[300px] w-full flex items-center justify-center">
@@ -401,7 +420,7 @@ export default function Reports() {
                 {!selectedUser && (
                     <Card className="border-none shadow-sm">
                         <CardHeader>
-                        <CardTitle className="text-lg font-semibold">Counsellor Performance</CardTitle>
+                        <CardTitle className="text-lg font-semibold">Counsellor Performance - {yearFilter}</CardTitle>
                         <CardDescription>Top performers by active clients and revenue</CardDescription>
                         </CardHeader>
                         <CardContent>

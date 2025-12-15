@@ -13,15 +13,20 @@ import {
   Briefcase,
   Crown,
   Activity,
-  FileText
+  FileText,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import logoUrl from "@/assets/images/Pratham Logo.svg";
 import { useAuth, UserRole } from "@/context/auth-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileDialog } from "@/components/profile-dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useQuery } from "@tanstack/react-query";
+import { clientService } from "@/services/clientService";
 
 interface SidebarItem {
   icon: any;
@@ -62,6 +67,12 @@ const sidebarItems: SidebarItem[] = [
 export function Sidebar({ className }: { className?: string }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const [isClientsOpen, setIsClientsOpen] = useState(false);
+
+  const { data: clients } = useQuery({
+    queryKey: ['sidebar-clients'],
+    queryFn: clientService.getClients
+  });
 
   // Filter items based on user role
   const filteredItems = sidebarItems.filter(item => {
@@ -89,6 +100,13 @@ export function Sidebar({ className }: { className?: string }) {
     },
     filteredItems.find((i) => i.href === "/") || filteredItems[0],
   );
+
+  // Auto-expand clients if we are on a client page
+  useEffect(() => {
+    if (location.startsWith('/clients')) {
+      setIsClientsOpen(true);
+    }
+  }, [location]);
 
   const getRoleBadge = () => {
     if (!user) return null;
@@ -137,6 +155,81 @@ export function Sidebar({ className }: { className?: string }) {
         </div>
         {filteredItems.map((item) => {
           const isActive = activeItem?.href === item.href;
+          
+          if (item.label === "Clients") {
+            return (
+              <Collapsible
+                key={item.href}
+                open={isClientsOpen}
+                onOpenChange={setIsClientsOpen}
+                className="space-y-1"
+              >
+                <div className="flex items-center gap-2">
+                  <CollapsibleTrigger asChild>
+                    <div 
+                      className={cn(
+                        "flex flex-1 items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative cursor-pointer select-none",
+                        isActive || isClientsOpen
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-primary/20"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )}
+                    >
+                      <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive || isClientsOpen ? "text-sidebar-primary-foreground" : "text-slate-400 group-hover:text-sidebar-primary")} />
+                      <span className="flex-1">{item.label}</span>
+                      {isClientsOpen ? (
+                        <ChevronDown className="w-4 h-4 opacity-50" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 opacity-50" />
+                      )}
+                      
+                      {isActive && !isClientsOpen && (
+                        <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white/50" />
+                      )}
+                    </div>
+                  </CollapsibleTrigger>
+                </div>
+                
+                <CollapsibleContent className="pl-4 space-y-1 overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                  <Link
+                    href="/clients"
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                      location === "/clients" 
+                        ? "border-primary text-primary font-medium bg-primary/5" 
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
+                    )}
+                  >
+                    <span className="truncate">All Clients</span>
+                  </Link>
+                  
+                  {clients?.slice(0, 5).map(client => (
+                    <Link
+                      key={client.id}
+                      href={`/clients/${client.id}`}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                        location === `/clients/${client.id}`
+                          ? "border-primary text-primary font-medium bg-primary/5" 
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
+                      )}
+                    >
+                      <span className="truncate">{client.name}</span>
+                    </Link>
+                  ))}
+                  
+                  {clients && clients.length > 5 && (
+                    <Link
+                      href="/clients"
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs text-muted-foreground hover:text-primary transition-colors pl-6"
+                    >
+                      <span>+ {clients.length - 5} more...</span>
+                    </Link>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          }
+
           return (
             <Link
               key={item.href}
