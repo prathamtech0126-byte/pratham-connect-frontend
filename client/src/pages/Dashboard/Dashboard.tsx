@@ -13,6 +13,7 @@ import { ActivityLog } from "@/components/activity-log/ActivityLog";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { useLocation } from "wouter";
 
 const chartData = [
   { name: "Jan", total: 12000 },
@@ -44,6 +45,7 @@ const counselorRevenue = [
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [selectedBranch, setSelectedBranch] = useState("all");
   const [timeFilter, setTimeFilter] = useState("today");
@@ -388,6 +390,7 @@ export default function Dashboard() {
              ) : (
                <DataTable 
                  data={recentClients?.slice(0, 5) || []}
+                 onRowClick={(client) => setLocation(`/clients/${client.id}`)}
                  columns={[
                    { 
                      header: "Client", 
