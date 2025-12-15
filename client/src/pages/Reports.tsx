@@ -57,11 +57,12 @@ const serviceData = [
 ];
 
 const counsellorData = [
-  { name: 'Priya Singh', clients: 45, revenue: 1250000, avatar: '' },
-  { name: 'Amit Kumar', clients: 38, revenue: 980000, avatar: '' },
-  { name: 'Sarah Wilson', clients: 32, revenue: 850000, avatar: '' },
-  { name: 'Raj Patel', clients: 28, revenue: 720000, avatar: '' },
-  { name: 'Neha Gupta', clients: 22, revenue: 550000, avatar: '' },
+  { name: 'Priya Singh', clients: 45, revenue: 1250000, avatar: '', isCurrentUser: false },
+  { name: 'User (You)', clients: 42, revenue: 1150000, avatar: '', isCurrentUser: true },
+  { name: 'Amit Kumar', clients: 38, revenue: 980000, avatar: '', isCurrentUser: false },
+  { name: 'Sarah Wilson', clients: 32, revenue: 850000, avatar: '', isCurrentUser: false },
+  { name: 'Raj Patel', clients: 28, revenue: 720000, avatar: '', isCurrentUser: false },
+  { name: 'Neha Gupta', clients: 22, revenue: 550000, avatar: '', isCurrentUser: false },
 ];
 
 const managerData = [
@@ -451,29 +452,60 @@ export default function Reports() {
                         </CardHeader>
                         <CardContent>
                         <div className="space-y-4">
-                            {counsellorData.map((counsellor, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg transition-colors">
-                                <div className="flex items-center gap-3">
-                                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-xs">
-                                    {index + 1}
+                            {counsellorData.map((counsellor, index) => {
+                                const topPerformer = counsellorData[0];
+                                const remainingForTop = topPerformer.clients - counsellor.clients;
+                                const isCurrentUser = counsellor.isCurrentUser;
+                                
+                                return (
+                                <div 
+                                    key={index} 
+                                    className={`flex flex-col p-3 rounded-lg transition-colors ${
+                                        isCurrentUser 
+                                        ? "bg-primary/5 border border-primary/20 ring-1 ring-primary/10" 
+                                        : "hover:bg-muted/50"
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between w-full">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`
+                                                flex items-center justify-center w-8 h-8 rounded-full font-bold text-xs
+                                                ${index === 0 ? "bg-yellow-100 text-yellow-700" : 
+                                                  index === 1 ? "bg-slate-100 text-slate-700" :
+                                                  index === 2 ? "bg-orange-100 text-orange-700" : "bg-primary/10 text-primary"}
+                                            `}>
+                                                {index + 1}
+                                            </div>
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarImage src={counsellor.avatar} />
+                                                <AvatarFallback className="bg-muted text-xs">
+                                                {counsellor.name.split(' ').map(n => n[0]).join('')}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <p className={`text-sm font-medium leading-none ${isCurrentUser ? "text-primary font-bold" : ""}`}>
+                                                    {counsellor.name}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground mt-1">{counsellor.clients} Active Clients</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            {isCurrentUser && (
+                                                <>
+                                                    <p className="text-sm font-bold">₹{(counsellor.revenue / 100000).toFixed(1)}L</p>
+                                                    <p className="text-xs text-muted-foreground">Revenue</p>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    {isCurrentUser && index > 0 && (
+                                        <div className="mt-3 ml-11 p-2 bg-white/50 rounded text-xs text-muted-foreground border border-slate-100">
+                                            You need <span className="font-bold text-primary">{remainingForTop}</span> more active clients for top position! 🚀
+                                        </div>
+                                    )}
                                 </div>
-                                <Avatar className="h-8 w-8">
-                                    <AvatarImage src={counsellor.avatar} />
-                                    <AvatarFallback className="bg-muted text-xs">
-                                    {counsellor.name.split(' ').map(n => n[0]).join('')}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <p className="text-sm font-medium leading-none">{counsellor.name}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">{counsellor.clients} Active Clients</p>
-                                </div>
-                                </div>
-                                <div className="text-right">
-                                <p className="text-sm font-bold">₹{(counsellor.revenue / 100000).toFixed(1)}L</p>
-                                <p className="text-xs text-muted-foreground">Revenue</p>
-                                </div>
-                            </div>
-                            ))}
+                            )})}
                         </div>
                         </CardContent>
                     </Card>
