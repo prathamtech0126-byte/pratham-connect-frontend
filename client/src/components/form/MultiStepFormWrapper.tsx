@@ -69,10 +69,10 @@ export function MultiStepFormWrapper({ title, steps, onSubmit, isSubmitting, onS
       </div>
 
       <Card className="border-none shadow-md">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle>{steps[currentStep].title}</CardTitle>
           {onSaveDraft && (
-            <Button variant="ghost" size="sm" onClick={onSaveDraft} className="text-muted-foreground hover:text-primary">
+            <Button variant="outline" size="sm" onClick={onSaveDraft} className="ml-auto">
               Save Draft
             </Button>
           )}
