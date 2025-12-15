@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { MainLayout } from "@/layout/MainLayout";
 import { AuthProvider, useAuth } from "@/context/auth-context";
+import { AlertProvider } from "@/context/alert-context";
+import { EmergencyAlert } from "@/components/ui/emergency-alert";
 
 import Dashboard from "@/pages/Dashboard/Dashboard";
 import ClientList from "@/pages/Clients/ClientList";
@@ -91,8 +93,11 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AuthProvider>
-            <Router />
-            <Toaster />
+            <AlertProvider>
+              <EmergencyAlert />
+              <Router />
+              <Toaster />
+            </AlertProvider>
           </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>
