@@ -50,16 +50,18 @@ export function Topbar() {
 
         <ModeToggle />
 
-        <BroadcastDialog>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="relative text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors w-10 h-10"
-            title="Broadcast Emergency Alert"
-          >
-            <AlertTriangle className="w-5 h-5" />
-          </Button>
-        </BroadcastDialog>
+        {(user?.role === 'superadmin' || user?.role === 'director') && (
+          <BroadcastDialog>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors w-10 h-10"
+              title="Broadcast Emergency Alert"
+            >
+              <AlertTriangle className="w-5 h-5" />
+            </Button>
+          </BroadcastDialog>
+        )}
 
         <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full transition-colors w-10 h-10">
           <Bell className="w-5 h-5" />
