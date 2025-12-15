@@ -52,21 +52,21 @@ export default function ClientList() {
   const uniqueCounsellors = Array.from(new Set(clients?.map(c => c.counsellor) || [])).sort();
 
   const columns = [
-    { header: "Sr No", cell: (_: Client, index: number) => <span className="text-slate-400 font-mono text-xs">{String(index + 1).padStart(2, '0')}</span>, className: "w-[60px]" },
-    { header: "Name", accessorKey: "name", className: "font-semibold text-slate-900" },
-    { header: "Sales Type", cell: (s: Client) => <Badge variant="outline" className="font-normal whitespace-nowrap bg-slate-50 text-slate-600 border-slate-200">{s.salesType}</Badge> },
-    { header: "Enrollment Date", accessorKey: "enrollmentDate", className: "whitespace-nowrap text-slate-500" },
-    { header: "Product Manager", accessorKey: "productManager", className: "whitespace-nowrap text-slate-500" },
-    { header: "Total Payment", cell: (s: Client) => `₹${s.totalPayment.toLocaleString()}` },
-    { header: "Received", cell: (s: Client) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString()}</span> },
-    { header: "Pending", cell: (s: Client) => <span className={s.amountPending > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>₹{s.amountPending.toLocaleString()}</span> },
-    { header: "Counsellor", accessorKey: "counsellor", className: "whitespace-nowrap text-slate-500" },
-    { header: "Status", cell: (s: Client) => (
+    { header: "SR NO", cell: (_: Client, index: number) => <span className="text-slate-400 font-mono text-xs">{String(index + 1).padStart(2, '0')}</span>, className: "w-[60px]" },
+    { header: "NAME", accessorKey: "name", className: "font-semibold text-slate-900" },
+    { header: "SALES TYPE", cell: (s: Client) => <Badge variant="outline" className="font-normal whitespace-nowrap bg-slate-50 text-slate-600 border-slate-200">{s.salesType}</Badge> },
+    { header: "ENROLLMENT DATE", accessorKey: "enrollmentDate", className: "whitespace-nowrap text-slate-500" },
+    { header: "PRODUCT MANAGER", accessorKey: "productManager", className: "whitespace-nowrap text-slate-500" },
+    { header: "TOTAL PAYMENT", cell: (s: Client) => `₹${s.totalPayment.toLocaleString()}` },
+    { header: "RECEIVED", cell: (s: Client) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString()}</span> },
+    { header: "PENDING", cell: (s: Client) => <span className={s.amountPending > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>₹{s.amountPending.toLocaleString()}</span> },
+    { header: "COUNSELLOR", accessorKey: "counsellor", className: "whitespace-nowrap text-slate-500" },
+    { header: "STATUS", cell: (s: Client) => (
       <Badge variant={s.status === 'Active' ? 'default' : s.status === 'Completed' ? 'secondary' : 'outline'} className={s.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : ''}>
         {s.status}
       </Badge>
     )},
-    { header: "Actions", cell: (s: Client) => (
+    { header: "ACTIONS", cell: (s: Client) => (
       <TableActions 
         onView={() => setLocation(`/clients/${s.id}`)}
         onEdit={() => setLocation(`/clients/${s.id}/edit`)}

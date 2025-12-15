@@ -477,25 +477,25 @@ export default function Reports() {
                                onRowClick={(client: Client) => setLocation(`/clients/${client.id}`)}
                                columns={[
                                  { 
-                                   header: "Client Name", 
+                                   header: "CLIENT NAME", 
                                    accessorKey: "name", 
                                    cell: (client: Client) => (
                                      <div className="font-semibold text-slate-900">{client.name}</div>
                                    )
                                  },
                                  { 
-                                   header: "Sales Type", 
+                                   header: "SALES TYPE", 
                                    accessorKey: "salesType"
                                  },
                                  { 
-                                   header: "Date", 
+                                   header: "DATE", 
                                    accessorKey: "enrollmentDate",
                                    cell: (client: Client) => (
                                      <div className="text-slate-500">{new Date(client.enrollmentDate).toLocaleDateString()}</div>
                                    )
                                  },
                                  { 
-                                   header: "Status", 
+                                   header: "STATUS", 
                                    accessorKey: "status",
                                    cell: (client: Client) => (
                                      <Badge variant={client.status === 'Active' ? 'default' : 'secondary'} className="rounded-md">
@@ -504,7 +504,7 @@ export default function Reports() {
                                    ) 
                                  },
                                  { 
-                                    header: "Action", 
+                                    header: "ACTION", 
                                     cell: () => (
                                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                             <ArrowUpRight className="h-4 w-4 text-slate-400" />
