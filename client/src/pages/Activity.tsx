@@ -263,7 +263,7 @@ export default function Activity() {
               filters={
                 <div className="flex items-center gap-2">
                   <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-[150px] bg-white">
+                    <SelectTrigger className="w-[150px] bg-card border-border/50">
                       <SelectValue placeholder="Activity Type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -277,7 +277,7 @@ export default function Activity() {
                   </Select>
 
                   <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-[150px] bg-white">
+                    <SelectTrigger className="w-[150px] bg-card border-border/50">
                       <SelectValue placeholder="User Role" />
                     </SelectTrigger>
                     <SelectContent>
@@ -294,7 +294,7 @@ export default function Activity() {
                     <Button 
                       variant="outline" 
                       onClick={handleClearFilters}
-                      className="bg-white text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
+                      className="bg-card text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
                     >
                       Clear All
                       <X className="ml-2 h-4 w-4" />

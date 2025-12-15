@@ -189,19 +189,19 @@ export default function Reports() {
           filters={
             <div className="flex items-center gap-2">
                 {selectedUser && (
-                    <Button variant="ghost" onClick={() => setSelectedUser(null)} className="gap-2">
+                    <Button variant="ghost" onClick={() => setSelectedUser(null)} className="gap-2 text-muted-foreground hover:text-foreground">
                         <ArrowLeft className="w-4 h-4" /> Back to List
                     </Button>
                 )}
               
               {(selectedUser || isIndividual) && (
                 <>
-                  <div className="bg-slate-100 p-1 rounded-lg flex items-center mr-2">
+                  <div className="bg-muted p-1 rounded-lg flex items-center mr-2">
                       <Button 
                         variant={viewMode === 'monthly' ? 'default' : 'ghost'} 
                         size="sm" 
                         onClick={() => setViewMode('monthly')}
-                        className={viewMode === 'monthly' ? 'shadow-sm bg-white text-slate-900 hover:bg-white/90' : 'hover:bg-transparent text-slate-500 hover:text-slate-900'}
+                        className={viewMode === 'monthly' ? 'shadow-sm bg-background text-foreground hover:bg-background/90' : 'hover:bg-transparent text-muted-foreground hover:text-foreground'}
                       >
                         Monthly
                       </Button>
@@ -209,7 +209,7 @@ export default function Reports() {
                         variant={viewMode === 'quarterly' ? 'default' : 'ghost'} 
                         size="sm" 
                         onClick={() => setViewMode('quarterly')}
-                        className={viewMode === 'quarterly' ? 'shadow-sm bg-white text-slate-900 hover:bg-white/90' : 'hover:bg-transparent text-slate-500 hover:text-slate-900'}
+                        className={viewMode === 'quarterly' ? 'shadow-sm bg-background text-foreground hover:bg-background/90' : 'hover:bg-transparent text-muted-foreground hover:text-foreground'}
                       >
                         Quarterly
                       </Button>
@@ -217,7 +217,7 @@ export default function Reports() {
                         variant={viewMode === 'yearly' ? 'default' : 'ghost'} 
                         size="sm" 
                         onClick={() => setViewMode('yearly')}
-                        className={viewMode === 'yearly' ? 'shadow-sm bg-white text-slate-900 hover:bg-white/90' : 'hover:bg-transparent text-slate-500 hover:text-slate-900'}
+                        className={viewMode === 'yearly' ? 'shadow-sm bg-background text-foreground hover:bg-background/90' : 'hover:bg-transparent text-muted-foreground hover:text-foreground'}
                       >
                         Yearly
                       </Button>
@@ -225,7 +225,7 @@ export default function Reports() {
 
                   {/* Year Filter */}
                   <Select value={yearFilter} onValueChange={(value) => setYearFilter(value as YearFilter)}>
-                    <SelectTrigger className="w-[120px] bg-white border-slate-200">
+                    <SelectTrigger className="w-[120px] bg-card border-border/50 text-foreground">
                         <CalendarRange className="w-4 h-4 mr-2 text-muted-foreground" />
                         <SelectValue placeholder="Year" />
                     </SelectTrigger>
@@ -239,7 +239,7 @@ export default function Reports() {
               )}
 
               <Select value={salesTypeFilter} onValueChange={setSalesTypeFilter}>
-                <SelectTrigger className="w-[180px] bg-white">
+                <SelectTrigger className="w-[180px] bg-card border-border/50 text-foreground">
                   <SelectValue placeholder="Sales Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -254,7 +254,7 @@ export default function Reports() {
                 <Button 
                   variant="outline" 
                   onClick={handleClearFilters}
-                  className="bg-white text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
+                  className="bg-card text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
                 >
                   Clear All
                   <X className="ml-2 h-4 w-4" />
@@ -267,9 +267,9 @@ export default function Reports() {
         {showLists ? (
             <div className="grid gap-6 md:grid-cols-2">
                 {canViewAll && (
-                    <Card className="border-none shadow-card bg-white">
+                    <Card className="border-none shadow-card bg-card">
                         <CardHeader>
-                            <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
                                 <Users className="w-5 h-5 text-primary" />
                                 Managers
                             </CardTitle>
@@ -280,24 +280,24 @@ export default function Reports() {
                                 {managerData.map((manager, index) => (
                                     <div 
                                         key={index} 
-                                        className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors border border-transparent hover:border-slate-100"
+                                        className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors border border-transparent hover:border-border/50"
                                         onClick={() => setSelectedUser(manager.name)}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <Avatar className="h-10 w-10 border border-slate-200">
+                                            <Avatar className="h-10 w-10 border border-border">
                                                 <AvatarImage src={manager.avatar} />
                                                 <AvatarFallback className="bg-primary/10 text-primary">
                                                     {manager.name.charAt(0)}
                                                 </AvatarFallback>
                                             </Avatar>
                                             <div>
-                                                <p className="font-semibold text-slate-900">{manager.name}</p>
-                                                <p className="text-xs text-slate-500">Team Size: {manager.teamSize}</p>
+                                                <p className="font-semibold text-foreground">{manager.name}</p>
+                                                <p className="text-xs text-muted-foreground">Team Size: {manager.teamSize}</p>
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <div className="font-bold text-slate-900">₹{(manager.revenue / 100000).toFixed(1)}L</div>
-                                            <p className="text-xs text-slate-500">Revenue</p>
+                                            <div className="font-bold text-foreground">₹{(manager.revenue / 100000).toFixed(1)}L</div>
+                                            <p className="text-xs text-muted-foreground">Revenue</p>
                                         </div>
                                     </div>
                                 ))}
@@ -306,9 +306,9 @@ export default function Reports() {
                     </Card>
                 )}
 
-                <Card className={`border-none shadow-card bg-white ${!canViewAll ? 'col-span-2' : ''}`}>
+                <Card className={`border-none shadow-card bg-card ${!canViewAll ? 'col-span-2' : ''}`}>
                     <CardHeader>
-                        <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
                             <Users className="w-5 h-5 text-primary" />
                             Counselors
                         </CardTitle>
@@ -319,24 +319,24 @@ export default function Reports() {
                             {counsellorData.map((counsellor, index) => (
                                 <div 
                                     key={index} 
-                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors border border-transparent hover:border-slate-100"
+                                    className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors border border-transparent hover:border-border/50"
                                     onClick={() => setSelectedUser(counsellor.name)}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <Avatar className="h-10 w-10 border border-slate-200">
+                                        <Avatar className="h-10 w-10 border border-border">
                                             <AvatarImage src={counsellor.avatar} />
                                             <AvatarFallback className="bg-primary/10 text-primary">
                                                 {counsellor.name.charAt(0)}
                                             </AvatarFallback>
                                         </Avatar>
                                         <div>
-                                            <p className="font-semibold text-slate-900">{counsellor.name}</p>
-                                            <p className="text-xs text-slate-500">{counsellor.clients} Active Clients</p>
+                                            <p className="font-semibold text-foreground">{counsellor.name}</p>
+                                            <p className="text-xs text-muted-foreground">{counsellor.clients} Active Clients</p>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <div className="font-bold text-slate-900">₹{(counsellor.revenue / 100000).toFixed(1)}L</div>
-                                        <p className="text-xs text-slate-500">Revenue</p>
+                                        <div className="font-bold text-foreground">₹{(counsellor.revenue / 100000).toFixed(1)}L</div>
+                                        <p className="text-xs text-muted-foreground">Revenue</p>
                                     </div>
                                 </div>
                             ))}
@@ -348,9 +348,9 @@ export default function Reports() {
             <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Financial Overview */}
-                <Card className="border-none shadow-sm">
+                <Card className="border-none shadow-sm bg-card">
                     <CardHeader>
-                    <CardTitle className="text-lg font-semibold">
+                    <CardTitle className="text-lg font-semibold text-foreground">
                         {selectedUser ? `${selectedUser}'s Financial Overview` : 'Financial Overview'} - {yearFilter}
                     </CardTitle>
                     <CardDescription>Total Revenue Overview</CardDescription>
@@ -359,20 +359,23 @@ export default function Reports() {
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={currentFinancialData}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" />
                             <YAxis 
                             fontSize={12} 
                             tickLine={false} 
                             axisLine={false}
                             tickFormatter={(value) => `₹${value/1000}k`}
+                            stroke="hsl(var(--muted-foreground))"
                             />
                             <Tooltip 
                             formatter={(value: number) => [`₹${value.toLocaleString()}`, undefined]}
-                            cursor={{ fill: 'transparent' }}
+                            cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
+                            contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))' }}
+                            itemStyle={{ color: 'hsl(var(--foreground))' }}
                             />
                             <Legend />
-                            <Bar dataKey="revenue" name="Revenue" fill="#0f172a" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="revenue" name="Revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                         </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -380,19 +383,22 @@ export default function Reports() {
                 </Card>
 
                 {/* Enrollment Trends */}
-                <Card className="border-none shadow-sm">
+                <Card className="border-none shadow-sm bg-card">
                     <CardHeader>
-                    <CardTitle className="text-lg font-semibold">Enrollment Trends - {yearFilter}</CardTitle>
+                    <CardTitle className="text-lg font-semibold text-foreground">Enrollment Trends - {yearFilter}</CardTitle>
                     <CardDescription>New client enrollments over time</CardDescription>
                     </CardHeader>
                     <CardContent>
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={currentEnrollmentData}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                            <Tooltip />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" />
+                            <YAxis fontSize={12} tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" />
+                            <Tooltip 
+                                contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))' }}
+                                itemStyle={{ color: 'hsl(var(--foreground))' }}
+                            />
                             <Line 
                             type="monotone" 
                             dataKey="students" 
@@ -409,9 +415,9 @@ export default function Reports() {
                 </Card>
 
                 {/* Service Distribution */}
-                <Card className="border-none shadow-sm">
+                <Card className="border-none shadow-sm bg-card">
                     <CardHeader>
-                    <CardTitle className="text-lg font-semibold">Service Distribution</CardTitle>
+                    <CardTitle className="text-lg font-semibold text-foreground">Service Distribution</CardTitle>
                     <CardDescription>Breakdown by sales type for {yearFilter}</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -428,10 +434,13 @@ export default function Reports() {
                             dataKey="value"
                             >
                             {currentServiceData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                <Cell key={`cell-${index}`} fill={entry.color} stroke="hsl(var(--card))" />
                             ))}
                             </Pie>
-                            <Tooltip />
+                            <Tooltip 
+                                contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))' }}
+                                itemStyle={{ color: 'hsl(var(--foreground))' }}
+                            />
                             <Legend verticalAlign="bottom" height={36}/>
                         </PieChart>
                         </ResponsiveContainer>

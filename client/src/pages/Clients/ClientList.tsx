@@ -144,7 +144,7 @@ export default function ClientList() {
       breadcrumbs={[{ label: "Clients" }]}
       actions={
         <div className="flex gap-3">
-          <Button variant="outline" onClick={handleExportPDF} className="bg-white border-slate-200 shadow-sm hover:bg-slate-50">
+          <Button variant="outline" onClick={handleExportPDF} className="bg-card border-border/50 shadow-sm hover:bg-muted/50 text-foreground">
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
@@ -156,7 +156,7 @@ export default function ClientList() {
       }
     >
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card p-4 rounded-xl border border-border/50 shadow-sm">
             <TableToolbar 
               searchPlaceholder="Search clients..."
               onSearch={setSearch}
@@ -166,19 +166,19 @@ export default function ClientList() {
             <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Popover>
                     <PopoverTrigger asChild>
-                        <Button variant="outline" className={`border-slate-200 ${isFilterActive ? 'bg-primary/5 border-primary/20 text-primary' : 'bg-white'}`}>
+                        <Button variant="outline" className={`border-border/50 ${isFilterActive ? 'bg-primary/5 border-primary/20 text-primary' : 'bg-card hover:bg-muted/50'}`}>
                             <Filter className="w-4 h-4 mr-2" />
                             Filters
                             {isFilterActive && <span className="ml-1.5 h-2 w-2 rounded-full bg-primary" />}
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-80 p-4" align="end">
+                    <PopoverContent className="w-80 p-4 bg-card border-border" align="end">
                         <div className="space-y-4">
-                            <h4 className="font-semibold text-sm text-slate-900">Filter Clients</h4>
+                            <h4 className="font-semibold text-sm text-foreground">Filter Clients</h4>
                             <div className="space-y-2">
-                                <label className="text-xs font-medium text-slate-500">Sales Type</label>
+                                <label className="text-xs font-medium text-muted-foreground">Sales Type</label>
                                 <Select value={salesTypeFilter} onValueChange={setSalesTypeFilter}>
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-9 bg-background border-border">
                                     <SelectValue placeholder="All Types" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -191,9 +191,9 @@ export default function ClientList() {
                             </div>
                             
                             <div className="space-y-2">
-                                <label className="text-xs font-medium text-slate-500">Status</label>
+                                <label className="text-xs font-medium text-muted-foreground">Status</label>
                                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-9 bg-background border-border">
                                     <SelectValue placeholder="All Status" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -206,9 +206,9 @@ export default function ClientList() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-xs font-medium text-slate-500">Counsellor</label>
+                                <label className="text-xs font-medium text-muted-foreground">Counsellor</label>
                                 <Select value={counsellorFilter} onValueChange={setCounsellorFilter}>
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-9 bg-background border-border">
                                     <SelectValue placeholder="All Counsellors" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -224,7 +224,7 @@ export default function ClientList() {
                                 <Button 
                                     variant="ghost" 
                                     onClick={handleClearFilters}
-                                    className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 h-9"
+                                    className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 h-9"
                                 >
                                     Clear Filters
                                 </Button>
@@ -237,18 +237,18 @@ export default function ClientList() {
         
         {/* Grouped Client List */}
         {sortedCounsellors.length > 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
             <Accordion type="multiple" className="w-full">
               {sortedCounsellors.map((counsellor) => (
-                <AccordionItem value={counsellor} key={counsellor} className="border-b last:border-b-0">
-                  <AccordionTrigger className="px-6 py-4 hover:bg-slate-50 hover:no-underline">
+                <AccordionItem value={counsellor} key={counsellor} className="border-b border-border/50 last:border-b-0">
+                  <AccordionTrigger className="px-6 py-4 hover:bg-muted/30 hover:no-underline">
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8 border border-slate-200">
+                      <Avatar className="h-8 w-8 border border-border">
                         <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
                           {counsellor.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="font-semibold text-lg text-slate-900">{counsellor}</span>
+                      <span className="font-semibold text-lg text-foreground">{counsellor}</span>
                       <Badge variant="secondary" className="ml-2">
                          {Object.values(groupedClients[counsellor]).reduce((acc, year) => 
                             acc + Object.values(year).reduce((sum, month) => sum + month.length, 0), 0
@@ -256,22 +256,22 @@ export default function ClientList() {
                       </Badge>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="px-0 pb-0 bg-slate-50/50">
+                  <AccordionContent className="px-0 pb-0 bg-muted/10">
                     <div className="pl-4 pr-4 pb-4 pt-2">
                       <Accordion type="multiple" className="w-full space-y-2">
                         {Object.keys(groupedClients[counsellor])
                           .sort((a, b) => Number(b) - Number(a)) // Sort years descending
                           .map(year => (
-                            <AccordionItem value={`${counsellor}-${year}`} key={year} className="border border-slate-200 rounded-lg bg-white overflow-hidden shadow-sm">
-                              <AccordionTrigger className="px-4 py-3 hover:bg-slate-50 hover:no-underline">
-                                <span className="font-semibold text-base text-slate-800">{year}</span>
+                            <AccordionItem value={`${counsellor}-${year}`} key={year} className="border border-border/50 rounded-lg bg-card overflow-hidden shadow-sm">
+                              <AccordionTrigger className="px-4 py-3 hover:bg-muted/30 hover:no-underline">
+                                <span className="font-semibold text-base text-foreground/80">{year}</span>
                               </AccordionTrigger>
                               <AccordionContent className="pb-0">
-                                <div className="border-t border-slate-100">
+                                <div className="border-t border-border/50">
                                   <Accordion type="multiple" className="w-full">
                                     {Object.keys(groupedClients[counsellor][year]).map(month => (
-                                      <AccordionItem value={`${counsellor}-${year}-${month}`} key={month} className="border-b last:border-b-0 border-slate-100">
-                                        <AccordionTrigger className="px-4 py-2 hover:bg-slate-50 hover:no-underline text-sm font-medium text-slate-600">
+                                      <AccordionItem value={`${counsellor}-${year}-${month}`} key={month} className="border-b last:border-b-0 border-border/50">
+                                        <AccordionTrigger className="px-4 py-2 hover:bg-muted/30 hover:no-underline text-sm font-medium text-muted-foreground">
                                           <div className="flex items-center gap-2">
                                             <span>{month}</span>
                                             <Badge variant="outline" className="text-xs h-5 px-1.5 font-normal">
@@ -301,10 +301,10 @@ export default function ClientList() {
             </Accordion>
           </div>
         ) : (
-          <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
-            <div className="flex flex-col items-center justify-center text-slate-500">
-              <User className="h-12 w-12 mb-4 text-slate-300" />
-              <h3 className="text-lg font-medium text-slate-900">No clients found</h3>
+          <div className="text-center py-12 bg-card rounded-xl border border-border/50">
+            <div className="flex flex-col items-center justify-center text-muted-foreground">
+              <User className="h-12 w-12 mb-4 text-muted-foreground/50" />
+              <h3 className="text-lg font-medium text-foreground">No clients found</h3>
               <p className="mt-1">Try adjusting your filters or search query.</p>
             </div>
           </div>

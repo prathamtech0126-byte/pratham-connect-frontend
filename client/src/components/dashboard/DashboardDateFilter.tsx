@@ -104,7 +104,7 @@ export function DashboardDateFilter({
   };
 
   return (
-    <div className={cn("flex items-center bg-gray-100/50 p-1 rounded-lg border border-gray-200", className)}>
+    <div className={cn("flex items-center bg-muted/50 p-1 rounded-lg border border-border/50", className)}>
       {(["Today", "Weekly", "Monthly", "Yearly"] as const).map((tab) => (
         <button
           key={tab}
@@ -112,8 +112,8 @@ export function DashboardDateFilter({
           className={cn(
             "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
             activeTab === tab
-              ? "bg-orange-600 text-white shadow-sm"
-              : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/50"
+              ? "bg-orange-500 text-white shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
           )}
         >
           {tab}
@@ -127,46 +127,47 @@ export function DashboardDateFilter({
             className={cn(
               "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
               activeTab === "Custom"
-                ? "bg-orange-600 text-white shadow-sm"
-                : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/50"
+                ? "bg-orange-500 text-white shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
-            {getCustomButtonText()} <CalendarIcon className={cn("h-3.5 w-3.5", activeTab === "Custom" ? "text-white" : "text-gray-500")} />
+            {getCustomButtonText()} <CalendarIcon className={cn("h-3.5 w-3.5", activeTab === "Custom" ? "text-white" : "text-muted-foreground")} />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-0" align={align}>
-          <div className="p-4 space-y-4 bg-white rounded-lg shadow-lg border">
+          <div className="p-4 space-y-4 bg-card rounded-lg shadow-lg border border-border">
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-blue-600">After</label>
+                <label className="text-sm font-medium text-primary">After</label>
                 <div className="relative">
                     <DateInput 
                         value={startDate} 
                         onChange={setStartDate} 
                         placeholder="Select start date"
-                        className="border-blue-600 ring-1 ring-blue-600"
+                        className="border-primary ring-1 ring-primary bg-background text-foreground placeholder:text-muted-foreground"
                     />
                 </div>
               </div>
               
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Before</label>
+                <label className="text-sm font-medium text-foreground">Before</label>
                 <div className="relative">
                     <DateInput 
                         value={endDate} 
                         onChange={setEndDate} 
                         placeholder="Select end date"
+                        className="bg-background text-foreground placeholder:text-muted-foreground"
                     />
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t mt-4">
+            <div className="flex justify-end gap-2 pt-2 border-t border-border mt-4">
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={handleCancelCustom}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </Button>
