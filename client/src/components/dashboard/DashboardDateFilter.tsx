@@ -90,6 +90,19 @@ export function DashboardDateFilter({
     _setIsOpen(false);
   };
 
+  const getCustomButtonText = () => {
+    if (activeTab === "Custom" && date?.[0] && date?.[1]) {
+      return `${format(date[0], "MMM d")} - ${format(date[1], "MMM d")}`;
+    }
+    if (activeTab === "Custom" && date?.[0]) {
+      return `After ${format(date[0], "MMM d")}`;
+    }
+    if (activeTab === "Custom" && date?.[1]) {
+      return `Before ${format(date[1], "MMM d")}`;
+    }
+    return "Custom";
+  };
+
   return (
     <div className={cn("flex items-center bg-gray-100/50 p-1 rounded-lg border border-gray-200", className)}>
       {(["Today", "Weekly", "Monthly", "Yearly"] as const).map((tab) => (
@@ -118,7 +131,7 @@ export function DashboardDateFilter({
                 : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/50"
             )}
           >
-            Custom <CalendarIcon className={cn("h-3.5 w-3.5", activeTab === "Custom" ? "text-white" : "text-gray-500")} />
+            {getCustomButtonText()} <CalendarIcon className={cn("h-3.5 w-3.5", activeTab === "Custom" ? "text-white" : "text-gray-500")} />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-0" align={align}>
