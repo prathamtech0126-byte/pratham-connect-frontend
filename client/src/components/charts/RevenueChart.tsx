@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
+import { cn } from "@/lib/utils";
 
 type TimeRange = "daily" | "weekly" | "monthly" | "yearly" | "custom";
 
@@ -47,7 +48,11 @@ const mockData: Record<TimeRange, any[]> = {
   ]
 };
 
-export function RevenueChart() {
+interface RevenueChartProps {
+  className?: string;
+}
+
+export function RevenueChart({ className }: RevenueChartProps) {
   const [timeRange, setTimeRange] = useState<TimeRange>("monthly");
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
 
@@ -56,7 +61,7 @@ export function RevenueChart() {
   };
 
   return (
-    <Card className="col-span-4 border-none shadow-sm">
+    <Card className={cn("col-span-4 border-none shadow-sm flex flex-col h-full", className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
         <CardTitle className="text-subheader">Revenue Overview</CardTitle>
         <div className="flex items-center gap-2">
@@ -70,8 +75,8 @@ export function RevenueChart() {
             />
         </div>
       </CardHeader>
-      <CardContent className="pl-2">
-        <ResponsiveContainer width="100%" height={350}>
+      <CardContent className="pl-2 flex-1 min-h-[350px]">
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={mockData[timeRange]}>
             <XAxis
               dataKey="name"

@@ -240,9 +240,7 @@ export default function Dashboard() {
       {/* Main Content Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
         {canViewFinancials ? (
-            <div className="col-span-4 rounded-xl shadow-card bg-card p-1">
-                <RevenueChart />
-            </div>
+            <RevenueChart className="shadow-card" />
         ) : (
           <Card className="col-span-4 border-none shadow-card bg-card rounded-xl overflow-hidden">
             <CardHeader>
