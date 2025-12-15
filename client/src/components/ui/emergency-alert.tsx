@@ -11,18 +11,18 @@ export function EmergencyAlert() {
   const [canAcknowledge, setCanAcknowledge] = useState(false);
 
   // Check if current user is targeted
+  // UPDATED LOGIC:
+  // 1. If 'all' is targeted -> Everyone sees it.
+  // 2. If my role is in targetRoles -> I see it.
+  // 3. If I am 'superadmin' or 'director' -> I ALWAYS see it (so I can test/verify the alert is active).
+  
   const isTargeted = isActive && user && (
     targetRoles?.includes('all') || 
-    targetRoles?.includes(user.role)
+    targetRoles?.includes(user.role) ||
+    user.role === 'superadmin' || 
+    user.role === 'director'
   );
 
-  // User request update: 
-  // 1. "also add director" -> Directors should be frozen.
-  // 2. "right now also red alert message show in admin so i can test it" -> Admin should be frozen for testing.
-  // 
-  // Previously we excluded superadmin/director to prevent "sender freeze", but user explicitly wants to test it 
-  // and wants directors included. So we remove the exclusion logic.
-  
   const shouldShowAlert = isTargeted;
 
   useEffect(() => {
