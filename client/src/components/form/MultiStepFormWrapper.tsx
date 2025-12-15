@@ -71,24 +71,26 @@ export function MultiStepFormWrapper({ title, steps, onSubmit, isSubmitting, onS
       <Card className="border-none shadow-md">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle>{steps[currentStep].title}</CardTitle>
-          {onSaveDraft && (
-            <Button variant="outline" size="sm" onClick={onSaveDraft} className="ml-auto">
-              Save Draft
-            </Button>
-          )}
         </CardHeader>
         <CardContent>
           {steps[currentStep].component}
         </CardContent>
         <CardFooter className="flex justify-between pt-6">
-          <Button
-            variant="outline"
-            onClick={handleBack}
-            disabled={currentStep === 0}
-          >
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={currentStep === 0}
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            {onSaveDraft && (
+              <Button variant="secondary" onClick={onSaveDraft}>
+                Save Draft
+              </Button>
+            )}
+          </div>
           <Button onClick={handleNext} disabled={isSubmitting}>
             {currentStep === steps.length - 1 ? (
               isSubmitting ? "Saving..." : "Submit"
