@@ -140,59 +140,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         )}
-
-        {/* Leaderboard Card - Visible to everyone now, but adapted for admins */}
-        <Card className={`border-none shadow-card bg-white rounded-xl overflow-hidden ${!canViewFinancials ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
-          <CardHeader>
-            <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-yellow-500" />
-              {canViewFinancials ? "Performance Leaderboard" : "Counselor Leaderboard"}
-            </CardTitle>
-            <CardDescription>Top performing {canViewFinancials ? "team members" : "counselors"} this month</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {counselorTargets.map((counselor, index) => (
-                <div 
-                  key={index} 
-                  className={`flex items-center p-3 rounded-lg transition-all ${
-                    counselor.isCurrentUser 
-                      ? "bg-primary/5 border border-primary/20 shadow-sm ring-1 ring-primary/10" 
-                      : "hover:bg-slate-50"
-                  }`}
-                >
-                  <div className={`
-                    flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-4
-                    ${index === 0 ? "bg-yellow-100 text-yellow-700" : 
-                      index === 1 ? "bg-slate-100 text-slate-700" :
-                      index === 2 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-500"}
-                  `}>
-                    {index + 1}
-                  </div>
-                  
-                  <div className="flex items-center flex-1">
-                    <div className="h-9 w-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-semibold text-xs mr-3">
-                      {counselor.avatar}
-                    </div>
-                    <div>
-                      <p className={`text-sm font-semibold ${counselor.isCurrentUser ? "text-primary" : "text-slate-900"}`}>
-                        {counselor.name} {counselor.isCurrentUser && "(You)"}
-                      </p>
-                      <p className="text-xs text-slate-500">Target: {counselor.target}</p>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-slate-900">{counselor.achieved}</div>
-                    <p className="text-xs text-slate-500">enrolled</p>
-                  </div>
-
-                  {index === 0 && <Medal className="w-5 h-5 text-yellow-500 ml-4 opacity-0 sm:opacity-100 transition-opacity" />}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Stats Grid */}
@@ -292,29 +239,53 @@ export default function Dashboard() {
           </Card>
         )}
         
+        {/* Leaderboard Card - Replaces Recent Clients */}
         <Card className="col-span-3 border-none shadow-card bg-white rounded-xl overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-bold text-slate-900">Recent Clients</CardTitle>
-            <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80 p-0 h-auto font-medium">
-              View All <ArrowRight className="ml-1 w-4 h-4" />
-            </Button>
+          <CardHeader>
+            <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-500" />
+              {canViewFinancials ? "Performance Leaderboard" : "Counselor Leaderboard"}
+            </CardTitle>
+            <CardDescription>Top performing {canViewFinancials ? "team members" : "counselors"} this month</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              {recentClients?.slice(0, 5).map((client) => (
-                <div key={client.id} className="flex items-center group cursor-pointer hover:bg-slate-50 p-2 -mx-2 rounded-lg transition-colors">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm ring-2 ring-white shadow-sm">
-                    {client.name.charAt(0)}
+            <div className="space-y-4">
+              {counselorTargets.map((counselor, index) => (
+                <div 
+                  key={index} 
+                  className={`flex items-center p-3 rounded-lg transition-all ${
+                    counselor.isCurrentUser 
+                      ? "bg-primary/5 border border-primary/20 shadow-sm ring-1 ring-primary/10" 
+                      : "hover:bg-slate-50"
+                  }`}
+                >
+                  <div className={`
+                    flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mr-4
+                    ${index === 0 ? "bg-yellow-100 text-yellow-700" : 
+                      index === 1 ? "bg-slate-100 text-slate-700" :
+                      index === 2 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-500"}
+                  `}>
+                    {index + 1}
                   </div>
-                  <div className="ml-4 space-y-1 flex-1">
-                    <p className="text-sm font-semibold leading-none text-slate-900">{client.name}</p>
-                    <p className="text-xs text-slate-500">{client.salesType}</p>
+                  
+                  <div className="flex items-center flex-1">
+                    <div className="h-9 w-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-semibold text-xs mr-3">
+                      {counselor.avatar}
+                    </div>
+                    <div>
+                      <p className={`text-sm font-semibold ${counselor.isCurrentUser ? "text-primary" : "text-slate-900"}`}>
+                        {counselor.name} {counselor.isCurrentUser && "(You)"}
+                      </p>
+                      <p className="text-xs text-slate-500">Target: {counselor.target}</p>
+                    </div>
                   </div>
-                  <div className="ml-auto font-medium text-sm">
-                    <Badge variant={client.status === 'Active' ? 'default' : 'secondary'} className="rounded-md px-2.5 py-0.5">
-                      {client.status}
-                    </Badge>
+
+                  <div className="text-right">
+                    <div className="text-sm font-bold text-slate-900">{counselor.achieved}</div>
+                    <p className="text-xs text-slate-500">enrolled</p>
                   </div>
+
+                  {index === 0 && <Medal className="w-5 h-5 text-yellow-500 ml-4 opacity-0 sm:opacity-100 transition-opacity" />}
                 </div>
               ))}
             </div>
