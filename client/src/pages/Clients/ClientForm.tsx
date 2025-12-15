@@ -25,7 +25,6 @@ import { Label } from "@/components/ui/label";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
-const DRAFT_STORAGE_KEY = "client_registration_draft";
 
 // --- Schema Definitions ---
 
@@ -240,45 +239,6 @@ export default function ClientForm() {
 
   const productType = getProductType(salesType);
 
-  // Load draft on mount
-  useEffect(() => {
-    const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-    if (savedDraft) {
-      try {
-        const parsedDraft = JSON.parse(savedDraft);
-        
-        // Show a toast with an action to restore
-        toast({
-          title: "Draft Found",
-          description: "We found an unsaved draft. Would you like to restore it?",
-          action: (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => {
-                form.reset(parsedDraft);
-                toast({ title: "Draft Restored", description: "Your form has been restored from draft." });
-              }}
-            >
-              Restore
-            </Button>
-          ),
-          duration: 10000,
-        });
-      } catch (e) {
-        console.error("Failed to parse draft", e);
-      }
-    }
-  }, []);
-
-  const saveDraft = () => {
-    const currentValues = form.getValues();
-    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(currentValues));
-    toast({
-      title: "Draft Saved",
-      description: "Your progress has been saved locally.",
-    });
-  };
 
   const onSubmit = async (data: FormValues) => {
     try {
@@ -302,8 +262,6 @@ export default function ClientForm() {
         status: "Active",
       });
 
-      // Clear draft on success
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
 
       toast({
         title: "Success",
@@ -1161,7 +1119,6 @@ export default function ClientForm() {
           title="Client Registration"
           steps={filteredSteps}
           onSubmit={handleSubmit(onSubmit)}
-          onSaveDraft={saveDraft}
         />
       </div>
     </PageWrapper>
