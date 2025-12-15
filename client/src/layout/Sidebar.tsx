@@ -201,30 +201,6 @@ export function Sidebar({ className }: { className?: string }) {
                   >
                     <span className="truncate">All Clients</span>
                   </Link>
-                  
-                  {clients?.slice(0, 5).map(client => (
-                    <Link
-                      key={client.id}
-                      href={`/clients/${client.id}`}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
-                        location === `/clients/${client.id}`
-                          ? "border-primary text-primary font-medium bg-primary/5" 
-                          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
-                      )}
-                    >
-                      <span className="truncate">{client.name}</span>
-                    </Link>
-                  ))}
-                  
-                  {clients && clients.length > 5 && (
-                    <Link
-                      href="/clients"
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs text-muted-foreground hover:text-primary transition-colors pl-6"
-                    >
-                      <span>+ {clients.length - 5} more...</span>
-                    </Link>
-                  )}
                 </CollapsibleContent>
               </Collapsible>
             );

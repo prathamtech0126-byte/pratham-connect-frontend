@@ -28,9 +28,7 @@ export function Topbar() {
         
         {/* Optional: Add page title or breadcrumbs here if needed, or keeping it clean */}
         <div className="hidden md:flex items-center text-muted-foreground text-sm">
-           <span className="text-foreground font-medium">Application</span> 
-           <span className="mx-2">/</span>
-           <span>Dashboard</span>
+           {/* Breadcrumbs removed as they are handled in PageWrapper */}
         </div>
       </div>
 
