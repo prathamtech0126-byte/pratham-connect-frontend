@@ -15,9 +15,10 @@ interface MultiStepFormWrapperProps {
   steps: Step[];
   onSubmit: () => void;
   isSubmitting?: boolean;
+  onSaveDraft?: () => void;
 }
 
-export function MultiStepFormWrapper({ title, steps, onSubmit, isSubmitting }: MultiStepFormWrapperProps) {
+export function MultiStepFormWrapper({ title, steps, onSubmit, isSubmitting, onSaveDraft }: MultiStepFormWrapperProps) {
   const [currentStep, setCurrentStep] = useState(0);
 
   const handleNext = () => {
@@ -68,8 +69,13 @@ export function MultiStepFormWrapper({ title, steps, onSubmit, isSubmitting }: M
       </div>
 
       <Card className="border-none shadow-md">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{steps[currentStep].title}</CardTitle>
+          {onSaveDraft && (
+            <Button variant="ghost" size="sm" onClick={onSaveDraft} className="text-muted-foreground hover:text-primary">
+              Save Draft
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {steps[currentStep].component}
