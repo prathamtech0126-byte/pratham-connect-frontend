@@ -1,6 +1,6 @@
 import { PageWrapper } from "@/layout/PageWrapper";
 import { StatCard } from "@/components/cards/StatCard";
-import { Users, DollarSign, Clock, CreditCard, TrendingUp, UserPlus, ShieldAlert, Activity, ArrowUpRight, ArrowRight, Target, Trophy, Medal } from "lucide-react";
+import { Users, DollarSign, Clock, CreditCard, TrendingUp, UserPlus, ShieldAlert, Activity, ArrowUpRight, ArrowRight, Target, Trophy, Medal, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Area, AreaChart, CartesianGrid } from "recharts";
 import { useQuery } from "@tanstack/react-query";
@@ -34,14 +34,16 @@ const counselorTargets = [
 import { RevenueChart } from "@/components/charts/RevenueChart";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [selectedBranch, setSelectedBranch] = useState("all");
+  const [timeFilter, setTimeFilter] = useState("today");
 
   const { data: stats } = useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: ['dashboard-stats', timeFilter], // Add timeFilter to query key
     queryFn: clientService.getDashboardStats
   });
 
@@ -61,6 +63,17 @@ export default function Dashboard() {
   const remainingTarget = currentUserTarget ? currentUserTarget.target - currentUserTarget.achieved : 0;
   const progressPercentage = currentUserTarget ? (currentUserTarget.achieved / currentUserTarget.target) * 100 : 0;
 
+  // Mock data adjustment based on time filter
+  const getAdjustedValue = (baseValue: number) => {
+    switch(timeFilter) {
+        case 'today': return Math.round(baseValue / 30);
+        case 'weekly': return Math.round(baseValue / 4);
+        case 'monthly': return baseValue;
+        case 'yearly': return baseValue * 12;
+        default: return baseValue;
+    }
+  };
+
   return (
     <div className="space-y-8 pb-8">
       {/* Header Section */}
@@ -68,8 +81,19 @@ export default function Dashboard() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
           <p className="text-slate-500 mt-1">
-            Welcome back, <span className="font-semibold text-primary">{user?.name}</span>. Here's what's happening today.
+            Welcome back, <span className="font-semibold text-primary">{user?.name}</span>. Here's what's happening.
           </p>
+        </div>
+        
+        <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex items-center">
+             <Tabs defaultValue="today" value={timeFilter} onValueChange={setTimeFilter} className="w-auto">
+                <TabsList className="grid w-full grid-cols-4 h-9">
+                    <TabsTrigger value="today" className="text-xs px-3">Today</TabsTrigger>
+                    <TabsTrigger value="weekly" className="text-xs px-3">Weekly</TabsTrigger>
+                    <TabsTrigger value="monthly" className="text-xs px-3">Monthly</TabsTrigger>
+                    <TabsTrigger value="yearly" className="text-xs px-3">Yearly</TabsTrigger>
+                </TabsList>
+            </Tabs>
         </div>
       </div>
 
@@ -175,10 +199,10 @@ export default function Dashboard() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Clients"
-          value={stats?.totalClients || 0}
+          value={getAdjustedValue(stats?.totalClients || 120)}
           icon={Users}
           trend={{ value: 12, isPositive: true }}
-          description="from last month"
+          description={`for ${timeFilter}`}
           className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
         />
         
@@ -186,17 +210,17 @@ export default function Dashboard() {
           <>
             <StatCard
               title="Total Revenue"
-              value={`₹${(stats?.totalReceived || 0).toLocaleString()}`}
+              value={`₹${getAdjustedValue(stats?.totalReceived || 2500000).toLocaleString()}`}
               icon={DollarSign}
               trend={{ value: 8, isPositive: true }}
-              description="from last month"
+              description={`for ${timeFilter}`}
               className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
             />
             <StatCard
               title="Pending Amount"
               value={`₹${(stats?.totalPending || 0).toLocaleString()}`}
               icon={Clock}
-              description="across all clients"
+              description="total outstanding"
               className="shadow-card hover:shadow-lg transition-shadow border-l-4 border-l-yellow-500 bg-white"
             />
           </>
@@ -204,7 +228,7 @@ export default function Dashboard() {
           <>
             <StatCard
               title="Active Cases"
-              value={42}
+              value={getAdjustedValue(42)}
               icon={Activity}
               trend={{ value: 5, isPositive: true }}
               description="currently processing"
@@ -221,10 +245,10 @@ export default function Dashboard() {
         )}
         
         <StatCard
-          title="Today's Enrollments"
-          value={stats?.todaysEnrollments || 0}
+          title="New Enrollments"
+          value={getAdjustedValue(stats?.todaysEnrollments || 5)}
           icon={UserPlus}
-          description="new clients today"
+          description={`new clients ${timeFilter}`}
           className="shadow-card hover:shadow-lg transition-shadow border-none bg-white"
         />
       </div>
