@@ -16,6 +16,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { ProfileDialog } from "@/components/profile-dialog";
+import { BroadcastDialog } from "@/components/broadcast-dialog";
 import { useAuth } from "@/context/auth-context";
 import { useAlert } from "@/context/alert-context";
 import { AlertTriangle } from "lucide-react";
@@ -24,7 +25,6 @@ import { ModeToggle } from "@/components/mode-toggle";
 
 export function Topbar() {
   const { user, logout } = useAuth();
-  const { triggerAlert } = useAlert();
   
   return (
     <header className="h-20 px-6 md:px-8 border-b border-border/40 bg-background/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-10 transition-all duration-200">
@@ -50,15 +50,16 @@ export function Topbar() {
 
         <ModeToggle />
 
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="relative text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors w-10 h-10"
-          onClick={() => triggerAlert("URGENT: All counselors and managers please report to the main office immediately. This is a mandatory briefing.")}
-          title="Simulate Admin Emergency Alert"
-        >
-          <AlertTriangle className="w-5 h-5" />
-        </Button>
+        <BroadcastDialog>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="relative text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors w-10 h-10"
+            title="Broadcast Emergency Alert"
+          >
+            <AlertTriangle className="w-5 h-5" />
+          </Button>
+        </BroadcastDialog>
 
         <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full transition-colors w-10 h-10">
           <Bell className="w-5 h-5" />
