@@ -16,31 +16,14 @@ export function EmergencyAlert() {
     targetRoles?.includes(user.role)
   );
 
-  // However, we must ensure Admin/Director are NOT frozen if they are the senders,
-  // unless they are explicitly targeted (which 'all' usually implies).
-  // But per user request: "admin screen freeze so i want all manger counselor these user field freeze"
-  // This implies Admin should NOT freeze when sending.
+  // User request update: 
+  // 1. "also add director" -> Directors should be frozen.
+  // 2. "right now also red alert message show in admin so i can test it" -> Admin should be frozen for testing.
+  // 
+  // Previously we excluded superadmin/director to prevent "sender freeze", but user explicitly wants to test it 
+  // and wants directors included. So we remove the exclusion logic.
   
-  // Let's refine: If targetRoles includes 'all', it usually means everyone.
-  // But in this system, Admin is the broadcaster.
-  // Let's exclude 'superadmin' and 'director' from 'all' alerts implicitly for the sender perspective,
-  // OR just trust the 'targetRoles' passed from the dialog.
-  
-  // Actually, better logic:
-  // If I am a Super Admin or Director, I shouldn't be blocked by my own alert system usually.
-  // Unless I want to test it. 
-  // But for "production" behavior requested: "admin message to all user... user screen stop"
-  // implies the *users* stop.
-  
-  const shouldShowAlert = isTargeted && (
-    // If targeted explicitly by role name, show it.
-    (targetRoles && !targetRoles.includes('all')) ||
-    // If 'all', exclude superadmin/director from the freeze to allow them to manage?
-    // User said: "broadcast message permission do in only admin and director"
-    // So they are the senders.
-    // Let's hide it for them so they don't get stuck.
-    (user.role !== 'superadmin' && user.role !== 'director')
-  );
+  const shouldShowAlert = isTargeted;
 
   useEffect(() => {
     if (shouldShowAlert) {
