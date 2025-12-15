@@ -490,12 +490,7 @@ export default function Reports() {
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            {isCurrentUser && (
-                                                <>
-                                                    <p className="text-sm font-bold">₹{(counsellor.revenue / 100000).toFixed(1)}L</p>
-                                                    <p className="text-xs text-muted-foreground">Revenue</p>
-                                                </>
-                                            )}
+                                            {/* Revenue hidden for all as requested */}
                                         </div>
                                     </div>
                                     
