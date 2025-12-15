@@ -18,8 +18,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileDialog } from "@/components/profile-dialog";
 import { BroadcastDialog } from "@/components/broadcast-dialog";
 import { useAuth } from "@/context/auth-context";
-import { useAlert } from "@/context/alert-context";
-import { AlertTriangle } from "lucide-react";
+import { useAlert, AlertType } from "@/context/alert-context";
+import { AlertTriangle, Megaphone, PartyPopper } from "lucide-react";
 
 import { ModeToggle } from "@/components/mode-toggle";
 
@@ -34,6 +34,22 @@ export function Topbar() {
     user.role === 'superadmin' || 
     user.role === 'director'
   );
+
+  const getAlertIcon = (type: AlertType) => {
+    switch(type) {
+      case 'emergency': return <AlertTriangle className="w-4 h-4 text-red-600" />;
+      case 'good_news': return <PartyPopper className="w-4 h-4 text-green-600" />;
+      default: return <Megaphone className="w-4 h-4 text-blue-600" />;
+    }
+  };
+
+  const getAlertColor = (type: AlertType) => {
+    switch(type) {
+      case 'emergency': return "bg-red-200 hover:bg-red-300";
+      case 'good_news': return "bg-green-200 hover:bg-green-300";
+      default: return "bg-blue-200 hover:bg-blue-300";
+    }
+  };
   
   return (
     <header className="h-20 px-6 md:px-8 border-b border-border/40 bg-background/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-10 transition-all duration-200">
@@ -77,26 +93,29 @@ export function Topbar() {
             <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full transition-colors w-10 h-10">
               <Bell className="w-5 h-5" />
               {hasRelevantPendingAlert && (
-                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-background animate-pulse" />
+                <span className={`absolute top-2.5 right-2.5 w-2 h-2 rounded-full border-2 border-background animate-pulse ${
+                  pendingAlert.type === 'good_news' ? 'bg-green-500' : 
+                  pendingAlert.type === 'announcement' ? 'bg-blue-500' : 'bg-red-500'
+                }`} />
               )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-80 mt-2 p-1 rounded-xl shadow-lg border-border/60" align="end">
              {hasRelevantPendingAlert ? (
                 <DropdownMenuItem 
-                  className="p-3 cursor-pointer bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg focus:bg-red-100"
+                  className="p-3 cursor-pointer bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-lg focus:bg-slate-100"
                   onClick={activatePendingAlert}
                 >
                   <div className="flex gap-3 items-start w-full">
-                    <div className="bg-red-200 p-2 rounded-full mt-1">
-                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <div className={`p-2 rounded-full mt-1 ${getAlertColor(pendingAlert.type)}`}>
+                      {getAlertIcon(pendingAlert.type)}
                     </div>
                     <div className="flex-1 space-y-1">
-                      <p className="font-semibold text-red-900 text-sm">Emergency Alert</p>
-                      <p className="text-xs text-red-700 line-clamp-2 leading-relaxed">
+                      <p className="font-semibold text-slate-900 text-sm">{pendingAlert.title}</p>
+                      <p className="text-xs text-slate-700 line-clamp-2 leading-relaxed">
                         {pendingAlert.message}
                       </p>
-                      <p className="text-[10px] text-red-500 font-medium uppercase tracking-wide pt-1">Click to view</p>
+                      <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide pt-1">Click to view</p>
                     </div>
                   </div>
                 </DropdownMenuItem>

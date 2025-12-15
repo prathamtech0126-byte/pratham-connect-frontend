@@ -3,17 +3,23 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 type AlertContextType = {
   isActive: boolean;
   message: string;
-  triggerAlert: (message: string, targetRoles?: string[]) => void;
+  triggerAlert: (message: string, targetRoles?: string[], title?: string, type?: AlertType) => void;
   acknowledgeAlert: () => void;
   targetRoles?: string[];
   pendingAlert: PendingAlert | null;
   clearPendingAlert: () => void;
   activatePendingAlert: () => void;
+  title: string;
+  type: AlertType;
 };
+
+export type AlertType = 'emergency' | 'announcement' | 'good_news';
 
 type PendingAlert = {
   message: string;
   targetRoles: string[];
+  title: string;
+  type: AlertType;
   timestamp: number;
 };
 
@@ -22,6 +28,8 @@ const AlertContext = createContext<AlertContextType | undefined>(undefined);
 export function AlertProvider({ children }: { children: ReactNode }) {
   const [isActive, setIsActive] = useState(false);
   const [message, setMessage] = useState('');
+  const [title, setTitle] = useState('Emergency Alert');
+  const [type, setType] = useState<AlertType>('emergency');
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [pendingAlert, setPendingAlert] = useState<PendingAlert | null>(null);
 
@@ -40,13 +48,15 @@ export function AlertProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const triggerAlert = (msg: string, roles: string[] = ['all']) => {
+  const triggerAlert = (msg: string, roles: string[] = ['all'], newTitle: string = 'Emergency Alert', newType: AlertType = 'emergency') => {
     setMessage(msg);
     setTargetRoles(roles);
+    setTitle(newTitle);
+    setType(newType);
     setIsActive(true);
     
     // Save to storage to simulate persistence for offline users
-    const alertData = { message: msg, targetRoles: roles, timestamp: Date.now() };
+    const alertData = { message: msg, targetRoles: roles, title: newTitle, type: newType, timestamp: Date.now() };
     localStorage.setItem('emergency_alert', JSON.stringify(alertData));
   };
 
@@ -67,7 +77,7 @@ export function AlertProvider({ children }: { children: ReactNode }) {
 
   const activatePendingAlert = () => {
     if (pendingAlert) {
-      triggerAlert(pendingAlert.message, pendingAlert.targetRoles);
+      triggerAlert(pendingAlert.message, pendingAlert.targetRoles, pendingAlert.title, pendingAlert.type);
       // It's now active, so we can clear the "pending" state visually from notifications
       // effectively moving it to "Active Alert"
       setPendingAlert(null); 
@@ -83,7 +93,9 @@ export function AlertProvider({ children }: { children: ReactNode }) {
       targetRoles,
       pendingAlert,
       clearPendingAlert,
-      activatePendingAlert
+      activatePendingAlert,
+      title,
+      type
     }}>
       {children}
     </AlertContext.Provider>
