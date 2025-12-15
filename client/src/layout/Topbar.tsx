@@ -18,6 +18,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileDialog } from "@/components/profile-dialog";
 import { useAuth } from "@/context/auth-context";
 
+import { ModeToggle } from "@/components/mode-toggle";
+
 export function Topbar() {
   const { user, logout } = useAuth();
   
@@ -42,6 +44,8 @@ export function Topbar() {
                 className="pl-9 h-9 bg-white/50 border-border/60 focus:bg-white transition-all rounded-full text-sm" 
             />
         </div>
+
+        <ModeToggle />
 
         <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full transition-colors w-10 h-10">
           <Bell className="w-5 h-5" />
