@@ -32,6 +32,16 @@ export function BroadcastDialog({ children }: { children: React.ReactNode }) {
   const handleSend = () => {
     if (!message.trim()) return;
 
+    // Determine target roles
+    const targetRoles: string[] = [];
+    if (recipients.all) {
+      targetRoles.push('all');
+    } else {
+      if (recipients.managers) targetRoles.push('manager');
+      if (recipients.counselors) targetRoles.push('counsellor');
+      if (recipients.directors) targetRoles.push('director');
+    }
+
     // 1. Show toast that message is "sent"
     toast({
       title: "Emergency Alert Broadcasted",
@@ -43,8 +53,9 @@ export function BroadcastDialog({ children }: { children: React.ReactNode }) {
     setOpen(false);
 
     // 2. Simulate the effect locally after a short delay so the admin sees what happens
+    // NOTE: Admin/Director won't see the freeze themselves due to updated logic in EmergencyAlert
     setTimeout(() => {
-      triggerAlert(message);
+      triggerAlert(message, targetRoles);
     }, 1500);
     
     setMessage("");

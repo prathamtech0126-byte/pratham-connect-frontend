@@ -18,9 +18,8 @@ export default function TeamList() {
   // Team State
   const [teamMembers, setTeamMembers] = useState([
     { id: 1, name: "Sarah Manager", email: "sarah@pratham.com", role: "Manager", status: "Active", avatar: "", assignedTo: "", password: "" },
-    { id: 2, name: "Tom Lead", email: "tom@pratham.com", role: "Team Lead", status: "Active", avatar: "", assignedTo: "Sarah Manager", password: "" },
-    { id: 3, name: "Dr. Counsellor", email: "doc@pratham.com", role: "Counsellor", status: "Away", avatar: "", assignedTo: "Tom Lead", password: "" },
-    { id: 4, name: "Priya Singh", email: "priya@pratham.com", role: "Counsellor", status: "Active", avatar: "", assignedTo: "Tom Lead", password: "" },
+    { id: 3, name: "Dr. Counsellor", email: "doc@pratham.com", role: "Counsellor", status: "Away", avatar: "", assignedTo: "Sarah Manager", password: "" },
+    { id: 4, name: "Priya Singh", email: "priya@pratham.com", role: "Counsellor", status: "Active", avatar: "", assignedTo: "Sarah Manager", password: "" },
     { id: 5, name: "Amit Director", email: "amit@pratham.com", role: "Director", status: "Active", avatar: "", assignedTo: "", password: "" },
   ]);
 
@@ -119,7 +118,6 @@ export default function TeamList() {
   };
 
   const assignableManagers = teamMembers.filter(m => m.role === "Manager");
-  const assignableTeamLeads = teamMembers.filter(m => m.role === "Team Lead");
 
   const filteredMembers = teamMembers.filter(member => {
     const matchesRole = roleFilter === "all" || member.role === roleFilter;
@@ -200,13 +198,12 @@ export default function TeamList() {
                     <SelectContent>
                       <SelectItem value="Director">Director</SelectItem>
                       <SelectItem value="Manager">Manager</SelectItem>
-                      <SelectItem value="Team Lead">Team Lead</SelectItem>
                       <SelectItem value="Counsellor">Counsellor</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                {newMember.role === "Team Lead" && (
+                {newMember.role === "Counsellor" && (
                   <div className="space-y-2">
                     <Label htmlFor="assignedTo">Assign to Manager</Label>
                     <Select
@@ -220,27 +217,6 @@ export default function TeamList() {
                         {assignableManagers.map((manager) => (
                           <SelectItem key={manager.id} value={manager.name}>
                             {manager.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {newMember.role === "Counsellor" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="assignedTo">Assign to Team Lead</Label>
-                    <Select
-                      value={newMember.assignedTo}
-                      onValueChange={(value) => setNewMember({ ...newMember, assignedTo: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Team Lead" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {assignableTeamLeads.map((lead) => (
-                          <SelectItem key={lead.id} value={lead.name}>
-                            {lead.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -278,7 +254,6 @@ export default function TeamList() {
                   <SelectItem value="all">All Roles</SelectItem>
                   <SelectItem value="Director">Director</SelectItem>
                   <SelectItem value="Manager">Manager</SelectItem>
-                  <SelectItem value="Team Lead">Team Lead</SelectItem>
                   <SelectItem value="Counsellor">Counsellor</SelectItem>
                 </SelectContent>
               </Select>

@@ -1,27 +1,50 @@
 import { useEffect, useState } from "react";
 import { useAlert } from "@/context/alert-context";
+import { useAuth } from "@/context/auth-context";
 import { AlertTriangle, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function EmergencyAlert() {
-  const { isActive, message, acknowledgeAlert } = useAlert();
+  const { isActive, message, acknowledgeAlert, targetRoles } = useAlert();
+  const { user } = useAuth();
   const [canAcknowledge, setCanAcknowledge] = useState(false);
 
-  // Requirement: "screen show that message 2 min then screen should red alrert message"
-  // Interpretation: The red alert is immediate, but maybe the "acknowledge" button is delayed?
-  // Or maybe the user meant it shows for 2 mins THEN turns red?
-  // Given "without that message read any screen couldnt normal", blocking immediately is safer for an emergency system.
-  // I will implement an immediate full-screen red alert.
+  // Check if current user is targeted
+  const isTargeted = isActive && user && (
+    targetRoles?.includes('all') || 
+    targetRoles?.includes(user.role)
+  );
+
+  // However, we must ensure Admin/Director are NOT frozen if they are the senders,
+  // unless they are explicitly targeted (which 'all' usually implies).
+  // But per user request: "admin screen freeze so i want all manger counselor these user field freeze"
+  // This implies Admin should NOT freeze when sending.
   
+  // Let's refine: If targetRoles includes 'all', it usually means everyone.
+  // But in this system, Admin is the broadcaster.
+  // Let's exclude 'superadmin' and 'director' from 'all' alerts implicitly for the sender perspective,
+  // OR just trust the 'targetRoles' passed from the dialog.
+  
+  // Actually, better logic:
+  // If I am a Super Admin or Director, I shouldn't be blocked by my own alert system usually.
+  // Unless I want to test it. 
+  // But for "production" behavior requested: "admin message to all user... user screen stop"
+  // implies the *users* stop.
+  
+  const shouldShowAlert = isTargeted && (
+    // If targeted explicitly by role name, show it.
+    (targetRoles && !targetRoles.includes('all')) ||
+    // If 'all', exclude superadmin/director from the freeze to allow them to manage?
+    // User said: "broadcast message permission do in only admin and director"
+    // So they are the senders.
+    // Let's hide it for them so they don't get stuck.
+    (user.role !== 'superadmin' && user.role !== 'director')
+  );
+
   useEffect(() => {
-    if (isActive) {
-      // Optional: Add a small delay before allowing acknowledgement to ensure they read it? 
-      // Or just let them acknowledge immediately. 
-      // The user said "if read message then click on acknowlgement".
+    if (shouldShowAlert) {
       setCanAcknowledge(true);
-      
-      // Prevent scrolling when alert is active
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -30,9 +53,9 @@ export function EmergencyAlert() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isActive]);
+  }, [shouldShowAlert]);
 
-  if (!isActive) return null;
+  if (!shouldShowAlert) return null;
 
   return (
     <AnimatePresence>

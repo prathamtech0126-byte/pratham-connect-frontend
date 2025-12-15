@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useLocation } from "wouter";
 
-export type UserRole = 'superadmin' | 'manager' | 'team_lead' | 'counsellor' | 'director';
+export type UserRole = 'superadmin' | 'manager' | 'counsellor' | 'director';
 
 interface User {
   id: string;
@@ -35,13 +35,6 @@ const MOCK_USERS: Record<UserRole, User> = {
     name: 'Sarah Manager',
     role: 'manager',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-  },
-  team_lead: {
-    id: '3',
-    username: 'lead',
-    name: 'Tom Lead',
-    role: 'team_lead',
-    avatar: 'https://images.unsplash.com/photo-1519244703995-f4e0f30006d5?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
   },
   counsellor: {
     id: '4',
