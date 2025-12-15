@@ -236,91 +236,51 @@ export default function ClientList() {
         </div>
         
         {sortedCounselors.length > 0 ? (
-            <div className="space-y-8">
-                {sortedCounselors.map(([counselor, data], index) => {
-                    // Calculate color intensity based on rank (0 is highest)
-                    // We'll use a blue scale: 
-                    // Top rank: Stronger/Darker Blue
-                    // Lower ranks: Lighter/Fainter Blue
-                    // We can map index to an opacity or shade class
-                    
-                    let headerClass = "bg-slate-50 border-slate-200";
-                    let textClass = "text-slate-900";
-                    let badgeClass = "bg-slate-200 text-slate-700";
-
-                    // Top 3 get special colors
-                    if (index === 0) {
-                        headerClass = "bg-blue-600 border-blue-600 text-white";
-                        textClass = "text-white";
-                        badgeClass = "bg-white/20 text-white hover:bg-white/30";
-                    } else if (index === 1) {
-                        headerClass = "bg-blue-500 border-blue-500 text-white";
-                        textClass = "text-white";
-                        badgeClass = "bg-white/20 text-white hover:bg-white/30";
-                    } else if (index === 2) {
-                        headerClass = "bg-blue-400 border-blue-400 text-white";
-                        textClass = "text-white";
-                        badgeClass = "bg-white/20 text-white hover:bg-white/30";
-                    } else if (index < 5) {
-                         headerClass = "bg-blue-50 border-blue-200";
-                         textClass = "text-blue-900";
-                         badgeClass = "bg-blue-100 text-blue-700";
-                    }
-
-                    return (
-                        <div key={counselor} className="space-y-4">
-                            {/* Distinct Counselor Section Header */}
-                            <div className={`flex items-center justify-between p-4 rounded-xl border shadow-sm ${headerClass}`}>
-                                <div className="flex items-center gap-3">
-                                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 font-bold text-sm border border-white/10">
-                                        {index + 1}
-                                    </div>
-                                    <h3 className={`text-xl font-bold ${textClass}`}>{counselor}</h3>
-                                    <Badge variant="outline" className={`border-0 ${badgeClass}`}>
-                                        {data.total} Clients
-                                    </Badge>
-                                </div>
+            <Accordion type="multiple" className="w-full space-y-4" defaultValue={sortedCounselors.map(([name]) => name)}>
+                {sortedCounselors.map(([counselor, data]) => (
+                    <AccordionItem value={counselor} key={counselor} className="border border-slate-200 rounded-lg bg-white px-4 shadow-sm">
+                        <AccordionTrigger className="hover:no-underline py-4">
+                            <div className="flex items-center gap-3">
+                                <span className="text-lg font-bold text-slate-900">{counselor}</span>
+                                <Badge variant="secondary" className="text-xs font-normal">
+                                    {data.total} Clients
+                                </Badge>
                             </div>
-
-                            {/* Years Section - Distinct from Counselor Header */}
-                            <div className="pl-4 border-l-2 border-slate-100 ml-6 space-y-6">
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-4">
+                             <Accordion type="multiple" className="w-full pl-4 border-l-2 border-slate-100 ml-2">
                                 {Object.keys(data.years).sort((a, b) => Number(b) - Number(a)).map(year => (
-                                    <div key={`${counselor}-${year}`} className="space-y-3">
-                                        <h4 className="text-lg font-semibold text-slate-700 flex items-center gap-2">
-                                            <span className="w-2 h-2 rounded-full bg-slate-300"></span>
+                                    <AccordionItem value={`${counselor}-${year}`} key={`${counselor}-${year}`} className="border-b-0">
+                                        <AccordionTrigger className="text-base font-semibold hover:no-underline py-3 text-slate-800">
                                             {year}
-                                        </h4>
-                                        
-                                        <Accordion type="multiple" className="w-full pl-4">
-                                            {Object.entries(data.years[year]).map(([month, clients]) => (
-                                                <AccordionItem value={`${counselor}-${year}-${month}`} key={`${counselor}-${year}-${month}`} className="border rounded-lg mb-2 px-3 bg-white shadow-sm">
-                                                    <AccordionTrigger className="text-sm font-medium hover:no-underline py-3 text-slate-700">
-                                                        <span className="flex items-center gap-2">
-                                                            {month} 
-                                                            <Badge variant="secondary" className="text-xs h-5 px-1.5 min-w-[20px] justify-center ml-1">
-                                                                {clients.length}
-                                                            </Badge>
-                                                        </span>
-                                                    </AccordionTrigger>
-                                                    <AccordionContent className="pb-3">
-                                                        <div className="mt-1 border rounded-md overflow-hidden">
-                                                            <DataTable 
-                                                                data={clients} 
-                                                                columns={columns} 
-                                                                onRowClick={(s) => setLocation(`/clients/${s.id}`)}
-                                                            />
-                                                        </div>
-                                                    </AccordionContent>
-                                                </AccordionItem>
-                                            ))}
-                                        </Accordion>
-                                    </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent>
+                                            <Accordion type="multiple" className="w-full pl-4 border-l-2 border-slate-100 ml-2">
+                                                {Object.entries(data.years[year]).map(([month, clients]) => (
+                                                    <AccordionItem value={`${counselor}-${year}-${month}`} key={`${counselor}-${year}-${month}`} className="border-b-0">
+                                                        <AccordionTrigger className="text-sm font-medium hover:no-underline py-2 text-slate-600">
+                                                            {month} ({clients.length})
+                                                        </AccordionTrigger>
+                                                        <AccordionContent>
+                                                            <div className="mt-2 border rounded-md overflow-hidden">
+                                                                <DataTable 
+                                                                    data={clients} 
+                                                                    columns={columns} 
+                                                                    onRowClick={(s) => setLocation(`/clients/${s.id}`)}
+                                                                />
+                                                            </div>
+                                                        </AccordionContent>
+                                                    </AccordionItem>
+                                                ))}
+                                            </Accordion>
+                                        </AccordionContent>
+                                    </AccordionItem>
                                 ))}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+                             </Accordion>
+                        </AccordionContent>
+                    </AccordionItem>
+                ))}
+            </Accordion>
         ) : (
             <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-300">
                 <p className="text-slate-500">No clients found matching your filters.</p>
