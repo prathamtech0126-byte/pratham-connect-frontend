@@ -32,8 +32,15 @@ const counselorTargets = [
 ];
 
 import { RevenueChart } from "@/components/charts/RevenueChart";
-
 import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
+
+const counselorRevenue = [
+  { name: "Priya Singh", revenue: 1250000, clients: 12, avatar: "P" },
+  { name: "Amit Kumar", revenue: 980000, clients: 8, avatar: "A" },
+  { name: "Sarah Jones", revenue: 750000, clients: 5, avatar: "S" },
+  { name: "Mike Brown", revenue: 450000, clients: 3, avatar: "M" },
+  { name: "Rahul Verma", revenue: 320000, clients: 2, avatar: "R" },
+];
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -331,57 +338,113 @@ export default function Dashboard() {
         <Card className="border-none shadow-card bg-white rounded-xl overflow-hidden">
           <CardHeader className="px-6 py-5 border-b border-slate-100">
             <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              {canViewFinancials ? <CreditCard className="w-5 h-5 text-primary" /> : <UserPlus className="w-5 h-5 text-primary" />}
-              {canViewFinancials ? "Recent Transactions" : "Recent Enrollments"}
+              {canViewFinancials ? <TrendingUp className="w-5 h-5 text-primary" /> : <Users className="w-5 h-5 text-primary" />}
+              {canViewFinancials ? "Counselor Performance" : "Recent Clients"}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-             <DataTable 
-               data={recentClients?.slice(0, 5) || []}
-               columns={[
-                 { 
-                   header: "Client", 
-                   accessorKey: "name", 
-                   cell: (client: Client) => (
-                     <div className="font-semibold text-slate-900">{client.name}</div>
-                   )
-                 },
-                 { 
-                   header: "Date", 
-                   accessorKey: "enrollmentDate",
-                   cell: (client: Client) => (
-                     <div className="text-slate-500">{new Date(client.enrollmentDate).toLocaleDateString()}</div>
-                   )
-                 },
-                 ...(canViewFinancials ? [{ 
-                   header: "Amount", 
-                   accessorKey: "amountReceived",
-                   cell: (client: Client) => (
-                     <div className="font-mono font-medium text-slate-700">₹{client.amountReceived?.toLocaleString()}</div>
-                   ) 
-                 }] : []),
-                 { 
-                   header: "Status", 
-                   accessorKey: "status",
-                   cell: (client: Client) => (
-                     <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 shadow-none font-medium">
-                       Active
-                     </Badge>
-                   ) 
-                 },
-                 {
-                    header: "",
-                    cell: () => (
-                        <div className="text-right">
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                <span className="sr-only">Open menu</span>
-                                <ArrowUpRight className="h-4 w-4 text-slate-400" />
-                            </Button>
-                        </div>
-                    )
-                 }
-               ]}
-             />
+             {canViewFinancials ? (
+               <DataTable 
+                 data={counselorRevenue}
+                 columns={[
+                   { 
+                     header: "Counselor", 
+                     accessorKey: "name", 
+                     cell: (item: any) => (
+                       <div className="flex items-center gap-3">
+                         <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-semibold text-xs border border-slate-200">
+                           {item.avatar}
+                         </div>
+                         <div className="font-semibold text-slate-900">{item.name}</div>
+                       </div>
+                     )
+                   },
+                   { 
+                     header: "Clients", 
+                     accessorKey: "clients",
+                     cell: (item: any) => (
+                       <div className="text-slate-600 font-medium">{item.clients} Active Cases</div>
+                     )
+                   },
+                   { 
+                     header: "Revenue", 
+                     accessorKey: "revenue",
+                     cell: (item: any) => (
+                       <div className="font-mono font-medium text-slate-700">₹{item.revenue.toLocaleString()}</div>
+                     )
+                   },
+                   {
+                      header: "",
+                      cell: () => (
+                          <div className="text-right">
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <ArrowRight className="h-4 w-4 text-slate-400" />
+                              </Button>
+                          </div>
+                      )
+                   }
+                 ]}
+               />
+             ) : (
+               <DataTable 
+                 data={recentClients?.slice(0, 5) || []}
+                 columns={[
+                   { 
+                     header: "Client", 
+                     accessorKey: "name", 
+                     cell: (client: Client) => (
+                       <div className="font-semibold text-slate-900">{client.name}</div>
+                     )
+                   },
+                   { 
+                     header: "Date", 
+                     accessorKey: "enrollmentDate",
+                     cell: (client: Client) => (
+                       <div className="text-slate-500">{new Date(client.enrollmentDate).toLocaleDateString()}</div>
+                     )
+                   },
+                   { 
+                     header: "Amount", 
+                     accessorKey: "amountReceived",
+                     cell: (client: Client) => (
+                       <div className="font-mono font-medium text-slate-700">₹{client.amountReceived?.toLocaleString()}</div>
+                     ) 
+                   },
+                   { 
+                     header: "Stage", 
+                     accessorKey: "status",
+                     cell: (client: Client) => {
+                       // Mock stage logic based on user request
+                       const stages = ["Initial", "Before Visa", "Visa Applied", "In Progress"];
+                       const randomStage = stages[Math.floor(Math.random() * stages.length)];
+                       
+                       return (
+                         <Badge variant="outline" className={`
+                           font-medium border-0
+                           ${randomStage === 'Initial' ? 'bg-blue-50 text-blue-700' : ''}
+                           ${randomStage === 'Before Visa' ? 'bg-amber-50 text-amber-700' : ''}
+                           ${randomStage === 'Visa Applied' ? 'bg-purple-50 text-purple-700' : ''}
+                           ${randomStage === 'In Progress' ? 'bg-emerald-50 text-emerald-700' : ''}
+                         `}>
+                           {randomStage}
+                         </Badge>
+                       );
+                     } 
+                   },
+                   {
+                      header: "",
+                      cell: () => (
+                          <div className="text-right">
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Open menu</span>
+                                  <ArrowUpRight className="h-4 w-4 text-slate-400" />
+                              </Button>
+                          </div>
+                      )
+                   }
+                 ]}
+               />
+             )}
           </CardContent>
         </Card>
       </div>
