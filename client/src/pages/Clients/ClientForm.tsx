@@ -302,6 +302,7 @@ export default function ClientForm() {
             name="salesType"
             control={control}
             label="Sales Type"
+            placeholder="Select Sales Type"
             options={salesTypeOptions}
           />
           <FormSelectInput
