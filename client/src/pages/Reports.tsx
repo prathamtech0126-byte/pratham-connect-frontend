@@ -28,23 +28,17 @@ import { DataTable } from "@/components/table/DataTable";
 import { Badge } from "@/components/ui/badge";
 
 // Mock Data
-const financialData = [
-  { name: 'Jan', revenue: 45000, pending: 12000 },
-  { name: 'Feb', revenue: 52000, pending: 15000 },
-  { name: 'Mar', revenue: 48000, pending: 8000 },
-  { name: 'Apr', revenue: 61000, pending: 18000 },
-  { name: 'May', revenue: 55000, pending: 10000 },
-  { name: 'Jun', revenue: 67000, pending: 14000 },
-];
+const generateMockData = () => {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return months.map(month => ({
+    name: month,
+    revenue: Math.floor(Math.random() * 50000) + 20000,
+    pending: Math.floor(Math.random() * 20000) + 5000,
+    students: Math.floor(Math.random() * 20) + 10
+  }));
+};
 
-const enrollmentData = [
-  { name: 'Jan', students: 12 },
-  { name: 'Feb', students: 19 },
-  { name: 'Mar', students: 15 },
-  { name: 'Apr', students: 22 },
-  { name: 'May', students: 28 },
-  { name: 'Jun', students: 25 },
-];
+const fullYearData = generateMockData();
 
 const serviceData = [
   { name: 'Canada Student', value: 45, color: '#0088FE' },
@@ -67,11 +61,14 @@ const managerData = [
     { name: 'Mike Director', teamSize: 8, revenue: 7800000, avatar: '' },
 ];
 
+type ViewMode = 'monthly' | 'quarterly' | 'yearly';
+
 export default function Reports() {
   const { user } = useAuth();
   const [periodFilter, setPeriodFilter] = useState("6m");
   const [salesTypeFilter, setSalesTypeFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
 
   const { data: recentClients } = useQuery({
     queryKey: ['recent-clients'],
@@ -82,9 +79,10 @@ export default function Reports() {
     setPeriodFilter("6m");
     setSalesTypeFilter("all");
     setSelectedUser(null);
+    setViewMode('monthly');
   };
 
-  const isFilterActive = periodFilter !== "6m" || salesTypeFilter !== "all" || selectedUser !== null;
+  const isFilterActive = periodFilter !== "6m" || salesTypeFilter !== "all" || selectedUser !== null || viewMode !== 'monthly';
 
   const canViewAll = user?.role === 'superadmin' || user?.role === 'director';
   const canViewCounselors = user?.role === 'manager';
@@ -105,8 +103,40 @@ export default function Reports() {
     });
   };
 
-  const currentFinancialData = selectedUser || isIndividual ? getFilteredData(financialData) : financialData;
-  const currentEnrollmentData = selectedUser || isIndividual ? getFilteredData(enrollmentData) : enrollmentData;
+  const aggregateData = (data: any[], mode: ViewMode) => {
+    if (mode === 'monthly') return data;
+
+    if (mode === 'quarterly') {
+      const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+      return quarters.map((q, i) => {
+        const startMonth = i * 3;
+        const quarterMonths = data.slice(startMonth, startMonth + 3);
+        return {
+          name: q,
+          revenue: quarterMonths.reduce((sum, item) => sum + (item.revenue || 0), 0),
+          pending: quarterMonths.reduce((sum, item) => sum + (item.pending || 0), 0),
+          students: quarterMonths.reduce((sum, item) => sum + (item.students || 0), 0)
+        };
+      });
+    }
+
+    if (mode === 'yearly') {
+       return [{
+          name: '2024',
+          revenue: data.reduce((sum, item) => sum + (item.revenue || 0), 0),
+          pending: data.reduce((sum, item) => sum + (item.pending || 0), 0),
+          students: data.reduce((sum, item) => sum + (item.students || 0), 0)
+       }];
+    }
+    return data;
+  };
+
+  const baseFinancialData = selectedUser || isIndividual ? getFilteredData(fullYearData) : fullYearData;
+  const currentFinancialData = aggregateData(baseFinancialData, viewMode);
+  
+  // Use same base data for enrollment since we generated combined mock data
+  const currentEnrollmentData = aggregateData(baseFinancialData, viewMode); 
+  
   const currentServiceData = selectedUser || isIndividual ? getFilteredData(serviceData) : serviceData;
   
   const showLists = !selectedUser && !isIndividual;
@@ -133,17 +163,33 @@ export default function Reports() {
                         <ArrowLeft className="w-4 h-4" /> Back to List
                     </Button>
                 )}
-              <Select value={periodFilter} onValueChange={setPeriodFilter}>
-                <SelectTrigger className="w-[150px] bg-white">
-                  <SelectValue placeholder="Time Period" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1m">Last Month</SelectItem>
-                  <SelectItem value="3m">Last 3 Months</SelectItem>
-                  <SelectItem value="6m">Last 6 Months</SelectItem>
-                  <SelectItem value="1y">Last Year</SelectItem>
-                </SelectContent>
-              </Select>
+              
+              <div className="bg-slate-100 p-1 rounded-lg flex items-center mr-2">
+                  <Button 
+                    variant={viewMode === 'monthly' ? 'default' : 'ghost'} 
+                    size="sm" 
+                    onClick={() => setViewMode('monthly')}
+                    className={viewMode === 'monthly' ? 'shadow-sm bg-white text-slate-900 hover:bg-white/90' : 'hover:bg-transparent text-slate-500 hover:text-slate-900'}
+                  >
+                    Monthly
+                  </Button>
+                  <Button 
+                    variant={viewMode === 'quarterly' ? 'default' : 'ghost'} 
+                    size="sm" 
+                    onClick={() => setViewMode('quarterly')}
+                    className={viewMode === 'quarterly' ? 'shadow-sm bg-white text-slate-900 hover:bg-white/90' : 'hover:bg-transparent text-slate-500 hover:text-slate-900'}
+                  >
+                    Quarterly
+                  </Button>
+                  <Button 
+                    variant={viewMode === 'yearly' ? 'default' : 'ghost'} 
+                    size="sm" 
+                    onClick={() => setViewMode('yearly')}
+                    className={viewMode === 'yearly' ? 'shadow-sm bg-white text-slate-900 hover:bg-white/90' : 'hover:bg-transparent text-slate-500 hover:text-slate-900'}
+                  >
+                    Yearly
+                  </Button>
+              </div>
 
               <Select value={salesTypeFilter} onValueChange={setSalesTypeFilter}>
                 <SelectTrigger className="w-[180px] bg-white">
