@@ -15,8 +15,10 @@ import { ClientReportPDF } from "@/components/pdf/ClientReportPDF";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/context/auth-context";
 
 export default function ClientList() {
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -38,6 +40,10 @@ export default function ClientList() {
     const matchesPm = pmFilter === "all" || s.productManager === pmFilter;
     const matchesCounsellor = counsellorFilter === "all" || s.counsellor === counsellorFilter;
     
+    // Filter by user role - if counsellor, only show their own clients
+    const isCounsellor = user?.role === 'counsellor';
+    const matchesUserRole = isCounsellor ? s.counsellor === user?.name : true;
+    
     let matchesPaymentStatus = true;
     if (paymentStatusFilter === "fully_paid") {
       matchesPaymentStatus = s.amountPending === 0;
@@ -45,7 +51,7 @@ export default function ClientList() {
       matchesPaymentStatus = s.amountPending > 0;
     }
 
-    return matchesSearch && matchesStatus && matchesSalesType && matchesPm && matchesCounsellor && matchesPaymentStatus;
+    return matchesSearch && matchesStatus && matchesSalesType && matchesPm && matchesCounsellor && matchesPaymentStatus && matchesUserRole;
   }) || [];
 
   // Group clients by Counsellor -> Year -> Month

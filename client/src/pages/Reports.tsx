@@ -439,12 +439,10 @@ export default function Reports() {
                     </CardContent>
                 </Card>
                 
-                {/* Show Top Performers only if looking at aggregate or if it makes sense. 
-                    If looking at individual report, maybe show their top clients? 
-                    For now, let's hide the Counselor Performance list when viewing an individual report 
-                    because the user is already selected. 
+                {/* Show Top Performers only if looking at aggregate and NOT for individual counselors 
+                    who shouldn't see others' data.
                 */}
-                {!selectedUser && (
+                {!selectedUser && !isIndividual && (
                     <Card className="border-none shadow-sm">
                         <CardHeader>
                         <CardTitle className="text-lg font-semibold">Counsellor Performance - {yearFilter}</CardTitle>
