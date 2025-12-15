@@ -250,11 +250,15 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {counselorTargets.map((counselor, index) => (
+              {counselorTargets.map((counselor, index) => {
+                // Only highlight current user if they are NOT an admin/manager (who don't participate in targets)
+                const isHighlighted = counselor.isCurrentUser && !canViewFinancials;
+                
+                return (
                 <div 
                   key={index} 
                   className={`flex items-center p-3 rounded-lg transition-all ${
-                    counselor.isCurrentUser 
+                    isHighlighted
                       ? "bg-primary/5 border border-primary/20 shadow-sm ring-1 ring-primary/10" 
                       : "hover:bg-slate-50"
                   }`}
@@ -273,8 +277,8 @@ export default function Dashboard() {
                       {counselor.avatar}
                     </div>
                     <div>
-                      <p className={`text-sm font-semibold ${counselor.isCurrentUser ? "text-primary" : "text-slate-900"}`}>
-                        {counselor.name} {counselor.isCurrentUser && "(You)"}
+                      <p className={`text-sm font-semibold ${isHighlighted ? "text-primary" : "text-slate-900"}`}>
+                        {counselor.name} {isHighlighted && "(You)"}
                       </p>
                       <p className="text-xs text-slate-500">Target: {counselor.target}</p>
                     </div>
@@ -287,7 +291,7 @@ export default function Dashboard() {
 
                   {index === 0 && <Medal className="w-5 h-5 text-yellow-500 ml-4 opacity-0 sm:opacity-100 transition-opacity" />}
                 </div>
-              ))}
+              )})}
             </div>
           </CardContent>
         </Card>
