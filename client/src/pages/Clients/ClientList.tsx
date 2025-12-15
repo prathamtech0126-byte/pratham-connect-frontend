@@ -6,13 +6,15 @@ import { clientService, Client } from "@/services/clientService";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Download, X, Filter } from "lucide-react";
+import { Plus, Download, X, Filter, ChevronRight, User } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { pdf } from "@react-pdf/renderer";
 import { ClientReportPDF } from "@/components/pdf/ClientReportPDF";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function ClientList() {
   const [, setLocation] = useLocation();
@@ -46,6 +48,24 @@ export default function ClientList() {
     return matchesSearch && matchesStatus && matchesSalesType && matchesPm && matchesCounsellor && matchesPaymentStatus;
   }) || [];
 
+  // Group clients by Counsellor -> Year -> Month
+  const groupedClients = filteredClients.reduce((acc, client) => {
+    const counsellor = client.counsellor || "Unassigned";
+    const date = new Date(client.enrollmentDate);
+    const year = date.getFullYear().toString();
+    const month = date.toLocaleString('default', { month: 'long' });
+
+    if (!acc[counsellor]) acc[counsellor] = {};
+    if (!acc[counsellor][year]) acc[counsellor][year] = {};
+    if (!acc[counsellor][year][month]) acc[counsellor][year][month] = [];
+
+    acc[counsellor][year][month].push(client);
+    return acc;
+  }, {} as Record<string, Record<string, Record<string, Client[]>>>);
+
+  // Get sorted keys
+  const sortedCounsellors = Object.keys(groupedClients).sort();
+
   // Get unique values for filters
   const uniqueSalesTypes = Array.from(new Set(clients?.map(c => c.salesType) || [])).sort();
   const uniqueProductManagers = Array.from(new Set(clients?.map(c => c.productManager) || [])).sort();
@@ -60,7 +80,7 @@ export default function ClientList() {
     { header: "Total Payment", cell: (s: Client) => `₹${s.totalPayment.toLocaleString()}` },
     { header: "Received", cell: (s: Client) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString()}</span> },
     { header: "Pending", cell: (s: Client) => <span className={s.amountPending > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>₹{s.amountPending.toLocaleString()}</span> },
-    { header: "Counsellor", accessorKey: "counsellor", className: "whitespace-nowrap text-slate-500" },
+    // Removed Counsellor column since it's now grouped
     { header: "Status", cell: (s: Client) => (
       <Badge variant={s.status === 'Active' ? 'default' : s.status === 'Completed' ? 'secondary' : 'outline'} className={s.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : ''}>
         {s.status}
@@ -209,11 +229,80 @@ export default function ClientList() {
             </div>
         </div>
         
-        <DataTable 
-          data={filteredClients} 
-          columns={columns} 
-          onRowClick={(s) => setLocation(`/clients/${s.id}`)}
-        />
+        {/* Grouped Client List */}
+        {sortedCounsellors.length > 0 ? (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <Accordion type="multiple" className="w-full">
+              {sortedCounsellors.map((counsellor) => (
+                <AccordionItem value={counsellor} key={counsellor} className="border-b last:border-b-0">
+                  <AccordionTrigger className="px-6 py-4 hover:bg-slate-50 hover:no-underline">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8 border border-slate-200">
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                          {counsellor.split(' ').map(n => n[0]).join('')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-semibold text-lg text-slate-900">{counsellor}</span>
+                      <Badge variant="secondary" className="ml-2">
+                         {Object.values(groupedClients[counsellor]).reduce((acc, year) => 
+                            acc + Object.values(year).reduce((sum, month) => sum + month.length, 0), 0
+                         )} Clients
+                      </Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-0 pb-0 bg-slate-50/50">
+                    <div className="pl-4 pr-4 pb-4 pt-2">
+                      <Accordion type="multiple" className="w-full space-y-2">
+                        {Object.keys(groupedClients[counsellor])
+                          .sort((a, b) => Number(b) - Number(a)) // Sort years descending
+                          .map(year => (
+                            <AccordionItem value={`${counsellor}-${year}`} key={year} className="border border-slate-200 rounded-lg bg-white overflow-hidden shadow-sm">
+                              <AccordionTrigger className="px-4 py-3 hover:bg-slate-50 hover:no-underline">
+                                <span className="font-semibold text-base text-slate-800">{year}</span>
+                              </AccordionTrigger>
+                              <AccordionContent className="pb-0">
+                                <div className="border-t border-slate-100">
+                                  <Accordion type="multiple" className="w-full">
+                                    {Object.keys(groupedClients[counsellor][year]).map(month => (
+                                      <AccordionItem value={`${counsellor}-${year}-${month}`} key={month} className="border-b last:border-b-0 border-slate-100">
+                                        <AccordionTrigger className="px-4 py-2 hover:bg-slate-50 hover:no-underline text-sm font-medium text-slate-600">
+                                          <div className="flex items-center gap-2">
+                                            <span>{month}</span>
+                                            <Badge variant="outline" className="text-xs h-5 px-1.5 font-normal">
+                                              {groupedClients[counsellor][year][month].length}
+                                            </Badge>
+                                          </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="p-0">
+                                          <DataTable 
+                                            data={groupedClients[counsellor][year][month]} 
+                                            columns={columns} 
+                                            onRowClick={(s) => setLocation(`/clients/${s.id}`)}
+                                          />
+                                        </AccordionContent>
+                                      </AccordionItem>
+                                    ))}
+                                  </Accordion>
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          ))}
+                      </Accordion>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-white rounded-xl border border-slate-200">
+            <div className="flex flex-col items-center justify-center text-slate-500">
+              <User className="h-12 w-12 mb-4 text-slate-300" />
+              <h3 className="text-lg font-medium text-slate-900">No clients found</h3>
+              <p className="mt-1">Try adjusting your filters or search query.</p>
+            </div>
+          </div>
+        )}
       </div>
     </PageWrapper>
   );
