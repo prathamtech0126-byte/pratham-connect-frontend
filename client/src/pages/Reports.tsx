@@ -325,7 +325,7 @@ export default function Reports() {
                     <CardTitle className="text-lg font-semibold">
                         {selectedUser ? `${selectedUser}'s Financial Overview` : 'Financial Overview'} - {yearFilter}
                     </CardTitle>
-                    <CardDescription>Total Revenue vs Pending Payments</CardDescription>
+                    <CardDescription>Total Revenue Overview</CardDescription>
                     </CardHeader>
                     <CardContent>
                     <div className="h-[300px] w-full">
@@ -345,7 +345,6 @@ export default function Reports() {
                             />
                             <Legend />
                             <Bar dataKey="revenue" name="Revenue" fill="#0f172a" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="pending" name="Pending" fill="#ef4444" radius={[4, 4, 0, 0]} />
                         </BarChart>
                         </ResponsiveContainer>
                     </div>
