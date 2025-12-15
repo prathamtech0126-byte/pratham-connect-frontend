@@ -102,39 +102,52 @@ export default function Dashboard() {
         {/* Your Target Card - Only for non-admins or if admin has personal targets */}
         {!canViewFinancials && (
         <Card className="border-none shadow-card bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl overflow-hidden relative">
-          <div className="absolute top-0 right-0 p-4 opacity-10">
+          <div className="absolute top-4 right-4 opacity-10">
             <Target className="w-24 h-24 text-primary" />
           </div>
           <CardHeader>
             <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Target className="w-5 h-5 text-primary" />
+              <div className="p-2 bg-white rounded-lg shadow-sm">
+                <Target className="w-5 h-5 text-primary" />
+              </div>
               Your Target
             </CardTitle>
             <CardDescription>Monthly enrollment goal</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-               <div className="flex items-end justify-between">
+               <div className="flex items-end justify-between relative z-10">
                   <div>
-                    <span className="text-4xl font-bold text-slate-900">{currentUserTarget?.achieved}</span>
-                    <span className="text-slate-500 ml-2">/ {currentUserTarget?.target} achieved</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-5xl font-bold text-slate-900 tracking-tight">{currentUserTarget?.achieved}</span>
+                      <span className="text-slate-500 font-medium text-lg">/ {currentUserTarget?.target} achieved</span>
+                    </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-medium text-slate-500">Remaining</span>
-                    <div className="text-2xl font-bold text-primary">{remainingTarget}</div>
+                    <span className="text-sm font-medium text-slate-500 block mb-1">Remaining</span>
+                    <div className="text-3xl font-bold text-primary tabular-nums">{remainingTarget}</div>
                   </div>
                </div>
                
-               <div className="space-y-2">
-                 <Progress value={progressPercentage} className="h-3" />
-                 <p className="text-xs text-slate-500 text-right">
+               <div className="space-y-2 relative z-10">
+                 <Progress value={progressPercentage} className="h-3 bg-white/50" />
+                 <p className="text-xs text-slate-500 text-right font-medium">
                    {progressPercentage.toFixed(0)}% completed
                  </p>
                </div>
 
-               <div className="bg-white/60 rounded-lg p-3 text-sm text-slate-700 backdrop-blur-sm border border-white/50">
-                 <p className="font-medium">Keep it up! 🚀</p>
-                 <p className="text-slate-500 text-xs mt-1">You need {remainingTarget} more enrollments to hit your monthly target.</p>
+               <div className="bg-white/80 rounded-xl p-4 text-sm text-slate-700 backdrop-blur-md border border-white/60 shadow-sm relative z-10">
+                 <div className="flex items-start gap-3">
+                   <div className="p-1.5 bg-primary/10 rounded-full mt-0.5">
+                     <Trophy className="w-4 h-4 text-primary" />
+                   </div>
+                   <div>
+                     <p className="font-bold text-slate-900">Keep it up! 🚀</p>
+                     <p className="text-slate-500 text-xs mt-1 leading-relaxed">
+                       You need <span className="font-bold text-primary">{remainingTarget}</span> more enrollments to hit your monthly target.
+                     </p>
+                   </div>
+                 </div>
                </div>
             </div>
           </CardContent>
