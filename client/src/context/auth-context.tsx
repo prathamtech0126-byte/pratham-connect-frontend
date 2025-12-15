@@ -53,7 +53,17 @@ const MOCK_USERS: Record<UserRole, User> = {
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  // Initialize user from localStorage if available
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const storedUser = localStorage.getItem('auth_user');
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch (e) {
+      console.error("Failed to parse auth user", e);
+      return null;
+    }
+  });
+  
   const [isLoading, setIsLoading] = useState(false);
   const [, setLocation] = useLocation();
 
@@ -61,7 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     // Simulate API call
     setTimeout(() => {
-      setUser(MOCK_USERS[role]);
+      const newUser = MOCK_USERS[role];
+      setUser(newUser);
+      localStorage.setItem('auth_user', JSON.stringify(newUser));
       setIsLoading(false);
       setLocation('/');
     }, 800);
@@ -69,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('auth_user');
     setLocation('/login');
   };
 

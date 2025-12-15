@@ -347,8 +347,8 @@ export default function Dashboard() {
                <DataTable 
                  data={counselorRevenue}
                  onRowClick={(counselor) => {
-                    // Navigate to Reports page with counselor pre-selected
-                    window.location.href = `/reports?counselor=${encodeURIComponent(counselor.name)}`;
+                    // Navigate to Reports page with counselor pre-selected using wouter to avoid reload
+                    setLocation(`/reports?counselor=${encodeURIComponent(counselor.name)}`);
                  }}
                  columns={[
                    { 
