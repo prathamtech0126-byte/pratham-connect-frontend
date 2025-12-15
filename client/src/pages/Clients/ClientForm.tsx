@@ -188,12 +188,7 @@ const getProductType = (
   return null;
 };
 
-interface ClientFormProps {
-  mode?: "page" | "modal";
-  onSuccess?: () => void;
-}
-
-export default function ClientForm({ mode = "page", onSuccess }: ClientFormProps) {
+export default function ClientForm() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -267,12 +262,7 @@ export default function ClientForm({ mode = "page", onSuccess }: ClientFormProps
         title: "Success",
         description: "Client created successfully",
       });
-      
-      if (mode === "modal" && onSuccess) {
-        onSuccess();
-      } else {
-        setLocation("/clients");
-      }
+      setLocation("/clients");
     } catch (error) {
       console.error(error);
       toast({
@@ -1111,20 +1101,6 @@ export default function ClientForm({ mode = "page", onSuccess }: ClientFormProps
     );
   }
 
-  const content = (
-    <div className={mode === "page" ? "max-w-4xl mx-auto pb-12" : ""}>
-      <MultiStepFormWrapper
-        title="Client Registration"
-        steps={filteredSteps}
-        onSubmit={handleSubmit(onSubmit)}
-      />
-    </div>
-  );
-
-  if (mode === "modal") {
-    return content;
-  }
-
   return (
     <PageWrapper
       title="Add New Client"
@@ -1133,7 +1109,13 @@ export default function ClientForm({ mode = "page", onSuccess }: ClientFormProps
         { label: "New Client" },
       ]}
     >
-      {content}
+      <div className="max-w-4xl mx-auto pb-12">
+        <MultiStepFormWrapper
+          title="Client Registration"
+          steps={filteredSteps}
+          onSubmit={handleSubmit(onSubmit)}
+        />
+      </div>
     </PageWrapper>
   );
 }
