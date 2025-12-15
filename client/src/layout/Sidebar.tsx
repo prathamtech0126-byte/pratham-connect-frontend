@@ -174,7 +174,7 @@ export function Sidebar({ className }: { className?: string }) {
                           : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       )}
                     >
-                      <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-sidebar-primary-foreground" : "text-slate-400 group-hover:text-sidebar-primary")} />
+                      <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-sidebar-primary-foreground" : "text-muted-foreground group-hover:text-sidebar-primary")} />
                       <span className="flex-1">{item.label}</span>
                       {isClientsOpen ? (
                         <ChevronDown className="w-4 h-4 opacity-50" />
@@ -217,7 +217,7 @@ export function Sidebar({ className }: { className?: string }) {
                   : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
             >
-              <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-sidebar-primary-foreground" : "text-slate-400 group-hover:text-sidebar-primary")} />
+              <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-sidebar-primary-foreground" : "text-muted-foreground group-hover:text-sidebar-primary")} />
               {item.label}
               {isActive && (
                 <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white/50" />
@@ -230,13 +230,13 @@ export function Sidebar({ className }: { className?: string }) {
       <div className="p-4 border-t border-sidebar-border/60 space-y-2 bg-sidebar-accent/10">
         {user && (
           <ProfileDialog>
-            <div className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-white/80 hover:shadow-sm rounded-xl transition-all border border-transparent hover:border-sidebar-border group">
-              <Avatar className="h-10 w-10 border-2 border-white shadow-sm group-hover:border-primary/20 transition-colors">
+            <div className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-sidebar-accent hover:shadow-sm rounded-xl transition-all border border-transparent hover:border-sidebar-border group">
+              <Avatar className="h-10 w-10 border-2 border-sidebar-border shadow-sm group-hover:border-primary/20 transition-colors">
                 <AvatarImage src={user.avatar} alt={user.name} />
                 <AvatarFallback className="bg-primary/10 text-primary font-bold">{user.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-semibold truncate text-slate-900 group-hover:text-primary transition-colors">{user.name}</span>
+                <span className="text-sm font-semibold truncate text-foreground group-hover:text-primary transition-colors">{user.name}</span>
                 <div className="mt-1">{getRoleBadge()}</div>
               </div>
             </div>
@@ -246,7 +246,7 @@ export function Sidebar({ className }: { className?: string }) {
         <Button
           variant="ghost"
           onClick={logout}
-          className="w-full justify-start text-muted-foreground hover:bg-red-50 hover:text-red-600 rounded-lg"
+          className="w-full justify-start text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded-lg"
         >
           <LogOut className="w-4 h-4 mr-2" />
           Sign Out

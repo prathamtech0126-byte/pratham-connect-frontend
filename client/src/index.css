@@ -64,98 +64,107 @@
   --shadow-floating: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
-:root {
-  /* ApplyBoard Inspired Theme - Blue & Clean White */
-  
-  --background: 0 0% 100%; /* Pure White */
-  --foreground: 222 47% 11%; /* Slate 900 */
+@layer base {
+  :root {
+    /* ApplyBoard Inspired Theme - Blue & Clean White */
+    
+    --background: 0 0% 100%; /* Pure White */
+    --foreground: 222 47% 11%; /* Slate 900 */
 
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
 
-  /* ApplyBoard Blue #0056b3 approx */
-  --primary: 211 100% 40%; 
-  --primary-foreground: 0 0% 100%;
+    /* ApplyBoard Blue #0056b3 approx */
+    --primary: 211 100% 40%; 
+    --primary-foreground: 0 0% 100%;
 
-  /* Secondary - Soft Blue/Gray */
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222 47% 11%;
+    /* Secondary - Soft Blue/Gray */
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
 
-  /* Muted */
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215 16% 47%;
+    /* Muted */
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215 16% 47%;
 
-  /* Accent - Light Blue Tint */
-  --accent: 211 100% 96%;
-  --accent-foreground: 211 100% 40%;
+    /* Accent - Light Blue Tint */
+    --accent: 211 100% 96%;
+    --accent-foreground: 211 100% 40%;
 
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 211 100% 40%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 211 100% 40%;
 
-  --radius: 1rem; /* More rounded */
+    --radius: 1rem; /* More rounded */
 
-  /* Colorful Charts / Accents */
-  --chart-1: 211 100% 40%; /* Blue */
-  --chart-2: 326 100% 60%; /* Pink */
-  --chart-3: 170 100% 40%; /* Teal */
-  --chart-4: 35 100% 50%;  /* Orange */
-  --chart-5: 260 100% 65%; /* Purple */
+    /* Colorful Charts / Accents */
+    --chart-1: 211 100% 40%; /* Blue */
+    --chart-2: 326 100% 60%; /* Pink */
+    --chart-3: 170 100% 40%; /* Teal */
+    --chart-4: 35 100% 50%;  /* Orange */
+    --chart-5: 260 100% 65%; /* Purple */
 
-  /* Sidebar - White with Blue Accents */
-  --sidebar: 0 0% 100%;
-  --sidebar-foreground: 215 25% 27%;
-  --sidebar-primary: 211 100% 40%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 211 100% 96%;
-  --sidebar-accent-foreground: 211 100% 40%;
-  --sidebar-border: 214 32% 91%;
-  --sidebar-ring: 211 100% 40%;
-}
+    /* Sidebar - White with Blue Accents */
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 215 25% 27%;
+    --sidebar-primary: 211 100% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 211 100% 96%;
+    --sidebar-accent-foreground: 211 100% 40%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 211 100% 40%;
+  }
 
-.dark {
-  --background: 222 47% 11%;
-  --foreground: 210 40% 98%;
+  .dark {
+    /* Modern Professional Dark Mode */
+    --background: 222 47% 6%; /* Deep Blue/Black */
+    --foreground: 210 40% 98%; /* Bright White */
 
-  --card: 222 47% 11%;
-  --card-foreground: 210 40% 98%;
+    --card: 222 47% 10%; /* Slightly lighter than background */
+    --card-foreground: 210 40% 98%;
 
-  --popover: 222 47% 11%;
-  --popover-foreground: 210 40% 98%;
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 40% 98%;
 
-  --primary: 211 100% 60%; /* Lighter blue for dark mode */
-  --primary-foreground: 0 0% 100%;
+    --primary: 211 100% 60%; /* Lighter blue for better visibility */
+    --primary-foreground: 222 47% 10%;
 
-  --secondary: 217 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
+    --secondary: 217 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
 
-  --muted: 217 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
+    --muted: 217 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
 
-  --accent: 217 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
+    --accent: 217 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
 
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
 
-  --border: 217 32.6% 17.5%;
-  --input: 217 32.6% 17.5%;
-  --ring: 211 100% 60%;
+    --border: 217 32.6% 17.5%;
+    --input: 217 32.6% 17.5%;
+    --ring: 211 100% 60%;
 
-  --sidebar: 222 47% 11%;
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-primary: 211 100% 60%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 217 32.6% 17.5%;
-  --sidebar-accent-foreground: 210 40% 98%;
-  --sidebar-border: 217 32.6% 17.5%;
-  --sidebar-ring: 211 100% 60%;
+    --chart-1: 211 100% 60%;
+    --chart-2: 326 100% 70%;
+    --chart-3: 170 100% 60%;
+    --chart-4: 35 100% 60%;
+    --chart-5: 260 100% 75%;
+
+    --sidebar: 222 47% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 211 100% 60%;
+    --sidebar-primary-foreground: 222 47% 10%;
+    --sidebar-accent: 217 32.6% 17.5%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 32.6% 17.5%;
+    --sidebar-ring: 211 100% 60%;
+  }
 }
 
 @layer base {
@@ -166,7 +175,7 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-heading tracking-tight text-slate-900 dark:text-slate-100;
+    @apply font-heading tracking-tight text-foreground;
   }
 
   /* Remove arrows/spinners from number inputs */
@@ -184,15 +193,15 @@
   /* Reusable Typography Classes */
   
   .text-header {
-    @apply font-heading text-3xl font-bold tracking-tight text-slate-900 dark:text-white;
+    @apply font-heading text-3xl font-bold tracking-tight text-foreground;
   }
 
   .text-subheader {
-    @apply font-heading text-xl font-semibold tracking-tight text-slate-700 dark:text-slate-300;
+    @apply font-heading text-xl font-semibold tracking-tight text-muted-foreground;
   }
 
   .text-paragraph {
-    @apply font-sans text-base font-normal leading-relaxed text-slate-600 dark:text-slate-400;
+    @apply font-sans text-base font-normal leading-relaxed text-muted-foreground;
   }
   
   .card-hover {
