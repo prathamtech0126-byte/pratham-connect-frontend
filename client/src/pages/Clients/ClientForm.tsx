@@ -213,7 +213,7 @@ export default function ClientForm() {
     },
   });
 
-  const { control, handleSubmit, setValue, watch } = form;
+  const { control, handleSubmit, setValue, watch, trigger } = form;
   const salesType = useWatch({ control, name: "salesType" });
   const coreSales = useWatch({ control, name: "coreSales" });
   const showDiscount = useWatch({ control, name: "showDiscount" });
@@ -1107,6 +1107,32 @@ export default function ClientForm() {
     );
   }
 
+  const handleStepChange = async (currentStep: number, nextStep: number) => {
+    if (nextStep > currentStep) {
+      const stepId = filteredSteps[currentStep].id;
+      let fieldsToValidate: any[] = [];
+      
+      if (stepId === 'basic') {
+        fieldsToValidate = ["name", "enrollmentDate", "salesType", "coreSales"];
+      } else if (stepId === 'consultancy') {
+        fieldsToValidate = ["totalPayment"]; // Add other required fields if any
+      }
+      
+      if (fieldsToValidate.length > 0) {
+        const isValid = await trigger(fieldsToValidate);
+        if (!isValid) {
+            toast({
+                title: "Validation Error",
+                description: "Please fill in all required fields correctly.",
+                variant: "destructive",
+            });
+            return false;
+        }
+      }
+    }
+    return true;
+  };
+
   return (
     <PageWrapper
       title="Add New Client"
@@ -1120,6 +1146,7 @@ export default function ClientForm() {
           title="Client Registration"
           steps={filteredSteps}
           onSubmit={handleSubmit(onSubmit)}
+          onStepChange={handleStepChange}
         />
       </div>
     </PageWrapper>

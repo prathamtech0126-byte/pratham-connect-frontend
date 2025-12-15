@@ -16,13 +16,18 @@ interface MultiStepFormWrapperProps {
   onSubmit: () => void;
   isSubmitting?: boolean;
   onSaveDraft?: () => void;
+  onStepChange?: (currentStep: number, nextStep: number) => Promise<boolean>;
 }
 
-export function MultiStepFormWrapper({ title, steps, onSubmit, isSubmitting, onSaveDraft }: MultiStepFormWrapperProps) {
+export function MultiStepFormWrapper({ title, steps, onSubmit, isSubmitting, onSaveDraft, onStepChange }: MultiStepFormWrapperProps) {
   const [currentStep, setCurrentStep] = useState(0);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < steps.length - 1) {
+      if (onStepChange) {
+        const isValid = await onStepChange(currentStep, currentStep + 1);
+        if (!isValid) return;
+      }
       setCurrentStep(prev => prev + 1);
     } else {
       onSubmit();
