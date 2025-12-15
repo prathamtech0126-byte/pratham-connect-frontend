@@ -13,12 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { pdf } from "@react-pdf/renderer";
 import { ClientReportPDF } from "@/components/pdf/ClientReportPDF";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 
 export default function ClientList() {
   const [, setLocation] = useLocation();
@@ -118,29 +112,9 @@ export default function ClientList() {
 
   const isFilterActive = salesTypeFilter !== "all" || pmFilter !== "all" || counsellorFilter !== "all" || statusFilter !== "all" || paymentStatusFilter !== "all";
 
-  // Grouping Logic
-  const groupedData = (filteredClients || []).reduce((acc, client) => {
-    const counselor = client.counsellor || 'Unassigned';
-    const date = new Date(client.enrollmentDate);
-    const year = date.getFullYear().toString();
-    const month = date.toLocaleString('default', { month: 'long' });
-
-    if (!acc[counselor]) acc[counselor] = { total: 0, years: {} };
-    acc[counselor].total++;
-
-    if (!acc[counselor].years[year]) acc[counselor].years[year] = {};
-    if (!acc[counselor].years[year][month]) acc[counselor].years[year][month] = [];
-
-    acc[counselor].years[year][month].push(client);
-    return acc;
-  }, {} as Record<string, { total: number, years: Record<string, Record<string, Client[]>> }>);
-
-  // Sort counselors by total clients (Highest to Lowest)
-  const sortedCounselors = Object.entries(groupedData).sort((a, b) => b[1].total - a[1].total);
-
   return (
     <PageWrapper 
-      title="Clients"  
+      title="Clients" 
       breadcrumbs={[{ label: "Clients" }]}
       actions={
         <div className="flex gap-3">
@@ -235,98 +209,11 @@ export default function ClientList() {
             </div>
         </div>
         
-        {sortedCounselors.length > 0 ? (
-            <div className="space-y-8">
-                {sortedCounselors.map(([counselor, data], index) => {
-                    // Calculate color intensity based on rank (0 is highest)
-                    // We'll use a blue scale: 
-                    // Top rank: Stronger/Darker Blue
-                    // Lower ranks: Lighter/Fainter Blue
-                    // We can map index to an opacity or shade class
-                    
-                    let headerClass = "bg-slate-50 border-slate-200";
-                    let textClass = "text-slate-900";
-                    let badgeClass = "bg-slate-200 text-slate-700";
-
-                    // Top 3 get special colors
-                    if (index === 0) {
-                        headerClass = "bg-blue-600 border-blue-600 text-white";
-                        textClass = "text-white";
-                        badgeClass = "bg-white/20 text-white hover:bg-white/30";
-                    } else if (index === 1) {
-                        headerClass = "bg-blue-500 border-blue-500 text-white";
-                        textClass = "text-white";
-                        badgeClass = "bg-white/20 text-white hover:bg-white/30";
-                    } else if (index === 2) {
-                        headerClass = "bg-blue-400 border-blue-400 text-white";
-                        textClass = "text-white";
-                        badgeClass = "bg-white/20 text-white hover:bg-white/30";
-                    } else if (index < 5) {
-                         headerClass = "bg-blue-50 border-blue-200";
-                         textClass = "text-blue-900";
-                         badgeClass = "bg-blue-100 text-blue-700";
-                    }
-
-                    return (
-                        <div key={counselor} className="space-y-4">
-                            {/* Distinct Counselor Section Header */}
-                            <div className={`flex items-center justify-between p-4 rounded-xl border shadow-sm ${headerClass}`}>
-                                <div className="flex items-center gap-3">
-                                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 font-bold text-sm border border-white/10">
-                                        {index + 1}
-                                    </div>
-                                    <h3 className={`text-xl font-bold ${textClass}`}>{counselor}</h3>
-                                    <Badge variant="outline" className={`border-0 ${badgeClass}`}>
-                                        {data.total} Clients
-                                    </Badge>
-                                </div>
-                            </div>
-
-                            {/* Years Section - Distinct from Counselor Header */}
-                            <div className="pl-4 border-l-2 border-slate-100 ml-6 space-y-6">
-                                {Object.keys(data.years).sort((a, b) => Number(b) - Number(a)).map(year => (
-                                    <div key={`${counselor}-${year}`} className="space-y-3">
-                                        <h4 className="text-lg font-semibold text-slate-700 flex items-center gap-2">
-                                            <span className="w-2 h-2 rounded-full bg-slate-300"></span>
-                                            {year}
-                                        </h4>
-                                        
-                                        <Accordion type="multiple" className="w-full pl-4">
-                                            {Object.entries(data.years[year]).map(([month, clients]) => (
-                                                <AccordionItem value={`${counselor}-${year}-${month}`} key={`${counselor}-${year}-${month}`} className="border rounded-lg mb-2 px-3 bg-white shadow-sm">
-                                                    <AccordionTrigger className="text-sm font-medium hover:no-underline py-3 text-slate-700">
-                                                        <span className="flex items-center gap-2">
-                                                            {month} 
-                                                            <Badge variant="secondary" className="text-xs h-5 px-1.5 min-w-[20px] justify-center ml-1">
-                                                                {clients.length}
-                                                            </Badge>
-                                                        </span>
-                                                    </AccordionTrigger>
-                                                    <AccordionContent className="pb-3">
-                                                        <div className="mt-1 border rounded-md overflow-hidden">
-                                                            <DataTable 
-                                                                data={clients} 
-                                                                columns={columns} 
-                                                                onRowClick={(s) => setLocation(`/clients/${s.id}`)}
-                                                            />
-                                                        </div>
-                                                    </AccordionContent>
-                                                </AccordionItem>
-                                            ))}
-                                        </Accordion>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        ) : (
-            <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-300">
-                <p className="text-slate-500">No clients found matching your filters.</p>
-                <Button variant="link" onClick={handleClearFilters} className="mt-2">Clear all filters</Button>
-            </div>
-        )}
+        <DataTable 
+          data={filteredClients} 
+          columns={columns} 
+          onRowClick={(s) => setLocation(`/clients/${s.id}`)}
+        />
       </div>
     </PageWrapper>
   );
