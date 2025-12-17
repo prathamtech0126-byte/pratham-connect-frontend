@@ -350,53 +350,6 @@ export default function ClientForm() {
               ₹ {calculatedPending.toLocaleString()}
             </div>
           </div>
-
-          <div className="col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-            <div className="space-y-4 p-4 border rounded-lg">
-              <FormSwitchInput
-                name="showDiscount"
-                control={control}
-                label="Add Discount"
-              />
-              {showDiscount && (
-                <div className="space-y-4">
-                  <FormCurrencyInput
-                    name="discount"
-                    control={control}
-                    label="Discount Amount"
-                  />
-                  <FormTextareaInput
-                    name="discountRemarks"
-                    control={control}
-                    label="Remarks"
-                    placeholder="Reason for discount..."
-                  />
-                </div>
-              )}
-            </div>
-            <div className="space-y-4 p-4 border rounded-lg">
-              <FormSwitchInput
-                name="showExtraPayment"
-                control={control}
-                label="Add Extra Payment"
-              />
-              {showExtraPayment && (
-                <div className="space-y-4">
-                  <FormCurrencyInput
-                    name="extraPayment"
-                    control={control}
-                    label="Extra Payment Amount"
-                  />
-                  <FormTextareaInput
-                    name="extraPaymentRemarks"
-                    control={control}
-                    label="Remarks"
-                    placeholder="Reason for extra payment..."
-                  />
-                </div>
-              )}
-            </div>
-          </div>
         </FormSection>
       ),
     },

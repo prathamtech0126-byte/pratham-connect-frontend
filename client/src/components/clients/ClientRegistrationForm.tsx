@@ -195,34 +195,6 @@ export function ClientRegistrationForm({ onSuccess }: ClientRegistrationFormProp
             label="Product Payment Date"
           />
           <div className="hidden md:block"></div>
-          <div className="space-y-4">
-            <FormSwitchInput
-              name="showDiscount"
-              control={control}
-              label="Add Discount"
-            />
-            {showDiscount && (
-              <FormCurrencyInput
-                name="discount"
-                control={control}
-                label="Discount"
-              />
-            )}
-          </div>
-          <div className="space-y-4">
-            <FormSwitchInput
-              name="showExtraPayment"
-              control={control}
-              label="Add Extra Payment"
-            />
-            {showExtraPayment && (
-              <FormCurrencyInput
-                name="extraPayment"
-                control={control}
-                label="Extra Payment"
-              />
-            )}
-          </div>
         </FormSection>
       ),
     },
