@@ -112,7 +112,7 @@ export function DashboardDateFilter({
           className={cn(
             "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
             activeTab === tab
-              ? "bg-orange-500 text-white shadow-sm"
+              ? "bg-primary text-primary-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground hover:bg-muted"
           )}
         >
@@ -127,11 +127,11 @@ export function DashboardDateFilter({
             className={cn(
               "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
               activeTab === "Custom"
-                ? "bg-orange-500 text-white shadow-sm"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
-            {getCustomButtonText()} <CalendarIcon className={cn("h-3.5 w-3.5", activeTab === "Custom" ? "text-white" : "text-muted-foreground")} />
+            {getCustomButtonText()} <CalendarIcon className={cn("h-3.5 w-3.5", activeTab === "Custom" ? "text-primary-foreground" : "text-muted-foreground")} />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-0" align={align}>
@@ -174,7 +174,7 @@ export function DashboardDateFilter({
               <Button 
                 size="sm" 
                 onClick={handleApplyCustom}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 Apply
               </Button>
