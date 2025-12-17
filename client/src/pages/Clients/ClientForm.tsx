@@ -14,6 +14,7 @@ import * as z from "zod";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { clientService } from "@/services/clientService";
+import { useAuth } from "@/context/auth-context";
 import {
   Accordion,
   AccordionContent,
@@ -132,6 +133,7 @@ const studentFieldsSchema = z.object({
 
 const formSchema = z.object({
   // Step 1: Basic Details
+  counsellorName: z.string({ required_error: "Please enter counsellor name" }).min(1, "Please enter counsellor name"),
   name: z.string({ required_error: "Please enter full name" }).min(1, "Please enter full name").regex(/^[a-zA-Z]+ [a-zA-Z]+$/, "Please enter full name (First Last)"),
   enrollmentDate: z.string({ required_error: "Please select an enrollment date" }).min(1, "Please select an enrollment date"),
   salesType: z.string({ required_error: "Please select a sales type" }).min(1, "Please select a sales type"),
@@ -193,11 +195,13 @@ const getProductType = (
 export default function ClientForm() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     mode: "onChange",
     defaultValues: {
+      counsellorName: user?.name || "",
       name: "",
       totalPayment: 0,
       initialPayment: {},
@@ -286,6 +290,12 @@ export default function ClientForm() {
           title="Client Information"
           description="Enter the basic details of the client"
         >
+          <FormTextInput
+            name="counsellorName"
+            control={control}
+            label="Counsellor Name"
+            placeholder="e.g. Priya Singh"
+          />
           <FormTextInput
             name="name"
             control={control}
