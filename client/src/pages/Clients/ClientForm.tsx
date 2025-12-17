@@ -242,6 +242,16 @@ export default function ClientForm() {
 
   const productType = getProductType(salesType);
 
+  const counsellorOptions = [
+    { label: "Super Admin", value: "Super Admin" },
+    { label: "Sarah Manager", value: "Sarah Manager" },
+    { label: "Priya Singh", value: "Priya Singh" },
+    { label: "Director", value: "Director" },
+    { label: "Rahul Sharma", value: "Rahul Sharma" },
+    { label: "Anjali Gupta", value: "Anjali Gupta" },
+    { label: "Vikram Malhotra", value: "Vikram Malhotra" },
+  ];
+
 
   const onSubmit = async (data: FormValues) => {
     try {
@@ -290,11 +300,12 @@ export default function ClientForm() {
           title="Client Information"
           description="Enter the basic details of the client"
         >
-          <FormTextInput
+          <FormSelectInput
             name="counsellorName"
             control={control}
             label="Counsellor Name"
-            placeholder="e.g. Priya Singh"
+            placeholder="Select Counsellor"
+            options={counsellorOptions}
           />
           <FormTextInput
             name="name"
