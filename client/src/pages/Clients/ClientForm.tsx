@@ -135,7 +135,6 @@ const formSchema = z.object({
   name: z.string({ required_error: "Please enter full name" }).min(1, "Please enter full name").regex(/^[a-zA-Z]+ [a-zA-Z]+$/, "Please enter full name (First Last)"),
   enrollmentDate: z.string({ required_error: "Please select an enrollment date" }).min(1, "Please select an enrollment date"),
   salesType: z.string({ required_error: "Please select a sales type" }).min(1, "Please select a sales type"),
-  coreSales: z.string({ required_error: "Please select a core sales option" }).min(1, "Please select a core sales option"),
 
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
@@ -216,7 +215,6 @@ export default function ClientForm() {
 
   const { control, handleSubmit, setValue, watch, trigger, formState: { errors } } = form;
   const salesType = useWatch({ control, name: "salesType" });
-  const coreSales = useWatch({ control, name: "coreSales" });
   const showDiscount = useWatch({ control, name: "showDiscount" });
   const showExtraPayment = useWatch({ control, name: "showExtraPayment" });
 
@@ -305,16 +303,6 @@ export default function ClientForm() {
             label="Sales Type"
             placeholder="Select Sales Type"
             options={salesTypeOptions}
-          />
-          <FormSelectInput
-            name="coreSales"
-            control={control}
-            label="Core Sales"
-            placeholder="Select Core Sale Options"
-            options={[
-              { label: "Yes", value: "Yes" },
-              { label: "No", value: "No" },
-            ]}
           />
         </FormSection>
       ),
@@ -1097,24 +1085,13 @@ export default function ClientForm() {
     },
   ];
 
-  let filteredSteps = steps;
-  if (coreSales === "Yes") {
-    filteredSteps = steps.filter(
-      (step) => step.id === "basic" || step.id === "consultancy"
-    );
-  } else if (coreSales === "No") {
-    filteredSteps = steps.filter(
-      (step) => step.id === "basic" || step.id === "product_fields"
-    );
-  }
-
   const handleStepChange = async (currentStep: number, nextStep: number) => {
     if (nextStep > currentStep) {
-      const stepId = filteredSteps[currentStep].id;
+      const stepId = steps[currentStep].id;
       let fieldsToValidate: any[] = [];
       
       if (stepId === 'basic') {
-        fieldsToValidate = ["name", "enrollmentDate", "salesType", "coreSales"];
+        fieldsToValidate = ["name", "enrollmentDate", "salesType"];
       } else if (stepId === 'consultancy') {
         fieldsToValidate = ["totalPayment"]; // Add other required fields if any
       }
@@ -1147,7 +1124,7 @@ export default function ClientForm() {
       <div className="max-w-4xl mx-auto pb-12">
         <MultiStepFormWrapper
           title="Client Registration"
-          steps={filteredSteps}
+          steps={steps}
           onSubmit={handleSubmit(onSubmit)}
           onStepChange={handleStepChange}
         />

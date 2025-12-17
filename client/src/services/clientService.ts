@@ -6,7 +6,6 @@ export interface Client {
   mainCounsellor?: string;
   productManager: string;
   salesType: string;
-  coreSales?: string;
   status: 'Active' | 'Completed' | 'Pending' | 'Dropped';
   stage?: 'Initial' | 'Financial' | 'Before Visa' | 'After Visa Payment' | 'Visa Submitted';
   
@@ -73,7 +72,6 @@ let clients: Client[] = [
     counsellor: "Priya Singh",
     productManager: "Rahul Verma",
     salesType: "Canada Student",
-    coreSales: "Yes",
     status: "Active",
     stage: "Initial",
     totalPayment: 50000,
@@ -89,7 +87,6 @@ let clients: Client[] = [
     counsellor: "Priya Singh",
     productManager: "Rahul Verma",
     salesType: "UK Student",
-    coreSales: "Yes",
     status: "Pending",
     stage: "Financial",
     totalPayment: 15000,
@@ -105,7 +102,6 @@ let clients: Client[] = [
     counsellor: "Amit Kumar",
     productManager: "Sneha Reddy",
     salesType: "Canada Spouse",
-    coreSales: "No",
     status: "Active",
     stage: "Before Visa",
     totalPayment: 120000,
@@ -121,7 +117,6 @@ let clients: Client[] = [
     counsellor: "Amit Kumar",
     productManager: "Sneha Reddy",
     salesType: "USA Visitor",
-    coreSales: "No",
     status: "Completed",
     stage: "Visa Submitted",
     totalPayment: 5000,
@@ -137,7 +132,6 @@ let clients: Client[] = [
     counsellor: "Priya Singh",
     productManager: "Rahul Verma",
     salesType: "SPOUSAL PR",
-    coreSales: "Yes",
     status: "Active",
     stage: "After Visa Payment",
     totalPayment: 60000,
@@ -153,7 +147,6 @@ let clients: Client[] = [
     counsellor: "Amit Kumar",
     productManager: "Sneha Reddy",
     salesType: "Germany Student",
-    coreSales: "Yes",
     status: "Dropped",
     stage: "Initial",
     totalPayment: 20000,
@@ -169,7 +162,6 @@ let clients: Client[] = [
     counsellor: "Priya Singh",
     productManager: "Rahul Verma",
     salesType: "Canada Visitor",
-    coreSales: "No",
     status: "Active",
     stage: "Financial",
     totalPayment: 10000,
@@ -185,7 +177,6 @@ let clients: Client[] = [
     counsellor: "Amit Kumar",
     productManager: "Sneha Reddy",
     salesType: "UK Spouse",
-    coreSales: "Yes",
     status: "Pending",
     stage: "Before Visa",
     totalPayment: 80000,
@@ -201,7 +192,6 @@ let clients: Client[] = [
     counsellor: "Priya Singh",
     productManager: "Rahul Verma",
     salesType: "USA Student",
-    coreSales: "No",
     status: "Active",
     stage: "After Visa Payment",
     totalPayment: 45000,
@@ -217,7 +207,6 @@ let clients: Client[] = [
     counsellor: "Amit Kumar",
     productManager: "Sneha Reddy",
     salesType: "Schengen Visitor",
-    coreSales: "No",
     status: "Completed",
     stage: "Visa Submitted",
     totalPayment: 8000,
@@ -233,7 +222,6 @@ let clients: Client[] = [
     counsellor: "Priya Singh",
     productManager: "Rahul Verma",
     salesType: "Finland Student",
-    coreSales: "Yes",
     status: "Active",
     stage: "Initial",
     totalPayment: 30000,
@@ -249,7 +237,6 @@ let clients: Client[] = [
     counsellor: "Amit Kumar",
     productManager: "Sneha Reddy",
     salesType: "Canada Onshore Student",
-    coreSales: "Yes",
     status: "Active",
     stage: "Financial",
     totalPayment: 25000,

@@ -18,7 +18,6 @@ const formSchema = z.object({
   name: z.string().min(2, "Name is required"),
   enrollmentDate: z.string().min(1, "Date is required"),
   salesType: z.string(),
-  coreSales: z.string().optional(),
   counsellor: z.string().optional(),
   mainCounsellor: z.string().optional(),
   productManager: z.string().optional(),
@@ -158,16 +157,6 @@ export function ClientRegistrationForm({ onSuccess }: ClientRegistrationFormProp
             control={control}
             label="Sales Type"
             options={salesTypeOptions}
-          />
-          <FormSelectInput
-            name="coreSales"
-            control={control}
-            label="Core Sales"
-            placeholder="Select Core Sale Options"
-            options={[
-              { label: "Yes", value: "Yes" },
-              { label: "No", value: "No" },
-            ]}
           />
         </FormSection>
       ),
