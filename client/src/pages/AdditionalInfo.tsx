@@ -7,31 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Trash2, Plus, Pencil, ArrowRightLeft } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-
-// Mock Data
-const MOCK_COUNSELLORS = [
-  { id: "c1", name: "Priya Singh" },
-  { id: "c2", name: "Rahul Sharma" },
-  { id: "c3", name: "Anjali Gupta" },
-  { id: "c4", name: "Vikram Malhotra" },
-];
-
-const MOCK_CLIENTS = [
-  { id: "cl1", name: "Aarav Patel", counsellorId: "c1" },
-  { id: "cl2", name: "Vivaan Shah", counsellorId: "c1" },
-  { id: "cl3", name: "Aditya Kumar", counsellorId: "c2" },
-  { id: "cl4", name: "Vihaan Singh", counsellorId: "c3" },
-  { id: "cl5", name: "Arjun Das", counsellorId: "c1" },
-];
+import { Trash2, Plus, Pencil } from "lucide-react";
 
 export default function AdditionalInfo() {
   const { toast } = useToast();
@@ -60,68 +36,6 @@ export default function AdditionalInfo() {
     name: "",
     totalPayment: ""
   });
-
-  // State for Client Reassignment
-  const [reassignData, setReassignData] = useState({
-    fromCounsellor: "",
-    toCounsellor: "",
-    transferType: "all", // "all" or "specific"
-    selectedClient: "",
-  });
-
-  const handleReassign = () => {
-    if (!reassignData.fromCounsellor || !reassignData.toCounsellor) {
-      toast({
-        title: "Error",
-        description: "Please select both counsellors",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (reassignData.fromCounsellor === reassignData.toCounsellor) {
-      toast({
-        title: "Error",
-        description: "Cannot transfer to the same counsellor",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (reassignData.transferType === "specific" && !reassignData.selectedClient) {
-      toast({
-        title: "Error",
-        description: "Please select a client to transfer",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Mock success logic
-    const fromName = MOCK_COUNSELLORS.find(c => c.id === reassignData.fromCounsellor)?.name;
-    const toName = MOCK_COUNSELLORS.find(c => c.id === reassignData.toCounsellor)?.name;
-    
-    let description = "";
-    if (reassignData.transferType === "all") {
-      description = `All clients transferred from ${fromName} to ${toName}`;
-    } else {
-      const clientName = MOCK_CLIENTS.find(c => c.id === reassignData.selectedClient)?.name;
-      description = `Client ${clientName} transferred from ${fromName} to ${toName}`;
-    }
-
-    toast({
-      title: "Success",
-      description: description,
-    });
-
-    // Reset form
-    setReassignData({
-      fromCounsellor: "",
-      toCounsellor: "",
-      transferType: "all",
-      selectedClient: "",
-    });
-  };
 
   const handleSave = () => {
     if (!formData.name || !formData.totalPayment) {
@@ -186,110 +100,6 @@ export default function AdditionalInfo() {
 
   return (
     <PageWrapper title="Additional Information" breadcrumbs={[{ label: "Additional Info" }]}>
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Client Reassignment</CardTitle>
-          <CardDescription>Transfer clients between counsellors.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>From Counsellor</Label>
-                <Select
-                  value={reassignData.fromCounsellor}
-                  onValueChange={(value) => setReassignData({ ...reassignData, fromCounsellor: value, selectedClient: "" })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select current counsellor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MOCK_COUNSELLORS.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>To Counsellor</Label>
-                <Select
-                  value={reassignData.toCounsellor}
-                  onValueChange={(value) => setReassignData({ ...reassignData, toCounsellor: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select new counsellor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MOCK_COUNSELLORS.filter(c => c.id !== reassignData.fromCounsellor).map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Transfer Type</Label>
-                <RadioGroup
-                  value={reassignData.transferType}
-                  onValueChange={(value) => setReassignData({ ...reassignData, transferType: value })}
-                  className="flex flex-col space-y-1"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="all" id="all" />
-                    <Label htmlFor="all">Transfer All Clients</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="specific" id="specific" />
-                    <Label htmlFor="specific">Transfer Specific Client</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              {reassignData.transferType === "specific" && (
-                <div className="space-y-2">
-                  <Label>Select Client</Label>
-                  <Select
-                    value={reassignData.selectedClient}
-                    onValueChange={(value) => setReassignData({ ...reassignData, selectedClient: value })}
-                    disabled={!reassignData.fromCounsellor}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={reassignData.fromCounsellor ? "Select client" : "Select counsellor first"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MOCK_CLIENTS
-                        .filter(c => !reassignData.fromCounsellor || c.counsellorId === reassignData.fromCounsellor)
-                        .map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      {MOCK_CLIENTS.filter(c => !reassignData.fromCounsellor || c.counsellorId === reassignData.fromCounsellor).length === 0 && (
-                        <div className="p-2 text-sm text-muted-foreground text-center">No clients found</div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="mt-6 flex justify-end">
-            <Button onClick={handleReassign}>
-              <ArrowRightLeft className="w-4 h-4 mr-2" />
-              Transfer Clients
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
