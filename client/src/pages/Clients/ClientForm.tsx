@@ -48,7 +48,7 @@ const beaconSchema = z.object({
 });
 
 const airTicketSchema = z.object({
-  isBooked: z.boolean().optional(),
+  isBooked: z.string().optional(),
   amount: z.number().optional(),
   invoiceNo: z.string().optional(),
   date: z.string().optional(),
@@ -595,10 +595,15 @@ export default function ClientForm() {
                         15. Air Ticket
                       </Label>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <FormSwitchInput
+                        <FormSelectInput
                           name="spouseFields.airTicket.isBooked"
                           control={control}
                           label="Ticket Booked"
+                          placeholder="Select Status"
+                          options={[
+                            { label: "Yes", value: "Yes" },
+                            { label: "No", value: "No" },
+                          ]}
                         />
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -748,10 +753,15 @@ export default function ClientForm() {
                         6. Air Ticket
                       </Label>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <FormSwitchInput
+                        <FormSelectInput
                           name="visitorFields.airTicket.isBooked"
                           control={control}
                           label="Ticket Booked"
+                          placeholder="Select Status"
+                          options={[
+                            { label: "Yes", value: "Yes" },
+                            { label: "No", value: "No" },
+                          ]}
                         />
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -973,10 +983,15 @@ export default function ClientForm() {
                         9. Air Ticket
                       </Label>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <FormSwitchInput
+                        <FormSelectInput
                           name="studentFields.airTicket.isBooked"
                           control={control}
                           label="Ticket Booked"
+                          placeholder="Select Status"
+                          options={[
+                            { label: "Yes", value: "Yes" },
+                            { label: "No", value: "No" },
+                          ]}
                         />
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
