@@ -342,32 +342,23 @@ export default function ClientForm() {
             placeholder="Select Sales Type"
             options={salesTypeOptions}
           />
+          {salesType === "Other Product" && (
+            <FormSelectInput
+              name="selectedProductType"
+              control={control}
+              label="Product Type"
+              placeholder="Select a Product"
+              options={[
+                { label: "Spouse", value: "Spouse" },
+                { label: "Visitor", value: "Visitor" },
+                { label: "Student", value: "Student" },
+              ]}
+            />
+          )}
         </FormSection>
       ),
     };
 
-    const productSelectionStep = {
-      id: "product_selection",
-      title: "Select Product",
-      component: (
-        <FormSection
-          title="Product Selection"
-          description="Choose the product type for this client"
-        >
-          <FormSelectInput
-            name="selectedProductType"
-            control={control}
-            label="Product Type"
-            placeholder="Select a Product"
-            options={[
-              { label: "Spouse", value: "Spouse" },
-              { label: "Visitor", value: "Visitor" },
-              { label: "Student", value: "Student" },
-            ]}
-          />
-        </FormSection>
-      ),
-    };
 
     const consultancyStep = {
       id: "consultancy",
@@ -1119,10 +1110,10 @@ export default function ClientForm() {
     const allSteps = [basicStep];
     
     if (salesType === "Other Product") {
-      allSteps.push(productSelectionStep);
-      allSteps.push(consultancyStep);
+      // For "Other Product": Skip payment, go directly to product details
       allSteps.push(productFieldsStep);
     } else {
+      // For normal sales types: Include payment step
       allSteps.push(consultancyStep);
       allSteps.push(productFieldsStep);
     }
@@ -1139,8 +1130,9 @@ export default function ClientForm() {
       
       if (stepId === 'basic') {
         fieldsToValidate = ["name", "enrollmentDate", "salesType"];
-      } else if (stepId === 'product_selection') {
-        fieldsToValidate = ["selectedProductType"];
+        if (salesType === "Other Product") {
+          fieldsToValidate.push("selectedProductType");
+        }
       } else if (stepId === 'consultancy') {
         fieldsToValidate = ["totalPayment"];
       }
