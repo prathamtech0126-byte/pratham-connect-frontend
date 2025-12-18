@@ -6,6 +6,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -14,11 +16,22 @@ interface Option {
   value: string;
 }
 
+interface OptionGroup {
+  group: string;
+  items: Option[];
+}
+
+type SelectOption = Option | OptionGroup;
+
+const isOptionGroup = (option: SelectOption): option is OptionGroup => {
+  return "group" in option;
+};
+
 interface FormSelectInputProps<T extends FieldValues> {
   name: Path<T>;
   control: Control<T>;
   label: string;
-  options: Option[];
+  options: SelectOption[];
   placeholder?: string;
   className?: string;
 }
@@ -43,11 +56,24 @@ export function FormSelectInput<T extends FieldValues>({
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>
-              {options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
+              {options.map((option, idx) => 
+                isOptionGroup(option) ? (
+                  <SelectGroup key={`group-${idx}`}>
+                    <SelectLabel className="text-primary font-semibold">
+                      {option.group}
+                    </SelectLabel>
+                    {option.items.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ) : (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                )
+              )}
             </SelectContent>
           </Select>
           {error && (

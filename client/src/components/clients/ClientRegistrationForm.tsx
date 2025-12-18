@@ -83,7 +83,14 @@ const salesTypeOptions = [
   { label: "USA Visitor", value: "USA Visitor" },
   { label: "Schengen visa", value: "Schengen visa" },
   { label: "SPOUSAL PR", value: "SPOUSAL PR" },
-  { label: "Product Other", value: "Product Other" },
+  {
+    group: "Product Other",
+    items: [
+      { label: "Product Spouse", value: "Product Spouse" },
+      { label: "Product Visitor", value: "Product Visitor" },
+      { label: "Product Student", value: "Product Student" },
+    ],
+  },
 ];
 
 interface ClientRegistrationFormProps {
@@ -113,13 +120,14 @@ export function ClientRegistrationForm({ onSuccess }: ClientRegistrationFormProp
   const isStudent = salesType?.toLowerCase().includes("student");
   const isSpouse =
     salesType?.toLowerCase().includes("spouse") || salesType === "SPOUSAL PR";
+  const isProductOther = salesType?.toLowerCase().startsWith("product");
 
-  // Navigate to products page when "Product Other" is selected
+  // Navigate to products page when any "Product Other" option is selected
   useEffect(() => {
-    if (salesType === "Product Other") {
+    if (isProductOther) {
       setLocation("/products");
     }
-  }, [salesType, setLocation]);
+  }, [isProductOther, setLocation]);
 
   const onSubmit = async (data: FormValues) => {
     try {
