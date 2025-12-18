@@ -69,14 +69,9 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const salesTypeOptions = [
-  {
-    group: "Product Other",
-    items: [
-      { label: "Product Spouse", value: "Product Spouse" },
-      { label: "Product Visitor", value: "Product Visitor" },
-      { label: "Product Student", value: "Product Student" },
-    ],
-  },
+  { label: "Product Spouse", value: "Product Spouse" },
+  { label: "Product Visitor", value: "Product Visitor" },
+  { label: "Product Student", value: "Product Student" },
   { label: "Canada Student", value: "Canada Student" },
   { label: "Canada Onshore Student", value: "Canada Onshore Student" },
   { label: "UK Student", value: "UK Student" },
