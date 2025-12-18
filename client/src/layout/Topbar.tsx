@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Bell, Search, User, Settings, CreditCard, LogOut } from "lucide-react";
+import { Bell, Search, User, LogOut, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MobileSidebar } from "./Sidebar";
@@ -159,12 +159,8 @@ export function Topbar() {
                 </DropdownMenuItem>
               </ProfileDialog>
               <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary">
-                <CreditCard className="mr-2 h-4 w-4" />
-                <span>Billing</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
+                <Lock className="mr-2 h-4 w-4" />
+                <span>Change Password</span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator className="bg-border/60" />
