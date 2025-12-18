@@ -182,7 +182,9 @@ const salesTypeOptions = [
   { label: "USA Visitor", value: "USA Visitor" },
   { label: "Schengen Visitor", value: "Schengen Visitor" },
   { label: "SPOUSAL PR", value: "SPOUSAL PR" },
-  { label: "Other Product", value: "Other Product" },
+  { label: "Other Product - Spouse Service", value: "Other Product - Spouse Service" },
+  { label: "Other Product - Visitor Service", value: "Other Product - Visitor Service" },
+  { label: "Other Product - Student Service", value: "Other Product - Student Service" },
 ];
 
 const getProductType = (
@@ -191,15 +193,17 @@ const getProductType = (
 ): "spouse" | "visitor" | "student" | null => {
   if (!salesType) return null;
   
-  // If "Other Product" is selected, use the selectedProductType
-  if (salesType === "Other Product") {
-    if (selectedProductType === "Spouse") return "spouse";
-    if (selectedProductType === "Visitor") return "visitor";
-    if (selectedProductType === "Student") return "student";
+  const lower = salesType.toLowerCase();
+  
+  // Handle "Other Product" options
+  if (lower.includes("other product")) {
+    if (lower.includes("spouse")) return "spouse";
+    if (lower.includes("visitor")) return "visitor";
+    if (lower.includes("student")) return "student";
     return null;
   }
   
-  const lower = salesType.toLowerCase();
+  // Handle standard sales types
   if (lower.includes("spouse") || lower === "spousal pr") return "spouse";
   if (lower.includes("visitor") || lower.includes("schengen")) return "visitor";
   if (lower.includes("student")) return "student";
@@ -342,19 +346,6 @@ export default function ClientForm() {
             placeholder="Select Sales Type"
             options={salesTypeOptions}
           />
-          {salesType === "Other Product" && (
-            <FormSelectInput
-              name="selectedProductType"
-              control={control}
-              label="Product Type"
-              placeholder="Select a Product"
-              options={[
-                { label: "Spouse", value: "Spouse" },
-                { label: "Visitor", value: "Visitor" },
-                { label: "Student", value: "Student" },
-              ]}
-            />
-          )}
         </FormSection>
       ),
     };
@@ -1109,8 +1100,8 @@ export default function ClientForm() {
     // Build step array based on sales type
     const allSteps = [basicStep];
     
-    if (salesType === "Other Product") {
-      // For "Other Product": Skip payment, go directly to product details
+    if (salesType && salesType.includes("Other Product")) {
+      // For "Other Product" variants: Skip payment, go directly to product details
       allSteps.push(productFieldsStep);
     } else {
       // For normal sales types: Include payment step
@@ -1130,9 +1121,6 @@ export default function ClientForm() {
       
       if (stepId === 'basic') {
         fieldsToValidate = ["name", "enrollmentDate", "salesType"];
-        if (salesType === "Other Product") {
-          fieldsToValidate.push("selectedProductType");
-        }
       } else if (stepId === 'consultancy') {
         fieldsToValidate = ["totalPayment"];
       }
