@@ -138,6 +138,9 @@ const formSchema = z.object({
   enrollmentDate: z.string({ required_error: "Please select an enrollment date" }).min(1, "Please select an enrollment date"),
   salesType: z.string({ required_error: "Please select a sales type" }).min(1, "Please select a sales type"),
 
+  // For "Other Product" selection
+  selectedProductType: z.string().optional(),
+
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
 
@@ -179,12 +182,23 @@ const salesTypeOptions = [
   { label: "USA Visitor", value: "USA Visitor" },
   { label: "Schengen Visitor", value: "Schengen Visitor" },
   { label: "SPOUSAL PR", value: "SPOUSAL PR" },
+  { label: "Other Product", value: "Other Product" },
 ];
 
 const getProductType = (
   salesType: string | undefined,
+  selectedProductType?: string,
 ): "spouse" | "visitor" | "student" | null => {
   if (!salesType) return null;
+  
+  // If "Other Product" is selected, use the selectedProductType
+  if (salesType === "Other Product") {
+    if (selectedProductType === "Spouse") return "spouse";
+    if (selectedProductType === "Visitor") return "visitor";
+    if (selectedProductType === "Student") return "student";
+    return null;
+  }
+  
   const lower = salesType.toLowerCase();
   if (lower.includes("spouse") || lower === "spousal pr") return "spouse";
   if (lower.includes("visitor") || lower.includes("schengen")) return "visitor";
@@ -203,6 +217,7 @@ export default function ClientForm() {
     defaultValues: {
       counsellorName: user?.name || "",
       name: "",
+      selectedProductType: "",
       totalPayment: 0,
       initialPayment: {},
       beforeVisaPayment: {},
@@ -219,6 +234,7 @@ export default function ClientForm() {
 
   const { control, handleSubmit, setValue, watch, trigger, formState: { errors } } = form;
   const salesType = useWatch({ control, name: "salesType" });
+  const selectedProductType = useWatch({ control, name: "selectedProductType" });
   const showDiscount = useWatch({ control, name: "showDiscount" });
   const showExtraPayment = useWatch({ control, name: "showExtraPayment" });
 
@@ -240,7 +256,7 @@ export default function ClientForm() {
   // Alternatively, just calculate it on render for display and on submit for data.
   // Let's set it in form so the input updates visually if we want it to be readonly.
 
-  const productType = getProductType(salesType);
+  const productType = getProductType(salesType, selectedProductType);
 
   const counsellorOptions = [
     { label: "Super Admin", value: "Super Admin" },
@@ -291,8 +307,9 @@ export default function ClientForm() {
     }
   };
 
-  const steps = [
-    {
+  // Build steps dynamically based on sales type
+  const buildSteps = () => {
+    const basicStep = {
       id: "basic",
       title: "Basic Details",
       component: (
@@ -327,8 +344,32 @@ export default function ClientForm() {
           />
         </FormSection>
       ),
-    },
-    {
+    };
+
+    const productSelectionStep = {
+      id: "product_selection",
+      title: "Select Product",
+      component: (
+        <FormSection
+          title="Product Selection"
+          description="Choose the product type for this client"
+        >
+          <FormSelectInput
+            name="selectedProductType"
+            control={control}
+            label="Product Type"
+            placeholder="Select a Product"
+            options={[
+              { label: "Spouse", value: "Spouse" },
+              { label: "Visitor", value: "Visitor" },
+              { label: "Student", value: "Student" },
+            ]}
+          />
+        </FormSection>
+      ),
+    };
+
+    const consultancyStep = {
       id: "consultancy",
       title: "Consultancy Payment",
       component: (
@@ -373,8 +414,9 @@ export default function ClientForm() {
           </div>
         </FormSection>
       ),
-    },
-    {
+    };
+
+    const productFieldsStep = {
       id: "product_fields",
       title: "Product Details",
       component: (
@@ -1071,8 +1113,24 @@ export default function ClientForm() {
           )}
         </div>
       ),
-    },
-  ];
+    };
+
+    // Build step array based on sales type
+    const allSteps = [basicStep];
+    
+    if (salesType === "Other Product") {
+      allSteps.push(productSelectionStep);
+      allSteps.push(consultancyStep);
+      allSteps.push(productFieldsStep);
+    } else {
+      allSteps.push(consultancyStep);
+      allSteps.push(productFieldsStep);
+    }
+
+    return allSteps;
+  };
+
+  const steps = buildSteps();
 
   const handleStepChange = async (currentStep: number, nextStep: number) => {
     if (nextStep > currentStep) {
@@ -1081,14 +1139,14 @@ export default function ClientForm() {
       
       if (stepId === 'basic') {
         fieldsToValidate = ["name", "enrollmentDate", "salesType"];
+      } else if (stepId === 'product_selection') {
+        fieldsToValidate = ["selectedProductType"];
       } else if (stepId === 'consultancy') {
-        fieldsToValidate = ["totalPayment"]; // Add other required fields if any
+        fieldsToValidate = ["totalPayment"];
       }
       
       if (fieldsToValidate.length > 0) {
-        // Trigger validation for the specific fields
         const isValid = await trigger(fieldsToValidate as any);
-
         if (!isValid) {
             toast({
                 title: "Validation Error",
