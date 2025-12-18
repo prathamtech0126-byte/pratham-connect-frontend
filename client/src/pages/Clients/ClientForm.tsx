@@ -137,7 +137,6 @@ const formSchema = z.object({
   name: z.string({ required_error: "Please enter full name" }).min(1, "Please enter full name").regex(/^[a-zA-Z]+ [a-zA-Z]+$/, "Please enter full name (First Last)"),
   enrollmentDate: z.string({ required_error: "Please select an enrollment date" }).min(1, "Please select an enrollment date"),
   salesType: z.string({ required_error: "Please select a sales type" }).min(1, "Please select a sales type"),
-  productCategory: z.string().optional(),
 
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
@@ -166,7 +165,6 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const salesTypeOptions = [
-  { label: "Product", value: "Product" },
   { label: "Canada Student", value: "Canada Student" },
   { label: "Canada Onshore Student", value: "Canada Onshore Student" },
   { label: "UK Student", value: "UK Student" },
@@ -181,12 +179,6 @@ const salesTypeOptions = [
   { label: "USA Visitor", value: "USA Visitor" },
   { label: "Schengen Visitor", value: "Schengen Visitor" },
   { label: "SPOUSAL PR", value: "SPOUSAL PR" },
-];
-
-const productCategoryOptions = [
-  { label: "Spouse", value: "spouse" },
-  { label: "Student", value: "student" },
-  { label: "Visitor", value: "visitor" },
 ];
 
 const getProductType = (
@@ -227,7 +219,6 @@ export default function ClientForm() {
 
   const { control, handleSubmit, setValue, watch, trigger, formState: { errors } } = form;
   const salesType = useWatch({ control, name: "salesType" });
-  const productCategory = useWatch({ control, name: "productCategory" });
   const showDiscount = useWatch({ control, name: "showDiscount" });
   const showExtraPayment = useWatch({ control, name: "showExtraPayment" });
 
@@ -249,10 +240,7 @@ export default function ClientForm() {
   // Alternatively, just calculate it on render for display and on submit for data.
   // Let's set it in form so the input updates visually if we want it to be readonly.
 
-  // Determine product type: either from productCategory (when salesType is "Product") or from salesType
-  const productType = salesType === "Product" 
-    ? (productCategory as "spouse" | "student" | "visitor" | null)
-    : getProductType(salesType);
+  const productType = getProductType(salesType);
 
   const counsellorOptions = [
     { label: "Super Admin", value: "Super Admin" },
@@ -340,24 +328,6 @@ export default function ClientForm() {
         </FormSection>
       ),
     },
-    ...(salesType === "Product" ? [{
-      id: "product_selection",
-      title: "Select Product",
-      component: (
-        <FormSection
-          title="Product Selection"
-          description="Choose the product type"
-        >
-          <FormSelectInput
-            name="productCategory"
-            control={control}
-            label="Product Type"
-            placeholder="Select Product Type"
-            options={productCategoryOptions}
-          />
-        </FormSection>
-      ),
-    }] : []),
     {
       id: "consultancy",
       title: "Consultancy Payment",
@@ -1111,8 +1081,6 @@ export default function ClientForm() {
       
       if (stepId === 'basic') {
         fieldsToValidate = ["name", "enrollmentDate", "salesType"];
-      } else if (stepId === 'product_selection') {
-        fieldsToValidate = ["productCategory"];
       } else if (stepId === 'consultancy') {
         fieldsToValidate = ["totalPayment"]; // Add other required fields if any
       }
