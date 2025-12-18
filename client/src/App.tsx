@@ -20,7 +20,6 @@ import AdditionalInfo from "@/pages/AdditionalInfo";
 import Activity from "@/pages/Activity";
 import CalendarDemo from "@/pages/CalendarDemo";
 import ChangePassword from "@/pages/ChangePassword";
-import Products from "@/pages/Products";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -59,10 +58,6 @@ function Router() {
 
       <Route path="/change-password">
         {params => <ProtectedRoute component={ChangePassword} />}
-      </Route>
-
-      <Route path="/products">
-        {params => <ProtectedRoute component={Products} />}
       </Route>
       
       {/* Client Routes */}

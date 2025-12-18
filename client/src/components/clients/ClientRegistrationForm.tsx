@@ -11,8 +11,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { clientService } from "@/services/clientService";
-import { useEffect } from "react";
-import { useLocation } from "wouter";
 
 // Validation Schema
 const formSchema = z.object({
@@ -69,9 +67,6 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const salesTypeOptions = [
-  { label: "Product Spouse", value: "Product Spouse" },
-  { label: "Product Visitor", value: "Product Visitor" },
-  { label: "Product Student", value: "Product Student" },
   { label: "Canada Student", value: "Canada Student" },
   { label: "Canada Onshore Student", value: "Canada Onshore Student" },
   { label: "UK Student", value: "UK Student" },
@@ -94,7 +89,6 @@ interface ClientRegistrationFormProps {
 
 export function ClientRegistrationForm({ onSuccess }: ClientRegistrationFormProps) {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -115,14 +109,6 @@ export function ClientRegistrationForm({ onSuccess }: ClientRegistrationFormProp
   const isStudent = salesType?.toLowerCase().includes("student");
   const isSpouse =
     salesType?.toLowerCase().includes("spouse") || salesType === "SPOUSAL PR";
-  const isProductOther = salesType?.toLowerCase().startsWith("product");
-
-  // Navigate to products page when any "Product Other" option is selected
-  useEffect(() => {
-    if (isProductOther) {
-      setLocation("/products");
-    }
-  }, [isProductOther, setLocation]);
 
   const onSubmit = async (data: FormValues) => {
     try {
