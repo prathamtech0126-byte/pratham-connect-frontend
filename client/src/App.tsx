@@ -19,6 +19,7 @@ import TeamList from "@/pages/Team/TeamList";
 import AdditionalInfo from "@/pages/AdditionalInfo";
 import Activity from "@/pages/Activity";
 import CalendarDemo from "@/pages/CalendarDemo";
+import ChangePassword from "@/pages/ChangePassword";
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -53,6 +54,10 @@ function Router() {
 
       <Route path="/calendar">
         {params => <ProtectedRoute component={CalendarDemo} />}
+      </Route>
+
+      <Route path="/change-password">
+        {params => <ProtectedRoute component={ChangePassword} />}
       </Route>
       
       {/* Client Routes */}

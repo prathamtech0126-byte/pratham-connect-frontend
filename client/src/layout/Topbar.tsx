@@ -20,11 +20,13 @@ import { BroadcastDialog } from "@/components/broadcast-dialog";
 import { useAuth } from "@/context/auth-context";
 import { useAlert, AlertType } from "@/context/alert-context";
 import { AlertTriangle, Megaphone, PartyPopper } from "lucide-react";
+import { useLocation } from "wouter";
 
 import { ModeToggle } from "@/components/mode-toggle";
 
 export function Topbar() {
   const { user, logout } = useAuth();
+  const [, setLocation] = useLocation();
   const { pendingAlert, activatePendingAlert } = useAlert();
   
   // Check if pending alert targets this user
@@ -158,7 +160,10 @@ export function Topbar() {
                   <span>Profile</span>
                 </DropdownMenuItem>
               </ProfileDialog>
-              <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary">
+              <DropdownMenuItem 
+                className="rounded-lg cursor-pointer focus:bg-primary/10 focus:text-primary"
+                onClick={() => setLocation("/change-password")}
+              >
                 <Lock className="mr-2 h-4 w-4" />
                 <span>Change Password</span>
               </DropdownMenuItem>
