@@ -258,15 +258,15 @@ export default function ClientForm() {
   // Auto-calc pending amount
   const totalPayment = useWatch({ control, name: "totalPayment" }) || 0;
   const initialPayment = useWatch({ control, name: "initialPayment" });
+  const beforeVisaPayment = useWatch({ control, name: "beforeVisaPayment" });
+  const afterVisaPayment = useWatch({ control, name: "afterVisaPayment" });
+  
   const initialAmountReceived = initialPayment?.amount || 0;
-  const discount = useWatch({ control, name: "discount" }) || 0;
-  const extraPayment = useWatch({ control, name: "extraPayment" }) || 0;
+  const beforeVisaAmount = beforeVisaPayment?.amount || 0;
+  const afterVisaAmount = afterVisaPayment?.amount || 0;
 
-  // Effect to update pending amount
-  // Formula: (Total + Extra) - (Initial + Discount)
-  // Pending = (TotalPayment + ExtraPayment) - (InitialAmountReceived + Discount)
-  const calculatedPending =
-    totalPayment + extraPayment - (initialAmountReceived + discount);
+  // Formula: Total Payment - (Initial Amount + Before Visa Payment + After Visa Payment)
+  const calculatedPending = totalPayment - (initialAmountReceived + beforeVisaAmount + afterVisaAmount);
 
   // We can just display this or set it in form state. Setting in form state is better for submission.
   // Using a useEffect to keep it in sync might cause re-renders but is safe for now.
