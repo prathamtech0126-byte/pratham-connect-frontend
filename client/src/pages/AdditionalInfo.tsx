@@ -7,10 +7,75 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Trash2, Plus, Pencil } from "lucide-react";
+import { Trash2, Plus, Pencil, ArrowRight } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AdditionalInfo() {
   const { toast } = useToast();
+
+  // Mock data for clients and counselors
+  const [clients] = useState([
+    { id: 1, name: "Rahul Kumar", currentCounsellor: "Super Admin", status: "Active" },
+    { id: 2, name: "Priya Singh", currentCounsellor: "Sarah Manager", status: "Active" },
+    { id: 3, name: "Amit Patel", currentCounsellor: "Priya Singh", status: "Active" },
+    { id: 4, name: "Neha Sharma", currentCounsellor: "Director", status: "Active" },
+    { id: 5, name: "Vikram Malhotra", currentCounsellor: "Rahul Sharma", status: "Active" },
+  ]);
+
+  const [counsellors] = useState([
+    "Super Admin",
+    "Sarah Manager",
+    "Priya Singh",
+    "Director",
+    "Rahul Sharma",
+    "Anjali Gupta",
+    "Vikram Malhotra",
+  ]);
+
+  // Transfer state
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [selectedCounsellor, setSelectedCounsellor] = useState<string>("");
+  const [clientTransfers, setClientTransfers] = useState<Array<{ clientId: number; oldCounsellor: string; newCounsellor: string; date: string }>>([]);
+
+  const handleTransferClient = () => {
+    if (!selectedClientId || !selectedCounsellor) {
+      toast({
+        title: "Error",
+        description: "Please select both a client and a counsellor",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const client = clients.find(c => c.id === selectedClientId);
+    if (!client) return;
+
+    if (client.currentCounsellor === selectedCounsellor) {
+      toast({
+        title: "Error",
+        description: "Client is already assigned to this counsellor",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const transfer = {
+      clientId: selectedClientId,
+      oldCounsellor: client.currentCounsellor,
+      newCounsellor: selectedCounsellor,
+      date: new Date().toLocaleDateString(),
+    };
+
+    setClientTransfers([transfer, ...clientTransfers]);
+    
+    toast({
+      title: "Success",
+      description: `${client.name} transferred from ${client.currentCounsellor} to ${selectedCounsellor}`,
+    });
+
+    setSelectedClientId(null);
+    setSelectedCounsellor("");
+  };
 
   // State for Sale Types
   const [saleTypes, setSaleTypes] = useState([
@@ -100,6 +165,92 @@ export default function AdditionalInfo() {
 
   return (
     <PageWrapper title="Additional Information" breadcrumbs={[{ label: "Additional Info" }]}>
+      {/* Client Transfer Section */}
+      <Card className="mb-6">
+        <CardHeader>
+          <div>
+            <CardTitle>Client Transfer</CardTitle>
+            <CardDescription>Transfer individual clients to another counsellor</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Transfer Form */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="space-y-2">
+              <Label>Select Client</Label>
+              <Select value={selectedClientId?.toString() || ""} onValueChange={(val) => setSelectedClientId(parseInt(val))}>
+                <SelectTrigger data-testid="select-client">
+                  <SelectValue placeholder="Choose a client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map(client => (
+                    <SelectItem key={client.id} value={client.id.toString()}>
+                      {client.name} ({client.currentCounsellor})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-center">
+              <ArrowRight className="w-5 h-5 text-muted-foreground" />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Transfer To</Label>
+              <Select value={selectedCounsellor} onValueChange={setSelectedCounsellor}>
+                <SelectTrigger data-testid="select-counsellor">
+                  <SelectValue placeholder="Choose counsellor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {counsellors.map(counsellor => (
+                    <SelectItem key={counsellor} value={counsellor}>
+                      {counsellor}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button onClick={handleTransferClient} data-testid="button-transfer">
+              Transfer
+            </Button>
+          </div>
+
+          {/* Transfer History */}
+          {clientTransfers.length > 0 && (
+            <div className="mt-8">
+              <h3 className="font-semibold mb-4">Recent Transfers</h3>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Client Name</TableHead>
+                      <TableHead>From</TableHead>
+                      <TableHead>To</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {clientTransfers.map((transfer, index) => {
+                      const client = clients.find(c => c.id === transfer.clientId);
+                      return (
+                        <TableRow key={index} data-testid={`transfer-row-${index}`}>
+                          <TableCell className="font-medium">{client?.name}</TableCell>
+                          <TableCell>{transfer.oldCounsellor}</TableCell>
+                          <TableCell>{transfer.newCounsellor}</TableCell>
+                          <TableCell>{transfer.date}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
