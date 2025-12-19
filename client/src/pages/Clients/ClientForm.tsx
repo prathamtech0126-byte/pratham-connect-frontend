@@ -369,11 +369,24 @@ export default function ClientForm() {
           title="Payment Details"
           description="Consultancy charges and payment status"
         >
-          <FormCurrencyInput
-            name="totalPayment"
-            control={control}
-            label="Total Payment"
-          />
+          {/* Three payment fields in responsive grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <FormCurrencyInput
+              name="totalPayment"
+              control={control}
+              label="Total Payment"
+            />
+            <FormCurrencyInput
+              name="beforeVisaPayment.amount"
+              control={control}
+              label="Before Visa pay will"
+            />
+            <FormCurrencyInput
+              name="afterVisaPayment.amount"
+              control={control}
+              label="After Visa pay will"
+            />
+          </div>
 
           <FinancialEntry
             control={control}
@@ -385,14 +398,14 @@ export default function ClientForm() {
           <FinancialEntry
             control={control}
             name="beforeVisaPayment"
-            label="Before Visa Payment"
+            label="Before Visa Payment Details"
             hasRemarks={true}
           />
 
           <FinancialEntry
             control={control}
             name="afterVisaPayment"
-            label="After Visa Payment"
+            label="After Visa Payment Details"
             hasRemarks={true}
           />
 
