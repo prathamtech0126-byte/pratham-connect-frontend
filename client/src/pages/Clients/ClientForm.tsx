@@ -26,7 +26,6 @@ import { Label } from "@/components/ui/label";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
-
 // --- Schema Definitions ---
 
 const financialEntrySchema = z.object({
@@ -133,10 +132,19 @@ const studentFieldsSchema = z.object({
 
 const formSchema = z.object({
   // Step 1: Basic Details
-  counsellorName: z.string({ required_error: "Please enter counsellor name" }).min(1, "Please enter counsellor name"),
-  name: z.string({ required_error: "Please enter full name" }).min(1, "Please enter full name").regex(/^[a-zA-Z]+ [a-zA-Z]+$/, "Please enter full name (First Last)"),
-  enrollmentDate: z.string({ required_error: "Please select an enrollment date" }).min(1, "Please select an enrollment date"),
-  salesType: z.string({ required_error: "Please select a sales type" }).min(1, "Please select a sales type"),
+  counsellorName: z
+    .string({ required_error: "Please enter counsellor name" })
+    .min(1, "Please enter counsellor name"),
+  name: z
+    .string({ required_error: "Please enter full name" })
+    .min(1, "Please enter full name")
+    .regex(/^[a-zA-Z]+ [a-zA-Z]+$/, "Please enter full name (First Last)"),
+  enrollmentDate: z
+    .string({ required_error: "Please select an enrollment date" })
+    .min(1, "Please select an enrollment date"),
+  salesType: z
+    .string({ required_error: "Please select a sales type" })
+    .min(1, "Please select a sales type"),
 
   // For "Other Product" selection
   selectedProductType: z.string().optional(),
@@ -190,14 +198,14 @@ const getProductType = (
   selectedProductType?: string,
 ): "spouse" | "visitor" | "student" | "all" | null => {
   if (!salesType) return null;
-  
+
   const lower = salesType.toLowerCase();
-  
+
   // For "Other Product", return "all" to show all products
   if (lower === "other product") {
     return "all";
   }
-  
+
   // Handle standard sales types
   if (lower.includes("spouse") || lower === "spousal pr") return "spouse";
   if (lower.includes("visitor") || lower.includes("schengen")) return "visitor";
@@ -231,9 +239,19 @@ export default function ClientForm() {
     },
   });
 
-  const { control, handleSubmit, setValue, watch, trigger, formState: { errors } } = form;
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    trigger,
+    formState: { errors },
+  } = form;
   const salesType = useWatch({ control, name: "salesType" });
-  const selectedProductType = useWatch({ control, name: "selectedProductType" });
+  const selectedProductType = useWatch({
+    control,
+    name: "selectedProductType",
+  });
   const showDiscount = useWatch({ control, name: "showDiscount" });
   const showExtraPayment = useWatch({ control, name: "showExtraPayment" });
 
@@ -267,7 +285,6 @@ export default function ClientForm() {
     { label: "Vikram Malhotra", value: "Vikram Malhotra" },
   ];
 
-
   const onSubmit = async (data: FormValues) => {
     try {
       // Clean up data before sending: only include relevant product fields
@@ -289,7 +306,6 @@ export default function ClientForm() {
         ...finalData,
         status: "Active",
       });
-
 
       toast({
         title: "Success",
@@ -344,7 +360,6 @@ export default function ClientForm() {
         </FormSection>
       ),
     };
-
 
     const consultancyStep = {
       id: "consultancy",
@@ -409,15 +424,6 @@ export default function ClientForm() {
             <div className="space-y-8">
               {/* SPOUSE */}
               <div className="space-y-6">
-                <div className="bg-primary/10 p-4 rounded-md mb-4 border border-primary/20">
-                  <h3 className="font-semibold text-primary">
-                    Spouse Visa Configuration
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Base Fee: ₹75,000 (Fixed)
-                  </p>
-                </div>
-
                 <Accordion
                   type="single"
                   collapsible
@@ -425,7 +431,9 @@ export default function ClientForm() {
                   className="w-full"
                 >
                   <AccordionItem value="spouse-finance">
-                    <AccordionTrigger>Spouse - Finance & Employment</AccordionTrigger>
+                    <AccordionTrigger>
+                      Spouse - Finance & Employment
+                    </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <FinancialEntry
                         control={control}
@@ -435,7 +443,7 @@ export default function ClientForm() {
                       <FinancialEntry
                         control={control}
                         name="spouseFields.indianSideEmployment"
-                        label="2. Indian Side Employment"
+                        label="2. India Side Employment"
                       />
                       <FinancialEntry
                         control={control}
@@ -513,7 +521,9 @@ export default function ClientForm() {
                   </AccordionItem>
 
                   <AccordionItem value="spouse-legal">
-                    <AccordionTrigger>Spouse - Legal & Documentation</AccordionTrigger>
+                    <AccordionTrigger>
+                      Spouse - Legal & Documentation
+                    </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <FinancialEntry
                         control={control}
@@ -554,7 +564,9 @@ export default function ClientForm() {
                   </AccordionItem>
 
                   <AccordionItem value="spouse-services">
-                    <AccordionTrigger>Spouse - Services & Settlement</AccordionTrigger>
+                    <AccordionTrigger>
+                      Spouse - Services & Settlement
+                    </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                         <Label className="text-base font-semibold">
@@ -681,15 +693,6 @@ export default function ClientForm() {
 
               {/* VISITOR */}
               <div className="space-y-6">
-                <div className="bg-primary/10 p-4 rounded-md mb-4 border border-primary/20">
-                  <h3 className="font-semibold text-primary">
-                    Visitor Visa Configuration
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Base Fee: ₹49,000 (Fixed)
-                  </p>
-                </div>
-
                 <Accordion
                   type="single"
                   collapsible
@@ -697,7 +700,9 @@ export default function ClientForm() {
                   className="w-full"
                 >
                   <AccordionItem value="visitor-main">
-                    <AccordionTrigger>Visitor - Fees & Employment</AccordionTrigger>
+                    <AccordionTrigger>
+                      Visitor - Fees & Employment
+                    </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <FinancialEntry
                         control={control}
@@ -733,7 +738,9 @@ export default function ClientForm() {
                   </AccordionItem>
 
                   <AccordionItem value="visitor-services">
-                    <AccordionTrigger>Visitor - Additional Services</AccordionTrigger>
+                    <AccordionTrigger>
+                      Visitor - Additional Services
+                    </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                         <Label className="text-base font-semibold">
@@ -860,15 +867,6 @@ export default function ClientForm() {
 
               {/* STUDENT */}
               <div className="space-y-6">
-                <div className="bg-primary/10 p-4 rounded-md mb-4 border border-primary/20">
-                  <h3 className="font-semibold text-primary">
-                    Student Visa Configuration
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Base Fee: ₹60,000 (Fixed)
-                  </p>
-                </div>
-
                 <Accordion
                   type="single"
                   collapsible
@@ -876,7 +874,9 @@ export default function ClientForm() {
                   className="w-full"
                 >
                   <AccordionItem value="student-finance">
-                    <AccordionTrigger>Student - Finance & Services</AccordionTrigger>
+                    <AccordionTrigger>
+                      Student - Finance & Services
+                    </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <FinancialEntry
                         control={control}
@@ -949,7 +949,9 @@ export default function ClientForm() {
                   </AccordionItem>
 
                   <AccordionItem value="student-additional">
-                    <AccordionTrigger>Student - Additional Services</AccordionTrigger>
+                    <AccordionTrigger>
+                      Student - Additional Services
+                    </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                         <Label className="text-base font-semibold">
@@ -1747,7 +1749,7 @@ export default function ClientForm() {
 
     // Build step array based on sales type
     const allSteps = [basicStep];
-    
+
     if (salesType === "Other Product") {
       // For "Other Product": Skip payment, go directly to product details
       allSteps.push(productFieldsStep);
@@ -1766,22 +1768,22 @@ export default function ClientForm() {
     if (nextStep > currentStep) {
       const stepId = steps[currentStep].id;
       let fieldsToValidate: any[] = [];
-      
-      if (stepId === 'basic') {
+
+      if (stepId === "basic") {
         fieldsToValidate = ["name", "enrollmentDate", "salesType"];
-      } else if (stepId === 'consultancy') {
+      } else if (stepId === "consultancy") {
         fieldsToValidate = ["totalPayment"];
       }
-      
+
       if (fieldsToValidate.length > 0) {
         const isValid = await trigger(fieldsToValidate as any);
         if (!isValid) {
-            toast({
-                title: "Validation Error",
-                description: "Please fill in all required fields correctly.",
-                variant: "destructive",
-            });
-            return false;
+          toast({
+            title: "Validation Error",
+            description: "Please fill in all required fields correctly.",
+            variant: "destructive",
+          });
+          return false;
         }
       }
     }
