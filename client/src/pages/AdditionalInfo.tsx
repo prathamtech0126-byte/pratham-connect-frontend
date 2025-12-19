@@ -35,7 +35,26 @@ export default function AdditionalInfo() {
   // Transfer state
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [selectedCounsellor, setSelectedCounsellor] = useState<string>("");
-  const [clientTransfers, setClientTransfers] = useState<Array<{ clientId: number; oldCounsellor: string; newCounsellor: string; date: string }>>([]);
+  const [clientSearchInput, setClientSearchInput] = useState("");
+  const [counsellorSearchInput, setCounsellorSearchInput] = useState("");
+  const [showClientList, setShowClientList] = useState(false);
+  const [showCounsellorList, setShowCounsellorList] = useState(false);
+  const [clientTransfers, setClientTransfers] = useState<Array<{ clientId: number; oldCounsellor: string; newCounsellor: string; date: string }>([]);
+
+  // Filter clients based on search
+  const filteredClients = clientSearchInput.length >= 3 
+    ? clients.filter(c => 
+        c.name.toLowerCase().includes(clientSearchInput.toLowerCase()) ||
+        c.currentCounsellor.toLowerCase().includes(clientSearchInput.toLowerCase())
+      )
+    : [];
+
+  // Filter counsellors based on search
+  const filteredCounsellors = counsellorSearchInput.length >= 3
+    ? counsellors.filter(c =>
+        c.toLowerCase().includes(counsellorSearchInput.toLowerCase())
+      )
+    : [];
 
   const handleTransferClient = () => {
     if (!selectedClientId || !selectedCounsellor) {
@@ -176,40 +195,82 @@ export default function AdditionalInfo() {
         <CardContent className="space-y-6">
           {/* Transfer Form */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div className="space-y-2">
+            {/* Client Search */}
+            <div className="space-y-2 relative">
               <Label>Select Client</Label>
-              <Select value={selectedClientId?.toString() || ""} onValueChange={(val) => setSelectedClientId(parseInt(val))}>
-                <SelectTrigger data-testid="select-client">
-                  <SelectValue placeholder="Choose a client" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(client => (
-                    <SelectItem key={client.id} value={client.id.toString()}>
-                      {client.name} ({client.currentCounsellor})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                data-testid="input-client-search"
+                placeholder="Search client (3+ chars)"
+                value={clientSearchInput}
+                onChange={(e) => {
+                  setClientSearchInput(e.target.value);
+                  setShowClientList(true);
+                }}
+                onFocus={() => setShowClientList(true)}
+              />
+              {showClientList && clientSearchInput.length >= 3 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                  {filteredClients.length > 0 ? (
+                    filteredClients.map(client => (
+                      <div
+                        key={client.id}
+                        className="px-3 py-2 hover:bg-slate-100 cursor-pointer border-b text-sm"
+                        onClick={() => {
+                          setSelectedClientId(client.id);
+                          setClientSearchInput(`${client.name} (${client.currentCounsellor})`);
+                          setShowClientList(false);
+                        }}
+                        data-testid={`client-option-${client.id}`}
+                      >
+                        {client.name} ({client.currentCounsellor})
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No clients found</div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-center">
               <ArrowRight className="w-5 h-5 text-muted-foreground" />
             </div>
 
-            <div className="space-y-2">
+            {/* Counsellor Search */}
+            <div className="space-y-2 relative">
               <Label>Transfer To</Label>
-              <Select value={selectedCounsellor} onValueChange={setSelectedCounsellor}>
-                <SelectTrigger data-testid="select-counsellor">
-                  <SelectValue placeholder="Choose counsellor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {counsellors.map(counsellor => (
-                    <SelectItem key={counsellor} value={counsellor}>
-                      {counsellor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                data-testid="input-counsellor-search"
+                placeholder="Search counsellor (3+ chars)"
+                value={counsellorSearchInput}
+                onChange={(e) => {
+                  setCounsellorSearchInput(e.target.value);
+                  setShowCounsellorList(true);
+                }}
+                onFocus={() => setShowCounsellorList(true)}
+              />
+              {showCounsellorList && counsellorSearchInput.length >= 3 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                  {filteredCounsellors.length > 0 ? (
+                    filteredCounsellors.map(counsellor => (
+                      <div
+                        key={counsellor}
+                        className="px-3 py-2 hover:bg-slate-100 cursor-pointer border-b text-sm"
+                        onClick={() => {
+                          setSelectedCounsellor(counsellor);
+                          setCounsellorSearchInput(counsellor);
+                          setShowCounsellorList(false);
+                        }}
+                        data-testid={`counsellor-option-${counsellor}`}
+                      >
+                        {counsellor}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No counsellors found</div>
+                  )}
+                </div>
+              )}
             </div>
 
             <Button onClick={handleTransferClient} data-testid="button-transfer">
