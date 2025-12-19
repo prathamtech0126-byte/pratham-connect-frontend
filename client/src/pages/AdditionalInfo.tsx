@@ -39,7 +39,7 @@ export default function AdditionalInfo() {
   const [counsellorSearchInput, setCounsellorSearchInput] = useState("");
   const [showClientList, setShowClientList] = useState(false);
   const [showCounsellorList, setShowCounsellorList] = useState(false);
-  const [clientTransfers, setClientTransfers] = useState<Array<{ clientId: number; oldCounsellor: string; newCounsellor: string; date: string }>([]);
+  const [clientTransfers, setClientTransfers] = useState<Array<{ clientId: number; oldCounsellor: string; newCounsellor: string; date: string }>>([]);
 
   // Filter clients based on search
   const filteredClients = clientSearchInput.length >= 3 
