@@ -132,9 +132,6 @@ const studentFieldsSchema = z.object({
 
 const formSchema = z.object({
   // Step 1: Basic Details
-  counsellorName: z
-    .string({ required_error: "Please enter counsellor name" })
-    .min(1, "Please enter counsellor name"),
   name: z
     .string({ required_error: "Please enter full name" })
     .min(1, "Please enter full name")
@@ -222,7 +219,6 @@ export default function ClientForm() {
     resolver: zodResolver(formSchema),
     mode: "onChange",
     defaultValues: {
-      counsellorName: user?.name || "",
       name: "",
       selectedProductType: "",
       totalPayment: 0,
@@ -332,13 +328,6 @@ export default function ClientForm() {
           title="Client Information"
           description="Enter the basic details of the client"
         >
-          <FormSelectInput
-            name="counsellorName"
-            control={control}
-            label="Counsellor Name"
-            placeholder="Select Counsellor"
-            options={counsellorOptions}
-          />
           <FormTextInput
             name="name"
             control={control}
