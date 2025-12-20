@@ -548,11 +548,23 @@ export default function ClientForm() {
                         <Label className="text-base font-semibold">
                           10. Recent Marriage / Relationship Affidavit
                         </Label>
-                        <FormCurrencyInput
-                          name="spouseFields.relationshipAffidavit.amount"
-                          control={control}
-                          label="Amount"
-                        />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormCurrencyInput
+                            name="spouseFields.relationshipAffidavit.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormDateInput
+                            name="spouseFields.relationshipAffidavit.date"
+                            control={control}
+                            label="Date"
+                          />
+                          <FormTextInput
+                            name="spouseFields.relationshipAffidavit.invoiceNo"
+                            control={control}
+                            label="Invoice No"
+                          />
+                        </div>
                       </div>
 
                       <FinancialEntry
