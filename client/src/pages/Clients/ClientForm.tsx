@@ -983,6 +983,36 @@ export default function ClientForm() {
                     <AccordionContent className="pt-4 space-y-4">
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                         <Label className="text-base font-semibold">
+                          4. SIM Card Activation
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <FormSelectInput
+                            name="studentFields.simCard.isActivated"
+                            control={control}
+                            label="Activated"
+                            placeholder="Select Status"
+                            options={[
+                              { label: "Yes", value: "Yes" },
+                              { label: "No", value: "No" },
+                            ]}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormDateInput
+                            name="studentFields.simCard.date"
+                            control={control}
+                            label="Sim Card Giving Date"
+                          />
+                          <FormDateInput
+                            name="studentFields.simCard.startDate"
+                            control={control}
+                            label="Activation Date"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
                           5. Beacon Account
                         </Label>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
