@@ -449,7 +449,7 @@ export default function ClientForm() {
                       <FinancialEntry
                         control={control}
                         name="spouseFields.lawyerRefuge"
-                        label="4. Lawyer Refuge Charge"
+                        label="4. Lawyer Refusal Charge"
                       />
 
                       <FinancialEntry
