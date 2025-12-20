@@ -36,31 +36,39 @@ export default function ClientDetails() {
 
   const clientType = getClientType(client.salesType);
 
-  // Spouse specific info
-  const spouseOverviewInfo = [
-    { label: "Marriage Photo", value: "₹5,000" },
-    { label: "Marriage Certificate", value: "₹7,500" },
-    { label: "Relationship Affidavit", value: "₹2,500" },
-    { label: "Judicial Review", value: "₹10,000" },
-  ];
+  // Build overview info from actual captured form data
+  const buildOverviewInfo = () => {
+    if (clientType === "spouse" && client.spouseFields) {
+      return [
+        { label: "Marriage Photo", value: client.spouseFields.marriagePhoto?.amount ? `₹${client.spouseFields.marriagePhoto.amount.toLocaleString()}` : "N/A" },
+        { label: "Marriage Certificate", value: client.spouseFields.marriageCertificate?.amount ? `₹${client.spouseFields.marriageCertificate.amount.toLocaleString()}` : "N/A" },
+        { label: "Relationship Affidavit", value: client.spouseFields.relationshipAffidavit?.amount ? `₹${client.spouseFields.relationshipAffidavit.amount.toLocaleString()}` : "N/A" },
+        { label: "Judicial Review", value: client.spouseFields.judicialReview?.amount ? `₹${client.spouseFields.judicialReview.amount.toLocaleString()}` : "N/A" },
+        { label: "Insurance", value: client.spouseFields.insurance?.amount ? `₹${client.spouseFields.insurance.amount.toLocaleString()}` : "N/A" },
+        { label: "Air Ticket", value: client.spouseFields.airTicket?.amount ? `₹${client.spouseFields.airTicket.amount.toLocaleString()}` : "N/A" },
+      ];
+    } else if (clientType === "student" && client.studentFields) {
+      return [
+        { label: "Finance & Employment", value: client.studentFields.financeAndEmployment?.amount ? `₹${client.studentFields.financeAndEmployment.amount.toLocaleString()}` : "N/A" },
+        { label: "IELTS Enrollment", value: client.studentFields.ieltsEnrollment?.amount ? `₹${client.studentFields.ieltsEnrollment.amount.toLocaleString()}` : "N/A" },
+        { label: "Loan Amount", value: client.studentFields.loan?.amount ? `₹${client.studentFields.loan.amount.toLocaleString()}` : "N/A" },
+        { label: "Beacon Account Funding", value: client.studentFields.beaconAccount?.cadAmount ? `CAD ${client.studentFields.beaconAccount.cadAmount.toLocaleString()}` : "N/A" },
+        { label: "Air Ticket", value: client.studentFields.airTicket?.amount ? `₹${client.studentFields.airTicket.amount.toLocaleString()}` : "N/A" },
+        { label: "Insurance", value: client.studentFields.insurance?.amount ? `₹${client.studentFields.insurance.amount.toLocaleString()}` : "N/A" },
+      ];
+    } else if (clientType === "visitor" && client.visitorFields) {
+      return [
+        { label: "Base Fee", value: client.visitorFields.baseFee?.amount ? `₹${client.visitorFields.baseFee.amount.toLocaleString()}` : "N/A" },
+        { label: "Sponsor Charges", value: client.visitorFields.sponsorCharges?.amount ? `₹${client.visitorFields.sponsorCharges.amount.toLocaleString()}` : "N/A" },
+        { label: "Insurance", value: client.visitorFields.insurance?.amount ? `₹${client.visitorFields.insurance.amount.toLocaleString()}` : "N/A" },
+        { label: "Beacon Account Funding", value: client.visitorFields.beaconAccount?.fundingAmount ? `₹${client.visitorFields.beaconAccount.fundingAmount.toLocaleString()}` : "N/A" },
+        { label: "Air Ticket", value: client.visitorFields.airTicket?.amount ? `₹${client.visitorFields.airTicket.amount.toLocaleString()}` : "N/A" },
+      ];
+    }
+    return [];
+  };
 
-  // Student specific info
-  const studentOverviewInfo = [
-    { label: "IELTS Enrollment", value: "₹10,000" },
-    { label: "Loan Amount", value: "₹500,000" },
-    { label: "Beacon Account Funding", value: "CAD 15,000" },
-    { label: "Air Ticket", value: "₹45,000" },
-  ];
-
-  // Visitor specific info
-  const visitorOverviewInfo = [
-    { label: "Base Fee", value: "₹25,000" },
-    { label: "Sponsor Charges", value: "₹10,000" },
-    { label: "Insurance", value: "₹15,000" },
-    { label: "Air Ticket", value: "₹40,000" },
-  ];
-
-  const clientSpecificInfo = clientType === "spouse" ? spouseOverviewInfo : clientType === "student" ? studentOverviewInfo : clientType === "visitor" ? visitorOverviewInfo : [];
+  const clientSpecificInfo = buildOverviewInfo();
 
   const overviewTab = (
     <div className="grid gap-6 md:grid-cols-2">

@@ -18,6 +18,11 @@ export interface Client {
   email?: string;
   phone?: string;
   
+  // Form Data - Product specific fields
+  spouseFields?: any;
+  studentFields?: any;
+  visitorFields?: any;
+  
   // Steps Data
   consultancyPayment?: {
     total: number;
