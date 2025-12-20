@@ -411,9 +411,9 @@ export default function ClientForm() {
             </div>
           )}
 
-          {/* SHOW ALL PRODUCTS FOR "OTHER PRODUCT" */}
-          {productType === "all" && (
-            <div className="space-y-8">
+          {/* SPOUSE PRODUCT */}
+          {(productType === "spouse" || productType === "all") && (
+            <div className="space-y-6">
               {/* SPOUSE */}
               <div className="space-y-6">
                 <Accordion
@@ -682,8 +682,12 @@ export default function ClientForm() {
                   </AccordionItem>
                 </Accordion>
               </div>
+            </div>
+          )}
 
-              {/* VISITOR */}
+          {/* VISITOR PRODUCT */}
+          {(productType === "visitor" || productType === "all") && (
+            <div className="space-y-6">
               <div className="space-y-6">
                 <Accordion
                   type="single"
@@ -856,8 +860,12 @@ export default function ClientForm() {
                   </AccordionItem>
                 </Accordion>
               </div>
+            </div>
+          )}
 
-              {/* STUDENT */}
+          {/* STUDENT PRODUCT */}
+          {(productType === "student" || productType === "all") && (
+            <div className="space-y-6">
               <div className="space-y-6">
                 <Accordion
                   type="single"
