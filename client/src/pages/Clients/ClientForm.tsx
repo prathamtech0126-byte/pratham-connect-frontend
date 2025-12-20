@@ -318,42 +318,47 @@ export default function ClientForm() {
       id: "basic",
       title: "Basic Details",
       component: (
-        <FormSection
-          title="Client Information"
-          description="Enter the basic details of the client"
-        >
-          <FormTextInput
-            name="name"
-            control={control}
-            label="Full Name"
-            placeholder="e.g. Rahul Kumar"
-          />
-          <FormDateInput
-            name="enrollmentDate"
-            control={control}
-            label="Enrollment Date"
-          />
-          <FormSelectInput
-            name="salesType"
-            control={control}
-            label="Sales Type"
-            placeholder="Select Sales Type"
-            options={salesTypeOptions}
-          />
-          {salesType === "Other Product" && (
-            <FormSelectInput
-              name="selectedProductType"
-              control={control}
-              label="Product Type"
-              placeholder="Select Product Type"
-              options={[
-                { label: "Spouse", value: "spouse" },
-                { label: "Student", value: "student" },
-                { label: "Visitor", value: "visitor" },
-              ]}
-            />
-          )}
-        </FormSection>
+        <div className="space-y-4">
+          <div className="border rounded-lg bg-card p-6 shadow-sm">
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-foreground">Client Information</h2>
+              <p className="text-sm text-muted-foreground mt-1">Enter the basic details of the client</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormTextInput
+                name="name"
+                control={control}
+                label="Full Name"
+                placeholder="e.g. Rahul Kumar"
+              />
+              <FormDateInput
+                name="enrollmentDate"
+                control={control}
+                label="Enrollment Date"
+              />
+              <FormSelectInput
+                name="salesType"
+                control={control}
+                label="Sales Type"
+                placeholder="Select Sales Type"
+                options={salesTypeOptions}
+              />
+              {salesType === "Other Product" && (
+                <FormSelectInput
+                  name="selectedProductType"
+                  control={control}
+                  label="Product Type"
+                  placeholder="Select Product Type"
+                  options={[
+                    { label: "Spouse", value: "spouse" },
+                    { label: "Student", value: "student" },
+                    { label: "Visitor", value: "visitor" },
+                  ]}
+                />
+              )}
+            </div>
+          </div>
+        </div>
       ),
     };
 
