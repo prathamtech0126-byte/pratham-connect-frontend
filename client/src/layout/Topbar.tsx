@@ -24,6 +24,15 @@ import { useLocation } from "wouter";
 
 import { ModeToggle } from "@/components/mode-toggle";
 
+const getInitials = (name: string | undefined) => {
+  if (!name) return 'U';
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) {
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+  return name.charAt(0).toUpperCase();
+};
+
 export function Topbar() {
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
@@ -136,7 +145,7 @@ export function Topbar() {
             <Button variant="ghost" className="relative h-10 w-10 rounded-full ring-2 ring-transparent hover:ring-primary/20 transition-all p-0 overflow-hidden">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={user?.avatar} />
-                <AvatarFallback className="bg-primary/10 text-primary font-bold">{user?.name?.charAt(0) || 'U'}</AvatarFallback>
+                <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">{getInitials(user?.name)}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>

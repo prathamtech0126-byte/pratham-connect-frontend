@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/context/auth-context";
-import { Camera, Trash2, Mail, MapPin, Phone, Building2, User as UserIcon, IdCard } from "lucide-react";
+import { Mail, MapPin, Phone, Building2, User as UserIcon, IdCard } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export function ProfileDialog({ children }: { children: React.ReactNode }) {
@@ -33,24 +33,12 @@ export function ProfileDialog({ children }: { children: React.ReactNode }) {
     personalPhone: "+91 98765 43210"
   };
 
-  const handleImageUpload = () => {
-    // Mock upload
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => setAvatar(e.target?.result as string);
-        reader.readAsDataURL(file);
-      }
-    };
-    input.click();
-  };
-
-  const handleRemoveImage = () => {
-    setAvatar('');
+  const getInitials = (name: string) => {
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+    }
+    return name.charAt(0).toUpperCase();
   };
 
   return (
@@ -66,32 +54,10 @@ export function ProfileDialog({ children }: { children: React.ReactNode }) {
         <div className="grid gap-6 py-4">
           {/* Profile Image Section */}
           <div className="flex flex-col items-center gap-4">
-            <div className="relative group">
-              <Avatar className="w-24 h-24 border-2 border-primary/10">
-                <AvatarImage src={avatar} alt={profileData.name} />
-                <AvatarFallback className="text-xl">{profileData.name.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <div className="absolute -bottom-2 -right-2 flex gap-1">
-                <Button 
-                  size="icon" 
-                  variant="secondary" 
-                  className="h-8 w-8 rounded-full shadow-md"
-                  onClick={handleImageUpload}
-                >
-                  <Camera className="h-4 w-4" />
-                </Button>
-                {avatar && (
-                  <Button 
-                    size="icon" 
-                    variant="destructive" 
-                    className="h-8 w-8 rounded-full shadow-md"
-                    onClick={handleRemoveImage}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
+            <Avatar className="w-24 h-24 border-2 border-primary/10">
+              <AvatarImage src={avatar} alt={profileData.name} />
+              <AvatarFallback className="text-xl font-bold bg-primary/10 text-primary">{getInitials(profileData.name)}</AvatarFallback>
+            </Avatar>
             <div className="text-center">
               <h3 className="text-lg font-semibold">{profileData.name}</h3>
               <p className="text-sm text-muted-foreground capitalize">{user?.role?.replace('_', ' ')}</p>

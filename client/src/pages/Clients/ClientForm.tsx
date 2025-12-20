@@ -259,13 +259,14 @@ export default function ClientForm() {
   const initialPayment = useWatch({ control, name: "initialPayment" });
   const beforeVisaPayment = useWatch({ control, name: "beforeVisaPayment" });
   const afterVisaPayment = useWatch({ control, name: "afterVisaPayment" });
-  
+
   const initialAmountReceived = initialPayment?.amount || 0;
   const beforeVisaAmount = beforeVisaPayment?.amount || 0;
   const afterVisaAmount = afterVisaPayment?.amount || 0;
 
   // Formula: Total Payment - (Initial Amount + Before Visa Payment + After Visa Payment)
-  const calculatedPending = totalPayment - (initialAmountReceived + beforeVisaAmount + afterVisaAmount);
+  const calculatedPending =
+    totalPayment - (initialAmountReceived + beforeVisaAmount + afterVisaAmount);
 
   // We can just display this or set it in form state. Setting in form state is better for submission.
   // Using a useEffect to keep it in sync might cause re-renders but is safe for now.
@@ -1065,15 +1066,6 @@ export default function ClientForm() {
           {/* PRODUCT A — SPOUSE VISA */}
           {productType === "spouse" && (
             <div className="space-y-6">
-              <div className="bg-primary/10 p-4 rounded-md mb-4 border border-primary/20">
-                <h3 className="font-semibold text-primary">
-                  Spouse Visa Configuration
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Base Fee: ₹75,000 (Fixed)
-                </p>
-              </div>
-
               <Accordion
                 type="single"
                 collapsible
@@ -1339,15 +1331,6 @@ export default function ClientForm() {
           {/* PRODUCT B — VISITOR VISA */}
           {productType === "visitor" && (
             <div className="space-y-6">
-              <div className="bg-primary/10 p-4 rounded-md mb-4 border border-primary/20">
-                <h3 className="font-semibold text-primary">
-                  Visitor Visa Configuration
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Base Fee: ₹49,000 (Fixed)
-                </p>
-              </div>
-
               <Accordion
                 type="single"
                 collapsible
@@ -1520,15 +1503,6 @@ export default function ClientForm() {
           {/* PRODUCT C — STUDENT VISA */}
           {productType === "student" && (
             <div className="space-y-6">
-              <div className="bg-primary/10 p-4 rounded-md mb-4 border border-primary/20">
-                <h3 className="font-semibold text-primary">
-                  Student Visa Configuration
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Base Fee: ₹12,000 (Fixed)
-                </p>
-              </div>
-
               <Accordion
                 type="single"
                 collapsible
