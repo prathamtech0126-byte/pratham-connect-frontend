@@ -1739,11 +1739,14 @@ export default function ClientForm() {
     // Build step array based on sales type
     const allSteps = [basicStep];
 
-    if (salesType === "Other Product") {
-      // For "Other Product": Skip payment, go directly to product details
+    // Check if it's an "Other Products" selection (spouse, student, visitor)
+    const isOtherProduct = ["spouse", "student", "visitor"].includes(salesType?.toLowerCase() || "");
+
+    if (isOtherProduct) {
+      // For "Other Products": Skip payment, go directly to product details
       allSteps.push(productFieldsStep);
-    } else {
-      // For normal sales types: Include payment step
+    } else if (salesType) {
+      // For core products: Include payment step
       allSteps.push(consultancyStep);
       allSteps.push(productFieldsStep);
     }
