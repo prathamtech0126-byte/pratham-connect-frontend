@@ -147,6 +147,55 @@ export default function ClientDetails() {
     </div>
   );
 
+  // Build product details info from form data
+  const buildProductDetailsInfo = () => {
+    if (clientType === "spouse" && client.spouseFields) {
+      const items = [];
+      if (client.spouseFields.marriagePhoto?.amount) items.push({ label: "Marriage Photo", value: `₹${client.spouseFields.marriagePhoto.amount.toLocaleString()}` });
+      if (client.spouseFields.marriageCertificate?.amount) items.push({ label: "Marriage Certificate", value: `₹${client.spouseFields.marriageCertificate.amount.toLocaleString()}` });
+      if (client.spouseFields.relationshipAffidavit?.amount) items.push({ label: "Relationship Affidavit", value: `₹${client.spouseFields.relationshipAffidavit.amount.toLocaleString()}` });
+      if (client.spouseFields.judicialReview?.amount) items.push({ label: "Judicial Review", value: `₹${client.spouseFields.judicialReview.amount.toLocaleString()}` });
+      if (client.spouseFields.insurance?.amount) items.push({ label: "Insurance", value: `₹${client.spouseFields.insurance.amount.toLocaleString()}` });
+      if (client.spouseFields.airTicket?.amount) items.push({ label: "Air Ticket", value: `₹${client.spouseFields.airTicket.amount.toLocaleString()}` });
+      return items;
+    } else if (clientType === "student" && client.studentFields) {
+      const items = [];
+      if (client.studentFields.financeAndEmployment?.amount) items.push({ label: "Finance & Employment", value: `₹${client.studentFields.financeAndEmployment.amount.toLocaleString()}` });
+      if (client.studentFields.ieltsEnrollment?.amount) items.push({ label: "IELTS Enrollment", value: `₹${client.studentFields.ieltsEnrollment.amount.toLocaleString()}` });
+      if (client.studentFields.loan?.amount) items.push({ label: "Loan Amount", value: `₹${client.studentFields.loan.amount.toLocaleString()}` });
+      if (client.studentFields.beaconAccount?.cadAmount) items.push({ label: "Beacon Account Funding", value: `CAD ${client.studentFields.beaconAccount.cadAmount.toLocaleString()}` });
+      if (client.studentFields.airTicket?.amount) items.push({ label: "Air Ticket", value: `₹${client.studentFields.airTicket.amount.toLocaleString()}` });
+      if (client.studentFields.insurance?.amount) items.push({ label: "Insurance", value: `₹${client.studentFields.insurance.amount.toLocaleString()}` });
+      return items;
+    } else if (clientType === "visitor" && client.visitorFields) {
+      const items = [];
+      if (client.visitorFields.baseFee?.amount) items.push({ label: "Base Fee", value: `₹${client.visitorFields.baseFee.amount.toLocaleString()}` });
+      if (client.visitorFields.sponsorCharges?.amount) items.push({ label: "Sponsor Charges", value: `₹${client.visitorFields.sponsorCharges.amount.toLocaleString()}` });
+      if (client.visitorFields.insurance?.amount) items.push({ label: "Insurance", value: `₹${client.visitorFields.insurance.amount.toLocaleString()}` });
+      if (client.visitorFields.beaconAccount?.fundingAmount) items.push({ label: "Beacon Account Funding", value: `₹${client.visitorFields.beaconAccount.fundingAmount.toLocaleString()}` });
+      if (client.visitorFields.airTicket?.amount) items.push({ label: "Air Ticket", value: `₹${client.visitorFields.airTicket.amount.toLocaleString()}` });
+      return items;
+    }
+    return [];
+  };
+
+  const productDetailsInfo = buildProductDetailsInfo();
+
+  const productDetailsTab = (
+    <div className="grid gap-6 md:grid-cols-2">
+      {productDetailsInfo.length > 0 ? (
+        <InfoCard
+          title={`${clientType?.charAt(0).toUpperCase()}${clientType?.slice(1)} Product Details`}
+          items={productDetailsInfo}
+        />
+      ) : (
+        <div className="text-center p-8 border rounded-lg bg-muted/30">
+          <p className="text-muted-foreground">No product details found for this client</p>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <PageWrapper 
       title={`Client: ${client.name}`}
@@ -166,6 +215,7 @@ export default function ClientDetails() {
           { value: "overview", label: "Overview", content: overviewTab },
           { value: "payments", label: "Payments", content: paymentsTab },
           { value: "legal", label: "Legal Services", content: legalTab },
+          { value: "product-details", label: "Product Details", content: productDetailsTab },
           { value: "documents", label: "Documents", content: documentsTab },
         ]}
       />
