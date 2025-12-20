@@ -193,14 +193,17 @@ const salesTypeOptions = [
 const getProductType = (
   salesType: string | undefined,
   selectedProductType?: string,
-): "spouse" | "visitor" | "student" | "all" | null => {
+): "spouse" | "visitor" | "student" | null => {
   if (!salesType) return null;
 
   const lower = salesType.toLowerCase();
 
-  // For "Other Product", return "all" to show all products
+  // For "Other Product", use the selectedProductType
   if (lower === "other product") {
-    return "all";
+    if (selectedProductType === "spouse") return "spouse";
+    if (selectedProductType === "visitor") return "visitor";
+    if (selectedProductType === "student") return "student";
+    return null;
   }
 
   // Handle standard sales types
@@ -412,7 +415,7 @@ export default function ClientForm() {
           )}
 
           {/* SPOUSE PRODUCT */}
-          {(productType === "spouse" || productType === "all") && (
+          {productType === "spouse" && (
             <div className="space-y-6">
               {/* SPOUSE */}
               <div className="space-y-6">
@@ -686,7 +689,7 @@ export default function ClientForm() {
           )}
 
           {/* VISITOR PRODUCT */}
-          {(productType === "visitor" || productType === "all") && (
+          {productType === "visitor" && (
             <div className="space-y-6">
               <div className="space-y-6">
                 <Accordion
@@ -864,7 +867,7 @@ export default function ClientForm() {
           )}
 
           {/* STUDENT PRODUCT */}
-          {(productType === "student" || productType === "all") && (
+          {productType === "student" && (
             <div className="space-y-6">
               <div className="space-y-6">
                 <Accordion
