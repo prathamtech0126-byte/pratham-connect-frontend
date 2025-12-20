@@ -427,7 +427,7 @@ export default function ClientForm() {
                 >
                   <AccordionItem value="spouse-finance">
                     <AccordionTrigger>
-                      Finance & Employment
+                      Spouse - Finance & Employment
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <FinancialEntry
@@ -517,7 +517,7 @@ export default function ClientForm() {
 
                   <AccordionItem value="spouse-legal">
                     <AccordionTrigger>
-                      Legal & Documentation
+                      Spouse - Legal & Documentation
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <FinancialEntry
@@ -560,7 +560,7 @@ export default function ClientForm() {
 
                   <AccordionItem value="spouse-services">
                     <AccordionTrigger>
-                      Services & Settlement
+                      Spouse - Services & Settlement
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -700,7 +700,7 @@ export default function ClientForm() {
                 >
                   <AccordionItem value="visitor-main">
                     <AccordionTrigger>
-                      Fees & Employment
+                      Visitor - Fees & Employment
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <FinancialEntry
@@ -738,7 +738,7 @@ export default function ClientForm() {
 
                   <AccordionItem value="visitor-services">
                     <AccordionTrigger>
-                      Additional Services
+                      Visitor - Additional Services
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -878,7 +878,7 @@ export default function ClientForm() {
                 >
                   <AccordionItem value="student-finance">
                     <AccordionTrigger>
-                      Finance & Services
+                      Student - Finance & Services
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <FinancialEntry
@@ -953,7 +953,7 @@ export default function ClientForm() {
 
                   <AccordionItem value="student-additional">
                     <AccordionTrigger>
-                      Additional Services
+                      Student - Additional Services
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 space-y-4">
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
