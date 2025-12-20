@@ -173,21 +173,9 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const salesTypeOptions = [
-  { label: "Canada Student", value: "Canada Student" },
-  { label: "Canada Onshore Student", value: "Canada Onshore Student" },
-  { label: "UK Student", value: "UK Student" },
-  { label: "Finland Student", value: "Finland Student" },
-  { label: "USA Student", value: "USA Student" },
-  { label: "Germany Student", value: "Germany Student" },
-  { label: "Canada Spouse", value: "Canada Spouse" },
-  { label: "UK Spouse", value: "UK Spouse" },
-  { label: "Finland Spouse", value: "Finland Spouse" },
-  { label: "UK Visitor", value: "UK Visitor" },
-  { label: "Canada Visitor", value: "Canada Visitor" },
-  { label: "USA Visitor", value: "USA Visitor" },
-  { label: "Schengen Visitor", value: "Schengen Visitor" },
-  { label: "SPOUSAL PR", value: "SPOUSAL PR" },
-  { label: "Other Product", value: "Other Product" },
+  { label: "Spouse", value: "Spouse", group: "Other Product" },
+  { label: "Visitor", value: "Visitor", group: "Other Product" },
+  { label: "Student", value: "Student", group: "Other Product" },
 ];
 
 const getProductType = (
@@ -198,18 +186,11 @@ const getProductType = (
 
   const lower = salesType.toLowerCase();
 
-  // For "Other Product", use the selectedProductType
-  if (lower === "other product") {
-    if (selectedProductType === "spouse") return "spouse";
-    if (selectedProductType === "visitor") return "visitor";
-    if (selectedProductType === "student") return "student";
-    return null;
-  }
-
-  // Handle standard sales types
-  if (lower.includes("spouse") || lower === "spousal pr") return "spouse";
-  if (lower.includes("visitor") || lower.includes("schengen")) return "visitor";
-  if (lower.includes("student")) return "student";
+  // Handle simple values: Spouse, Visitor, Student
+  if (lower === "spouse") return "spouse";
+  if (lower === "visitor") return "visitor";
+  if (lower === "student") return "student";
+  
   return null;
 };
 

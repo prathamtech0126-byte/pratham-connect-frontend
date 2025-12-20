@@ -6,12 +6,15 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 interface Option {
   label: string;
   value: string;
+  group?: string;
 }
 
 interface FormSelectInputProps<T extends FieldValues> {
@@ -31,6 +34,13 @@ export function FormSelectInput<T extends FieldValues>({
   placeholder,
   className,
 }: FormSelectInputProps<T>) {
+  const groupedOptions = options.reduce((acc, option) => {
+    const group = option.group || "default";
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(option);
+    return acc;
+  }, {} as Record<string, Option[]>);
+
   return (
     <Controller
       name={name}
@@ -43,10 +53,15 @@ export function FormSelectInput<T extends FieldValues>({
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>
-              {options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
+              {Object.entries(groupedOptions).map(([groupName, groupOptions]) => (
+                <SelectGroup key={groupName}>
+                  {groupName !== "default" && <SelectLabel>{groupName}</SelectLabel>}
+                  {groupOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               ))}
             </SelectContent>
           </Select>
