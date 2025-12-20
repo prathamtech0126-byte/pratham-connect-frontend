@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/context/auth-context";
-import { Mail, MapPin, Phone, Building2, User as UserIcon, IdCard } from "lucide-react";
+import { Mail, Phone, Building2, User as UserIcon, IdCard } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export function ProfileDialog({ children }: { children: React.ReactNode }) {
@@ -91,13 +91,6 @@ export function ProfileDialog({ children }: { children: React.ReactNode }) {
                 <Mail className="w-4 h-4" /> Email Address
               </Label>
               <Input value={profileData.email} readOnly className="bg-muted/50" />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="w-4 h-4" /> Office Location
-              </Label>
-              <Input value={profileData.location} readOnly className="bg-muted/50" />
             </div>
 
             <div className="space-y-2">
