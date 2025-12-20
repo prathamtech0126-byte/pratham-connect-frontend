@@ -105,57 +105,39 @@ export default function ClientDetails() {
 
   const clientType = getClientType(client.salesType);
 
-  // Spouse documents
-  const spouseDocuments = [
-    { title: "Marriage Photo Receipt", category: "Legal", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
-    { title: "Marriage Certificate Invoice", category: "Legal", type: "Payment Invoice", status: "Received", statusColor: "text-green-600" },
-    { title: "Relationship Affidavit", category: "Legal", type: "Payment Document", status: "Received", statusColor: "text-green-600" },
-    { title: "Judicial Review Charge", category: "Legal", type: "Payment Invoice", status: "Pending", statusColor: "text-orange-600" },
-    { title: "SIM Card Service Invoice", category: "Services", type: "Service Receipt", status: "Received", statusColor: "text-green-600" },
-    { title: "Insurance Payment", category: "Services", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
+  // Spouse documents info
+  const spouseDocumentsInfo = [
+    { label: "Marriage Photo", value: "₹5,000" },
+    { label: "Marriage Certificate", value: "₹7,500" },
+    { label: "Relationship Affidavit", value: "₹2,500" },
+    { label: "Judicial Review", value: "₹10,000" },
   ];
 
-  // Student documents
-  const studentDocuments = [
-    { title: "Consultancy Fee Receipt", category: "Finance", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
-    { title: "IELTS Enrollment Invoice", category: "Finance", type: "Payment Invoice", status: "Pending", statusColor: "text-orange-600" },
-    { title: "Loan Disbursement Receipt", category: "Finance", type: "Payment Document", status: "Pending", statusColor: "text-orange-600" },
-    { title: "Beacon Account Funding", category: "Services", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
-    { title: "Air Ticket Invoice", category: "Services", type: "Payment Invoice", status: "Pending", statusColor: "text-orange-600" },
-    { title: "Insurance Payment", category: "Services", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
+  // Student documents info
+  const studentDocumentsInfo = [
+    { label: "IELTS Enrollment", value: "₹10,000" },
+    { label: "Loan Amount", value: "₹500,000" },
+    { label: "Beacon Account Funding", value: "CAD 15,000" },
+    { label: "Air Ticket", value: "₹45,000" },
   ];
 
-  // Visitor documents
-  const visitorDocuments = [
-    { title: "Base Fee Receipt", category: "Finance", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
-    { title: "Sponsor Charges Invoice", category: "Finance", type: "Payment Invoice", status: "Pending", statusColor: "text-orange-600" },
-    { title: "Insurance Payment", category: "Services", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
-    { title: "Beacon Account Funding", category: "Services", type: "Payment Document", status: "Received", statusColor: "text-green-600" },
-    { title: "Air Ticket Payment", category: "Services", type: "Payment Invoice", status: "Pending", statusColor: "text-orange-600" },
+  // Visitor documents info
+  const visitorDocumentsInfo = [
+    { label: "Base Fee", value: "₹25,000" },
+    { label: "Sponsor Charges", value: "₹10,000" },
+    { label: "Insurance", value: "₹15,000" },
+    { label: "Air Ticket", value: "₹40,000" },
   ];
 
-  const documentsToShow = clientType === "spouse" ? spouseDocuments : clientType === "student" ? studentDocuments : clientType === "visitor" ? visitorDocuments : [];
+  const documentsInfo = clientType === "spouse" ? spouseDocumentsInfo : clientType === "student" ? studentDocumentsInfo : clientType === "visitor" ? visitorDocumentsInfo : [];
 
   const documentsTab = (
-    <div className="space-y-4">
-      <h3 className="text-lg font-medium mb-4">Payment-Related Documents</h3>
-      {documentsToShow.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {documentsToShow.map((doc, idx) => (
-            <div key={idx} className="border rounded-lg p-4 bg-card hover:shadow-md transition-shadow">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 bg-primary/10 rounded flex items-center justify-center text-primary flex-shrink-0">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">{doc.title}</p>
-                  <p className="text-xs text-muted-foreground">{doc.category}</p>
-                  <p className={`text-xs font-medium mt-2 ${doc.statusColor}`}>{doc.status}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+    <div className="grid gap-6 md:grid-cols-2">
+      {documentsInfo.length > 0 ? (
+        <InfoCard
+          title="Payment Documents"
+          items={documentsInfo}
+        />
       ) : (
         <div className="text-center p-8 border rounded-lg bg-muted/30">
           <p className="text-muted-foreground">No documents found for this client type</p>
