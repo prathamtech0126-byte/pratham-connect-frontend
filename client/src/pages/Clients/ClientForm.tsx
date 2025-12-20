@@ -336,6 +336,19 @@ export default function ClientForm() {
             placeholder="Select Sales Type"
             options={salesTypeOptions}
           />
+          {salesType === "Other Product" && (
+            <FormSelectInput
+              name="selectedProductType"
+              control={control}
+              label="Product Type"
+              placeholder="Select Product Type"
+              options={[
+                { label: "Spouse", value: "spouse" },
+                { label: "Student", value: "student" },
+                { label: "Visitor", value: "visitor" },
+              ]}
+            />
+          )}
         </FormSection>
       ),
     };
