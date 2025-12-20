@@ -16,6 +16,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/context/auth-context";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function ClientList() {
   const { user } = useAuth();
@@ -26,6 +35,9 @@ export default function ClientList() {
   const [pmFilter, setPmFilter] = useState("all");
   const [counsellorFilter, setCounsellorFilter] = useState("all");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+  const [deletedClientIds, setDeletedClientIds] = useState<string[]>([]);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ['clients'],
@@ -33,6 +45,9 @@ export default function ClientList() {
   });
 
   const filteredClients = clients?.filter(s => {
+    // Don't show deleted clients
+    if (deletedClientIds.includes(s.id)) return false;
+    
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) || 
                           s.counsellor.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || s.status.toLowerCase() === statusFilter.toLowerCase();
@@ -111,6 +126,10 @@ export default function ClientList() {
       <TableActions 
         onView={() => setLocation(`/clients/${s.id}`)}
         onEdit={() => setLocation(`/clients/${s.id}/edit`)}
+        onDelete={() => {
+          setClientToDelete(s);
+          setShowDeleteConfirm(true);
+        }}
       />
     )}
   ];
@@ -149,6 +168,14 @@ export default function ClientList() {
     setCounsellorFilter("all");
     setStatusFilter("all");
     setPaymentStatusFilter("all");
+  };
+
+  const handleDelete = () => {
+    if (clientToDelete) {
+      setDeletedClientIds([...deletedClientIds, clientToDelete.id]);
+      setShowDeleteConfirm(false);
+      setClientToDelete(null);
+    }
   };
 
   const isFilterActive = salesTypeFilter !== "all" || pmFilter !== "all" || counsellorFilter !== "all" || statusFilter !== "all" || paymentStatusFilter !== "all";
@@ -325,6 +352,27 @@ export default function ClientList() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Client</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <span className="font-semibold text-foreground">{clientToDelete?.name}</span>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-3 justify-end">
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete"
+            >
+              Delete
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageWrapper>
   );
 }
