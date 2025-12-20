@@ -49,10 +49,12 @@ export default function ClientDetails() {
         ]}
       />
       <InfoCard
-        title="Consultancy Payment"
+        title="Consultancy Payment Details"
         items={[
           { label: "Total Payment", value: `₹${client.totalPayment.toLocaleString()}` },
-          { label: "Initial Payment", value: `₹${client.amountReceived.toLocaleString()}` },
+          { label: "Initial Amount Received", value: `₹${client.amountReceived.toLocaleString()}` },
+          { label: "Before Visa Payment", value: `₹${client.amountReceived.toLocaleString()}` },
+          { label: "After Visa Payment", value: `₹0` },
           { label: "Pending Amount", value: `₹${client.amountPending.toLocaleString()}` },
         ]}
       />
