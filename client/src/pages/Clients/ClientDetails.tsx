@@ -24,17 +24,46 @@ export default function ClientDetails() {
     return <PageWrapper title="Loading..."><div className="p-4">Loading client details...</div></PageWrapper>;
   }
 
+  // Helper function to determine client type
+  const getClientType = (salesType: string) => {
+    if (!salesType) return null;
+    const lower = salesType.toLowerCase();
+    if (lower.includes("spouse") || lower === "spousal pr") return "spouse";
+    if (lower.includes("student")) return "student";
+    if (lower.includes("visitor") || lower.includes("schengen")) return "visitor";
+    return null;
+  };
+
+  const clientType = getClientType(client.salesType);
+
+  // Spouse specific info
+  const spouseOverviewInfo = [
+    { label: "Marriage Photo", value: "₹5,000" },
+    { label: "Marriage Certificate", value: "₹7,500" },
+    { label: "Relationship Affidavit", value: "₹2,500" },
+    { label: "Judicial Review", value: "₹10,000" },
+  ];
+
+  // Student specific info
+  const studentOverviewInfo = [
+    { label: "IELTS Enrollment", value: "₹10,000" },
+    { label: "Loan Amount", value: "₹500,000" },
+    { label: "Beacon Account Funding", value: "CAD 15,000" },
+    { label: "Air Ticket", value: "₹45,000" },
+  ];
+
+  // Visitor specific info
+  const visitorOverviewInfo = [
+    { label: "Base Fee", value: "₹25,000" },
+    { label: "Sponsor Charges", value: "₹10,000" },
+    { label: "Insurance", value: "₹15,000" },
+    { label: "Air Ticket", value: "₹40,000" },
+  ];
+
+  const clientSpecificInfo = clientType === "spouse" ? spouseOverviewInfo : clientType === "student" ? studentOverviewInfo : clientType === "visitor" ? visitorOverviewInfo : [];
+
   const overviewTab = (
     <div className="grid gap-6 md:grid-cols-2">
-      <InfoCard
-        title="Personal Information"
-        items={[
-          { label: "Full Name", value: client.name },
-          { label: "Client ID", value: client.id },
-          { label: "Email", value: client.email || "N/A" },
-          { label: "Phone", value: client.phone || "N/A" },
-        ]}
-      />
       <InfoCard
         title="Enrollment Details"
         items={[
@@ -45,6 +74,12 @@ export default function ClientDetails() {
           { label: "Status", value: <Badge>{client.status}</Badge> },
         ]}
       />
+      {clientSpecificInfo.length > 0 && (
+        <InfoCard
+          title="Product Details"
+          items={clientSpecificInfo}
+        />
+      )}
     </div>
   );
 
@@ -92,18 +127,6 @@ export default function ClientDetails() {
       />
     </div>
   );
-
-  // Helper function to determine client type
-  const getClientType = (salesType: string) => {
-    if (!salesType) return null;
-    const lower = salesType.toLowerCase();
-    if (lower.includes("spouse") || lower === "spousal pr") return "spouse";
-    if (lower.includes("student")) return "student";
-    if (lower.includes("visitor") || lower.includes("schengen")) return "visitor";
-    return null;
-  };
-
-  const clientType = getClientType(client.salesType);
 
   // Spouse documents info
   const spouseDocumentsInfo = [
