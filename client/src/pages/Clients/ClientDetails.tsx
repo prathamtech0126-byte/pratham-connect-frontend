@@ -37,81 +37,27 @@ export default function ClientDetails() {
   const clientType = getClientType(client.salesType);
 
   const overviewTab = (
-    <div className="space-y-6">
-      {/* Basic Details Table */}
-      <div className="border rounded-lg overflow-hidden bg-white">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-50 border-b">
-              <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Field</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Value</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            <tr className="hover:bg-slate-50 transition-colors">
-              <td className="px-6 py-3 text-sm text-slate-600 font-medium">Client Name</td>
-              <td className="px-6 py-3 text-sm text-slate-900 font-semibold">{client.name}</td>
-            </tr>
-            <tr className="hover:bg-slate-50 transition-colors">
-              <td className="px-6 py-3 text-sm text-slate-600 font-medium">Enrollment Date</td>
-              <td className="px-6 py-3 text-sm text-slate-900">{client.enrollmentDate}</td>
-            </tr>
-            <tr className="hover:bg-slate-50 transition-colors">
-              <td className="px-6 py-3 text-sm text-slate-600 font-medium">Sales Type</td>
-              <td className="px-6 py-3 text-sm"><Badge variant="secondary">{client.salesType}</Badge></td>
-            </tr>
-            <tr className="hover:bg-slate-50 transition-colors">
-              <td className="px-6 py-3 text-sm text-slate-600 font-medium">Counsellor</td>
-              <td className="px-6 py-3 text-sm text-slate-900">{client.counsellor || "—"}</td>
-            </tr>
-            <tr className="hover:bg-slate-50 transition-colors">
-              <td className="px-6 py-3 text-sm text-slate-600 font-medium">Product Manager</td>
-              <td className="px-6 py-3 text-sm text-slate-900">{client.productManager || "—"}</td>
-            </tr>
-            <tr className="hover:bg-slate-50 transition-colors">
-              <td className="px-6 py-3 text-sm text-slate-600 font-medium">Status</td>
-              <td className="px-6 py-3 text-sm"><Badge>{client.status}</Badge></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Consultancy Payment Details Table */}
-      <div className="border rounded-lg overflow-hidden bg-white">
-        <div className="px-6 py-4 bg-slate-50 border-b">
-          <h3 className="text-sm font-semibold text-slate-700">Consultancy Payment Details</h3>
-        </div>
-        <table className="w-full">
-          <thead>
-            <tr className="bg-slate-50 border-b">
-              <th className="px-6 py-3 text-left text-sm font-semibold text-slate-700">Payment Type</th>
-              <th className="px-6 py-3 text-right text-sm font-semibold text-slate-700">Amount</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            <tr className="hover:bg-slate-50 transition-colors">
-              <td className="px-6 py-3 text-sm text-slate-600">Total Payment</td>
-              <td className="px-6 py-3 text-sm text-slate-900 font-semibold text-right">₹{client.totalPayment.toLocaleString()}</td>
-            </tr>
-            <tr className="hover:bg-slate-50 transition-colors">
-              <td className="px-6 py-3 text-sm text-slate-600">Initial Amount Received</td>
-              <td className="px-6 py-3 text-sm text-slate-900 text-right">₹{client.amountReceived.toLocaleString()}</td>
-            </tr>
-            <tr className="hover:bg-slate-50 transition-colors">
-              <td className="px-6 py-3 text-sm text-slate-600">Before Visa Payment</td>
-              <td className="px-6 py-3 text-sm text-slate-900 text-right">₹{client.amountReceived.toLocaleString()}</td>
-            </tr>
-            <tr className="hover:bg-slate-50 transition-colors">
-              <td className="px-6 py-3 text-sm text-slate-600">After Visa Payment</td>
-              <td className="px-6 py-3 text-sm text-slate-900 text-right">₹0</td>
-            </tr>
-            <tr className="hover:bg-slate-50 transition-colors bg-blue-50">
-              <td className="px-6 py-3 text-sm text-slate-600 font-medium">Pending Amount</td>
-              <td className="px-6 py-3 text-sm text-blue-900 font-semibold text-right">₹{client.amountPending.toLocaleString()}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <div className="grid gap-6 md:grid-cols-2">
+      <InfoCard
+        title="Enrollment Details"
+        items={[
+          { label: "Enrollment Date", value: client.enrollmentDate },
+          { label: "Sales Type", value: <Badge variant="secondary">{client.salesType}</Badge> },
+          { label: "Counsellor", value: client.counsellor },
+          { label: "Product Manager", value: client.productManager },
+          { label: "Status", value: <Badge>{client.status}</Badge> },
+        ]}
+      />
+      <InfoCard
+        title="Consultancy Payment Details"
+        items={[
+          { label: "Total Payment", value: `₹${client.totalPayment.toLocaleString()}` },
+          { label: "Initial Amount Received", value: `₹${client.amountReceived.toLocaleString()}` },
+          { label: "Before Visa Payment", value: `₹${client.amountReceived.toLocaleString()}` },
+          { label: "After Visa Payment", value: `₹0` },
+          { label: "Pending Amount", value: `₹${client.amountPending.toLocaleString()}` },
+        ]}
+      />
     </div>
   );
 
