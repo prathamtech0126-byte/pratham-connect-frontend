@@ -93,6 +93,77 @@ export default function ClientDetails() {
     </div>
   );
 
+  // Helper function to determine client type
+  const getClientType = (salesType: string) => {
+    if (!salesType) return null;
+    const lower = salesType.toLowerCase();
+    if (lower.includes("spouse") || lower === "spousal pr") return "spouse";
+    if (lower.includes("student")) return "student";
+    if (lower.includes("visitor") || lower.includes("schengen")) return "visitor";
+    return null;
+  };
+
+  const clientType = getClientType(client.salesType);
+
+  // Spouse documents
+  const spouseDocuments = [
+    { title: "Marriage Photo Receipt", category: "Legal", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
+    { title: "Marriage Certificate Invoice", category: "Legal", type: "Payment Invoice", status: "Received", statusColor: "text-green-600" },
+    { title: "Relationship Affidavit", category: "Legal", type: "Payment Document", status: "Received", statusColor: "text-green-600" },
+    { title: "Judicial Review Charge", category: "Legal", type: "Payment Invoice", status: "Pending", statusColor: "text-orange-600" },
+    { title: "SIM Card Service Invoice", category: "Services", type: "Service Receipt", status: "Received", statusColor: "text-green-600" },
+    { title: "Insurance Payment", category: "Services", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
+  ];
+
+  // Student documents
+  const studentDocuments = [
+    { title: "Consultancy Fee Receipt", category: "Finance", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
+    { title: "IELTS Enrollment Invoice", category: "Finance", type: "Payment Invoice", status: "Pending", statusColor: "text-orange-600" },
+    { title: "Loan Disbursement Receipt", category: "Finance", type: "Payment Document", status: "Pending", statusColor: "text-orange-600" },
+    { title: "Beacon Account Funding", category: "Services", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
+    { title: "Air Ticket Invoice", category: "Services", type: "Payment Invoice", status: "Pending", statusColor: "text-orange-600" },
+    { title: "Insurance Payment", category: "Services", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
+  ];
+
+  // Visitor documents
+  const visitorDocuments = [
+    { title: "Base Fee Receipt", category: "Finance", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
+    { title: "Sponsor Charges Invoice", category: "Finance", type: "Payment Invoice", status: "Pending", statusColor: "text-orange-600" },
+    { title: "Insurance Payment", category: "Services", type: "Payment Receipt", status: "Received", statusColor: "text-green-600" },
+    { title: "Beacon Account Funding", category: "Services", type: "Payment Document", status: "Received", statusColor: "text-green-600" },
+    { title: "Air Ticket Payment", category: "Services", type: "Payment Invoice", status: "Pending", statusColor: "text-orange-600" },
+  ];
+
+  const documentsToShow = clientType === "spouse" ? spouseDocuments : clientType === "student" ? studentDocuments : clientType === "visitor" ? visitorDocuments : [];
+
+  const documentsTab = (
+    <div className="space-y-4">
+      <h3 className="text-lg font-medium mb-4">Payment-Related Documents</h3>
+      {documentsToShow.length > 0 ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {documentsToShow.map((doc, idx) => (
+            <div key={idx} className="border rounded-lg p-4 bg-card hover:shadow-md transition-shadow">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 bg-primary/10 rounded flex items-center justify-center text-primary flex-shrink-0">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">{doc.title}</p>
+                  <p className="text-xs text-muted-foreground">{doc.category}</p>
+                  <p className={`text-xs font-medium mt-2 ${doc.statusColor}`}>{doc.status}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center p-8 border rounded-lg bg-muted/30">
+          <p className="text-muted-foreground">No documents found for this client type</p>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <PageWrapper 
       title={`Client: ${client.name}`}
@@ -112,51 +183,7 @@ export default function ClientDetails() {
           { value: "overview", label: "Overview", content: overviewTab },
           { value: "payments", label: "Payments", content: paymentsTab },
           { value: "legal", label: "Legal Services", content: legalTab },
-          { value: "documents", label: "Documents", content: (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium mb-4">Payment-Related Documents</h3>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <div className="border rounded-lg p-4 bg-card hover:shadow-md transition-shadow">
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 bg-blue-100 rounded flex items-center justify-center text-blue-600 flex-shrink-0">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">Payment Receipt - INV001</p>
-                      <p className="text-xs text-muted-foreground">Consultancy Fee</p>
-                      <p className="text-xs text-green-600 font-medium mt-2">Paid on 2024-01-15</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border rounded-lg p-4 bg-card hover:shadow-md transition-shadow">
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 bg-amber-100 rounded flex items-center justify-center text-amber-600 flex-shrink-0">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">Payment Invoice - INV002</p>
-                      <p className="text-xs text-muted-foreground">Visa Processing</p>
-                      <p className="text-xs text-orange-600 font-medium mt-2">Pending - Due 2024-04-01</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border rounded-lg p-4 bg-card hover:shadow-md transition-shadow">
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 bg-purple-100 rounded flex items-center justify-center text-purple-600 flex-shrink-0">
-                      <FileText className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm truncate">Payment Agreement</p>
-                      <p className="text-xs text-muted-foreground">Service Terms</p>
-                      <p className="text-xs text-gray-600 font-medium mt-2">Created on 2024-01-10</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )},
+          { value: "documents", label: "Documents", content: documentsTab },
         ]}
       />
     </PageWrapper>
