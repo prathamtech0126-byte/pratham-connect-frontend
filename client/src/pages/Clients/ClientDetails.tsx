@@ -113,23 +113,48 @@ export default function ClientDetails() {
           { value: "payments", label: "Payments", content: paymentsTab },
           { value: "legal", label: "Legal Services", content: legalTab },
           { value: "documents", label: "Documents", content: (
-            <div className="grid gap-4 md:grid-cols-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="border rounded-lg p-4 flex items-center justify-between bg-card">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-primary/10 rounded flex items-center justify-center text-primary">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium mb-4">Payment-Related Documents</h3>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="border rounded-lg p-4 bg-card hover:shadow-md transition-shadow">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 bg-blue-100 rounded flex items-center justify-center text-blue-600 flex-shrink-0">
                       <FileText className="w-5 h-5" />
                     </div>
-                    <div>
-                      <p className="font-medium text-sm">Document_{i}.pdf</p>
-                      <p className="text-xs text-muted-foreground">Uploaded 2 days ago</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">Payment Receipt - INV001</p>
+                      <p className="text-xs text-muted-foreground">Consultancy Fee</p>
+                      <p className="text-xs text-green-600 font-medium mt-2">Paid on 2024-01-15</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon">
-                    <Download className="w-4 h-4" />
-                  </Button>
                 </div>
-              ))}
+
+                <div className="border rounded-lg p-4 bg-card hover:shadow-md transition-shadow">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 bg-amber-100 rounded flex items-center justify-center text-amber-600 flex-shrink-0">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">Payment Invoice - INV002</p>
+                      <p className="text-xs text-muted-foreground">Visa Processing</p>
+                      <p className="text-xs text-orange-600 font-medium mt-2">Pending - Due 2024-04-01</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border rounded-lg p-4 bg-card hover:shadow-md transition-shadow">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 bg-purple-100 rounded flex items-center justify-center text-purple-600 flex-shrink-0">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">Payment Agreement</p>
+                      <p className="text-xs text-muted-foreground">Service Terms</p>
+                      <p className="text-xs text-gray-600 font-medium mt-2">Created on 2024-01-10</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )},
         ]}
