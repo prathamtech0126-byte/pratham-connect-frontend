@@ -53,7 +53,7 @@ export function FormSelectInput<T extends FieldValues>({
             <SelectTrigger className={cn(error && "border-destructive")}>
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-[200px]">
               {isGrouped(options) ? (
                 options.map((group) => (
                   <SelectGroup key={group.label}>
