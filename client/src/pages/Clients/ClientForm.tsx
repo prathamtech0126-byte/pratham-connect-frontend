@@ -173,21 +173,33 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const salesTypeOptions = [
-  { label: "Canada Student", value: "Canada Student" },
-  { label: "Canada Onshore Student", value: "Canada Onshore Student" },
-  { label: "UK Student", value: "UK Student" },
-  { label: "Finland Student", value: "Finland Student" },
-  { label: "USA Student", value: "USA Student" },
-  { label: "Germany Student", value: "Germany Student" },
-  { label: "Canada Spouse", value: "Canada Spouse" },
-  { label: "UK Spouse", value: "UK Spouse" },
-  { label: "Finland Spouse", value: "Finland Spouse" },
-  { label: "UK Visitor", value: "UK Visitor" },
-  { label: "Canada Visitor", value: "Canada Visitor" },
-  { label: "USA Visitor", value: "USA Visitor" },
-  { label: "Schengen Visitor", value: "Schengen Visitor" },
-  { label: "SPOUSAL PR", value: "SPOUSAL PR" },
-  { label: "Other Product", value: "Other Product" },
+  {
+    label: "Core Product",
+    options: [
+      { label: "Canada Student", value: "Canada Student" },
+      { label: "Canada Onshore Student", value: "Canada Onshore Student" },
+      { label: "UK Student", value: "UK Student" },
+      { label: "Finland Student", value: "Finland Student" },
+      { label: "USA Student", value: "USA Student" },
+      { label: "Germany Student", value: "Germany Student" },
+      { label: "Canada Spouse", value: "Canada Spouse" },
+      { label: "UK Spouse", value: "UK Spouse" },
+      { label: "Finland Spouse", value: "Finland Spouse" },
+      { label: "UK Visitor", value: "UK Visitor" },
+      { label: "Canada Visitor", value: "Canada Visitor" },
+      { label: "USA Visitor", value: "USA Visitor" },
+      { label: "Schengen Visitor", value: "Schengen Visitor" },
+      { label: "SPOUSAL PR", value: "SPOUSAL PR" },
+    ],
+  },
+  {
+    label: "Other Products",
+    options: [
+      { label: "Spouse", value: "spouse" },
+      { label: "Student", value: "student" },
+      { label: "Visitor", value: "visitor" },
+    ],
+  },
 ];
 
 const getProductType = (

@@ -6,6 +6,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -14,14 +16,23 @@ interface Option {
   value: string;
 }
 
+interface OptionGroup {
+  label: string;
+  options: Option[];
+}
+
 interface FormSelectInputProps<T extends FieldValues> {
   name: Path<T>;
   control: Control<T>;
   label: string;
-  options: Option[];
+  options: Option[] | OptionGroup[];
   placeholder?: string;
   className?: string;
 }
+
+const isGrouped = (options: any[]): options is OptionGroup[] => {
+  return options.length > 0 && "options" in options[0];
+};
 
 export function FormSelectInput<T extends FieldValues>({
   name,
@@ -43,11 +54,24 @@ export function FormSelectInput<T extends FieldValues>({
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>
-              {options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
+              {isGrouped(options) ? (
+                options.map((group) => (
+                  <SelectGroup key={group.label}>
+                    <SelectLabel className="font-semibold">{group.label}</SelectLabel>
+                    {group.options.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))
+              ) : (
+                (options as Option[]).map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
           {error && (
