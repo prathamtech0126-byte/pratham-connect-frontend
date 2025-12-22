@@ -112,7 +112,11 @@ const studentFieldsSchema = z.object({
     amount: z.number().optional(),
     disbursementDate: z.string().optional(),
   }),
-  forex: z.boolean().optional(),
+  forex: z.object({
+    isActivated: z.string().optional(),
+    amount: z.number().optional(),
+    currency: z.string().optional(),
+  }).optional(),
   simCard: simCardSchema,
   beaconAccount: z.object({
     openingDate: z.string().optional(),
@@ -1013,7 +1017,44 @@ export default function ClientForm() {
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                         <Label className="text-base font-semibold">
-                          5. Beacon Account
+                          5. Forex
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <FormSelectInput
+                            name="studentFields.forex.isActivated"
+                            control={control}
+                            label="Activated"
+                            placeholder="Select Status"
+                            options={[
+                              { label: "Yes", value: "Yes" },
+                              { label: "No", value: "No" },
+                            ]}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormCurrencyInput
+                            name="studentFields.forex.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormSelectInput
+                            name="studentFields.forex.currency"
+                            control={control}
+                            label="Currency"
+                            placeholder="Select Currency"
+                            options={[
+                              { label: "CAD", value: "CAD" },
+                              { label: "GBP", value: "GBP" },
+                              { label: "USD", value: "USD" },
+                              { label: "EUR", value: "EUR" },
+                            ]}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          6. Beacon Account
                         </Label>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <FormDateInput
@@ -1036,7 +1077,7 @@ export default function ClientForm() {
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                         <Label className="text-base font-semibold">
-                          6. Credit Card
+                          7. Credit Card
                         </Label>
                         <FormTextInput
                           name="studentFields.creditCard.info"
@@ -1047,7 +1088,7 @@ export default function ClientForm() {
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                         <Label className="text-base font-semibold">
-                          7. Air Ticket
+                          8. Air Ticket
                         </Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                           <FormSelectInput
@@ -1082,7 +1123,7 @@ export default function ClientForm() {
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                         <Label className="text-base font-semibold">
-                          8. Insurance
+                          9. Insurance
                         </Label>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <FormCurrencyInput
