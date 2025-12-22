@@ -39,12 +39,14 @@ const insuranceSchema = z.object({
   amount: z.number().optional(),
   insuranceNo: z.string().optional(),
   date: z.string().optional(),
+  remarks: z.string().optional(),
 });
 
 const beaconSchema = z.object({
   openingDate: z.string().optional(),
   fundingDate: z.string().optional(),
   fundingAmount: z.number().optional(),
+  remarks: z.string().optional(),
 });
 
 const airTicketSchema = z.object({
@@ -52,6 +54,7 @@ const airTicketSchema = z.object({
   amount: z.number().optional(),
   invoiceNo: z.string().optional(),
   date: z.string().optional(),
+  remarks: z.string().optional(),
 });
 
 const simCardSchema = z.object({
@@ -59,6 +62,7 @@ const simCardSchema = z.object({
   plan: z.string().optional(),
   date: z.string().optional(),
   startDate: z.string().optional(),
+  remarks: z.string().optional(),
 });
 
 const trvExtensionSchema = z.object({
@@ -627,6 +631,12 @@ export default function ClientForm() {
                             label="Activation Date"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="spouseFields.simCard.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="SIM Card remarks..."
+                        />
                       </div>
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -650,6 +660,12 @@ export default function ClientForm() {
                             label="Date"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="spouseFields.insurance.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Insurance remarks..."
+                        />
                       </div>
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -673,6 +689,12 @@ export default function ClientForm() {
                             label="Funding Amount (CAD)"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="spouseFields.myBeacon.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Beacon Account remarks..."
+                        />
                       </div>
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -708,6 +730,12 @@ export default function ClientForm() {
                             label="Date"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="spouseFields.airTicket.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Air Ticket remarks..."
+                        />
                       </div>
                       <div className="p-4 border rounded-lg bg-muted/20 mt-4">
                         <FormTextareaInput
@@ -811,6 +839,12 @@ export default function ClientForm() {
                             label="Usage Start Date"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="visitorFields.simCard.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="SIM Card remarks..."
+                        />
                       </div>
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -834,6 +868,12 @@ export default function ClientForm() {
                             label="Date"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="visitorFields.insurance.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Insurance remarks..."
+                        />
                       </div>
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -857,6 +897,12 @@ export default function ClientForm() {
                             label="Funding Amount (GBP)"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="visitorFields.beaconAccount.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Beacon Account remarks..."
+                        />
                       </div>
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -892,6 +938,12 @@ export default function ClientForm() {
                             label="Date"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="visitorFields.airTicket.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Air Ticket remarks..."
+                        />
                       </div>
                       <div className="p-4 border rounded-lg bg-muted/20 mt-4">
                         <FormTextareaInput
@@ -1032,6 +1084,12 @@ export default function ClientForm() {
                             label="Activation Date"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="studentFields.simCard.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="SIM Card remarks..."
+                        />
                       </div>
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -1069,6 +1127,12 @@ export default function ClientForm() {
                             ]}
                           />
                         </div>
+                        <FormTextareaInput
+                          name="studentFields.forex.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Forex remarks..."
+                        />
                       </div>
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -1092,6 +1156,12 @@ export default function ClientForm() {
                             label="CAD Amount"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="studentFields.beaconAccount.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Beacon Account remarks..."
+                        />
                       </div>
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -1102,6 +1172,12 @@ export default function ClientForm() {
                           name="studentFields.creditCard.info"
                           control={control}
                           label="Card Information"
+                        />
+                        <FormTextareaInput
+                          name="studentFields.creditCard.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Credit Card remarks..."
                         />
                       </div>
 
@@ -1138,6 +1214,12 @@ export default function ClientForm() {
                             label="Date"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="studentFields.airTicket.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Air Ticket remarks..."
+                        />
                       </div>
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -1161,6 +1243,12 @@ export default function ClientForm() {
                             label="Date"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="studentFields.insurance.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Insurance remarks..."
+                        />
                       </div>
                       <div className="p-4 border rounded-lg bg-muted/20 mt-4">
                         <FormTextareaInput
