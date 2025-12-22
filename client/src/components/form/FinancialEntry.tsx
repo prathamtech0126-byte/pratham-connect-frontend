@@ -43,14 +43,12 @@ export function FinancialEntry<T extends FieldValues>({
           />
         )}
       </div>
-      {hasRemarks && (
-        <FormTextareaInput
-          name={`${name}.remarks` as Path<T>}
-          control={control}
-          label="Remarks"
-          placeholder="Add remarks..."
-        />
-      )}
+      <FormTextareaInput
+        name={`${name}.remarks` as Path<T>}
+        control={control}
+        label="Remarks"
+        placeholder="Add remarks..."
+      />
     </div>
   );
 }

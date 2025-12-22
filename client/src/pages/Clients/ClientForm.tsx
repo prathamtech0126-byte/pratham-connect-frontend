@@ -96,7 +96,10 @@ const spouseFieldsSchema = z.object({
 const visitorFieldsSchema = z.object({
   baseFee: financialEntrySchema,
   indianSideEmployment: financialEntrySchema,
-  sponsorCharges: z.object({ amount: z.number().optional() }),
+  sponsorCharges: z.object({ 
+    amount: z.number().optional(),
+    remarks: z.string().optional()
+  }),
   simCard: simCardSchema,
   insurance: insuranceSchema,
   airTicket: airTicketSchema,
@@ -112,15 +115,18 @@ const studentFieldsSchema = z.object({
     isEnrolled: z.boolean().optional(),
     amount: z.number().optional(),
     date: z.string().optional(),
+    remarks: z.string().optional(),
   }),
   loan: z.object({
     amount: z.number().optional(),
     disbursementDate: z.string().optional(),
+    remarks: z.string().optional(),
   }),
   forex: z.object({
     isActivated: z.string().optional(),
     amount: z.number().optional(),
     currency: z.string().optional(),
+    remarks: z.string().optional(),
   }).optional(),
   simCard: simCardSchema,
   beaconAccount: z.object({
@@ -788,6 +794,12 @@ export default function ClientForm() {
                           control={control}
                           label="Amount (₹10,000 + GST)"
                         />
+                        <FormTextareaInput
+                          name="visitorFields.sponsorCharges.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Sponsor charges remarks..."
+                        />
                       </div>
                       <div className="p-4 border rounded-lg bg-muted/20 mt-4">
                         <FormTextareaInput
@@ -1014,6 +1026,12 @@ export default function ClientForm() {
                             label="Date"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="studentFields.ieltsEnrollment.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="IELTS remarks..."
+                        />
                       </div>
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -1032,6 +1050,12 @@ export default function ClientForm() {
                             label="Disbursement Date"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="studentFields.loan.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Loan remarks..."
+                        />
                       </div>
 
                       <div className="p-4 border rounded-lg bg-muted/20 mt-4">
