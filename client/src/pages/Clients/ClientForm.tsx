@@ -56,6 +56,7 @@ const airTicketSchema = z.object({
 
 const simCardSchema = z.object({
   isActivated: z.string().optional(),
+  plan: z.string().optional(),
   date: z.string().optional(),
   startDate: z.string().optional(),
 });
@@ -607,6 +608,12 @@ export default function ClientForm() {
                               { label: "No", value: "No" },
                             ]}
                           />
+                          <FormTextInput
+                            name="spouseFields.simCard.plan"
+                            control={control}
+                            label="SIM Card Plan"
+                            placeholder="Enter plan details"
+                          />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <FormDateInput
@@ -784,6 +791,12 @@ export default function ClientForm() {
                               { label: "Yes", value: "Yes" },
                               { label: "No", value: "No" },
                             ]}
+                          />
+                          <FormTextInput
+                            name="visitorFields.simCard.plan"
+                            control={control}
+                            label="SIM Card Plan"
+                            placeholder="Enter plan details"
                           />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -999,6 +1012,12 @@ export default function ClientForm() {
                               { label: "Yes", value: "Yes" },
                               { label: "No", value: "No" },
                             ]}
+                          />
+                          <FormTextInput
+                            name="studentFields.simCard.plan"
+                            control={control}
+                            label="SIM Card Plan"
+                            placeholder="Enter plan details"
                           />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
