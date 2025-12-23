@@ -98,20 +98,20 @@ export default function AdditionalInfo() {
 
   // State for Sale Types
   const [saleTypes, setSaleTypes] = useState([
-    { id: 1, name: "Canada Student", totalPayment: "50000", coreProduct: "Student", isProduct: "Yes" },
-    { id: 2, name: "Canada Onshore Student", totalPayment: "45000", coreProduct: "Student", isProduct: "Yes" },
-    { id: 3, name: "UK Student", totalPayment: "15000", coreProduct: "Student", isProduct: "Yes" },
-    { id: 4, name: "Finland Student", totalPayment: "20000", coreProduct: "Student", isProduct: "Yes" },
-    { id: 5, name: "USA Student", totalPayment: "25000", coreProduct: "Student", isProduct: "Yes" },
-    { id: 6, name: "Germany Student", totalPayment: "20000", coreProduct: "Student", isProduct: "Yes" },
-    { id: 7, name: "Canada Spouse", totalPayment: "120000", coreProduct: "Spouse", isProduct: "Yes" },
-    { id: 8, name: "UK Spouse", totalPayment: "100000", coreProduct: "Spouse", isProduct: "Yes" },
-    { id: 9, name: "Finland Spouse", totalPayment: "80000", coreProduct: "Spouse", isProduct: "Yes" },
-    { id: 10, name: "UK Visitor", totalPayment: "5000", coreProduct: "Visitor", isProduct: "Yes" },
-    { id: 11, name: "Canada Visitor", totalPayment: "5000", coreProduct: "Visitor", isProduct: "Yes" },
-    { id: 12, name: "USA Visitor", totalPayment: "5000", coreProduct: "Visitor", isProduct: "Yes" },
-    { id: 13, name: "Schengen visa", totalPayment: "5000", coreProduct: "Visitor", isProduct: "Yes" },
-    { id: 14, name: "SPOUSAL PR", totalPayment: "60000", coreProduct: "Spouse", isProduct: "Yes" },
+    { id: 1, name: "Canada Student", totalPayment: "50000", isProduct: "Yes" },
+    { id: 2, name: "Canada Onshore Student", totalPayment: "45000", isProduct: "Yes" },
+    { id: 3, name: "UK Student", totalPayment: "15000", isProduct: "Yes" },
+    { id: 4, name: "Finland Student", totalPayment: "20000", isProduct: "Yes" },
+    { id: 5, name: "USA Student", totalPayment: "25000", isProduct: "Yes" },
+    { id: 6, name: "Germany Student", totalPayment: "20000", isProduct: "Yes" },
+    { id: 7, name: "Canada Spouse", totalPayment: "120000", isProduct: "Yes" },
+    { id: 8, name: "UK Spouse", totalPayment: "100000", isProduct: "Yes" },
+    { id: 9, name: "Finland Spouse", totalPayment: "80000", isProduct: "Yes" },
+    { id: 10, name: "UK Visitor", totalPayment: "5000", isProduct: "Yes" },
+    { id: 11, name: "Canada Visitor", totalPayment: "5000", isProduct: "Yes" },
+    { id: 12, name: "USA Visitor", totalPayment: "5000", isProduct: "Yes" },
+    { id: 13, name: "Schengen visa", totalPayment: "5000", isProduct: "Yes" },
+    { id: 14, name: "SPOUSAL PR", totalPayment: "60000", isProduct: "Yes" },
   ]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -119,12 +119,11 @@ export default function AdditionalInfo() {
   const [formData, setFormData] = useState({
     name: "",
     totalPayment: "",
-    coreProduct: "",
     isProduct: "Yes"
   });
 
   const handleSave = () => {
-    if (!formData.name || !formData.totalPayment || !formData.coreProduct) {
+    if (!formData.name || !formData.totalPayment) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -166,7 +165,7 @@ export default function AdditionalInfo() {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", totalPayment: "", coreProduct: "", isProduct: "Yes" });
+    setFormData({ name: "", totalPayment: "", isProduct: "Yes" });
     setEditingId(null);
   };
 
@@ -180,7 +179,6 @@ export default function AdditionalInfo() {
     setFormData({
       name: item.name,
       totalPayment: item.totalPayment,
-      coreProduct: item.coreProduct,
       isProduct: item.isProduct
     });
     setIsDialogOpen(true);
@@ -232,19 +230,6 @@ export default function AdditionalInfo() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="coreProduct">Core Product</Label>
-                  <Select value={formData.coreProduct} onValueChange={(value) => setFormData({ ...formData, coreProduct: value })}>
-                    <SelectTrigger id="coreProduct">
-                      <SelectValue placeholder="Select Product" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Student">Student</SelectItem>
-                      <SelectItem value="Spouse">Spouse</SelectItem>
-                      <SelectItem value="Visitor">Visitor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="isProduct">Is Product</Label>
                   <Select value={formData.isProduct} onValueChange={(value) => setFormData({ ...formData, isProduct: value })}>
                     <SelectTrigger id="isProduct">
@@ -270,7 +255,6 @@ export default function AdditionalInfo() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Sale Type</TableHead>
-                  <TableHead>Core Product</TableHead>
                   <TableHead>Is Product</TableHead>
                   <TableHead>Total Payment</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -287,7 +271,6 @@ export default function AdditionalInfo() {
                   saleTypes.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>{item.coreProduct}</TableCell>
                       <TableCell>{item.isProduct}</TableCell>
                       <TableCell>₹{parseInt(item.totalPayment).toLocaleString()}</TableCell>
                       <TableCell className="text-right">
