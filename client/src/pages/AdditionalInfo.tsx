@@ -189,133 +189,6 @@ export default function AdditionalInfo() {
   return (
     <PageWrapper title="Additional Information" breadcrumbs={[{ label: "Additional Info" }]}>
       <Card className="mb-6">
-        <CardHeader>
-          <div>
-            <CardTitle>Client Transfer</CardTitle>
-            <CardDescription>Transfer individual clients to another counsellor</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Transfer Form */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            {/* Client Search */}
-            <div className="space-y-2 relative">
-              <Label>Select Client</Label>
-              <Input
-                data-testid="input-client-search"
-                placeholder="Search client (3+ chars)"
-                value={clientSearchInput}
-                onChange={(e) => {
-                  setClientSearchInput(e.target.value);
-                  setShowClientList(true);
-                }}
-                onFocus={() => setShowClientList(true)}
-              />
-              {showClientList && clientSearchInput.length >= 3 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
-                  {filteredClients.length > 0 ? (
-                    filteredClients.map(client => (
-                      <div
-                        key={client.id}
-                        className="px-3 py-2 hover:bg-slate-100 cursor-pointer border-b text-sm"
-                        onClick={() => {
-                          setSelectedClientId(client.id);
-                          setClientSearchInput(`${client.name} (${client.currentCounsellor})`);
-                          setShowClientList(false);
-                        }}
-                        data-testid={`client-option-${client.id}`}
-                      >
-                        {client.name} ({client.currentCounsellor})
-                      </div>
-                    ))
-                  ) : (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">No clients found</div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-center">
-              <ArrowRight className="w-5 h-5 text-muted-foreground" />
-            </div>
-
-            {/* Counsellor Search */}
-            <div className="space-y-2 relative">
-              <Label>Transfer To</Label>
-              <Input
-                data-testid="input-counsellor-search"
-                placeholder="Search counsellor (3+ chars)"
-                value={counsellorSearchInput}
-                onChange={(e) => {
-                  setCounsellorSearchInput(e.target.value);
-                  setShowCounsellorList(true);
-                }}
-                onFocus={() => setShowCounsellorList(true)}
-              />
-              {showCounsellorList && counsellorSearchInput.length >= 3 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
-                  {filteredCounsellors.length > 0 ? (
-                    filteredCounsellors.map(counsellor => (
-                      <div
-                        key={counsellor}
-                        className="px-3 py-2 hover:bg-slate-100 cursor-pointer border-b text-sm"
-                        onClick={() => {
-                          setSelectedCounsellor(counsellor);
-                          setCounsellorSearchInput(counsellor);
-                          setShowCounsellorList(false);
-                        }}
-                        data-testid={`counsellor-option-${counsellor}`}
-                      >
-                        {counsellor}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">No counsellors found</div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <Button onClick={handleTransferClient} data-testid="button-transfer">
-              Transfer
-            </Button>
-          </div>
-
-          {/* Transfer History */}
-          {clientTransfers.length > 0 && (
-            <div className="mt-8">
-              <h3 className="font-semibold mb-4">Recent Transfers</h3>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Client Name</TableHead>
-                      <TableHead>From</TableHead>
-                      <TableHead>To</TableHead>
-                      <TableHead>Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {clientTransfers.map((transfer, index) => {
-                      const client = clients.find(c => c.id === transfer.clientId);
-                      return (
-                        <TableRow key={index} data-testid={`transfer-row-${index}`}>
-                          <TableCell className="font-medium">{client?.name}</TableCell>
-                          <TableCell>{transfer.oldCounsellor}</TableCell>
-                          <TableCell>{transfer.newCounsellor}</TableCell>
-                          <TableCell>{transfer.date}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <CardTitle>Sale Types & Payment</CardTitle>
@@ -441,6 +314,133 @@ export default function AdditionalInfo() {
               </TableBody>
             </Table>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Client Transfer</CardTitle>
+            <CardDescription>Transfer individual clients to another counsellor</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Transfer Form */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            {/* Client Search */}
+            <div className="space-y-2 relative">
+              <Label>Select Client</Label>
+              <Input
+                data-testid="input-client-search"
+                placeholder="Search client (3+ chars)"
+                value={clientSearchInput}
+                onChange={(e) => {
+                  setClientSearchInput(e.target.value);
+                  setShowClientList(true);
+                }}
+                onFocus={() => setShowClientList(true)}
+              />
+              {showClientList && clientSearchInput.length >= 3 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                  {filteredClients.length > 0 ? (
+                    filteredClients.map(client => (
+                      <div
+                        key={client.id}
+                        className="px-3 py-2 hover:bg-slate-100 cursor-pointer border-b text-sm"
+                        onClick={() => {
+                          setSelectedClientId(client.id);
+                          setClientSearchInput(`${client.name} (${client.currentCounsellor})`);
+                          setShowClientList(false);
+                        }}
+                        data-testid={`client-option-${client.id}`}
+                      >
+                        {client.name} ({client.currentCounsellor})
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No clients found</div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-center">
+              <ArrowRight className="w-5 h-5 text-muted-foreground" />
+            </div>
+
+            {/* Counsellor Search */}
+            <div className="space-y-2 relative">
+              <Label>Transfer To</Label>
+              <Input
+                data-testid="input-counsellor-search"
+                placeholder="Search counsellor (3+ chars)"
+                value={counsellorSearchInput}
+                onChange={(e) => {
+                  setCounsellorSearchInput(e.target.value);
+                  setShowCounsellorList(true);
+                }}
+                onFocus={() => setShowCounsellorList(true)}
+              />
+              {showCounsellorList && counsellorSearchInput.length >= 3 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                  {filteredCounsellors.length > 0 ? (
+                    filteredCounsellors.map(counsellor => (
+                      <div
+                        key={counsellor}
+                        className="px-3 py-2 hover:bg-slate-100 cursor-pointer border-b text-sm"
+                        onClick={() => {
+                          setSelectedCounsellor(counsellor);
+                          setCounsellorSearchInput(counsellor);
+                          setShowCounsellorList(false);
+                        }}
+                        data-testid={`counsellor-option-${counsellor}`}
+                      >
+                        {counsellor}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No counsellors found</div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <Button onClick={handleTransferClient} data-testid="button-transfer">
+              Transfer
+            </Button>
+          </div>
+
+          {/* Transfer History */}
+          {clientTransfers.length > 0 && (
+            <div className="mt-8">
+              <h3 className="font-semibold mb-4">Recent Transfers</h3>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Client Name</TableHead>
+                      <TableHead>From</TableHead>
+                      <TableHead>To</TableHead>
+                      <TableHead>Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {clientTransfers.map((transfer, index) => {
+                      const client = clients.find(c => c.id === transfer.clientId);
+                      return (
+                        <TableRow key={index} data-testid={`transfer-row-${index}`}>
+                          <TableCell className="font-medium">{client?.name}</TableCell>
+                          <TableCell>{transfer.oldCounsellor}</TableCell>
+                          <TableCell>{transfer.newCounsellor}</TableCell>
+                          <TableCell>{transfer.date}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </PageWrapper>
