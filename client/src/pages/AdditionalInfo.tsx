@@ -190,48 +190,6 @@ export default function AdditionalInfo() {
     <PageWrapper title="Additional Information" breadcrumbs={[{ label: "Additional Info" }]}>
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Forex Management</CardTitle>
-          <CardDescription>Manage forex activation and details for clients</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div className="space-y-2">
-              <Label>Forex Activated</Label>
-              <Select defaultValue="no">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="yes">Yes</SelectItem>
-                  <SelectItem value="no">No</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Forex Amount</Label>
-              <Input type="number" placeholder="Enter amount" />
-            </div>
-            <div className="space-y-2">
-              <Label>Currency</Label>
-              <Select defaultValue="CAD">
-                <SelectTrigger>
-                  <SelectValue placeholder="Currency" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CAD">CAD</SelectItem>
-                  <SelectItem value="GBP">GBP</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="EUR">EUR</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button>Save Forex Details</Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
           <div>
             <CardTitle>Client Transfer</CardTitle>
             <CardDescription>Transfer individual clients to another counsellor</CardDescription>
