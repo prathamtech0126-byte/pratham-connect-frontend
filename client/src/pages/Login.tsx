@@ -61,7 +61,6 @@ export default function Login() {
         setIsSubmitting(true);
 
         try {
-            console.log("Attempting login...");
             const response = await api.post(
                 "/api/users/login",
                 {
@@ -92,8 +91,6 @@ export default function Login() {
                 description: `Welcome back, ${mappedRole}!`,
             });
         } catch (error: any) {
-            console.error("Login Error:", error);
-
             let msg = "Invalid email or password";
 
             if (error.response) {
