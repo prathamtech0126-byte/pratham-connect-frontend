@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Download, Search, FileSpreadsheet, Filter } from "lucide-react";
+import { Upload, Download, Search, FileSpreadsheet, Filter, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -233,6 +233,19 @@ export default function UniversityDatabase() {
   const uniqueLocations = useMemo(() => Array.from(new Set(data.map(i => i.locationProvince).filter(Boolean))), [data]);
   const uniqueCourseTypes = useMemo(() => Array.from(new Set(data.map(i => i.courseType).filter(Boolean))), [data]);
 
+  const clearFilters = () => {
+    setSearchTerm("");
+    setFilters({
+      location: "all",
+      courseType: "all",
+      intake: "all"
+    });
+    toast({
+      title: "Filters Cleared",
+      description: "All view filters have been reset.",
+    });
+  };
+
   const downloadExcel = () => {
     if (filteredData.length === 0) return;
     const ws = XLSX.utils.json_to_sheet(filteredData);
@@ -350,17 +363,28 @@ export default function UniversityDatabase() {
               </div>
               <div className="space-y-2">
                 <Label>Intake</Label>
-                <Select value={filters.intake} onValueChange={(v) => setFilters(f => ({ ...f, intake: v }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Intakes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Intakes</SelectItem>
-                    <SelectItem value="Jan">January</SelectItem>
-                    <SelectItem value="May">May</SelectItem>
-                    <SelectItem value="Sep">September</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select value={filters.intake} onValueChange={(v) => setFilters(f => ({ ...f, intake: v }))}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="All Intakes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Intakes</SelectItem>
+                      <SelectItem value="Jan">January</SelectItem>
+                      <SelectItem value="May">May</SelectItem>
+                      <SelectItem value="Sep">September</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={clearFilters}
+                    title="Clear All Filters"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
