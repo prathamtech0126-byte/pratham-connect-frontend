@@ -35,7 +35,7 @@ export default function Login() {
     setIsSubmitting(true);
     
     try {
-      console.log("Attempting login to:", `${api.defaults.baseURL}/api/users/login`);
+      console.log("Attempting login to:", `https://cradle-playback-strengths-assumption.trycloudflare.com/api/users/login`);
       const response = await api.post("/api/users/login", {
         email: username,
         password: password
