@@ -43,8 +43,8 @@ export default function Login() {
         e.preventDefault();
         e.stopPropagation(); // Stop event bubbling
 
-        if (isSubmitting) return; 
-        
+        if (isSubmitting) return;
+
         setErrorMessage(null);
         setFieldErrors({});
 
@@ -82,7 +82,9 @@ export default function Login() {
             }
 
             localStorage.setItem("accessToken", accessToken);
-            const mappedRole = (role === "admin" ? "superadmin" : role) as UserRole;
+            const mappedRole = (
+                role === "admin" ? "superadmin" : role
+            ) as UserRole;
             login(mappedRole);
 
             toast({
@@ -91,11 +93,14 @@ export default function Login() {
             });
         } catch (error: any) {
             console.error("Login Error:", error);
-            
+
             let msg = "Invalid email or password";
-            
+
             if (error.response) {
-                msg = error.response.data?.message || error.response.data?.error || `Error: ${error.response.status}`;
+                msg =
+                    error.response.data?.message ||
+                    error.response.data?.error ||
+                    `Error: ${error.response.status}`;
             } else if (error.request) {
                 msg = "Server connection lost. Please try again.";
             }
@@ -216,7 +221,14 @@ export default function Login() {
 
                     <Card className="border border-border/50 shadow-2xl shadow-primary/5 bg-card/50 backdrop-blur-sm">
                         <CardContent className="pt-8 pb-8 px-8">
-                            <form onSubmit={handleLogin} className="space-y-6">
+                            <form 
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleLogin(e);
+                                }} 
+                                className="space-y-6"
+                            >
                                 <div className="space-y-2">
                                     <Label
                                         htmlFor="role"
