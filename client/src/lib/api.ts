@@ -52,7 +52,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // If refresh fails, redirect to login or clear state
         localStorage.removeItem('accessToken');
-        window.location.href = '/login';
+        // window.location.href = '/login'; // REMOVED: This causes full page refresh
         return Promise.reject(refreshError);
       }
     }
