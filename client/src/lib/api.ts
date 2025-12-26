@@ -1,6 +1,6 @@
 import axios, { InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = 'https://cradle-playback-strengths-assumption.trycloudflare.com/api';
+const API_BASE_URL = 'https://cradle-playback-strengths-assumption.trycloudflare.com';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

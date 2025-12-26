@@ -32,7 +32,7 @@ export default function Login() {
     setIsSubmitting(true);
     
     try {
-      const response = await api.post("/users/login", {
+      const response = await api.post("/api/users/login", {
         email: username,
         password: password
       });
