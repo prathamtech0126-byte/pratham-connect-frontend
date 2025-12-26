@@ -97,10 +97,18 @@ export default function Login() {
             let msg = "Invalid email or password";
 
             if (error.response) {
-                msg =
-                    error.response.data?.message ||
-                    error.response.data?.error ||
-                    `Error: ${error.response.status}`;
+                // Prioritize message from server, fallback to status code 404/401
+                msg = error.response.data?.message || error.response.data?.error;
+                
+                if (!msg) {
+                    if (error.response.status === 404) {
+                        msg = "Error: 404";
+                    } else if (error.response.status === 401) {
+                        msg = "Invalid credentials";
+                    } else {
+                        msg = `Error: ${error.response.status}`;
+                    }
+                }
             } else if (error.request) {
                 msg = "Server connection lost. Please try again.";
             }
