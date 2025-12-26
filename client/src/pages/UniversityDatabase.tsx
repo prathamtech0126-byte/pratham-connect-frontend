@@ -1,13 +1,39 @@
 import { useState, useMemo } from "react";
 import { PageWrapper } from "@/layout/PageWrapper";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Download, Search, FileSpreadsheet, Filter, X } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Upload,
+  Download,
+  Search,
+  FileSpreadsheet,
+  Filter,
+  X,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface UniversityData {
   srNo?: string | number;
@@ -85,7 +111,7 @@ export default function UniversityDatabase() {
       pgwpEligible: "Yes",
       sowpEligible: "Yes",
       category: "University",
-      subCategory: "Public"
+      subCategory: "Public",
     },
     {
       universityName: "University of British Columbia",
@@ -109,7 +135,7 @@ export default function UniversityDatabase() {
       pgwpEligible: "Yes",
       sowpEligible: "Yes",
       category: "University",
-      subCategory: "Public"
+      subCategory: "Public",
     },
     {
       universityName: "Conestoga College",
@@ -133,19 +159,19 @@ export default function UniversityDatabase() {
       pgwpEligible: "Yes",
       sowpEligible: "Yes",
       category: "College",
-      subCategory: "Public"
-    }
+      subCategory: "Public",
+    },
   ]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isMapping, setIsMapping] = useState(false);
   const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
   const [fieldMapping, setFieldMapping] = useState<Record<string, string>>({});
   const [pendingData, setPendingData] = useState<any[]>([]);
-  
+
   const [filters, setFilters] = useState({
     location: "all",
     courseType: "all",
-    intake: "all"
+    intake: "all",
   });
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -160,18 +186,19 @@ export default function UniversityDatabase() {
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         const jsonData = XLSX.utils.sheet_to_json(ws);
-        
+
         if (jsonData.length > 0) {
           const headers = Object.keys(jsonData[0] as object);
           setExcelHeaders(headers);
           setPendingData(jsonData);
-          
+
           // Try to auto-map based on common names
           const initialMapping: Record<string, string> = {};
-          DB_FIELDS.forEach(field => {
-            const match = headers.find(h => 
-              h.toLowerCase().includes(field.label.toLowerCase()) || 
-              h.toLowerCase() === field.key.toLowerCase()
+          DB_FIELDS.forEach((field) => {
+            const match = headers.find(
+              (h) =>
+                h.toLowerCase().includes(field.label.toLowerCase()) ||
+                h.toLowerCase() === field.key.toLowerCase(),
             );
             if (match) initialMapping[field.key] = match;
           });
@@ -179,11 +206,15 @@ export default function UniversityDatabase() {
           setIsMapping(true);
         }
       } catch (error) {
-        toast({ title: "Error", description: "Failed to read excel", variant: "destructive" });
+        toast({
+          title: "Error",
+          description: "Failed to read excel",
+          variant: "destructive",
+        });
       }
     };
     reader.readAsBinaryString(file);
-    e.target.value = ''; // Reset input
+    e.target.value = ""; // Reset input
   };
 
   const confirmMapping = () => {
@@ -214,31 +245,48 @@ export default function UniversityDatabase() {
 
     setData(mappedData);
     setIsMapping(false);
-    toast({ title: "Success", description: `Mapped ${mappedData.length} records successfully` });
+    toast({
+      title: "Success",
+      description: `Mapped ${mappedData.length} records successfully`,
+    });
   };
 
   const filteredData = useMemo(() => {
     return data.filter((item) => {
-      const matchesSearch = item.universityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.coursesAvailable.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesLocation = filters.location === "all" || item.locationProvince === filters.location;
-      const matchesCourseType = filters.courseType === "all" || item.courseType === filters.courseType;
-      const matchesIntake = filters.intake === "all" || item.intake.includes(filters.intake);
+      const matchesSearch =
+        item.universityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.coursesAvailable.toLowerCase().includes(searchTerm.toLowerCase());
 
-      return matchesSearch && matchesLocation && matchesCourseType && matchesIntake;
+      const matchesLocation =
+        filters.location === "all" ||
+        item.locationProvince === filters.location;
+      const matchesCourseType =
+        filters.courseType === "all" || item.courseType === filters.courseType;
+      const matchesIntake =
+        filters.intake === "all" || item.intake.includes(filters.intake);
+
+      return (
+        matchesSearch && matchesLocation && matchesCourseType && matchesIntake
+      );
     });
   }, [data, searchTerm, filters]);
 
-  const uniqueLocations = useMemo(() => Array.from(new Set(data.map(i => i.locationProvince).filter(Boolean))), [data]);
-  const uniqueCourseTypes = useMemo(() => Array.from(new Set(data.map(i => i.courseType).filter(Boolean))), [data]);
+  const uniqueLocations = useMemo(
+    () =>
+      Array.from(new Set(data.map((i) => i.locationProvince).filter(Boolean))),
+    [data],
+  );
+  const uniqueCourseTypes = useMemo(
+    () => Array.from(new Set(data.map((i) => i.courseType).filter(Boolean))),
+    [data],
+  );
 
   const clearFilters = () => {
     setSearchTerm("");
     setFilters({
       location: "all",
       courseType: "all",
-      intake: "all"
+      intake: "all",
     });
     toast({
       title: "Filters Cleared",
@@ -255,30 +303,43 @@ export default function UniversityDatabase() {
   };
 
   return (
-    <PageWrapper title="University Database" breadcrumbs={[{ label: "University DB" }]}>
+    <PageWrapper
+      title="University List"
+      breadcrumbs={[{ label: "University" }]}
+    >
       <div className="space-y-6">
         {isMapping && (
           <Card className="border-primary bg-primary/5">
             <CardHeader>
               <CardTitle>Map Excel Columns</CardTitle>
-              <CardDescription>Match your Excel headers to the Database fields</CardDescription>
+              <CardDescription>
+                Match your Excel headers to the Database fields
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {DB_FIELDS.map((field) => (
                   <div key={field.key} className="space-y-2">
-                    <Label className="text-primary font-bold">{field.label}</Label>
-                    <Select 
-                      value={fieldMapping[field.key] || "unmapped"} 
-                      onValueChange={(v) => setFieldMapping(prev => ({ ...prev, [field.key]: v }))}
+                    <Label className="text-primary font-bold">
+                      {field.label}
+                    </Label>
+                    <Select
+                      value={fieldMapping[field.key] || "unmapped"}
+                      onValueChange={(v) =>
+                        setFieldMapping((prev) => ({ ...prev, [field.key]: v }))
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Choose Excel Header" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="unmapped">-- Skip this field --</SelectItem>
-                        {excelHeaders.map(h => (
-                          <SelectItem key={h} value={h}>{h}</SelectItem>
+                        <SelectItem value="unmapped">
+                          -- Skip this field --
+                        </SelectItem>
+                        {excelHeaders.map((h) => (
+                          <SelectItem key={h} value={h}>
+                            {h}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -286,7 +347,9 @@ export default function UniversityDatabase() {
                 ))}
               </div>
               <div className="flex gap-2 mt-8 justify-end">
-                <Button variant="outline" onClick={() => setIsMapping(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setIsMapping(false)}>
+                  Cancel
+                </Button>
                 <Button onClick={confirmMapping}>Process & Save Data</Button>
               </div>
             </CardContent>
@@ -298,10 +361,18 @@ export default function UniversityDatabase() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <CardTitle>Import & Manage Data</CardTitle>
-                <CardDescription>Upload excel files to populate the university database (Admin only)</CardDescription>
+                <CardDescription>
+                  Upload excel files to populate the university database (Admin
+                  only)
+                </CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => document.getElementById('excel-upload')?.click()}>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    document.getElementById("excel-upload")?.click()
+                  }
+                >
                   <Upload className="w-4 h-4 mr-2" />
                   Upload Excel
                 </Button>
@@ -312,7 +383,11 @@ export default function UniversityDatabase() {
                   className="hidden"
                   onChange={handleFileUpload}
                 />
-                <Button variant="outline" onClick={downloadExcel} disabled={filteredData.length === 0}>
+                <Button
+                  variant="outline"
+                  onClick={downloadExcel}
+                  disabled={filteredData.length === 0}
+                >
                   <Download className="w-4 h-4 mr-2" />
                   Download Filtered
                 </Button>
@@ -325,8 +400,8 @@ export default function UniversityDatabase() {
                 <Label>Search</Label>
                 <div className="relative">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="University or Course..." 
+                  <Input
+                    placeholder="University or Course..."
                     className="pl-8"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -335,28 +410,42 @@ export default function UniversityDatabase() {
               </div>
               <div className="space-y-2">
                 <Label>Province/Location</Label>
-                <Select value={filters.location} onValueChange={(v) => setFilters(f => ({ ...f, location: v }))}>
+                <Select
+                  value={filters.location}
+                  onValueChange={(v) =>
+                    setFilters((f) => ({ ...f, location: v }))
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="All Locations" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Locations</SelectItem>
-                    {uniqueLocations.map(loc => (
-                      <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                    {uniqueLocations.map((loc) => (
+                      <SelectItem key={loc} value={loc}>
+                        {loc}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Course Type</Label>
-                <Select value={filters.courseType} onValueChange={(v) => setFilters(f => ({ ...f, courseType: v }))}>
+                <Select
+                  value={filters.courseType}
+                  onValueChange={(v) =>
+                    setFilters((f) => ({ ...f, courseType: v }))
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Types</SelectItem>
-                    {uniqueCourseTypes.map(type => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
+                    {uniqueCourseTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -364,7 +453,12 @@ export default function UniversityDatabase() {
               <div className="space-y-2">
                 <Label>Intake</Label>
                 <div className="flex gap-2">
-                  <Select value={filters.intake} onValueChange={(v) => setFilters(f => ({ ...f, intake: v }))}>
+                  <Select
+                    value={filters.intake}
+                    onValueChange={(v) =>
+                      setFilters((f) => ({ ...f, intake: v }))
+                    }
+                  >
                     <SelectTrigger className="flex-1">
                       <SelectValue placeholder="All Intakes" />
                     </SelectTrigger>
@@ -375,9 +469,9 @@ export default function UniversityDatabase() {
                       <SelectItem value="Sep">September</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
+                  <Button
+                    variant="outline"
+                    size="icon"
                     onClick={clearFilters}
                     title="Clear All Filters"
                     className="shrink-0 text-muted-foreground hover:text-destructive"
@@ -397,7 +491,9 @@ export default function UniversityDatabase() {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead className="w-[100px]">Sr.no</TableHead>
-                    <TableHead className="min-w-[200px]">University Name</TableHead>
+                    <TableHead className="min-w-[200px]">
+                      University Name
+                    </TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>Campus</TableHead>
                     <TableHead>CIP Codes</TableHead>
@@ -435,12 +531,17 @@ export default function UniversityDatabase() {
                     filteredData.map((item, index) => (
                       <TableRow key={index}>
                         <TableCell>{item.srNo || index + 1}</TableCell>
-                        <TableCell className="font-medium">{item.universityName}</TableCell>
+                        <TableCell className="font-medium">
+                          {item.universityName}
+                        </TableCell>
                         <TableCell>{item.locationProvince}</TableCell>
                         <TableCell>{item.campus}</TableCell>
                         <TableCell>{item.cipCodes}</TableCell>
                         <TableCell>{item.intake}</TableCell>
-                        <TableCell className="max-w-xs truncate" title={item.coursesAvailable}>
+                        <TableCell
+                          className="max-w-xs truncate"
+                          title={item.coursesAvailable}
+                        >
                           {item.coursesAvailable}
                         </TableCell>
                         <TableCell>{item.tuitionFees}</TableCell>
@@ -472,9 +573,17 @@ export default function UniversityDatabase() {
   );
 }
 
-function Label({ children, className }: { children: React.ReactNode, className?: string }) {
+function Label({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <label className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${className}`}>
+    <label
+      className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${className}`}
+    >
       {children}
     </label>
   );

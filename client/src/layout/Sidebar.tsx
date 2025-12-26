@@ -16,16 +16,25 @@ import {
   FileText,
   FileSpreadsheet,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useState, useEffect } from "react";
 import logoUrl from "@/assets/images/Pratham Logo.svg";
 import { useAuth, UserRole } from "@/context/auth-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileDialog } from "@/components/profile-dialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useQuery } from "@tanstack/react-query";
 import { clientService } from "@/services/clientService";
 
@@ -39,35 +48,35 @@ interface SidebarItem {
 const sidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
   { icon: Users, label: "Clients", href: "/clients" },
-  { 
-    icon: Activity, 
-    label: "Activity Log", 
-    href: "/activity" 
+  {
+    icon: Activity,
+    label: "Activity Log",
+    href: "/activity",
   },
-  { 
-    icon: UserPlus, 
-    label: "Add Client", 
+  {
+    icon: UserPlus,
+    label: "Add Client",
     href: "/clients/new",
-    roles: ['superadmin', 'director', 'manager', 'team_lead', 'counsellor'] 
+    roles: ["superadmin", "director", "manager", "team_lead", "counsellor"],
   },
   { icon: PieChart, label: "Reports", href: "/reports" },
-  { 
-    icon: Users, 
-    label: "Team", 
+  {
+    icon: Users,
+    label: "Team",
     href: "/team",
-    roles: ['superadmin', 'director']
+    roles: ["superadmin", "director"],
   },
-  { 
-    icon: FileText, 
-    label: "Additional Info", 
+  {
+    icon: FileText,
+    label: "Additional Info",
     href: "/additional-info",
-    roles: ['superadmin', 'director']
+    roles: ["superadmin", "director"],
   },
-  { 
-    icon: FileSpreadsheet, 
-    label: "University DB", 
+  {
+    icon: FileSpreadsheet,
+    label: "University List",
     href: "/university-db",
-    roles: ['superadmin', 'director']
+    roles: ["superadmin", "director"],
   },
 ];
 
@@ -77,12 +86,12 @@ export function Sidebar({ className }: { className?: string }) {
   const [isClientsOpen, setIsClientsOpen] = useState(false);
 
   const { data: clients } = useQuery({
-    queryKey: ['sidebar-clients'],
-    queryFn: clientService.getClients
+    queryKey: ["sidebar-clients"],
+    queryFn: clientService.getClients,
   });
 
   // Filter items based on user role
-  const filteredItems = sidebarItems.filter(item => {
+  const filteredItems = sidebarItems.filter((item) => {
     if (!item.roles) return true;
     return user && item.roles.includes(user.role);
   });
@@ -110,20 +119,20 @@ export function Sidebar({ className }: { className?: string }) {
 
   // Auto-expand clients if we are on a client page
   useEffect(() => {
-    if (location.startsWith('/clients')) {
+    if (location.startsWith("/clients")) {
       setIsClientsOpen(true);
     }
   }, [location]);
 
   const getRoleBadge = () => {
     if (!user) return null;
-    
+
     const colors = {
       superadmin: "bg-purple-50 text-purple-700 border-purple-200",
       director: "bg-indigo-50 text-indigo-700 border-indigo-200",
       manager: "bg-blue-50 text-blue-700 border-blue-200",
       team_lead: "bg-orange-50 text-orange-700 border-orange-200",
-      counsellor: "bg-emerald-50 text-emerald-700 border-emerald-200"
+      counsellor: "bg-emerald-50 text-emerald-700 border-emerald-200",
     };
 
     const labels = {
@@ -131,11 +140,16 @@ export function Sidebar({ className }: { className?: string }) {
       director: "Director",
       manager: "Manager",
       team_lead: "Team Lead",
-      counsellor: "Counsellor"
+      counsellor: "Counsellor",
     };
 
     return (
-      <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider border", colors[user.role])}>
+      <span
+        className={cn(
+          "text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider border",
+          colors[user.role],
+        )}
+      >
         {labels[user.role]}
       </span>
     );
@@ -162,7 +176,7 @@ export function Sidebar({ className }: { className?: string }) {
         </div>
         {filteredItems.map((item) => {
           const isActive = activeItem?.href === item.href;
-          
+
           if (item.label === "Clients") {
             return (
               <Collapsible
@@ -173,37 +187,44 @@ export function Sidebar({ className }: { className?: string }) {
               >
                 <div className="flex items-center gap-2">
                   <CollapsibleTrigger asChild>
-                    <div 
+                    <div
                       className={cn(
                         "flex flex-1 items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative cursor-pointer select-none",
                         isActive
                           ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-primary/20"
-                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                       )}
                     >
-                      <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-sidebar-primary-foreground" : "text-muted-foreground group-hover:text-sidebar-primary")} />
+                      <item.icon
+                        className={cn(
+                          "w-5 h-5 transition-transform group-hover:scale-110",
+                          isActive
+                            ? "text-sidebar-primary-foreground"
+                            : "text-muted-foreground group-hover:text-sidebar-primary",
+                        )}
+                      />
                       <span className="flex-1">{item.label}</span>
                       {isClientsOpen ? (
                         <ChevronDown className="w-4 h-4 opacity-50" />
                       ) : (
                         <ChevronRight className="w-4 h-4 opacity-50" />
                       )}
-                      
+
                       {isActive && !isClientsOpen && (
                         <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white/50" />
                       )}
                     </div>
                   </CollapsibleTrigger>
                 </div>
-                
+
                 <CollapsibleContent className="pl-4 space-y-1 overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
                   <Link
                     href="/clients"
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
-                      location === "/clients" 
-                        ? "border-primary text-primary font-medium bg-primary/5" 
-                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
+                      location === "/clients"
+                        ? "border-primary text-primary font-medium bg-primary/5"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
                     )}
                   >
                     <span className="truncate">All Clients</span>
@@ -221,10 +242,17 @@ export function Sidebar({ className }: { className?: string }) {
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative",
                 isActive
                   ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-primary/20"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
               )}
             >
-              <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive ? "text-sidebar-primary-foreground" : "text-muted-foreground group-hover:text-sidebar-primary")} />
+              <item.icon
+                className={cn(
+                  "w-5 h-5 transition-transform group-hover:scale-110",
+                  isActive
+                    ? "text-sidebar-primary-foreground"
+                    : "text-muted-foreground group-hover:text-sidebar-primary",
+                )}
+              />
               {item.label}
               {isActive && (
                 <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white/50" />
@@ -240,16 +268,20 @@ export function Sidebar({ className }: { className?: string }) {
             <div className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-sidebar-accent hover:shadow-sm rounded-xl transition-all border border-transparent hover:border-sidebar-border group">
               <Avatar className="h-10 w-10 border-2 border-sidebar-border shadow-sm group-hover:border-primary/20 transition-colors">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="bg-primary/10 text-primary font-bold">{user.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                  {user.name.charAt(0)}
+                </AvatarFallback>
               </Avatar>
               <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-semibold truncate text-foreground group-hover:text-primary transition-colors">{user.name}</span>
+                <span className="text-sm font-semibold truncate text-foreground group-hover:text-primary transition-colors">
+                  {user.name}
+                </span>
                 <div className="mt-1">{getRoleBadge()}</div>
               </div>
             </div>
           </ProfileDialog>
         )}
-        
+
         <Button
           variant="ghost"
           onClick={logout}
@@ -269,7 +301,11 @@ export function MobileSidebar() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden -ml-2 text-muted-foreground hover:text-foreground">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden -ml-2 text-muted-foreground hover:text-foreground"
+        >
           <Menu className="w-6 h-6" />
         </Button>
       </SheetTrigger>
