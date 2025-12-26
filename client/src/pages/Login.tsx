@@ -20,7 +20,10 @@ import { ModeToggle } from "@/components/mode-toggle";
 
 import api from "@/lib/api";
 
+import { useToast } from "@/hooks/use-toast";
+
 export default function Login() {
+  const { toast } = useToast();
   const { login, isLoading: authLoading } = useAuth();
   const [selectedRole, setSelectedRole] = useState<UserRole>("superadmin");
   const [username, setUsername] = useState("");
@@ -32,22 +35,40 @@ export default function Login() {
     setIsSubmitting(true);
     
     try {
+      console.log("Attempting login to:", `${api.defaults.baseURL}/api/users/login`);
       const response = await api.post("/api/users/login", {
         email: username,
         password: password
       });
 
+      console.log("API Response:", response.data);
+
       const { accessToken, role } = response.data;
       
+      if (!accessToken) {
+        throw new Error("No access token received from server");
+      }
+
       // Store the token securely
       localStorage.setItem("accessToken", accessToken);
       
       // Update the global authentication state
       login(role as UserRole);
       
-      console.log("Login successful:", role);
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${role}!`,
+      });
     } catch (error: any) {
-      console.error("Login failed:", error.response?.data || error.message);
+      console.error("Full Login Error:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Could not connect to the server";
+      
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: errorMessage,
+      });
+
       // Optional: keep demo fallback for testing if API fails
       // login(selectedRole);
     } finally {
