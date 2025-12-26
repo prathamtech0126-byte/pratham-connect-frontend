@@ -5,6 +5,10 @@ const API_BASE_URL = 'https://cradle-playback-strengths-assumption.trycloudflare
 const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  }
 });
 
 // Request interceptor to add the access token to headers
