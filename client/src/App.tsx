@@ -17,6 +17,7 @@ import Login from "@/pages/Login";
 import Reports from "@/pages/Reports";
 import TeamList from "@/pages/Team/TeamList";
 import AdditionalInfo from "@/pages/AdditionalInfo";
+import UniversityDatabase from "@/pages/UniversityDatabase";
 import Activity from "@/pages/Activity";
 import CalendarDemo from "@/pages/CalendarDemo";
 import ChangePassword from "@/pages/ChangePassword";
@@ -83,6 +84,10 @@ function Router() {
       </Route>
       <Route path="/additional-info">
         {params => <ProtectedRoute component={AdditionalInfo} />}
+      </Route>
+
+      <Route path="/university-db">
+        {params => <ProtectedRoute component={UniversityDatabase} />}
       </Route>
 
       <Route component={NotFound} />

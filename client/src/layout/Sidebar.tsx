@@ -62,6 +62,12 @@ const sidebarItems: SidebarItem[] = [
     href: "/additional-info",
     roles: ['superadmin', 'director']
   },
+  { 
+    icon: FileSpreadsheet, 
+    label: "University DB", 
+    href: "/university-db",
+    roles: ['superadmin', 'director']
+  },
 ];
 
 export function Sidebar({ className }: { className?: string }) {
