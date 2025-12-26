@@ -39,6 +39,11 @@ export default function Login() {
       const response = await api.post("/api/users/login", {
         email: username,
         password: password
+      }, {
+        // Explicitly override headers if needed
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
       console.log("API Response:", response.data);
