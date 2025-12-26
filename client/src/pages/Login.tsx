@@ -39,15 +39,17 @@ export default function Login() {
 
       const { accessToken, role } = response.data;
       
-      // Store the token
+      // Store the token securely
       localStorage.setItem("accessToken", accessToken);
       
-      // Update local auth state
+      // Update the global authentication state
       login(role as UserRole);
+      
+      console.log("Login successful:", role);
     } catch (error: any) {
-      console.error("Login failed:", error);
-      // Fallback to demo login if API fails or for testing
-      login(selectedRole);
+      console.error("Login failed:", error.response?.data || error.message);
+      // Optional: keep demo fallback for testing if API fails
+      // login(selectedRole);
     } finally {
       setIsSubmitting(false);
     }
