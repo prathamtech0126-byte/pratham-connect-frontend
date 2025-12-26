@@ -71,7 +71,10 @@ export default function Login() {
       });
     } catch (error: any) {
       console.error("Full Login Error:", error);
-      const msg = error.response?.data?.message || error.message || "Could not connect to the server";
+      
+      // If the backend returns a specific error message for empty fields or invalid credentials,
+      // it will be captured here and displayed under the password field.
+      const msg = error.response?.data?.message || error.response?.data?.error || error.message || "Could not connect to the server";
       setErrorMessage(msg);
       
       toast({
