@@ -9,7 +9,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  timeout: 10000,
+  timeout: 30000, // Increased to 30s for local tunnels
 });
 
 // For cross-origin requests to local backend, we need to ensure credentials are sent
