@@ -41,7 +41,9 @@ export default function Login() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (isSubmitting) return; // Prevent multiple submissions
+        e.stopPropagation(); // Stop event bubbling
+
+        if (isSubmitting) return; 
         
         setErrorMessage(null);
         setFieldErrors({});
@@ -59,10 +61,7 @@ export default function Login() {
         setIsSubmitting(true);
 
         try {
-            console.log(
-                "Attempting login to:",
-                `https://cradle-playback-strengths-assumption.trycloudflare.com/api/users/login`,
-            );
+            console.log("Attempting login...");
             const response = await api.post(
                 "/api/users/login",
                 {
@@ -76,8 +75,6 @@ export default function Login() {
                 },
             );
 
-            console.log("API Response:", response.data);
-
             const { accessToken, role } = response.data;
 
             if (!accessToken) {
@@ -85,9 +82,7 @@ export default function Login() {
             }
 
             localStorage.setItem("accessToken", accessToken);
-            const mappedRole = (
-                role === "admin" ? "superadmin" : role
-            ) as UserRole;
+            const mappedRole = (role === "admin" ? "superadmin" : role) as UserRole;
             login(mappedRole);
 
             toast({
@@ -95,26 +90,14 @@ export default function Login() {
                 description: `Welcome back, ${mappedRole}!`,
             });
         } catch (error: any) {
-            console.error("Full Login Error:", error);
+            console.error("Login Error:", error);
             
-            // Ensure we stop submission state immediately
-            setIsSubmitting(false);
-
-            // Handle 404 and other common errors without refreshing
-            let msg = "Could not connect to the server";
+            let msg = "Invalid email or password";
             
             if (error.response) {
-                // Server responded with an error
-                if (error.response.status === 404) {
-                    msg = "Invalid credentials or service not found";
-                } else {
-                    msg = error.response.data?.message || error.response.data?.error || `Error: ${error.response.status}`;
-                }
+                msg = error.response.data?.message || error.response.data?.error || `Error: ${error.response.status}`;
             } else if (error.request) {
-                // Request was made but no response received
-                msg = "Server is not responding. Please check your connection.";
-            } else {
-                msg = error.message;
+                msg = "Server connection lost. Please try again.";
             }
 
             setErrorMessage(msg);
@@ -125,12 +108,7 @@ export default function Login() {
                 title: "Login Failed",
                 description: msg,
             });
-            
-            // Explicitly prevent any further default action that might cause refresh
-            return;
         } finally {
-            // Only set false if we haven't already handled it in catch
-            // though finally always runs, setting it here is standard
             setIsSubmitting(false);
         }
     };
