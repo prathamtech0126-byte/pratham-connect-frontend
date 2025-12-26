@@ -14,6 +14,7 @@ import {
   Crown,
   Activity,
   FileText,
+  FileSpreadsheet,
   ChevronDown,
   ChevronRight
 } from "lucide-react";
