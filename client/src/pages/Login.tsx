@@ -29,9 +29,17 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+
+    if (!username || !password) {
+      setErrorMessage("Please enter both username and password");
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -40,7 +48,6 @@ export default function Login() {
         email: username,
         password: password
       }, {
-        // Explicitly override headers if needed
         headers: {
           'Content-Type': 'application/json'
         }
@@ -54,11 +61,7 @@ export default function Login() {
         throw new Error("No access token received from server");
       }
 
-      // Store the token securely
       localStorage.setItem("accessToken", accessToken);
-      
-      // Update the global authentication state
-      // Map 'admin' role from backend to 'superadmin' role in frontend
       const mappedRole = (role === "admin" ? "superadmin" : role) as UserRole;
       login(mappedRole);
       
@@ -68,16 +71,14 @@ export default function Login() {
       });
     } catch (error: any) {
       console.error("Full Login Error:", error);
-      const errorMessage = error.response?.data?.message || error.message || "Could not connect to the server";
+      const msg = error.response?.data?.message || error.message || "Could not connect to the server";
+      setErrorMessage(msg);
       
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: errorMessage,
+        description: msg,
       });
-
-      // Optional: keep demo fallback for testing if API fails
-      // login(selectedRole);
     } finally {
       setIsSubmitting(false);
     }
@@ -221,8 +222,13 @@ export default function Login() {
                                 placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="h-12 bg-background border-input focus:ring-primary/20 focus:border-primary text-foreground placeholder:text-muted-foreground"
+                                className={`h-12 bg-background border-input focus:ring-primary/20 focus:border-primary text-foreground placeholder:text-muted-foreground ${errorMessage ? 'border-destructive' : ''}`}
                             />
+                            {errorMessage && (
+                                <p className="text-xs font-medium text-destructive mt-1 animate-in fade-in slide-in-from-top-1">
+                                    {errorMessage}
+                                </p>
+                            )}
                         </div>
 
                         <Button 
