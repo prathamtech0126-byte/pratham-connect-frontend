@@ -41,6 +41,8 @@ export default function Login() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return; // Prevent multiple submissions
+        
         setErrorMessage(null);
         setFieldErrors({});
 
@@ -95,14 +97,25 @@ export default function Login() {
         } catch (error: any) {
             console.error("Full Login Error:", error);
 
-            // If the backend returns a specific error message for empty fields or invalid credentials,
-            // it will be captured here and displayed under the password field.
-            const msg =
-                error.response?.data?.message ||
-                error.response?.data?.error ||
-                error.message ||
-                "Could not connect to the server";
+            // Handle 404 and other common errors without refreshing
+            let msg = "Could not connect to the server";
+            
+            if (error.response) {
+                // Server responded with an error
+                if (error.response.status === 404) {
+                    msg = "Invalid credentials or service not found";
+                } else {
+                    msg = error.response.data?.message || error.response.data?.error || `Error: ${error.response.status}`;
+                }
+            } else if (error.request) {
+                // Request was made but no response received
+                msg = "Server is not responding. Please check your connection.";
+            } else {
+                msg = error.message;
+            }
+
             setErrorMessage(msg);
+            setFieldErrors({ username: true, password: true });
 
             toast({
                 variant: "destructive",
