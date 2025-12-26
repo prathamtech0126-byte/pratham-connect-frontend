@@ -12,6 +12,10 @@ const api = axios.create({
   timeout: 10000,
 });
 
+// For cross-origin requests to local backend, we need to ensure credentials are sent
+api.defaults.withCredentials = true;
+
+
 // Request interceptor to add the access token to headers
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
