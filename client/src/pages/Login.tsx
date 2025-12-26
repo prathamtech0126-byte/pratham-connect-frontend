@@ -96,6 +96,9 @@ export default function Login() {
             });
         } catch (error: any) {
             console.error("Full Login Error:", error);
+            
+            // Ensure we stop submission state immediately
+            setIsSubmitting(false);
 
             // Handle 404 and other common errors without refreshing
             let msg = "Could not connect to the server";
@@ -122,7 +125,12 @@ export default function Login() {
                 title: "Login Failed",
                 description: msg,
             });
+            
+            // Explicitly prevent any further default action that might cause refresh
+            return;
         } finally {
+            // Only set false if we haven't already handled it in catch
+            // though finally always runs, setting it here is standard
             setIsSubmitting(false);
         }
     };
