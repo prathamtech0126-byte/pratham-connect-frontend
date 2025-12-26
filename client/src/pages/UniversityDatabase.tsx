@@ -529,37 +529,56 @@ export default function UniversityDatabase() {
                     </TableRow>
                   ) : (
                     filteredData.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{item.srNo || index + 1}</TableCell>
-                        <TableCell className="font-medium">
-                          {item.universityName}
+                      <TableRow key={index} className="hover:bg-muted/30 transition-colors">
+                        <TableCell className="font-mono text-xs text-muted-foreground">{item.srNo || index + 1}</TableCell>
+                        <TableCell className="font-semibold text-primary">{item.universityName}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10">
+                            {item.locationProvince}
+                          </span>
                         </TableCell>
-                        <TableCell>{item.locationProvince}</TableCell>
-                        <TableCell>{item.campus}</TableCell>
-                        <TableCell>{item.cipCodes}</TableCell>
-                        <TableCell>{item.intake}</TableCell>
-                        <TableCell
-                          className="max-w-xs truncate"
-                          title={item.coursesAvailable}
-                        >
+                        <TableCell className="text-sm">{item.campus}</TableCell>
+                        <TableCell className="text-xs font-mono">{item.cipCodes}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                            {item.intake}
+                          </span>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate text-sm" title={item.coursesAvailable}>
                           {item.coursesAvailable}
                         </TableCell>
-                        <TableCell>{item.tuitionFees}</TableCell>
-                        <TableCell>{item.courseType}</TableCell>
-                        <TableCell>{item.duration}</TableCell>
-                        <TableCell>{item.moi}</TableCell>
-                        <TableCell>{item.ielts}</TableCell>
-                        <TableCell>{item.toefl}</TableCell>
-                        <TableCell>{item.pte}</TableCell>
-                        <TableCell>{item.duolingo}</TableCell>
-                        <TableCell>{item.qualificationRequired}</TableCell>
-                        <TableCell>{item.backlogsAccepted}</TableCell>
-                        <TableCell>{item.gapAccepted}</TableCell>
-                        <TableCell>{item.percentageAccepted}</TableCell>
-                        <TableCell>{item.pgwpEligible}</TableCell>
-                        <TableCell>{item.sowpEligible}</TableCell>
-                        <TableCell>{item.category}</TableCell>
-                        <TableCell>{item.subCategory}</TableCell>
+                        <TableCell className="font-medium text-emerald-600">{item.tuitionFees}</TableCell>
+                        <TableCell>
+                          <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground">
+                            {item.courseType}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm">{item.duration}</TableCell>
+                        <TableCell className="text-sm font-medium">{item.moi}</TableCell>
+                        <TableCell className="text-sm font-bold text-orange-600">{item.ielts}</TableCell>
+                        <TableCell className="text-sm font-bold text-blue-600">{item.toefl}</TableCell>
+                        <TableCell className="text-sm font-bold text-purple-600">{item.pte}</TableCell>
+                        <TableCell className="text-sm font-bold text-pink-600">{item.duolingo}</TableCell>
+                        <TableCell className="text-sm">{item.qualificationRequired}</TableCell>
+                        <TableCell className="text-center">
+                          <span className={`text-xs font-bold ${Number(item.backlogsAccepted) > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                            {item.backlogsAccepted}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm">{item.gapAccepted}</TableCell>
+                        <TableCell className="text-sm font-medium">{item.percentageAccepted}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${item.pgwpEligible === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {item.pgwpEligible}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${item.sowpEligible === 'Yes' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {item.sowpEligible}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-xs font-bold italic text-slate-500">{item.category}</TableCell>
+                        <TableCell className="text-xs text-slate-400">{item.subCategory}</TableCell>
                       </TableRow>
                     ))
                   )}
