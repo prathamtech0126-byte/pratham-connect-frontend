@@ -51,7 +51,80 @@ const DB_FIELDS = [
 
 export default function UniversityDatabase() {
   const { toast } = useToast();
-  const [data, setData] = useState<UniversityData[]>([]);
+  const [data, setData] = useState<UniversityData[]>([
+    {
+      universityName: "University of Toronto",
+      locationProvince: "Ontario",
+      campus: "St. George",
+      intake: "Sep 2024",
+      coursesAvailable: "Computer Science, Data Science",
+      tuitionFees: "60,000 CAD",
+      courseType: "Post Graduate",
+      duration: "2 Years",
+      ielts: "7.0",
+      toefl: "100",
+      pte: "65",
+      cipCodes: "11.0701",
+      moi: "English",
+      duolingo: "120",
+      qualificationRequired: "Bachelors",
+      backlogsAccepted: "2",
+      gapAccepted: "1 Year",
+      percentageAccepted: "75%",
+      pgwpEligible: "Yes",
+      sowpEligible: "Yes",
+      category: "University",
+      subCategory: "Public"
+    },
+    {
+      universityName: "University of British Columbia",
+      locationProvince: "British Columbia",
+      campus: "Vancouver",
+      intake: "Jan 2024",
+      coursesAvailable: "MBA, Business Analytics",
+      tuitionFees: "55,000 CAD",
+      courseType: "Post Graduate",
+      duration: "1.5 Years",
+      ielts: "7.5",
+      toefl: "105",
+      pte: "70",
+      cipCodes: "52.0201",
+      moi: "English",
+      duolingo: "130",
+      qualificationRequired: "Bachelors",
+      backlogsAccepted: "0",
+      gapAccepted: "2 Years",
+      percentageAccepted: "80%",
+      pgwpEligible: "Yes",
+      sowpEligible: "Yes",
+      category: "University",
+      subCategory: "Public"
+    },
+    {
+      universityName: "Conestoga College",
+      locationProvince: "Ontario",
+      campus: "Kitchener",
+      intake: "May 2024",
+      coursesAvailable: "Project Management, Web Development",
+      tuitionFees: "17,000 CAD",
+      courseType: "PG Diploma",
+      duration: "1 Year",
+      ielts: "6.5",
+      toefl: "88",
+      pte: "58",
+      cipCodes: "11.0101",
+      moi: "English",
+      duolingo: "110",
+      qualificationRequired: "Bachelors",
+      backlogsAccepted: "5",
+      gapAccepted: "5 Years",
+      percentageAccepted: "60%",
+      pgwpEligible: "Yes",
+      sowpEligible: "Yes",
+      category: "College",
+      subCategory: "Public"
+    }
+  ]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isMapping, setIsMapping] = useState(false);
   const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
