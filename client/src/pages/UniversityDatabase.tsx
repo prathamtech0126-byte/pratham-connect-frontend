@@ -39,14 +39,25 @@ const DB_FIELDS = [
   { key: "universityName", label: "University Name" },
   { key: "locationProvince", label: "Location/Province" },
   { key: "campus", label: "Campus" },
+  { key: "cipCodes", label: "CIP Codes" },
   { key: "intake", label: "Intake" },
   { key: "coursesAvailable", label: "Courses Available" },
   { key: "tuitionFees", label: "Tuition Fees" },
   { key: "courseType", label: "Course Type" },
   { key: "duration", label: "Duration" },
+  { key: "moi", label: "MOI" },
   { key: "ielts", label: "IELTS" },
-  { key: "pte", label: "PTE" },
   { key: "toefl", label: "TOEFL" },
+  { key: "pte", label: "PTE" },
+  { key: "duolingo", label: "Duolingo" },
+  { key: "qualificationRequired", label: "Qualification Required" },
+  { key: "backlogsAccepted", label: "Backlogs Accepted" },
+  { key: "gapAccepted", label: "GAP Accepted" },
+  { key: "percentageAccepted", label: "Percentage Accepted" },
+  { key: "pgwpEligible", label: "PGWP Eligible" },
+  { key: "sowpEligible", label: "SOWP Eligible" },
+  { key: "category", label: "Category" },
+  { key: "subCategory", label: "Sub-Category" },
 ];
 
 export default function UniversityDatabase() {
@@ -364,17 +375,32 @@ export default function UniversityDatabase() {
                     <TableHead className="w-[100px]">Sr.no</TableHead>
                     <TableHead className="min-w-[200px]">University Name</TableHead>
                     <TableHead>Location</TableHead>
+                    <TableHead>Campus</TableHead>
+                    <TableHead>CIP Codes</TableHead>
                     <TableHead>Intake</TableHead>
                     <TableHead className="min-w-[200px]">Courses</TableHead>
                     <TableHead>Fees</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>MOI</TableHead>
                     <TableHead>IELTS</TableHead>
+                    <TableHead>TOEFL</TableHead>
+                    <TableHead>PTE</TableHead>
+                    <TableHead>Duolingo</TableHead>
+                    <TableHead>Qualification</TableHead>
+                    <TableHead>Backlogs</TableHead>
+                    <TableHead>GAP</TableHead>
+                    <TableHead>Percentage</TableHead>
+                    <TableHead>PGWP</TableHead>
+                    <TableHead>SOWP</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Sub-Category</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredData.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-64 text-center">
+                      <TableCell colSpan={23} className="h-64 text-center">
                         <div className="flex flex-col items-center justify-center text-muted-foreground">
                           <FileSpreadsheet className="h-12 w-12 mb-2 opacity-20" />
                           <p>No data available. Please upload an excel file.</p>
@@ -384,14 +410,31 @@ export default function UniversityDatabase() {
                   ) : (
                     filteredData.map((item, index) => (
                       <TableRow key={index}>
-                        <TableCell>{item.srNo}</TableCell>
+                        <TableCell>{item.srNo || index + 1}</TableCell>
                         <TableCell className="font-medium">{item.universityName}</TableCell>
                         <TableCell>{item.locationProvince}</TableCell>
+                        <TableCell>{item.campus}</TableCell>
+                        <TableCell>{item.cipCodes}</TableCell>
                         <TableCell>{item.intake}</TableCell>
-                        <TableCell className="max-w-xs truncate">{item.coursesAvailable}</TableCell>
+                        <TableCell className="max-w-xs truncate" title={item.coursesAvailable}>
+                          {item.coursesAvailable}
+                        </TableCell>
                         <TableCell>{item.tuitionFees}</TableCell>
                         <TableCell>{item.courseType}</TableCell>
+                        <TableCell>{item.duration}</TableCell>
+                        <TableCell>{item.moi}</TableCell>
                         <TableCell>{item.ielts}</TableCell>
+                        <TableCell>{item.toefl}</TableCell>
+                        <TableCell>{item.pte}</TableCell>
+                        <TableCell>{item.duolingo}</TableCell>
+                        <TableCell>{item.qualificationRequired}</TableCell>
+                        <TableCell>{item.backlogsAccepted}</TableCell>
+                        <TableCell>{item.gapAccepted}</TableCell>
+                        <TableCell>{item.percentageAccepted}</TableCell>
+                        <TableCell>{item.pgwpEligible}</TableCell>
+                        <TableCell>{item.sowpEligible}</TableCell>
+                        <TableCell>{item.category}</TableCell>
+                        <TableCell>{item.subCategory}</TableCell>
                       </TableRow>
                     ))
                   )}
