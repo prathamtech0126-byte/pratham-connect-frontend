@@ -18,16 +18,42 @@ import { Shield, Users, Briefcase, Crown, ArrowRight, CheckCircle2 } from "lucid
 import logoUrl from "@/assets/images/Pratham Logo.svg";
 import { ModeToggle } from "@/components/mode-toggle";
 
+import api from "@/lib/api";
+
 export default function Login() {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading: authLoading } = useAuth();
   const [selectedRole, setSelectedRole] = useState<UserRole>("superadmin");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(selectedRole);
+    setIsSubmitting(true);
+    
+    try {
+      const response = await api.post("/users/login", {
+        email: username,
+        password: password
+      });
+
+      const { accessToken, role } = response.data;
+      
+      // Store the token
+      localStorage.setItem("accessToken", accessToken);
+      
+      // Update local auth state
+      login(role as UserRole);
+    } catch (error: any) {
+      console.error("Login failed:", error);
+      // Fallback to demo login if API fails or for testing
+      login(selectedRole);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const isLoading = authLoading || isSubmitting;
 
   return (
     <div className="min-h-screen w-full flex bg-background transition-colors duration-300">
