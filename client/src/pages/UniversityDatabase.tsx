@@ -35,10 +35,29 @@ interface UniversityData {
   subCategory: string;
 }
 
+const DB_FIELDS = [
+  { key: "universityName", label: "University Name" },
+  { key: "locationProvince", label: "Location/Province" },
+  { key: "campus", label: "Campus" },
+  { key: "intake", label: "Intake" },
+  { key: "coursesAvailable", label: "Courses Available" },
+  { key: "tuitionFees", label: "Tuition Fees" },
+  { key: "courseType", label: "Course Type" },
+  { key: "duration", label: "Duration" },
+  { key: "ielts", label: "IELTS" },
+  { key: "pte", label: "PTE" },
+  { key: "toefl", label: "TOEFL" },
+];
+
 export default function UniversityDatabase() {
   const { toast } = useToast();
   const [data, setData] = useState<UniversityData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isMapping, setIsMapping] = useState(false);
+  const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
+  const [fieldMapping, setFieldMapping] = useState<Record<string, string>>({});
+  const [pendingData, setPendingData] = useState<any[]>([]);
+  
   const [filters, setFilters] = useState({
     location: "all",
     courseType: "all",
@@ -56,50 +75,62 @@ export default function UniversityDatabase() {
         const wb = XLSX.read(bstr, { type: "binary" });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        const jsonData = XLSX.utils.sheet_to_json(ws) as any[];
-
-        // Map excel columns to our interface
-        const mappedData: UniversityData[] = jsonData.map((row) => ({
-          srNo: row["Sr.no"] || row["Sr No"] || "",
-          universityName: row["University Name"] || "",
-          locationProvince: row["Location/Province"] || row["Province"] || "",
-          campus: row["Campus"] || "",
-          cipCodes: row["CIP Codes"] || "",
-          intake: row["Intake"] || "",
-          coursesAvailable: row["Courses Available"] || "",
-          tuitionFees: row["Tution Fees"] || row["Tuition Fees"] || "",
-          courseType: row["Course Type"] || "",
-          duration: row["Duration"] || "",
-          moi: row["MOI"] || "",
-          ielts: row["IELTS- (L/R/W/S/OVERALL)"] || row["IELTS"] || "",
-          toefl: row["TOEFL- (L/R/W/S/OVERALL)"] || row["TOEFL"] || "",
-          pte: row["PTE- (L/R/W/S/OVERALL)"] || row["PTE"] || "",
-          duolingo: row["Duolingo"] || "",
-          qualificationRequired: row["Qualification Required"] || "",
-          backlogsAccepted: row["Backlogs Accepted"] || "",
-          gapAccepted: row["GAP Accepted"] || "",
-          percentageAccepted: row["Percentage Accepted"] || "",
-          pgwpEligible: row["PGWP Eligible"] || "",
-          sowpEligible: row["SOWP Eligible"] || "",
-          category: row["Category"] || "",
-          subCategory: row["Sub-Category"] || "",
-        }));
-
-        setData(mappedData);
-        toast({
-          title: "Success",
-          description: `Imported ${mappedData.length} records successfully.`,
-        });
+        const jsonData = XLSX.utils.sheet_to_json(ws);
+        
+        if (jsonData.length > 0) {
+          const headers = Object.keys(jsonData[0] as object);
+          setExcelHeaders(headers);
+          setPendingData(jsonData);
+          
+          // Try to auto-map based on common names
+          const initialMapping: Record<string, string> = {};
+          DB_FIELDS.forEach(field => {
+            const match = headers.find(h => 
+              h.toLowerCase().includes(field.label.toLowerCase()) || 
+              h.toLowerCase() === field.key.toLowerCase()
+            );
+            if (match) initialMapping[field.key] = match;
+          });
+          setFieldMapping(initialMapping);
+          setIsMapping(true);
+        }
       } catch (error) {
-        console.error("Error parsing excel:", error);
-        toast({
-          title: "Error",
-          description: "Failed to parse excel file. Please check the format.",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Failed to read excel", variant: "destructive" });
       }
     };
     reader.readAsBinaryString(file);
+    e.target.value = ''; // Reset input
+  };
+
+  const confirmMapping = () => {
+    const mappedData: UniversityData[] = pendingData.map((row) => ({
+      universityName: row[fieldMapping.universityName] || "",
+      locationProvince: row[fieldMapping.locationProvince] || "",
+      campus: row[fieldMapping.campus] || "",
+      cipCodes: row[fieldMapping.cipCodes] || "",
+      intake: row[fieldMapping.intake] || "",
+      coursesAvailable: row[fieldMapping.coursesAvailable] || "",
+      tuitionFees: row[fieldMapping.tuitionFees] || "",
+      courseType: row[fieldMapping.courseType] || "",
+      duration: row[fieldMapping.duration] || "",
+      moi: row[fieldMapping.moi] || "",
+      ielts: row[fieldMapping.ielts] || "",
+      toefl: row[fieldMapping.toefl] || "",
+      pte: row[fieldMapping.pte] || "",
+      duolingo: row[fieldMapping.duolingo] || "",
+      qualificationRequired: row[fieldMapping.qualificationRequired] || "",
+      backlogsAccepted: row[fieldMapping.backlogsAccepted] || "",
+      gapAccepted: row[fieldMapping.gapAccepted] || "",
+      percentageAccepted: row[fieldMapping.percentageAccepted] || "",
+      pgwpEligible: row[fieldMapping.pgwpEligible] || "",
+      sowpEligible: row[fieldMapping.sowpEligible] || "",
+      category: row[fieldMapping.category] || "",
+      subCategory: row[fieldMapping.subCategory] || "",
+    }));
+
+    setData(mappedData);
+    setIsMapping(false);
+    toast({ title: "Success", description: `Mapped ${mappedData.length} records successfully` });
   };
 
   const filteredData = useMemo(() => {
@@ -129,6 +160,42 @@ export default function UniversityDatabase() {
   return (
     <PageWrapper title="University Database" breadcrumbs={[{ label: "University DB" }]}>
       <div className="space-y-6">
+        {isMapping && (
+          <Card className="border-primary bg-primary/5">
+            <CardHeader>
+              <CardTitle>Map Excel Columns</CardTitle>
+              <CardDescription>Match your Excel headers to the Database fields</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {DB_FIELDS.map((field) => (
+                  <div key={field.key} className="space-y-2">
+                    <Label className="text-primary font-bold">{field.label}</Label>
+                    <Select 
+                      value={fieldMapping[field.key] || "unmapped"} 
+                      onValueChange={(v) => setFieldMapping(prev => ({ ...prev, [field.key]: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose Excel Header" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unmapped">-- Skip this field --</SelectItem>
+                        {excelHeaders.map(h => (
+                          <SelectItem key={h} value={h}>{h}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-8 justify-end">
+                <Button variant="outline" onClick={() => setIsMapping(false)}>Cancel</Button>
+                <Button onClick={confirmMapping}>Process & Save Data</Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
