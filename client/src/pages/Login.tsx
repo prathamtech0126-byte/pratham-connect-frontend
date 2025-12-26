@@ -58,11 +58,13 @@ export default function Login() {
       localStorage.setItem("accessToken", accessToken);
       
       // Update the global authentication state
-      login(role as UserRole);
+      // Map 'admin' role from backend to 'superadmin' role in frontend
+      const mappedRole = (role === "admin" ? "superadmin" : role) as UserRole;
+      login(mappedRole);
       
       toast({
         title: "Login Successful",
-        description: `Welcome back, ${role}!`,
+        description: `Welcome back, ${mappedRole}!`,
       });
     } catch (error: any) {
       console.error("Full Login Error:", error);
