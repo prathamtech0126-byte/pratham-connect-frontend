@@ -9,8 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
-import { Trash2, Plus, Filter, Search, Pencil, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Trash2, Plus, Filter, Search, Pencil, X, Loader2 } from "lucide-react";
+import api from "@/lib/api";
 
 export default function TeamList() {
   const { toast } = useToast();
@@ -22,6 +23,30 @@ export default function TeamList() {
     { id: 4, name: "Priya Singh", email: "priya@pratham.com", role: "Counsellor", status: "Active", avatar: "", assignedTo: "Sarah Manager", password: "" },
     { id: 5, name: "Amit Director", email: "amit@pratham.com", role: "Director", status: "Active", avatar: "", assignedTo: "", password: "" },
   ]);
+
+  // Manager fetching state
+  const [managers, setManagers] = useState<any[]>([]);
+  const [isLoadingManagers, setIsLoadingManagers] = useState(false);
+
+  const fetchManagers = async () => {
+    try {
+      setIsLoadingManagers(true);
+      const response = await api.get("/api/users/managers");
+      setManagers(response.data);
+    } catch (error) {
+      // Fallback to local state if API fails for demo
+      const localManagers = teamMembers.filter(m => m.role === "Manager");
+      setManagers(localManagers);
+    } finally {
+      setIsLoadingManagers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAddMemberOpen) {
+      fetchManagers();
+    }
+  }, [isAddMemberOpen]);
 
   // Filter State
   const [roleFilter, setRoleFilter] = useState("all");
@@ -209,16 +234,28 @@ export default function TeamList() {
                     <Select
                       value={newMember.assignedTo}
                       onValueChange={(value) => setNewMember({ ...newMember, assignedTo: value })}
+                      disabled={isLoadingManagers}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select Manager" />
+                        <SelectValue placeholder={isLoadingManagers ? "Loading managers..." : "Select Manager"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {assignableManagers.map((manager) => (
-                          <SelectItem key={manager.id} value={manager.name}>
-                            {manager.name}
-                          </SelectItem>
-                        ))}
+                        {isLoadingManagers ? (
+                          <div className="flex items-center justify-center p-2">
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            <span className="text-sm">Loading...</span>
+                          </div>
+                        ) : managers && managers.length > 0 ? (
+                          managers.map((manager: any) => (
+                            <SelectItem key={manager.id} value={manager.name}>
+                              {manager.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-2 text-sm text-center text-muted-foreground">
+                            No managers found
+                          </div>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
