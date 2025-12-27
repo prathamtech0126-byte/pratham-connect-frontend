@@ -74,6 +74,7 @@ export default function Login() {
                     headers: {
                         "Content-Type": "application/json",
                     },
+                    timeout: 10000,
                 },
             );
             console.log("Login response:", response.status);
@@ -108,23 +109,21 @@ export default function Login() {
             });
         } catch (error: any) {
             console.error("Login error caught:", error);
+            
+            // Stop the reload by ensuring we don't throw further
             let msg = "Invalid email or password";
 
-            if (error.response) {
+            if (error.code === 'ECONNABORTED') {
+                msg = "Server is taking too long to respond. Please check your connection.";
+            } else if (error.response) {
                 console.log("Error response data:", error.response.data);
-                // Prioritize message from server, fallback to friendly message for 404/401
                 msg = error.response.data?.message || error.response.data?.error || "Invalid email or password";
                 
-                // If the error message is related to refresh token failure during login attempt, 
-                // we should stick to "Invalid email or password"
                 if (msg.toLowerCase().includes("refresh") || msg.toLowerCase().includes("token")) {
                     msg = "Invalid email or password";
                 }
             } else if (error.request) {
-                console.log("Error request (no response):", error.request);
                 msg = "Server connection lost. Please try again.";
-            } else {
-                console.log("Error message:", error.message);
             }
 
             setErrorMessage(msg);
@@ -135,6 +134,9 @@ export default function Login() {
                 title: "Login Failed",
                 description: msg,
             });
+            
+            // Explicitly return to prevent any bubbling
+            return;
         } finally {
             setIsSubmitting(false);
         }

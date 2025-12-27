@@ -85,9 +85,10 @@ api.interceptors.response.use(
         
         return api(originalRequest);
       } catch (refreshError) {
-        // If refresh fails, clear state and redirect to login
+        // If refresh fails, clear state
         setInMemoryToken(null);
-        window.location.href = '/login';
+        // Remove the automatic redirect which might be causing the reload loop
+        // window.location.href = '/login'; 
         return Promise.reject(refreshError);
       }
     }
