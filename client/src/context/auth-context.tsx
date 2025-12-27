@@ -92,39 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // 3. Verify session with backend in the background
-      // Try refresh endpoint - this will use the HTTPOnly refresh token cookie
-      try {
-        console.log("App Reload: Verifying session with backend...");
-        const response = await api.post('/api/users/refresh', {}, {
-          timeout: 5000,
-        });
-        
-        if (response.data && response.data.accessToken) {
-          setInMemoryToken(response.data.accessToken);
-          console.log("✓ Session verified - refresh token is valid");
-        } else {
-          console.log("⚠ No access token in refresh response, but user restored from cache");
-        }
-      } catch (error: any) {
-        const status = error.response?.status;
-        const message = error.message;
-        console.error("Session verification attempt:", {status, message});
-        
-        // Only clear session on explicit auth failures
-        if (status === 401 || status === 403) {
-          console.log("❌ Refresh token expired/invalid - clearing session");
-          setUser(null);
-          setInMemoryToken(null);
-          localStorage.removeItem('auth_user');
-        } else {
-          // Network errors or other issues - keep user logged in
-          // The HTTPOnly cookies should still be valid if the backend is running
-          console.log("⚠ Could not verify session (network/timeout), but keeping user logged in");
-        }
-      } finally {
-        setIsLoading(false);
-      }
+      // 3. User is restored from localStorage - consider them logged in
+      // Trust the stored session since HTTPOnly cookies are handled by the browser
+      console.log("✓ Session restored from localStorage");
+      setIsLoading(false);
     };
 
     checkAuth();
