@@ -1,7 +1,7 @@
 import axios, { InternalAxiosRequestConfig } from "axios";
 
 const API_BASE_URL =
-  " https://fur-enquiries-awareness-nature.trycloudflare.com";
+  process.env.VITE_API_URL || "http://localhost:5000";
 
 let inMemoryToken: string | null = null;
 
