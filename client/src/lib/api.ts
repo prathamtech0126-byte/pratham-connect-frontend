@@ -1,46 +1,105 @@
-import axios from "axios";
+import axios, { InternalAxiosRequestConfig } from "axios";
+
+const API_BASE_URL =
+  " https://fur-enquiries-awareness-nature.trycloudflare.com";
 
 let inMemoryToken: string | null = null;
+
+// Debug helper to check state (remove in production)
+if (typeof window !== "undefined") {
+  (window as any).__debugAuth = () => {
+    console.log("--- Auth Security Check ---");
+    console.log("In-Memory Token:", inMemoryToken ? "✅ Stored (Safe)" : "❌ Not found");
+    console.log("Local Storage 'accessToken':", localStorage.getItem("accessToken") ? "⚠️ Warning: Found" : "✅ Clean");
+    console.log("All Cookies:", document.cookie || "None");
+    console.log("---------------------------");
+  };
+}
 
 export const setInMemoryToken = (token: string | null) => {
   inMemoryToken = token;
 };
 
 const api = axios.create({
-  baseURL: "/",
+  baseURL: API_BASE_URL,
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
-  }
+    Accept: "application/json",
+  },
+  timeout: 60000,
 });
 
+// Helper to get/set/remove cookies if needed, but primarily using in-memory token
+const getCookie = (name: string) => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(";").shift();
+  return null;
+};
+
+api.defaults.withCredentials = true;
+
+// Request interceptor to add the access token to headers
 api.interceptors.request.use(
-  (config) => {
-    if (inMemoryToken) {
+  (config: InternalAxiosRequestConfig) => {
+    // We only attach Bearer token if it exists in memory.
+    // If not, we rely on HttpOnly cookies (withCredentials: true).
+    if (inMemoryToken && config.headers) {
       config.headers.Authorization = `Bearer ${inMemoryToken}`;
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
+// Response interceptor to handle token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes("/api/users/refresh")) {
+
+    // If the error is 401 and we haven't retried yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
+
       try {
-        const { data } = await axios.post("/api/users/refresh", {}, { withCredentials: true });
-        setInMemoryToken(data.accessToken);
-        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
-        return axios(originalRequest);
-      } catch (refreshError) {
+        // Attempt to refresh the token using the refresh cookie (HttpOnly, sent automatically)
+        const response = await axios.post(
+          `${API_BASE_URL}/api/users/refresh`,
+          {},
+          { 
+            withCredentials: true,
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            }
+          },
+        );
+        
+        // If your server returns the new accessToken in JSON, capture it
+        const newAccessToken = response.data.accessToken;
+        if (newAccessToken) {
+          setInMemoryToken(newAccessToken);
+        }
+        
+        return api(originalRequest);
+      } catch (refreshError: any) {
+        // If refresh fails, clear state
+        setInMemoryToken(null);
+        
+        // Only force redirect to login if the refresh token is actually invalid/expired
+        if (refreshError.response?.status === 401 || refreshError.response?.status === 403) {
+           localStorage.removeItem('auth_user');
+           window.location.href = '/login'; 
+        }
+        
         return Promise.reject(refreshError);
       }
     }
+
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

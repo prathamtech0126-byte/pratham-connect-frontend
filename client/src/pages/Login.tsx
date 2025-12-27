@@ -101,7 +101,7 @@ export default function Login() {
             // Clear all other potentially stale tokens from previous sessions
             localStorage.removeItem('auth_user');
             
-            login(response.data.user || { id: '1', username: username, name: username, role: mappedRole }, accessToken);
+            login(mappedRole);
 
             toast({
                 title: "Login Successful",
