@@ -16,13 +16,36 @@ import api from "@/lib/api";
 export default function TeamList() {
   const { toast } = useToast();
   
-  // Team State
-  const [teamMembers, setTeamMembers] = useState([
-    { id: 1, name: "Sarah Manager", email: "sarah@pratham.com", role: "Manager", status: "Active", avatar: "", assignedTo: "", password: "" },
-    { id: 3, name: "Dr. Counsellor", email: "doc@pratham.com", role: "Counsellor", status: "Away", avatar: "", assignedTo: "Sarah Manager", password: "" },
-    { id: 4, name: "Priya Singh", email: "priya@pratham.com", role: "Counsellor", status: "Active", avatar: "", assignedTo: "Sarah Manager", password: "" },
-    { id: 5, name: "Amit Director", email: "amit@pratham.com", role: "Director", status: "Active", avatar: "", assignedTo: "", password: "" },
-  ]);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchTeamMembers = async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.get("/api/users/users");
+      // Use the standard data structure from previous observations
+      const data = response.data.data || response.data;
+      if (Array.isArray(data)) {
+        setTeamMembers(data.map((u: any) => ({
+          ...u,
+          id: u.id,
+          name: u.fullName || u.name,
+          email: u.email,
+          role: u.role,
+          status: "Active", // Backend might not provide this, default to Active
+          assignedTo: u.managerId ? "Assigned" : "" // We'll show specific manager names if possible
+        })));
+      }
+    } catch (error) {
+      console.error("Failed to fetch team members:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTeamMembers();
+  }, []);
 
   // Filter State
   const [roleFilter, setRoleFilter] = useState("all");
@@ -141,23 +164,13 @@ export default function TeamList() {
 
         const response = await api.post("/api/users/register", payload);
         
-        const createdMember = response.data;
-        const member = {
-          id: createdMember.id,
-          name: createdMember.fullName,
-          email: createdMember.email,
-          role: createdMember.role,
-          status: "Active",
-          avatar: "",
-          assignedTo: managers.find(m => m.id === Number(createdMember.managerId))?.fullName || "",
-          password: ""
-        };
-        
-        setTeamMembers([...teamMembers, member]);
         toast({
           title: "Success",
           description: "Team member registered successfully",
         });
+        
+        // Refresh the list immediately to show the new user
+        fetchTeamMembers();
       }
 
       setIsAddMemberOpen(false);
