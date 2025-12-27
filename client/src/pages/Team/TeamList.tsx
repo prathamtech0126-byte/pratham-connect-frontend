@@ -35,7 +35,7 @@ export default function TeamList() {
       setManagers(response.data);
     } catch (error) {
       // Fallback to local state if API fails for demo
-      const localManagers = teamMembers.filter(m => m.role === "Manager");
+      const localManagers = teamMembers.filter((m: any) => m.role === "Manager");
       setManagers(localManagers);
     } finally {
       setIsLoadingManagers(false);
