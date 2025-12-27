@@ -43,9 +43,10 @@ api.defaults.withCredentials = true;
 // Request interceptor to add the access token to headers
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = inMemoryToken || getCookie("accessToken");
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // We only attach Bearer token if it exists in memory.
+    // If not, we rely on HttpOnly cookies (withCredentials: true).
+    if (inMemoryToken && config.headers) {
+      config.headers.Authorization = `Bearer ${inMemoryToken}`;
     }
     return config;
   },
@@ -76,17 +77,17 @@ api.interceptors.response.use(
           },
         );
         
-        // IMPORTANT: The backend returns { message: "Token refreshed" } and sets cookie
-        // It does NOT return the accessToken in the JSON body.
-        // We rely on the browser's cookie being updated.
+        // If your server returns the new accessToken in JSON, capture it
+        const newAccessToken = response.data.accessToken;
+        if (newAccessToken) {
+          setInMemoryToken(newAccessToken);
+        }
         
-        return axios({
-          ...originalRequest,
-          withCredentials: true // Ensure credentials are sent with the retry
-        });
+        return api(originalRequest);
       } catch (refreshError) {
-        // If refresh fails, clear state
+        // If refresh fails, clear state and redirect to login
         setInMemoryToken(null);
+        window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }
