@@ -320,7 +320,6 @@ export default function TeamList() {
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Director">Director</SelectItem>
                       <SelectItem value="Manager">Manager</SelectItem>
                       <SelectItem value="Counsellor">Counsellor</SelectItem>
                     </SelectContent>
@@ -388,7 +387,6 @@ export default function TeamList() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="Director">Director</SelectItem>
                   <SelectItem value="Manager">Manager</SelectItem>
                   <SelectItem value="Counsellor">Counsellor</SelectItem>
                 </SelectContent>
