@@ -63,24 +63,68 @@ export default function Login() {
         setIsSubmitting(true);
 
         try {
-            console.log("Mock login with role:", selectedRole);
-            
-            // In mockup mode, we authenticate with the selected role directly
-            // (No backend API call needed)
-            // Simulate a brief delay like a real API call
-            await new Promise(resolve => setTimeout(resolve, 500));
+            console.log("Attempting login...");
+            const response = await api.post(
+                "/api/users/login",
+                {
+                    email: username,
+                    password: password,
+                },
+                {
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    timeout: 10000,
+                },
+            );
+            console.log("Login response:", response.status);
 
-            // Mock authentication successful - use the selected role
-            login(selectedRole);
+            const { accessToken, role } = response.data;
+
+            if (!accessToken) {
+                throw new Error("No access token received from server");
+            }
+
+            // Remove old accessToken from localStorage if it exists
+            localStorage.removeItem("accessToken");
+
+            // Store token in memory via api helper
+            setInMemoryToken(accessToken);
+            
+            // Cleanup: ensure no legacy token is in cookies/localStorage
+            document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            
+            const mappedRole = (
+                role === "admin" ? "superadmin" : role
+            ) as UserRole;
+
+            // Clear all other potentially stale tokens from previous sessions
+            localStorage.removeItem('auth_user');
+            
+            login(mappedRole);
 
             toast({
                 title: "Login Successful",
-                description: `Welcome back, ${selectedRole}!`,
+                description: `Welcome back, ${mappedRole}!`,
             });
         } catch (error: any) {
-            console.error("Login error:", error);
+            console.error("Login error caught:", error);
             
-            let msg = "Login failed. Please try again.";
+            let msg = "Invalid email or password";
+
+            if (error.code === 'ECONNABORTED') {
+                msg = "Server is taking too long to respond. Please check your connection.";
+            } else if (error.response) {
+                console.log("Error response data:", error.response.data);
+                msg = error.response.data?.message || error.response.data?.error || "Invalid email or password";
+                
+                if (msg.toLowerCase().includes("refresh") || msg.toLowerCase().includes("token")) {
+                    msg = "Invalid email or password";
+                }
+            } else if (error.request) {
+                msg = "Server connection lost. Please try again.";
+            }
+
             setErrorMessage(msg);
             setFieldErrors({ username: true, password: true });
 

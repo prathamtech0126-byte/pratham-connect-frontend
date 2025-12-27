@@ -80,18 +80,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // 2. Set the user immediately from storage so the UI can render
-      // This allows instant access on page refresh (works offline too)
+      // This allows instant access on page refresh
       try {
         const parsedUser = JSON.parse(storedUser);
         console.log("User restored from localStorage:", parsedUser.username);
         setUser(parsedUser);
-        // Don't need to verify with backend in mockup mode
-        setIsLoading(false);
       } catch (e) {
         console.error("Failed to parse stored user");
         localStorage.removeItem('auth_user');
         setIsLoading(false);
         return;
+      }
+
+      // 3. Try to refresh session with backend in the background
+      try {
+        console.log("App Reload: Verifying session...");
+        const response = await api.post('/api/users/refresh');
+        
+        if (response.data && response.data.accessToken) {
+          setInMemoryToken(response.data.accessToken);
+          console.log("Session verified successfully");
+        }
+      } catch (error: any) {
+        console.error("Session verification failed:", error.response?.status || error.message);
+        // Only clear session if we get an explicit 401/403
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          console.log("Refresh token invalid, clearing session");
+          setUser(null);
+          setInMemoryToken(null);
+          localStorage.removeItem('auth_user');
+        }
+        // For other errors, keep user logged in (trust localStorage)
+      } finally {
+        setIsLoading(false);
       }
     };
 
