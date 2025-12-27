@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
@@ -79,6 +80,8 @@ export default function TeamList() {
   // Manager fetching state
   const [managers, setManagers] = useState<any[]>([]);
   const [isLoadingManagers, setIsLoadingManagers] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [memberToDelete, setMemberToDelete] = useState<any>(null);
 
   const fetchManagers = async () => {
     try {
@@ -228,15 +231,17 @@ export default function TeamList() {
     return matchesRole && matchesSearch;
   });
 
-  const handleDeleteMember = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this team member?")) return;
+  const handleDeleteMember = async () => {
+    if (!deleteId) return;
     
     try {
-      await api.delete(`/api/users/users-delete/${id}`);
+      await api.delete(`/api/users/users-delete/${deleteId}`);
       toast({
         title: "Success",
         description: "Team member deleted successfully",
       });
+      setDeleteId(null);
+      setMemberToDelete(null);
       fetchTeamMembers();
     } catch (error: any) {
       const message = error.response?.data?.message || "Failed to delete team member";
@@ -246,6 +251,11 @@ export default function TeamList() {
         variant: "destructive",
       });
     }
+  };
+
+  const confirmDelete = (member: any) => {
+    setDeleteId(member.id);
+    setMemberToDelete(member);
   };
 
   return (
@@ -493,7 +503,7 @@ export default function TeamList() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-destructive"
-                          onClick={() => handleDeleteMember(member.id)}
+                          onClick={() => confirmDelete(member)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -506,6 +516,24 @@ export default function TeamList() {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the {memberToDelete?.role?.toLowerCase() || "member"}{" "}
+              <span className="font-semibold">{memberToDelete?.fullName || memberToDelete?.name}</span> and remove their data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteMember} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageWrapper>
   );
 }
