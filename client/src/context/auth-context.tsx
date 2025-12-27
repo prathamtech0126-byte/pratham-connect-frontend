@@ -75,6 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const newUser = MOCK_USERS[role];
       setUser(newUser);
       localStorage.setItem('auth_user', JSON.stringify(newUser));
+      // Ensure any legacy accessToken is removed from localStorage
+      localStorage.removeItem('accessToken');
       setIsLoading(false);
       setLocation('/');
     }, 800);
