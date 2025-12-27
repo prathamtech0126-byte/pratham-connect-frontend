@@ -38,11 +38,15 @@ export default function TeamList() {
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newMember, setNewMember] = useState({
-    name: "",
+    fullName: "",
     email: "",
     password: "",
     role: "Counsellor",
-    assignedTo: ""
+    managerId: "",
+    emp_id: "",
+    company_phone_no: "",
+    personal_phone_no: "",
+    designation: ""
   });
 
   // Manager fetching state
@@ -81,12 +85,23 @@ export default function TeamList() {
   };
 
   const resetForm = () => {
-    setNewMember({ name: "", email: "", password: "", role: "Counsellor", assignedTo: "" });
+    setNewMember({
+      fullName: "",
+      email: "",
+      password: "",
+      role: "Counsellor",
+      managerId: "",
+      emp_id: "",
+      company_phone_no: "",
+      personal_phone_no: "",
+      designation: ""
+    });
     setEditingId(null);
   };
 
-  const handleSaveMember = () => {
-    if (!newMember.name || !newMember.email || (!editingId && !newMember.password)) {
+  const handleSaveMember = async () => {
+    // Validation
+    if (!newMember.fullName || !newMember.email || !newMember.emp_id || !newMember.designation || (!editingId && !newMember.password)) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -95,36 +110,65 @@ export default function TeamList() {
       return;
     }
 
-    if (editingId) {
-      setTeamMembers(teamMembers.map(member => 
-        member.id === editingId 
-          ? { ...member, ...newMember, password: newMember.password || member.password } // Keep old password if not changed
-          : member
-      ));
+    if (!editingId && newMember.password.length < 8) {
       toast({
-        title: "Success",
-        description: "Team member updated successfully",
+        title: "Error",
+        description: "Password must be at least 8 characters long",
+        variant: "destructive",
       });
-    } else {
-      const member = {
-        id: Date.now(),
-        name: newMember.name,
-        email: newMember.email,
-        role: newMember.role,
-        status: "Active",
-        avatar: "",
-        assignedTo: newMember.assignedTo,
-        password: newMember.password
-      };
-      setTeamMembers([...teamMembers, member]);
-      toast({
-        title: "Success",
-        description: "Team member added successfully",
-      });
+      return;
     }
 
-    setIsAddMemberOpen(false);
-    resetForm();
+    try {
+      if (editingId) {
+        // Logic for editing (keep local for now as per instructions)
+        setTeamMembers(teamMembers.map(member => 
+          member.id === editingId 
+            ? { ...member, ...newMember, name: newMember.fullName, password: newMember.password || member.password } 
+            : member
+        ));
+        toast({
+          title: "Success",
+          description: "Team member updated successfully",
+        });
+      } else {
+        const payload = {
+          ...newMember,
+          email: newMember.email.toLowerCase().trim(),
+          managerId: newMember.role === "Counsellor" ? Number(newMember.managerId) : undefined
+        };
+
+        const response = await api.post("/api/users/register", payload);
+        
+        const createdMember = response.data;
+        const member = {
+          id: createdMember.id,
+          name: createdMember.fullName,
+          email: createdMember.email,
+          role: createdMember.role,
+          status: "Active",
+          avatar: "",
+          assignedTo: managers.find(m => m.id === Number(createdMember.managerId))?.fullName || "",
+          password: ""
+        };
+        
+        setTeamMembers([...teamMembers, member]);
+        toast({
+          title: "Success",
+          description: "Team member registered successfully",
+        });
+      }
+
+      setIsAddMemberOpen(false);
+      resetForm();
+    } catch (error: any) {
+      const message = error.response?.data?.message || "Failed to register team member";
+      toast({
+        title: "Registration Failed",
+        description: message,
+        variant: "destructive",
+      });
+    }
   };
 
   const openAddMember = () => {
@@ -135,18 +179,23 @@ export default function TeamList() {
   const openEditMember = (member: any) => {
     setEditingId(member.id);
     setNewMember({
-      name: member.name,
+      fullName: member.name,
       email: member.email,
       password: "", // Don't show existing password
       role: member.role,
-      assignedTo: member.assignedTo || ""
+      managerId: managers.find(m => m.fullName === member.assignedTo || m.name === member.assignedTo)?.id?.toString() || "",
+      emp_id: member.emp_id || "",
+      company_phone_no: member.company_phone_no || "",
+      personal_phone_no: member.personal_phone_no || "",
+      designation: member.designation || ""
     });
     setIsAddMemberOpen(true);
   };
 
   const filteredMembers = teamMembers.filter(member => {
     const matchesRole = roleFilter === "all" || member.role === roleFilter;
-    const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const nameToSearch = member.name || member.fullName || "";
+    const matchesSearch = nameToSearch.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          member.email.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesRole && matchesSearch;
   });
@@ -176,14 +225,23 @@ export default function TeamList() {
                   {editingId ? "Update user details." : "Create a new user account. They will receive an email to set their password."}
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4 py-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
                     id="name"
                     placeholder="John Doe"
-                    value={newMember.name}
-                    onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
+                    value={newMember.fullName}
+                    onChange={(e) => setNewMember({ ...newMember, fullName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emp_id">Employee ID</Label>
+                  <Input
+                    id="emp_id"
+                    placeholder="EMP123"
+                    value={newMember.emp_id}
+                    onChange={(e) => setNewMember({ ...newMember, emp_id: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -197,12 +255,39 @@ export default function TeamList() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="designation">Designation</Label>
+                  <Input
+                    id="designation"
+                    placeholder="Senior Counsellor"
+                    value={newMember.designation}
+                    onChange={(e) => setNewMember({ ...newMember, designation: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="company_phone_no">Office Phone</Label>
+                  <Input
+                    id="company_phone_no"
+                    placeholder="9876543210"
+                    value={newMember.company_phone_no}
+                    onChange={(e) => setNewMember({ ...newMember, company_phone_no: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="personal_phone_no">Personal Phone</Label>
+                  <Input
+                    id="personal_phone_no"
+                    placeholder="9123456789"
+                    value={newMember.personal_phone_no}
+                    onChange={(e) => setNewMember({ ...newMember, personal_phone_no: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2 col-span-2">
                   <Label htmlFor="password">Password {editingId && "(Leave blank to keep current)"}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="password"
                       type="text"
-                      placeholder={editingId ? "New Password (Optional)" : "Password"}
+                      placeholder={editingId ? "New Password (Optional)" : "Min 8 characters"}
                       value={newMember.password}
                       onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}
                     />
@@ -232,8 +317,8 @@ export default function TeamList() {
                   <div className="space-y-2">
                     <Label htmlFor="assignedTo">Assign to Manager</Label>
                     <Select
-                      value={newMember.assignedTo}
-                      onValueChange={(value) => setNewMember({ ...newMember, assignedTo: value })}
+                      value={newMember.managerId}
+                      onValueChange={(value) => setNewMember({ ...newMember, managerId: value })}
                       disabled={isLoadingManagers}
                     >
                       <SelectTrigger>
@@ -247,7 +332,7 @@ export default function TeamList() {
                           </div>
                         ) : managers && managers.length > 0 ? (
                           managers.map((manager: any) => (
-                            <SelectItem key={manager.id} value={manager.fullName || manager.name}>
+                            <SelectItem key={manager.id} value={manager.id.toString()}>
                               {manager.fullName || manager.name}
                             </SelectItem>
                           ))
