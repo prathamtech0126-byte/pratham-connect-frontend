@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // 2. Set the user immediately from storage so the UI can render
-      // but keep isLoading: true so ProtectedRoute doesn't redirect
+      // This allows instant access on page refresh
       try {
         const parsedUser = JSON.parse(storedUser);
         setUser(parsedUser);
@@ -89,8 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // 3. Try to refresh/verify session in the background
+      // But don't redirect on failure - we trust the localStorage
       try {
-        console.log("App Reload: Restoring session...");
+        console.log("App Reload: Verifying session...");
         const response = await api.post('/api/users/refresh');
         
         if (response.data && response.data.accessToken) {
@@ -98,16 +100,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log("Session verified successfully");
         }
       } catch (error: any) {
-        console.error("Session restoration failed:", error.response?.status);
-        // Only clear session if the server says the refresh token is dead
+        console.error("Session verification note:", error.response?.status || error.message);
+        // Only clear session if we get an explicit 401/403
+        // (meaning refresh token is invalid/expired on backend)
         if (error.response?.status === 401 || error.response?.status === 403) {
+          console.log("Refresh token invalid, clearing session");
           setUser(null);
           setInMemoryToken(null);
           localStorage.removeItem('auth_user');
         }
-        // For 500/Network errors, we keep the 'user' state from step 2
+        // For all other errors (network, 500, timeout, etc.):
+        // Keep the user logged in - we trust the localStorage state
+        // The user can still work offline or until backend is restored
       } finally {
-        // 3. Final step: Stop loading so ProtectedRoute allows access
+        // 4. Stop loading so ProtectedRoute allows access
         setIsLoading(false);
       }
     };
