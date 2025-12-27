@@ -62,49 +62,34 @@ api.interceptors.request.use(
 
 // Response interceptor to handle token refresh
 api.interceptors.response.use(
-  (response) => response,
+  (res) => res,
   async (error) => {
     const originalRequest = error.config;
 
-    // If the error is 401 and we haven't retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
+    if (
+      error.response?.status === 401 &&
+      !(originalRequest as any)._retry &&
+      !originalRequest.url?.includes("/login") &&
+      !originalRequest.url?.includes("/refresh")
+    ) {
+      (originalRequest as any)._retry = true;
 
       try {
-        // Attempt to refresh the token using the refresh cookie (HttpOnly, sent automatically)
-        const response = await axios.post(
-          `${API_BASE_URL}/api/users/refresh`,
-          {},
-          {
-            withCredentials: true,
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-          },
-        );
+        const res = await api.post("/api/users/refresh");
+        const newAccessToken = res.data.accessToken;
 
-        // If your server returns the new accessToken in JSON, capture it
-        const newAccessToken = response.data.accessToken;
         if (newAccessToken) {
           setInMemoryToken(newAccessToken);
         }
 
         return api(originalRequest);
-      } catch (refreshError: any) {
-        // If refresh fails, clear state
+      } catch {
         setInMemoryToken(null);
+        localStorage.removeItem("auth_user");
 
-        // Only force redirect to login if the refresh token is actually invalid/expired
-        if (
-          refreshError.response?.status === 401 ||
-          refreshError.response?.status === 403
-        ) {
-          localStorage.removeItem("auth_user");
+        if (!window.location.pathname.includes("/login")) {
           window.location.href = "/login";
         }
-
-        return Promise.reject(refreshError);
       }
     }
 
