@@ -101,8 +101,17 @@ export default function Login() {
             // Clear all other potentially stale tokens from previous sessions
             localStorage.removeItem('auth_user');
             
-            // Pass both role and user data from backend response
-            login(mappedRole, backendUser);
+            // Create user object from response (use backend user if available, otherwise create from role)
+            const userData = backendUser || {
+              id: String(Date.now()),
+              username: username,
+              name: username,
+              role: mappedRole
+            };
+            
+            // Pass both role and user data
+            console.log("Logging in user:", userData);
+            login(mappedRole, userData);
 
             toast({
                 title: "Login Successful",
