@@ -8,7 +8,17 @@ import { cn } from "@/lib/utils";
 
 export function EmergencyAlert() {
   const { isActive, message, acknowledgeAlert, targetRoles, title, type } = useAlert();
-  const { user } = useAuth();
+  
+  // Safely try to get user context - EmergencyAlert may render before auth is ready
+  let user = null;
+  try {
+    const auth = useAuth();
+    user = auth.user;
+  } catch {
+    // Not within AuthProvider yet (e.g., during login page)
+    user = null;
+  }
+  
   const [canAcknowledge, setCanAcknowledge] = useState(false);
 
   // Check if current user is targeted
