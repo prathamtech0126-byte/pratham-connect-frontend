@@ -24,6 +24,27 @@ export default function TeamList() {
     { id: 5, name: "Amit Director", email: "amit@pratham.com", role: "Director", status: "Active", avatar: "", assignedTo: "", password: "" },
   ]);
 
+  // Filter State
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleClearFilters = () => {
+    setRoleFilter("all");
+  };
+
+  const isFilterActive = roleFilter !== "all";
+
+  // Add/Edit Member State
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [newMember, setNewMember] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "Counsellor",
+    assignedTo: ""
+  });
+
   // Manager fetching state
   const [managers, setManagers] = useState<any[]>([]);
   const [isLoadingManagers, setIsLoadingManagers] = useState(false);
@@ -48,27 +69,6 @@ export default function TeamList() {
     }
   }, [isAddMemberOpen]);
 
-  // Filter State
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const handleClearFilters = () => {
-    setRoleFilter("all");
-  };
-
-  const isFilterActive = roleFilter !== "all";
-
-  // Add/Edit Member State
-  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [newMember, setNewMember] = useState({
-    name: "",
-    email: "",
-    password: "",
-    role: "Counsellor",
-    assignedTo: ""
-  });
-
   const generatePassword = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
     let password = "";
@@ -76,6 +76,11 @@ export default function TeamList() {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setNewMember(prev => ({ ...prev, password }));
+  };
+
+  const resetForm = () => {
+    setNewMember({ name: "", email: "", password: "", role: "Counsellor", assignedTo: "" });
+    setEditingId(null);
   };
 
   const handleSaveMember = () => {
@@ -120,11 +125,6 @@ export default function TeamList() {
     resetForm();
   };
 
-  const resetForm = () => {
-    setNewMember({ name: "", email: "", password: "", role: "Counsellor", assignedTo: "" });
-    setEditingId(null);
-  };
-
   const openAddMember = () => {
     resetForm();
     setIsAddMemberOpen(true);
@@ -141,8 +141,6 @@ export default function TeamList() {
     });
     setIsAddMemberOpen(true);
   };
-
-  const assignableManagers = teamMembers.filter(m => m.role === "Manager");
 
   const filteredMembers = teamMembers.filter(member => {
     const matchesRole = roleFilter === "all" || member.role === roleFilter;
