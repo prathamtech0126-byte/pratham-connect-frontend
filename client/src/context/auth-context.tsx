@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useLocation } from "wouter";
+import api from '@/lib/api';
 
 export type UserRole = 'superadmin' | 'manager' | 'counsellor' | 'director';
 
@@ -79,12 +80,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, 800);
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('auth_user');
-    // Clear the access token cookie
-    document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    setLocation('/login');
+  const logout = async () => {
+    try {
+      // Call the backend logout API
+      await api.post('/api/users/logout');
+    } catch (error) {
+      console.error("Logout API failed", error);
+    } finally {
+      // Clear local state and cookies regardless of API success
+      setUser(null);
+      localStorage.removeItem('auth_user');
+      document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      setLocation('/login');
+    }
   };
 
   return (
