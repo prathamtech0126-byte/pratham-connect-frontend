@@ -34,9 +34,9 @@ export default function TeamList() {
           role: u.role,
           status: "Active",
           assignedTo: u.managerId ? "Assigned" : "",
-          emp_id: u.empId || u.emp_id,
-          company_phone_no: u.officePhone || u.company_phone_no,
-          personal_phone_no: u.personalPhone || u.personal_phone_no,
+          emp_id: u.empId || u.emp_id || u.empID,
+          company_phone_no: u.officePhone || u.company_phone_no || u.office_phone,
+          personal_phone_no: u.personalPhone || u.personal_phone_no || u.personal_phone,
           designation: u.designation
         })));
       }
@@ -212,9 +212,9 @@ export default function TeamList() {
       password: "", // Don't show existing password
       role: displayRole,
       managerId: member.managerId?.toString() || "",
-      emp_id: member.empId || member.emp_id || "",
-      company_phone_no: member.officePhone || member.company_phone_no || "",
-      personal_phone_no: member.personalPhone || member.personal_phone_no || "",
+      emp_id: member.empId || member.emp_id || member.empID || "",
+      company_phone_no: member.officePhone || member.company_phone_no || member.office_phone || "",
+      personal_phone_no: member.personalPhone || member.personal_phone_no || member.personal_phone || "",
       designation: member.designation || ""
     });
     setIsAddMemberOpen(true);
