@@ -79,7 +79,7 @@ export default function Login() {
             );
             console.log("Login response:", response.status);
 
-            const { accessToken, role } = response.data;
+            const { accessToken, role, user: backendUser } = response.data;
 
             if (!accessToken) {
                 throw new Error("No access token received from server");
@@ -101,7 +101,8 @@ export default function Login() {
             // Clear all other potentially stale tokens from previous sessions
             localStorage.removeItem('auth_user');
             
-            login(mappedRole);
+            // Pass both role and user data from backend response
+            login(mappedRole, backendUser);
 
             toast({
                 title: "Login Successful",

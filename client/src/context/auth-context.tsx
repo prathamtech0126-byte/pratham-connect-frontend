@@ -14,7 +14,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (role: UserRole) => void;
+  login: (role: UserRole, userData?: Partial<User>) => void;
   logout: () => void;
   isLoading: boolean;
 }
@@ -119,19 +119,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
-  const login = (role: UserRole, accessToken?: string) => {
+  const login = (role: UserRole, userData?: Partial<User>) => {
     setIsLoading(true);
-    if (accessToken) {
-      setInMemoryToken(accessToken);
-    }
-    const newUser = MOCK_USERS[role] || {
-      id: 'temp-' + Date.now(),
-      username: 'user',
-      name: 'User',
-      role: role
-    };
+    
+    // Use backend user data if provided, otherwise use mock user
+    const newUser: User = userData && userData.id 
+      ? { ...userData, role } as User
+      : MOCK_USERS[role] || {
+          id: 'temp-' + Date.now(),
+          username: 'user',
+          name: 'User',
+          role: role
+        };
+    
     setUser(newUser);
+    console.log("Storing user to localStorage:", JSON.stringify(newUser));
     localStorage.setItem('auth_user', JSON.stringify(newUser));
+    console.log("Verified localStorage:", localStorage.getItem('auth_user'));
     localStorage.removeItem('accessToken');
     setIsLoading(false);
     setLocation('/');
