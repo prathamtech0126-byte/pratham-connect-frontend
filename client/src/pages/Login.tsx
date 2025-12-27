@@ -41,7 +41,7 @@ export default function Login() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        e.stopPropagation(); // Stop event bubbling
+        e.stopPropagation();
 
         if (isSubmitting) return;
 
@@ -88,7 +88,6 @@ export default function Login() {
             
             // Cleanup: ensure no legacy token is in cookies/localStorage
             document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-            localStorage.removeItem("accessToken");
             
             const mappedRole = (
                 role === "admin" ? "superadmin" : role
@@ -96,12 +95,6 @@ export default function Login() {
 
             // Clear all other potentially stale tokens from previous sessions
             localStorage.removeItem('auth_user');
-            localStorage.setItem('auth_user', JSON.stringify({
-                id: response.data.user?.id || '1',
-                username: username,
-                name: response.data.user?.fullName || response.data.user?.name || username,
-                role: mappedRole
-            }));
             
             login(mappedRole, accessToken);
 
@@ -114,16 +107,12 @@ export default function Login() {
 
             if (error.response) {
                 // Prioritize message from server, fallback to friendly message for 404/401
-                msg = error.response.data?.message || error.response.data?.error;
+                msg = error.response.data?.message || error.response.data?.error || "Invalid email or password";
                 
-                if (!msg) {
-                    if (error.response.status === 404) {
-                        msg = "Invalid email or password";
-                    } else if (error.response.status === 401) {
-                        msg = "Invalid email or password";
-                    } else {
-                        msg = `Server Error (${error.response.status})`;
-                    }
+                // If the error message is related to refresh token failure during login attempt, 
+                // we should stick to "Invalid email or password"
+                if (msg.toLowerCase().includes("refresh") || msg.toLowerCase().includes("token")) {
+                    msg = "Invalid email or password";
                 }
             } else if (error.request) {
                 msg = "Server connection lost. Please try again.";

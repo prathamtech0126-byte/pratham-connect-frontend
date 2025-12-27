@@ -90,7 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Keep the user state from localStorage
         setUser(JSON.parse(storedUser));
       } catch (error) {
-        // If refresh fails, clear everything
+        // If refresh fails during initial check, clear everything
+        // But we don't need to alert the user here as they'll just see the login page
         setUser(null);
         setInMemoryToken(null);
         localStorage.removeItem('auth_user');
