@@ -3,6 +3,12 @@ import axios, { InternalAxiosRequestConfig } from "axios";
 const API_BASE_URL =
   " https://fur-enquiries-awareness-nature.trycloudflare.com";
 
+let inMemoryToken: string | null = null;
+
+export const setInMemoryToken = (token: string | null) => {
+  inMemoryToken = token;
+};
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
@@ -10,13 +16,10 @@ const api = axios.create({
     "Content-Type": "application/json",
     Accept: "application/json",
   },
-  timeout: 60000, // Increased to 60s for local tunnels
+  timeout: 60000,
 });
 
-// For cross-origin requests to local backend, we need to ensure credentials are sent
-api.defaults.withCredentials = true;
-
-// Helper to get cookie
+// Helper to get/set/remove cookies if needed, but primarily using in-memory token
 const getCookie = (name: string) => {
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
@@ -24,21 +27,12 @@ const getCookie = (name: string) => {
   return null;
 };
 
-// Helper to set cookie
-const setCookie = (name: string, value: string, days = 7) => {
-  const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `${name}=${value}; expires=${expires}; path=/; SameSite=Lax`;
-};
-
-// Helper to remove cookie
-const removeCookie = (name: string) => {
-  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-};
+api.defaults.withCredentials = true;
 
 // Request interceptor to add the access token to headers
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = getCookie("accessToken");
+    const token = inMemoryToken || getCookie("accessToken");
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -58,24 +52,26 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Attempt to refresh the token
+        // Attempt to refresh the token using the refresh cookie (HttpOnly, sent automatically)
         const response = await axios.post(
-          `${API_BASE_URL}/users/refresh`,
+          `${API_BASE_URL}/api/users/refresh`,
           {},
           { withCredentials: true },
         );
         const { accessToken } = response.data;
 
-        setCookie("accessToken", accessToken);
+        // Update in-memory token
+        setInMemoryToken(accessToken);
+        
+        // Update request header and retry
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         }
 
         return api(originalRequest);
       } catch (refreshError) {
-        // If refresh fails, redirect to login or clear state
-        removeCookie("accessToken");
-        // window.location.href = '/login'; // REMOVED: This causes full page refresh
+        // If refresh fails, clear state
+        setInMemoryToken(null);
         return Promise.reject(refreshError);
       }
     }

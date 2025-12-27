@@ -22,7 +22,7 @@ import {
 import logoUrl from "@/assets/images/Pratham Logo.svg";
 import { ModeToggle } from "@/components/mode-toggle";
 
-import api from "@/lib/api";
+import api, { setInMemoryToken } from "@/lib/api";
 
 import { useToast } from "@/hooks/use-toast";
 
@@ -83,9 +83,12 @@ export default function Login() {
             // Remove old accessToken from localStorage if it exists
             localStorage.removeItem("accessToken");
 
-            // Store token in cookies instead of localStorage
-            const expires = new Date(Date.now() + 7 * 864e5).toUTCString();
-            document.cookie = `accessToken=${accessToken}; expires=${expires}; path=/; SameSite=Lax`;
+            // Store token in memory via api helper
+            setInMemoryToken(accessToken);
+            
+            // Cleanup: ensure no legacy token is in cookies/localStorage
+            document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            localStorage.removeItem("accessToken");
             
             const mappedRole = (
                 role === "admin" ? "superadmin" : role

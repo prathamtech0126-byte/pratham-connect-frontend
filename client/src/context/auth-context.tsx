@@ -53,6 +53,8 @@ const MOCK_USERS: Record<UserRole, User> = {
   }
 };
 
+import { setInMemoryToken } from '@/lib/api';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Initialize user from localStorage if available
   const [user, setUser] = useState<User | null>(() => {
@@ -60,7 +62,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const storedUser = localStorage.getItem('auth_user');
       return storedUser ? JSON.parse(storedUser) : null;
     } catch (e) {
-      console.error("Failed to parse auth user", e);
       return null;
     }
   });
@@ -87,10 +88,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Call the backend logout API
       await api.post('/api/users/logout');
     } catch (error) {
-      console.error("Logout API failed", error);
+      // Silent fail for UI
     } finally {
-      // Clear local state and cookies regardless of API success
+      // Clear local state, memory token and cookies
       setUser(null);
+      setInMemoryToken(null);
       localStorage.removeItem('auth_user');
       document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
       setLocation('/login');
