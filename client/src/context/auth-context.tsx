@@ -71,43 +71,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // 1. Initial State: Assume we are loading
-      setIsLoading(true);
-
+      // 1. Check if we have a persistent user record
       const storedUser = localStorage.getItem('auth_user');
-      
-      // 2. Optimization: If no user info in storage, we know we're logged out
       if (!storedUser) {
         setIsLoading(false);
         return;
       }
 
+      // 2. Set the user immediately from storage so the UI can render
+      // but keep isLoading: true so ProtectedRoute doesn't redirect
       try {
-        // 3. The Refresh Call: This is the key part that happens on reload
-        console.log("App Reloaded: Attempting to restore session via refresh token...");
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      } catch (e) {
+        localStorage.removeItem('auth_user');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        console.log("App Reload: Restoring session...");
         const response = await api.post('/api/users/refresh');
         
         if (response.data && response.data.accessToken) {
           setInMemoryToken(response.data.accessToken);
-          // Only set user once we have the token
-          setUser(JSON.parse(storedUser));
-          console.log("Session restored successfully");
+          console.log("Session verified successfully");
         }
       } catch (error: any) {
         console.error("Session restoration failed:", error.response?.status);
-        
-        // 4. Critical Decision: Only log out on definitive auth failure
+        // Only clear session if the server says the refresh token is dead
         if (error.response?.status === 401 || error.response?.status === 403) {
           setUser(null);
           setInMemoryToken(null);
           localStorage.removeItem('auth_user');
-        } else {
-          // Network/Server error: Let's assume the session is still valid locally
-          // so the user can see the UI while the server/network recovers
-          setUser(JSON.parse(storedUser));
         }
+        // For 500/Network errors, we keep the 'user' state from step 2
       } finally {
-        // 5. Completion: Now that the refresh is done, ProtectedRoute can safely decide
+        // 3. Final step: Stop loading so ProtectedRoute allows access
         setIsLoading(false);
       }
     };
