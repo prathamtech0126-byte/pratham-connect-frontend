@@ -63,6 +63,7 @@ export default function Login() {
         setIsSubmitting(true);
 
         try {
+            console.log("Attempting login...");
             const response = await api.post(
                 "/api/users/login",
                 {
@@ -75,6 +76,7 @@ export default function Login() {
                     },
                 },
             );
+            console.log("Login response:", response.status);
 
             const { accessToken, role } = response.data;
 
@@ -105,9 +107,11 @@ export default function Login() {
                 description: `Welcome back, ${mappedRole}!`,
             });
         } catch (error: any) {
+            console.error("Login error caught:", error);
             let msg = "Invalid email or password";
 
             if (error.response) {
+                console.log("Error response data:", error.response.data);
                 // Prioritize message from server, fallback to friendly message for 404/401
                 msg = error.response.data?.message || error.response.data?.error || "Invalid email or password";
                 
@@ -117,7 +121,10 @@ export default function Login() {
                     msg = "Invalid email or password";
                 }
             } else if (error.request) {
+                console.log("Error request (no response):", error.request);
                 msg = "Server connection lost. Please try again.";
+            } else {
+                console.log("Error message:", error.message);
             }
 
             setErrorMessage(msg);
@@ -224,7 +231,7 @@ export default function Login() {
 
             {/* Right Panel - Login Form */}
             <div className="flex-1 flex items-center justify-center p-8 lg:p-12 relative">
-                <div className="w-full max-w-[420px] space-y-8">
+                <div className="w-full max-w-[420px] space-y-8" onClick={(e) => e.stopPropagation()}>
                     <div className="text-center lg:text-left space-y-2">
                         <h2 className="text-3xl font-bold tracking-tight text-foreground">
                             Welcome back
@@ -236,10 +243,7 @@ export default function Login() {
 
                     <Card className="border border-border/50 shadow-2xl shadow-primary/5 bg-card/50 backdrop-blur-sm">
                         <CardContent className="pt-8 pb-8 px-8">
-                            <form 
-                                onSubmit={handleLogin} 
-                                className="space-y-6"
-                            >
+                            <div className="space-y-6">
                                 <div className="space-y-2">
                                     <Label
                                         htmlFor="role"
@@ -370,7 +374,7 @@ export default function Login() {
                                         <ArrowRight className="ml-2 w-4 h-4" />
                                     )}
                                 </Button>
-                            </form>
+                            </div>
                         </CardContent>
                     </Card>
 
