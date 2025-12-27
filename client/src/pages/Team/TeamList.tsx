@@ -199,12 +199,15 @@ export default function TeamList() {
 
   const openEditMember = (member: any) => {
     setEditingId(member.id);
+    // Ensure role is mapped correctly for the Select component (capitalized)
+    const displayRole = member.role ? member.role.charAt(0).toUpperCase() + member.role.slice(1).toLowerCase() : "Counsellor";
+    
     setNewMember({
-      fullName: member.name,
-      email: member.email,
+      fullName: member.fullName || member.name || "",
+      email: member.email || "",
       password: "", // Don't show existing password
-      role: member.role,
-      managerId: managers.find(m => m.fullName === member.assignedTo || m.name === member.assignedTo)?.id?.toString() || "",
+      role: displayRole,
+      managerId: member.managerId?.toString() || "",
       emp_id: member.emp_id || "",
       company_phone_no: member.company_phone_no || "",
       personal_phone_no: member.personal_phone_no || "",
