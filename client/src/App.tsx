@@ -1,19 +1,11 @@
-import { Switch, Route, Redirect } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
-import { MainLayout } from "@/layout/MainLayout";
-import { AuthProvider, useAuth } from "@/context/auth-context";
-import { AlertProvider } from "@/context/alert-context";
-import { EmergencyAlert } from "@/components/ui/emergency-alert";
-
+import { Switch, Route } from "wouter";
+import { AuthProvider } from "@/context/auth-context";
+import { ProtectedRoute } from "@/components/protected-route";
 import Dashboard from "@/pages/Dashboard/Dashboard";
+import Login from "@/pages/Login";
 import ClientList from "@/pages/Clients/ClientList";
 import ClientForm from "@/pages/Clients/ClientForm";
 import ClientDetails from "@/pages/Clients/ClientDetails";
-import Login from "@/pages/Login";
 import Reports from "@/pages/Reports";
 import TeamList from "@/pages/Team/TeamList";
 import AdditionalInfo from "@/pages/AdditionalInfo";
@@ -21,21 +13,12 @@ import UniversityDatabase from "@/pages/UniversityDatabase";
 import Activity from "@/pages/Activity";
 import CalendarDemo from "@/pages/CalendarDemo";
 import ChangePassword from "@/pages/ChangePassword";
+import { MainLayout } from "@/layout/MainLayout";
 
-function ProtectedRoute({ component: Component, ...rest }: any) {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  }
-
-  if (!user) {
-    return <Redirect to="/login" />;
-  }
-
+function ProtectedWrapper({ component: Component, ...rest }: any) {
   return (
     <MainLayout>
-      <Component {...rest} />
+      <ProtectedRoute component={Component} {...rest} />
     </MainLayout>
   );
 }
@@ -46,73 +29,55 @@ function Router() {
       <Route path="/login" component={Login} />
       
       <Route path="/">
-        {params => <ProtectedRoute component={Dashboard} />}
+        <ProtectedWrapper component={Dashboard} />
       </Route>
 
       <Route path="/activity">
-        {params => <ProtectedRoute component={Activity} />}
+        <ProtectedWrapper component={Activity} />
       </Route>
 
       <Route path="/calendar">
-        {params => <ProtectedRoute component={CalendarDemo} />}
+        <ProtectedWrapper component={CalendarDemo} />
       </Route>
 
       <Route path="/change-password">
-        {params => <ProtectedRoute component={ChangePassword} />}
+        <ProtectedWrapper component={ChangePassword} />
       </Route>
       
-      {/* Client Routes */}
       <Route path="/clients">
-        {params => <ProtectedRoute component={ClientList} />}
+        <ProtectedWrapper component={ClientList} />
       </Route>
       <Route path="/clients/new">
-        {params => <ProtectedRoute component={ClientForm} />}
+        <ProtectedWrapper component={ClientForm} />
       </Route>
       <Route path="/clients/:id/edit">
-        {params => <ProtectedRoute component={ClientForm} params={params} />}
+        {params => <ProtectedWrapper component={ClientForm} params={params} />}
       </Route>
       <Route path="/clients/:id">
-        {params => <ProtectedRoute component={ClientDetails} params={params} />}
+        {params => <ProtectedWrapper component={ClientDetails} params={params} />}
       </Route>
       
-      {/* Placeholder for other sidebar links to avoid 404s during demo */}
       <Route path="/reports">
-        {params => <ProtectedRoute component={Reports} />}
+        <ProtectedWrapper component={Reports} />
       </Route>
       <Route path="/team">
-        {params => <ProtectedRoute component={TeamList} />}
+        <ProtectedWrapper component={TeamList} />
       </Route>
       <Route path="/additional-info">
-        {params => <ProtectedRoute component={AdditionalInfo} />}
+        <ProtectedWrapper component={AdditionalInfo} />
       </Route>
 
       <Route path="/university-db">
-        {params => <ProtectedRoute component={UniversityDatabase} />}
+        <ProtectedWrapper component={UniversityDatabase} />
       </Route>
-
-      <Route component={NotFound} />
     </Switch>
   );
 }
 
-import { ThemeProvider } from "@/components/theme-provider"
-
-function App() {
+export default function App() {
   return (
-    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <AuthProvider>
-            <AlertProvider>
-              <EmergencyAlert />
-              <Router />
-              <Toaster />
-            </AlertProvider>
-          </AuthProvider>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <Router />
+    </AuthProvider>
   );
 }
-
-export default App;
