@@ -32,8 +32,12 @@ export default function TeamList() {
           name: u.fullName || u.name,
           email: u.email,
           role: u.role,
-          status: "Active", // Backend might not provide this, default to Active
-          assignedTo: u.managerId ? "Assigned" : "" // We'll show specific manager names if possible
+          status: "Active",
+          assignedTo: u.managerId ? "Assigned" : "",
+          emp_id: u.emp_id,
+          company_phone_no: u.company_phone_no,
+          personal_phone_no: u.personal_phone_no,
+          designation: u.designation
         })));
       }
     } catch (error) {
