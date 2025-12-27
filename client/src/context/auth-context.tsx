@@ -74,47 +74,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 1. Check if we have a persistent user record
       const storedUser = localStorage.getItem('auth_user');
       if (!storedUser) {
+        console.log("No stored user found");
         setIsLoading(false);
         return;
       }
 
       // 2. Set the user immediately from storage so the UI can render
-      // This allows instant access on page refresh
+      // This allows instant access on page refresh (works offline too)
       try {
         const parsedUser = JSON.parse(storedUser);
+        console.log("User restored from localStorage:", parsedUser.username);
         setUser(parsedUser);
+        // Don't need to verify with backend in mockup mode
+        setIsLoading(false);
       } catch (e) {
+        console.error("Failed to parse stored user");
         localStorage.removeItem('auth_user');
         setIsLoading(false);
         return;
-      }
-
-      // 3. Try to refresh/verify session in the background
-      // But don't redirect on failure - we trust the localStorage
-      try {
-        console.log("App Reload: Verifying session...");
-        const response = await api.post('/api/users/refresh');
-        
-        if (response.data && response.data.accessToken) {
-          setInMemoryToken(response.data.accessToken);
-          console.log("Session verified successfully");
-        }
-      } catch (error: any) {
-        console.error("Session verification note:", error.response?.status || error.message);
-        // Only clear session if we get an explicit 401/403
-        // (meaning refresh token is invalid/expired on backend)
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          console.log("Refresh token invalid, clearing session");
-          setUser(null);
-          setInMemoryToken(null);
-          localStorage.removeItem('auth_user');
-        }
-        // For all other errors (network, 500, timeout, etc.):
-        // Keep the user logged in - we trust the localStorage state
-        // The user can still work offline or until backend is restored
-      } finally {
-        // 4. Stop loading so ProtectedRoute allows access
-        setIsLoading(false);
       }
     };
 
