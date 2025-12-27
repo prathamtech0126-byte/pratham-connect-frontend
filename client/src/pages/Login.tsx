@@ -80,7 +80,10 @@ export default function Login() {
                 throw new Error("No access token received from server");
             }
 
-            localStorage.setItem("accessToken", accessToken);
+            // Store token in cookies instead of localStorage
+            const expires = new Date(Date.now() + 7 * 864e5).toUTCString();
+            document.cookie = `accessToken=${accessToken}; expires=${expires}; path=/; SameSite=Lax`;
+            
             const mappedRole = (
                 role === "admin" ? "superadmin" : role
             ) as UserRole;
