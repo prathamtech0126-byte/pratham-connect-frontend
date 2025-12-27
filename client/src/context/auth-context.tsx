@@ -56,49 +56,109 @@ const MOCK_USERS: Record<UserRole, User> = {
 import { setInMemoryToken } from '@/lib/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Initialize user from localStorage if available
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const storedUser = localStorage.getItem('auth_user');
-      return storedUser ? JSON.parse(storedUser) : null;
-    } catch (e) {
-      return null;
-    }
-  });
-  
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      // 1. Check if we have a persistent user record
-      const storedUser = localStorage.getItem('auth_user');
-      if (!storedUser) {
-        console.log("No stored user found");
-        setIsLoading(false);
-        return;
-      }
+    let cancelled = false;
 
-      // 2. Set the user immediately from storage so the UI can render
-      // This allows instant access on page refresh
+    const restoreSession = async () => {
+      setIsLoading(true);
+
       try {
-        const parsedUser = JSON.parse(storedUser);
-        console.log("User restored from localStorage:", parsedUser.username);
-        setUser(parsedUser);
-      } catch (e) {
-        console.error("Failed to parse stored user");
-        localStorage.removeItem('auth_user');
-        setIsLoading(false);
-        return;
-      }
+        console.log("AuthProvider: Attempting to refresh session...");
+        
+        const res = await api.post(
+          "/api/users/refresh",
+          {},
+          { withCredentials: true, timeout: 5000 }
+        );
 
-      // 3. User is restored from localStorage - consider them logged in
-      // Trust the stored session since HTTPOnly cookies are handled by the browser
-      console.log("✓ Session restored from localStorage");
-      setIsLoading(false);
+        if (cancelled) return;
+
+        const { accessToken, role } = res.data;
+        console.log("✓ Session refresh successful, role:", role);
+
+        // Restore token to memory
+        setInMemoryToken(accessToken);
+
+        // Map role if needed
+        const mappedRole = (
+          role === "admin" ? "superadmin" : role
+        ) as UserRole;
+
+        // Get stored user data or create new one
+        const storedUser = localStorage.getItem('auth_user');
+        let userData: User;
+        
+        if (storedUser) {
+          try {
+            userData = JSON.parse(storedUser);
+            // Update role from backend
+            userData.role = mappedRole;
+          } catch {
+            userData = {
+              id: String(Date.now()),
+              username: 'user',
+              name: 'User',
+              role: mappedRole,
+            };
+          }
+        } else {
+          userData = {
+            id: String(Date.now()),
+            username: 'user',
+            name: 'User',
+            role: mappedRole,
+          };
+        }
+
+        setUser(userData);
+        localStorage.setItem('auth_user', JSON.stringify(userData));
+        console.log("✓ User restored:", userData.username);
+
+      } catch (err: any) {
+        if (!cancelled) {
+          const status = err.response?.status;
+          const message = err.message;
+          console.log("AuthProvider: Refresh failed", { status, message });
+          
+          // Only clear on explicit auth failure
+          if (status === 401 || status === 403) {
+            console.log("❌ Auth invalid - clearing session");
+            setUser(null);
+            setInMemoryToken(null);
+            localStorage.removeItem('auth_user');
+          } else {
+            // Network error - try to restore from localStorage
+            console.log("⚠ Network issue - attempting localStorage restore");
+            const storedUser = localStorage.getItem('auth_user');
+            if (storedUser) {
+              try {
+                const userData = JSON.parse(storedUser);
+                setUser(userData);
+                console.log("✓ User restored from localStorage:", userData.username);
+              } catch {
+                setUser(null);
+              }
+            } else {
+              setUser(null);
+            }
+          }
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
     };
 
-    checkAuth();
+    restoreSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = (role: UserRole, userData?: Partial<User>) => {
