@@ -75,22 +75,14 @@ api.interceptors.response.use(
             }
           },
         );
-        const { accessToken } = response.data;
-
-        // Update in-memory token
-        setInMemoryToken(accessToken);
         
-        // Update request header and retry
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        }
-
+        // IMPORTANT: The backend returns { message: "Token refreshed" } and sets cookie
+        // It does NOT return the accessToken in the JSON body.
+        // We rely on the browser's cookie being updated.
+        
         return axios({
           ...originalRequest,
-          headers: {
-            ...originalRequest.headers,
-            Authorization: `Bearer ${accessToken}`
-          }
+          withCredentials: true // Ensure credentials are sent with the retry
         });
       } catch (refreshError) {
         // If refresh fails, clear state
