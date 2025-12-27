@@ -84,11 +84,16 @@ api.interceptors.response.use(
         }
         
         return api(originalRequest);
-      } catch (refreshError) {
+      } catch (refreshError: any) {
         // If refresh fails, clear state
         setInMemoryToken(null);
-        // Remove the automatic redirect which might be causing the reload loop
-        // window.location.href = '/login'; 
+        
+        // Only force redirect to login if the refresh token is actually invalid/expired
+        if (refreshError.response?.status === 401 || refreshError.response?.status === 403) {
+           localStorage.removeItem('auth_user');
+           window.location.href = '/login'; 
+        }
+        
         return Promise.reject(refreshError);
       }
     }

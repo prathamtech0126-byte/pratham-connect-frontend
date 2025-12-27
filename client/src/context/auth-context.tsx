@@ -79,25 +79,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
+        console.log("Checking auth session on refresh...");
         // Attempt to refresh token on mount
         const response = await api.post('/api/users/refresh');
         
-        // If your server returns the new accessToken in JSON, capture it
         if (response.data && response.data.accessToken) {
+          console.log("Session restored with new token");
           setInMemoryToken(response.data.accessToken);
         }
         
-        // Keep the user state from localStorage
         setUser(JSON.parse(storedUser));
-      } catch (error) {
-        // If refresh fails during initial check, check if we still have a valid user session in localStorage
-        // We only clear if the error is a definitive 401 Unauthorized
-        if (error.response?.status === 401) {
+      } catch (error: any) {
+        console.error("Refresh token failed on restore:", error.response?.status);
+        // CRITICAL: We only clear the session if the token is definitely EXPIRED or INVALID (401)
+        // If it's a network error (no response) or server error (500), we KEEP the user logged in
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          console.log("Session invalid, logging out");
           setUser(null);
           setInMemoryToken(null);
           localStorage.removeItem('auth_user');
         } else {
-          // For other errors (network, 500), keep the local session so the user isn't kicked out
+          console.log("Network or server error, keeping local session for now");
           setUser(JSON.parse(storedUser));
         }
       } finally {
