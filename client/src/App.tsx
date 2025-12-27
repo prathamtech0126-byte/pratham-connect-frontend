@@ -22,13 +22,25 @@ import Activity from "@/pages/Activity";
 import CalendarDemo from "@/pages/CalendarDemo";
 import ChangePassword from "@/pages/ChangePassword";
 
+import { Loader2 } from "lucide-react";
+
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
 
+  // If auth is still checking (initial refresh), show nothing or a loader
+  // This prevents the redirect below from firing too early
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground animate-pulse">Restoring session...</p>
+        </div>
+      </div>
+    );
   }
 
+  // Only redirect if we are CERTAIN the user is not logged in (isLoading is false and user is null)
   if (!user) {
     return <Redirect to="/login" />;
   }
