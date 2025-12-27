@@ -235,11 +235,7 @@ export default function Login() {
                     <Card className="border border-border/50 shadow-2xl shadow-primary/5 bg-card/50 backdrop-blur-sm">
                         <CardContent className="pt-8 pb-8 px-8">
                             <form 
-                                onSubmit={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleLogin(e);
-                                }} 
+                                onSubmit={handleLogin} 
                                 className="space-y-6"
                             >
                                 <div className="space-y-2">
@@ -362,12 +358,7 @@ export default function Login() {
                                 </div>
 
                                 <Button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleLogin(e);
-                                    }}
+                                    type="submit"
                                     className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all"
                                     disabled={isLoading}
                                 >
