@@ -92,25 +92,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // 3. Try to refresh session with backend in the background
+      // 3. Verify session with backend in the background
+      // Try refresh endpoint - this will use the HTTPOnly refresh token cookie
       try {
-        console.log("App Reload: Verifying session...");
-        const response = await api.post('/api/users/refresh');
+        console.log("App Reload: Verifying session with backend...");
+        const response = await api.post('/api/users/refresh', {}, {
+          timeout: 5000,
+        });
         
         if (response.data && response.data.accessToken) {
           setInMemoryToken(response.data.accessToken);
-          console.log("Session verified successfully");
+          console.log("✓ Session verified - refresh token is valid");
+        } else {
+          console.log("⚠ No access token in refresh response, but user restored from cache");
         }
       } catch (error: any) {
-        console.error("Session verification failed:", error.response?.status || error.message);
-        // Only clear session if we get an explicit 401/403
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          console.log("Refresh token invalid, clearing session");
+        const status = error.response?.status;
+        const message = error.message;
+        console.error("Session verification attempt:", {status, message});
+        
+        // Only clear session on explicit auth failures
+        if (status === 401 || status === 403) {
+          console.log("❌ Refresh token expired/invalid - clearing session");
           setUser(null);
           setInMemoryToken(null);
           localStorage.removeItem('auth_user');
+        } else {
+          // Network errors or other issues - keep user logged in
+          // The HTTPOnly cookies should still be valid if the backend is running
+          console.log("⚠ Could not verify session (network/timeout), but keeping user logged in");
         }
-        // For other errors, keep user logged in (trust localStorage)
       } finally {
         setIsLoading(false);
       }
