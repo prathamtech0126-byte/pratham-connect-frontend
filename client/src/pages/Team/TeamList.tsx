@@ -228,6 +228,26 @@ export default function TeamList() {
     return matchesRole && matchesSearch;
   });
 
+  const handleDeleteMember = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this team member?")) return;
+    
+    try {
+      await api.delete(`/api/users/users-delete/${id}`);
+      toast({
+        title: "Success",
+        description: "Team member deleted successfully",
+      });
+      fetchTeamMembers();
+    } catch (error: any) {
+      const message = error.response?.data?.message || "Failed to delete team member";
+      toast({
+        title: "Delete Failed",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <PageWrapper title="Team Management" breadcrumbs={[{ label: "Team" }]}>
       <Card>
@@ -469,7 +489,12 @@ export default function TeamList() {
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => handleDeleteMember(member.id)}
+                        >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </TableCell>
