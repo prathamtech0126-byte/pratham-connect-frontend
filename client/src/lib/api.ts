@@ -67,7 +67,13 @@ api.interceptors.response.use(
         const response = await axios.post(
           `${API_BASE_URL}/api/users/refresh`,
           {},
-          { withCredentials: true },
+          { 
+            withCredentials: true,
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            }
+          },
         );
         const { accessToken } = response.data;
 
@@ -79,7 +85,13 @@ api.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         }
 
-        return api(originalRequest);
+        return axios({
+          ...originalRequest,
+          headers: {
+            ...originalRequest.headers,
+            Authorization: `Bearer ${accessToken}`
+          }
+        });
       } catch (refreshError) {
         // If refresh fails, clear state
         setInMemoryToken(null);
