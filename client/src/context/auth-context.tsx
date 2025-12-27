@@ -66,21 +66,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   });
   
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [, setLocation] = useLocation();
 
-  const login = (role: UserRole) => {
+  useEffect(() => {
+    const checkAuth = async () => {
+      // If we don't have a stored user, we can't be logged in
+      const storedUser = localStorage.getItem('auth_user');
+      if (!storedUser) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Attempt to refresh token on mount
+        const response = await api.post('/api/users/refresh');
+        
+        // If your server returns the new accessToken in JSON, capture it
+        if (response.data && response.data.accessToken) {
+          setInMemoryToken(response.data.accessToken);
+        }
+        
+        // Keep the user state from localStorage
+        setUser(JSON.parse(storedUser));
+      } catch (error) {
+        // If refresh fails, clear everything
+        setUser(null);
+        setInMemoryToken(null);
+        localStorage.removeItem('auth_user');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  const login = (role: UserRole, accessToken?: string) => {
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const newUser = MOCK_USERS[role];
-      setUser(newUser);
-      localStorage.setItem('auth_user', JSON.stringify(newUser));
-      // Ensure any legacy accessToken is removed from localStorage
-      localStorage.removeItem('accessToken');
-      setIsLoading(false);
-      setLocation('/');
-    }, 800);
+    if (accessToken) {
+      setInMemoryToken(accessToken);
+    }
+    const newUser = MOCK_USERS[role] || {
+      id: 'temp-' + Date.now(),
+      username: 'user',
+      name: 'User',
+      role: role
+    };
+    setUser(newUser);
+    localStorage.setItem('auth_user', JSON.stringify(newUser));
+    localStorage.removeItem('accessToken');
+    setIsLoading(false);
+    setLocation('/');
   };
 
   const logout = async () => {

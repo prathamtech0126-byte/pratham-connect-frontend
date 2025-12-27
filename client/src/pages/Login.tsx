@@ -90,19 +90,20 @@ export default function Login() {
             document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             localStorage.removeItem("accessToken");
             
-            // Clear all other potentially stale tokens from previous sessions
-            localStorage.clear();
-            localStorage.setItem('auth_user', JSON.stringify({
-                id: response.data.user?.id || '1',
-                username: username,
-                name: response.data.user?.name || username,
-                role: (response.data.role === "admin" ? "superadmin" : response.data.role)
-            }));
-            
             const mappedRole = (
                 role === "admin" ? "superadmin" : role
             ) as UserRole;
-            login(mappedRole);
+
+            // Clear all other potentially stale tokens from previous sessions
+            localStorage.removeItem('auth_user');
+            localStorage.setItem('auth_user', JSON.stringify({
+                id: response.data.user?.id || '1',
+                username: username,
+                name: response.data.user?.fullName || response.data.user?.name || username,
+                role: mappedRole
+            }));
+            
+            login(mappedRole, accessToken);
 
             toast({
                 title: "Login Successful",
