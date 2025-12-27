@@ -144,16 +144,23 @@ export default function TeamList() {
 
     try {
       if (editingId) {
-        // Logic for editing (keep local for now as per instructions)
-        setTeamMembers(teamMembers.map(member => 
-          member.id === editingId 
-            ? { ...member, ...newMember, name: newMember.fullName, password: newMember.password || member.password } 
-            : member
-        ));
+        const payload = {
+          ...newMember,
+          email: newMember.email.toLowerCase().trim(),
+          role: newMember.role.toLowerCase(),
+          managerId: newMember.role.toLowerCase() === "counsellor" ? Number(newMember.managerId) : undefined
+        };
+
+        // Call the update API
+        await api.put(`/api/users/users-update/${editingId}`, payload);
+        
         toast({
           title: "Success",
           description: "Team member updated successfully",
         });
+        
+        // Refresh the list immediately
+        fetchTeamMembers();
       } else {
         const payload = {
           ...newMember,
