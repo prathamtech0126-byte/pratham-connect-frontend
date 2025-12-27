@@ -39,9 +39,11 @@ export default function Login() {
         password?: boolean;
     }>({});
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+    const handleLogin = async (e?: React.FormEvent) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
 
         if (isSubmitting) return;
 
@@ -358,7 +360,8 @@ export default function Login() {
                                 </div>
 
                                 <Button
-                                    type="submit"
+                                    type="button"
+                                    onClick={() => handleLogin()}
                                     className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all"
                                     disabled={isLoading}
                                 >
