@@ -207,7 +207,7 @@ export default function TeamList() {
   };
 
   const filteredMembers = teamMembers.filter(member => {
-    const matchesRole = roleFilter === "all" || member.role === roleFilter;
+    const matchesRole = roleFilter === "all" || member.role.toLowerCase() === roleFilter.toLowerCase();
     const nameToSearch = member.name || member.fullName || "";
     const matchesSearch = nameToSearch.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          member.email.toLowerCase().includes(searchQuery.toLowerCase());
@@ -387,8 +387,8 @@ export default function TeamList() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="Manager">Manager</SelectItem>
-                  <SelectItem value="Counsellor">Counsellor</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="counsellor">Counsellor</SelectItem>
                 </SelectContent>
               </Select>
             </div>
