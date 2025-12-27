@@ -100,7 +100,7 @@ export default function Login() {
             // Clear all other potentially stale tokens from previous sessions
             localStorage.removeItem('auth_user');
             
-            login(mappedRole, accessToken);
+            login(mappedRole);
 
             toast({
                 title: "Login Successful",
@@ -143,7 +143,11 @@ export default function Login() {
     const isLoading = authLoading || isSubmitting;
 
     return (
-        <div className="min-h-screen w-full flex bg-background transition-colors duration-300">
+        <div className="min-h-screen w-full flex bg-background transition-colors duration-300" onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+                handleLogin();
+            }
+        }}>
             <div className="absolute top-4 right-4 z-50">
                 <ModeToggle />
             </div>
