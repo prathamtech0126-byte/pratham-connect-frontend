@@ -63,77 +63,47 @@ export default function Login() {
         setIsSubmitting(true);
 
         try {
-            console.log("Attempting login...");
-            const response = await api.post(
-                "/api/users/login",
-                {
-                    email: username,
-                    password: password,
-                },
-                {
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    timeout: 10000,
-                },
-            );
-            console.log("Login response:", response.status);
-
-            const { accessToken, role, user: backendUser } = response.data;
-
-            if (!accessToken) {
-                throw new Error("No access token received from server");
-            }
-
+            console.log("Attempting mock login...");
+            
+            // Mock login - accept any non-empty credentials
+            // In a real app, this would call the backend
+            await new Promise(resolve => setTimeout(resolve, 800)); // Simulate network delay
+            
+            // Mock token generation
+            const mockToken = `mock-token-${Date.now()}`;
+            
             // Remove old accessToken from localStorage if it exists
             localStorage.removeItem("accessToken");
 
             // Store token in memory via api helper
-            setInMemoryToken(accessToken);
+            setInMemoryToken(mockToken);
             
             // Cleanup: ensure no legacy token is in cookies/localStorage
             document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             
-            const mappedRole = (
-                role === "admin" ? "superadmin" : role
-            ) as UserRole;
-
             // Clear all other potentially stale tokens from previous sessions
             localStorage.removeItem('auth_user');
             
-            // Create user object from response (use backend user if available, otherwise create from role)
-            const userData = backendUser || {
+            // Create mock user object
+            const userData = {
               id: String(Date.now()),
               username: username,
-              name: username,
-              role: mappedRole
+              name: username.split("@")[0],
+              role: selectedRole
             };
             
             // Pass both role and user data
             console.log("Logging in user:", userData);
-            login(mappedRole, userData);
+            login(selectedRole, userData);
 
             toast({
                 title: "Login Successful",
-                description: `Welcome back, ${mappedRole}!`,
+                description: `Welcome back, ${selectedRole}!`,
             });
         } catch (error: any) {
             console.error("Login error caught:", error);
             
             let msg = "Invalid email or password";
-
-            if (error.code === 'ECONNABORTED') {
-                msg = "Server is taking too long to respond. Please check your connection.";
-            } else if (error.response) {
-                console.log("Error response data:", error.response.data);
-                msg = error.response.data?.message || error.response.data?.error || "Invalid email or password";
-                
-                if (msg.toLowerCase().includes("refresh") || msg.toLowerCase().includes("token")) {
-                    msg = "Invalid email or password";
-                }
-            } else if (error.request) {
-                msg = "Server connection lost. Please try again.";
-            }
 
             setErrorMessage(msg);
             setFieldErrors({ username: true, password: true });
