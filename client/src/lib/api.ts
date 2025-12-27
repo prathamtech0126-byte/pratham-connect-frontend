@@ -5,6 +5,17 @@ const API_BASE_URL =
 
 let inMemoryToken: string | null = null;
 
+// Debug helper to check state (remove in production)
+if (typeof window !== "undefined") {
+  (window as any).__debugAuth = () => {
+    console.log("--- Auth Security Check ---");
+    console.log("In-Memory Token:", inMemoryToken ? "✅ Stored (Safe)" : "❌ Not found");
+    console.log("Local Storage 'accessToken':", localStorage.getItem("accessToken") ? "⚠️ Warning: Found" : "✅ Clean");
+    console.log("All Cookies:", document.cookie || "None");
+    console.log("---------------------------");
+  };
+}
+
 export const setInMemoryToken = (token: string | null) => {
   inMemoryToken = token;
 };
