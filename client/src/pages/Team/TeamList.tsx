@@ -135,7 +135,8 @@ export default function TeamList() {
         const payload = {
           ...newMember,
           email: newMember.email.toLowerCase().trim(),
-          managerId: newMember.role === "Counsellor" ? Number(newMember.managerId) : undefined
+          role: newMember.role.toLowerCase(),
+          managerId: newMember.role.toLowerCase() === "counsellor" ? Number(newMember.managerId) : undefined
         };
 
         const response = await api.post("/api/users/register", payload);
