@@ -53,7 +53,9 @@ export default function TeamList() {
     try {
       setIsLoadingManagers(true);
       const response = await api.get("/api/users/managers");
-      setManagers(response.data);
+      // The API returns { success: true, count: 1, data: [...] }
+      const managersData = response.data.data || response.data;
+      setManagers(Array.isArray(managersData) ? managersData : []);
     } catch (error) {
       // Fallback to local state if API fails for demo
       const localManagers = teamMembers.filter((m: any) => m.role === "Manager");
@@ -245,8 +247,8 @@ export default function TeamList() {
                           </div>
                         ) : managers && managers.length > 0 ? (
                           managers.map((manager: any) => (
-                            <SelectItem key={manager.id} value={manager.name}>
-                              {manager.name}
+                            <SelectItem key={manager.id} value={manager.fullName || manager.name}>
+                              {manager.fullName || manager.name}
                             </SelectItem>
                           ))
                         ) : (
