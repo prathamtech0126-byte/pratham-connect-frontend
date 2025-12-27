@@ -90,11 +90,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Keep the user state from localStorage
         setUser(JSON.parse(storedUser));
       } catch (error) {
-        // If refresh fails during initial check, clear everything
-        // But we don't need to alert the user here as they'll just see the login page
-        setUser(null);
-        setInMemoryToken(null);
-        localStorage.removeItem('auth_user');
+        // If refresh fails during initial check, check if we still have a valid user session in localStorage
+        // We only clear if the error is a definitive 401 Unauthorized
+        if (error.response?.status === 401) {
+          setUser(null);
+          setInMemoryToken(null);
+          localStorage.removeItem('auth_user');
+        } else {
+          // For other errors (network, 500), keep the local session so the user isn't kicked out
+          setUser(JSON.parse(storedUser));
+        }
       } finally {
         setIsLoading(false);
       }
