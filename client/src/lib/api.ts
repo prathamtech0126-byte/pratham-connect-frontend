@@ -1,7 +1,8 @@
 import axios, { InternalAxiosRequestConfig } from "axios";
 
 const API_BASE_URL =
-  process.env.VITE_API_URL || "http://localhost:5000";
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 
 let inMemoryToken: string | null = null;
 
@@ -9,8 +10,14 @@ let inMemoryToken: string | null = null;
 if (typeof window !== "undefined") {
   (window as any).__debugAuth = () => {
     console.log("--- Auth Security Check ---");
-    console.log("In-Memory Token:", inMemoryToken ? "✅ Stored (Safe)" : "❌ Not found");
-    console.log("Local Storage 'accessToken':", localStorage.getItem("accessToken") ? "⚠️ Warning: Found" : "✅ Clean");
+    console.log(
+      "In-Memory Token:",
+      inMemoryToken ? "✅ Stored (Safe)" : "❌ Not found",
+    );
+    console.log(
+      "Local Storage 'accessToken':",
+      localStorage.getItem("accessToken") ? "⚠️ Warning: Found" : "✅ Clean",
+    );
     console.log("All Cookies:", document.cookie || "None");
     console.log("---------------------------");
   };
@@ -68,32 +75,35 @@ api.interceptors.response.use(
         const response = await axios.post(
           `${API_BASE_URL}/api/users/refresh`,
           {},
-          { 
+          {
             withCredentials: true,
             headers: {
               "Content-Type": "application/json",
               Accept: "application/json",
-            }
+            },
           },
         );
-        
+
         // If your server returns the new accessToken in JSON, capture it
         const newAccessToken = response.data.accessToken;
         if (newAccessToken) {
           setInMemoryToken(newAccessToken);
         }
-        
+
         return api(originalRequest);
       } catch (refreshError: any) {
         // If refresh fails, clear state
         setInMemoryToken(null);
-        
+
         // Only force redirect to login if the refresh token is actually invalid/expired
-        if (refreshError.response?.status === 401 || refreshError.response?.status === 403) {
-           localStorage.removeItem('auth_user');
-           window.location.href = '/login'; 
+        if (
+          refreshError.response?.status === 401 ||
+          refreshError.response?.status === 403
+        ) {
+          localStorage.removeItem("auth_user");
+          window.location.href = "/login";
         }
-        
+
         return Promise.reject(refreshError);
       }
     }
