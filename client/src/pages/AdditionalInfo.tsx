@@ -153,7 +153,7 @@ export default function AdditionalInfo() {
   const fetchSaleTypes = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get("/api/users/sale-type");
+      const response = await api.get("/api/sale-types");
       setSaleTypes(response.data.data || []);
     } catch (error) {
       console.error("Failed to fetch sale types:", error);
@@ -386,7 +386,10 @@ export default function AdditionalInfo() {
               )}
             </div>
 
-            <Button onClick={handleTransferClient} data-testid="button-transfer">
+            <Button
+              onClick={handleTransferClient}
+              data-testid="button-transfer"
+            >
               Transfer
             </Button>
           </div>
