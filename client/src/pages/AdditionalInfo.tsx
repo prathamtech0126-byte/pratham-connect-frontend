@@ -62,9 +62,9 @@ export default function AdditionalInfo() {
       setSaleTypes(res.data.data || []);
     } catch {
       setSaleTypes([
-        { saleTypeId: 1, saleType: "Canada Student", amount: 50000, isProduct: false },
-        { saleTypeId: 2, saleType: "UK Visa", amount: 35000, isProduct: false },
-        { saleTypeId: 3, saleType: "IELTS Course", amount: 15000, isProduct: true },
+        { id: 1, saleType: "Canada Student", amount: 50000, isProduct: false },
+        { id: 2, saleType: "UK Visa", amount: 35000, isProduct: false },
+        { id: 3, saleType: "IELTS Course", amount: 15000, isProduct: true },
       ]);
     } finally {
       setIsLoading(false);
@@ -86,11 +86,11 @@ export default function AdditionalInfo() {
 
   const openEditDialog = (item: any) => {
     setMode("edit");
-    // Ensure we use the correct ID property from the API response
-    const id = item.saleTypeId || item.id || item.sale_type_id;
+    // Only use 'id' as requested
+    const id = item.id;
     setEditingId(id);
     setFormData({
-      saleType: item.saleType || item.name || "",
+      saleType: item.saleType || "",
       amount: item.amount?.toString() || "",
       isProduct: item.isProduct ? "Yes" : "No",
     });
@@ -133,7 +133,7 @@ export default function AdditionalInfo() {
   };
 
   const handleDelete = (id: number) => {
-    setSaleTypes(prev => prev.filter(x => x.saleTypeId !== id));
+    setSaleTypes(prev => prev.filter(x => x.id !== id));
     toast({ title: "Deleted", description: "Sale type removed" });
   };
 
@@ -171,7 +171,7 @@ export default function AdditionalInfo() {
                 </TableRow>
               ) : (
                 saleTypes.map(item => (
-                  <TableRow key={item.saleTypeId}>
+                  <TableRow key={item.id}>
                     <TableCell>{item.saleType}</TableCell>
                     <TableCell>{item.isProduct ? "Yes" : "No"}</TableCell>
                     <TableCell>{item.amount ? `₹${item.amount}` : "N/A"}</TableCell>
@@ -187,7 +187,7 @@ export default function AdditionalInfo() {
                         variant="ghost"
                         size="icon"
                         className="text-destructive"
-                        onClick={() => handleDelete(item.saleTypeId)}
+                        onClick={() => handleDelete(item.id)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
