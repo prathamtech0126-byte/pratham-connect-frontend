@@ -190,7 +190,7 @@ export default function AdditionalInfo() {
     isProduct: "No",
   });
 
-  const handleSave = async () => {
+  const handleSaveSaleType = async () => {
     if (!formData.saleType) {
       toast({
         title: "Error",
@@ -208,38 +208,33 @@ export default function AdditionalInfo() {
         isProduct: formData.isProduct === "Yes",
       };
 
-      if (editingId) {
-        const response = await api.put(`/api/sale-types/${editingId}`, payload);
-        if (response.data.success) {
-          toast({
-            title: "Success",
-            description: "Sale type updated successfully",
-          });
-          fetchSaleTypes();
-        }
-      } else {
-        const response = await api.post("/api/users/sale-type", payload);
-        if (response.data.success) {
-          toast({
-            title: "Success",
-            description: "Sale type added successfully",
-          });
-          fetchSaleTypes();
-        }
-      }
+      const endpoint = "/api/sale-type";
+      const response = editingId 
+        ? await api.put(`${endpoint}/${editingId}`, payload)
+        : await api.post(endpoint, payload);
 
-      setIsDialogOpen(false);
-      resetForm();
+      if (response.data.success) {
+        toast({
+          title: "Success",
+          description: `Sale type ${editingId ? "updated" : "added"} successfully`,
+        });
+        fetchSaleTypes();
+        setIsDialogOpen(false);
+        resetForm();
+      }
     } catch (error: any) {
       toast({
         title: "Error",
-        description:
-          error.response?.data?.message || "Failed to save sale type",
+        description: error.response?.data?.message || `Failed to ${editingId ? "update" : "add"} sale type`,
         variant: "destructive",
       });
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSave = () => {
+    handleSaveSaleType();
   };
 
   const handleDelete = async (id: number) => {
@@ -307,11 +302,11 @@ export default function AdditionalInfo() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  {editingId ? "Update Sale Type" : "Add Sale Type"}
+                  {editingId ? "Edit Sale Type" : "Add Sale Type"}
                 </DialogTitle>
                 <DialogDescription>
                   {editingId
-                    ? "Modify the existing sale type configuration."
+                    ? "Update sale type details."
                     : "Create a new sale type configuration."}
                 </DialogDescription>
               </DialogHeader>
