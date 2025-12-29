@@ -217,14 +217,15 @@ export default function AdditionalInfo() {
       };
 
       if (editingId) {
-        // Mock update for prototype
-        setSaleTypes(saleTypes.map(item => 
-          item.saleTypeId === editingId ? { ...item, ...payload } : item
-        ));
-        toast({
-          title: "Success",
-          description: "Sale type updated successfully",
-        });
+        // Use real API for updating as requested
+        const response = await api.put(`/api/sale-types/${editingId}`, payload);
+        if (response.data.success) {
+          toast({
+            title: "Success",
+            description: "Sale type updated successfully",
+          });
+          fetchSaleTypes();
+        }
       } else {
         // Use real API for adding as requested
         const response = await api.post("/api/sale-types", payload);
