@@ -132,9 +132,18 @@ export default function AdditionalInfo() {
     }
   };
 
-  const handleDelete = (id: number) => {
-    setSaleTypes(prev => prev.filter(x => x.id !== id));
-    toast({ title: "Deleted", description: "Sale type removed" });
+  const handleDelete = async (id: number) => {
+    try {
+      await api.delete(`/api/sale-types/${id}`);
+      setSaleTypes(prev => prev.filter(x => x.id !== id));
+      toast({ title: "Deleted", description: "Sale type removed" });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.response?.data?.message || "Delete failed",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
