@@ -208,7 +208,7 @@ export default function AdditionalInfo() {
         isProduct: formData.isProduct === "Yes",
       };
 
-      const endpoint = "/api/users/sale-type";
+      const endpoint = "/api/sale-type";
       const response = editingId 
         ? await api.put(`${endpoint}/${editingId}`, payload)
         : await api.post(endpoint, payload);
