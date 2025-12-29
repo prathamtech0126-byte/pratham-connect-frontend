@@ -418,7 +418,15 @@ export default function AdditionalInfo() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 mr-1 text-muted-foreground hover:text-primary"
-                          onClick={() => openEditDialog(item)}
+                          onClick={() => {
+                            setEditingId(item.saleTypeId);
+                            setFormData({
+                              saleType: item.saleType,
+                              amount: item.amount?.toString() || "",
+                              isProduct: item.isProduct ? "Yes" : "No",
+                            });
+                            setIsDialogOpen(true);
+                          }}
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
