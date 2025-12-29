@@ -33,6 +33,7 @@ export function FinancialEntry<T extends FieldValues>({
           name={`${name}.date` as Path<T>}
           control={control}
           label="Date"
+          maxDate={new Date()}
         />
         {hasInvoice && (
           <FormTextInput

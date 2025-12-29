@@ -525,6 +525,7 @@ export default function ClientForm() {
                             name="spouseFields.trvExtension.date"
                             control={control}
                             label="Date"
+                            maxDate={new Date()}
                           />
                           <FormTextInput
                             name="spouseFields.trvExtension.invoiceNo"
@@ -574,6 +575,7 @@ export default function ClientForm() {
                             name="spouseFields.relationshipAffidavit.date"
                             control={control}
                             label="Date"
+                            maxDate={new Date()}
                           />
                           <FormTextInput
                             name="spouseFields.relationshipAffidavit.invoiceNo"
@@ -631,11 +633,13 @@ export default function ClientForm() {
                             name="spouseFields.simCard.date"
                             control={control}
                             label="Sim Card Giving Date"
+                            maxDate={new Date()}
                           />
                           <FormDateInput
                             name="spouseFields.simCard.startDate"
                             control={control}
                             label="Activation Date"
+                            maxDate={new Date()}
                           />
                         </div>
                         <FormTextareaInput
@@ -665,6 +669,7 @@ export default function ClientForm() {
                             name="spouseFields.insurance.date"
                             control={control}
                             label="Date"
+                            maxDate={new Date()}
                           />
                         </div>
                         <FormTextareaInput
@@ -684,11 +689,13 @@ export default function ClientForm() {
                             name="spouseFields.myBeacon.openingDate"
                             control={control}
                             label="Opening Date"
+                            maxDate={new Date()}
                           />
                           <FormDateInput
                             name="spouseFields.myBeacon.fundingDate"
                             control={control}
                             label="Funding Date"
+                            maxDate={new Date()}
                           />
                           <FormCurrencyInput
                             name="spouseFields.myBeacon.fundingAmount"
@@ -735,6 +742,7 @@ export default function ClientForm() {
                             name="spouseFields.airTicket.date"
                             control={control}
                             label="Date"
+                            maxDate={new Date()}
                           />
                         </div>
                         <FormTextareaInput
@@ -845,11 +853,13 @@ export default function ClientForm() {
                             name="visitorFields.simCard.date"
                             control={control}
                             label="Activation Date"
+                            maxDate={new Date()}
                           />
                           <FormDateInput
                             name="visitorFields.simCard.startDate"
                             control={control}
                             label="Usage Start Date"
+                            maxDate={new Date()}
                           />
                         </div>
                         <FormTextareaInput
@@ -879,6 +889,7 @@ export default function ClientForm() {
                             name="visitorFields.insurance.date"
                             control={control}
                             label="Date"
+                            maxDate={new Date()}
                           />
                         </div>
                         <FormTextareaInput
@@ -898,11 +909,13 @@ export default function ClientForm() {
                             name="visitorFields.beaconAccount.openingDate"
                             control={control}
                             label="Opening Date"
+                            maxDate={new Date()}
                           />
                           <FormDateInput
                             name="visitorFields.beaconAccount.fundingDate"
                             control={control}
                             label="Funding Date"
+                            maxDate={new Date()}
                           />
                           <FormCurrencyInput
                             name="visitorFields.beaconAccount.fundingAmount"
@@ -949,6 +962,7 @@ export default function ClientForm() {
                             name="visitorFields.airTicket.date"
                             control={control}
                             label="Date"
+                            maxDate={new Date()}
                           />
                         </div>
                         <FormTextareaInput
@@ -1025,6 +1039,7 @@ export default function ClientForm() {
                             name="studentFields.ieltsEnrollment.date"
                             control={control}
                             label="Date"
+                            maxDate={new Date()}
                           />
                         </div>
                         <FormTextareaInput
@@ -1049,6 +1064,7 @@ export default function ClientForm() {
                             name="studentFields.loan.disbursementDate"
                             control={control}
                             label="Disbursement Date"
+                            maxDate={new Date()}
                           />
                         </div>
                         <FormTextareaInput
