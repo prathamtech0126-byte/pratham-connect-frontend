@@ -57,6 +57,14 @@ const airTicketSchema = z.object({
   remarks: z.string().optional(),
 });
 
+const simCardSchema = z.object({
+  isActivated: z.string().optional(),
+  plan: z.string().optional(),
+  date: z.string().optional(),
+  startDate: z.string().optional(),
+  remarks: z.string().optional(),
+});
+
 const trvExtensionSchema = z.object({
   type: z.string().optional(),
   amount: z.number().optional(),
