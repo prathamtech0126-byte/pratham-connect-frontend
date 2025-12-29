@@ -224,6 +224,7 @@ export default function AdditionalInfo() {
             title: "Success",
             description: "Sale type updated successfully",
           });
+          setEditingId(null); // Clear editing ID after successful update
           fetchSaleTypes();
         }
       } else {
