@@ -546,14 +546,6 @@ export default function ClientForm() {
                           placeholder="Add remark for this section..."
                         />
                       </div>
-                      <div className="p-4 border rounded-lg bg-muted/20 mt-4">
-                        <FormTextareaInput
-                          name="spouseFields.financeRemarks"
-                          control={control}
-                          label="Remarks"
-                          placeholder="Add remarks for Finance & Employment section..."
-                        />
-                      </div>
                     </AccordionContent>
                   </AccordionItem>
 
