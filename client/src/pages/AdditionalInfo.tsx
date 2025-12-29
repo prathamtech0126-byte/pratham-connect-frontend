@@ -1,14 +1,41 @@
 import { PageWrapper } from "@/layout/PageWrapper";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Trash2, Plus, Pencil, ArrowRight, Loader2 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import api from "@/lib/api";
 
 export default function AdditionalInfo() {
@@ -16,11 +43,36 @@ export default function AdditionalInfo() {
 
   // Mock data for clients and counselors
   const [clients] = useState([
-    { id: 1, name: "Rahul Kumar", currentCounsellor: "Super Admin", status: "Active" },
-    { id: 2, name: "Priya Singh", currentCounsellor: "Sarah Manager", status: "Active" },
-    { id: 3, name: "Amit Patel", currentCounsellor: "Priya Singh", status: "Active" },
-    { id: 4, name: "Neha Sharma", currentCounsellor: "Director", status: "Active" },
-    { id: 5, name: "Vikram Malhotra", currentCounsellor: "Rahul Sharma", status: "Active" },
+    {
+      id: 1,
+      name: "Rahul Kumar",
+      currentCounsellor: "Super Admin",
+      status: "Active",
+    },
+    {
+      id: 2,
+      name: "Priya Singh",
+      currentCounsellor: "Sarah Manager",
+      status: "Active",
+    },
+    {
+      id: 3,
+      name: "Amit Patel",
+      currentCounsellor: "Priya Singh",
+      status: "Active",
+    },
+    {
+      id: 4,
+      name: "Neha Sharma",
+      currentCounsellor: "Director",
+      status: "Active",
+    },
+    {
+      id: 5,
+      name: "Vikram Malhotra",
+      currentCounsellor: "Rahul Sharma",
+      status: "Active",
+    },
   ]);
 
   const [counsellors] = useState([
@@ -40,22 +92,34 @@ export default function AdditionalInfo() {
   const [counsellorSearchInput, setCounsellorSearchInput] = useState("");
   const [showClientList, setShowClientList] = useState(false);
   const [showCounsellorList, setShowCounsellorList] = useState(false);
-  const [clientTransfers, setClientTransfers] = useState<Array<{ clientId: number; oldCounsellor: string; newCounsellor: string; date: string }>>([]);
+  const [clientTransfers, setClientTransfers] = useState<
+    Array<{
+      clientId: number;
+      oldCounsellor: string;
+      newCounsellor: string;
+      date: string;
+    }>
+  >([]);
 
   // Filter clients based on search
-  const filteredClients = clientSearchInput.length >= 3 
-    ? clients.filter(c => 
-        c.name.toLowerCase().includes(clientSearchInput.toLowerCase()) ||
-        c.currentCounsellor.toLowerCase().includes(clientSearchInput.toLowerCase())
-      )
-    : [];
+  const filteredClients =
+    clientSearchInput.length >= 3
+      ? clients.filter(
+          (c) =>
+            c.name.toLowerCase().includes(clientSearchInput.toLowerCase()) ||
+            c.currentCounsellor
+              .toLowerCase()
+              .includes(clientSearchInput.toLowerCase()),
+        )
+      : [];
 
   // Filter counsellors based on search
-  const filteredCounsellors = counsellorSearchInput.length >= 3
-    ? counsellors.filter(c =>
-        c.toLowerCase().includes(counsellorSearchInput.toLowerCase())
-      )
-    : [];
+  const filteredCounsellors =
+    counsellorSearchInput.length >= 3
+      ? counsellors.filter((c) =>
+          c.toLowerCase().includes(counsellorSearchInput.toLowerCase()),
+        )
+      : [];
 
   const handleTransferClient = () => {
     if (!selectedClientId || !selectedCounsellor) {
@@ -67,7 +131,7 @@ export default function AdditionalInfo() {
       return;
     }
 
-    const client = clients.find(c => c.id === selectedClientId);
+    const client = clients.find((c) => c.id === selectedClientId);
     if (!client) return;
 
     if (client.currentCounsellor === selectedCounsellor) {
@@ -87,7 +151,7 @@ export default function AdditionalInfo() {
     };
 
     setClientTransfers([transfer, ...clientTransfers]);
-    
+
     toast({
       title: "Success",
       description: `${client.name} transferred from ${client.currentCounsellor} to ${selectedCounsellor}`,
@@ -105,7 +169,7 @@ export default function AdditionalInfo() {
   const fetchSaleTypes = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get("/api/users/sale-type");
+      const response = await api.get("/api/sale-types");
       setSaleTypes(response.data.data || []);
     } catch (error) {
       console.error("Failed to fetch sale types:", error);
@@ -123,7 +187,7 @@ export default function AdditionalInfo() {
   const [formData, setFormData] = useState({
     saleType: "",
     amount: "",
-    isProduct: "No"
+    isProduct: "No",
   });
 
   const handleSave = async () => {
@@ -141,16 +205,20 @@ export default function AdditionalInfo() {
       const payload = {
         saleType: formData.saleType,
         amount: formData.amount ? Number(formData.amount) : null,
-        isProduct: formData.isProduct === "Yes"
+        isProduct: formData.isProduct === "Yes",
       };
 
       if (editingId) {
-        toast({
-          title: "Notice",
-          description: "Editing sale types is currently in mockup mode.",
-        });
+        const response = await api.put(`/api/sale-types/${editingId}`, payload);
+        if (response.data.success) {
+          toast({
+            title: "Success",
+            description: "Sale type updated successfully",
+          });
+          fetchSaleTypes();
+        }
       } else {
-        const response = await api.post("/api/users/sale-type", payload);
+        const response = await api.post("/api/sale-types", payload);
         if (response.data.success) {
           toast({
             title: "Success",
@@ -165,7 +233,8 @@ export default function AdditionalInfo() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.response?.data?.message || "Failed to save sale type",
+        description:
+          error.response?.data?.message || "Failed to save sale type",
         variant: "destructive",
       });
     } finally {
@@ -175,15 +244,16 @@ export default function AdditionalInfo() {
 
   const handleDelete = async (id: number) => {
     try {
-      setSaleTypes(saleTypes.filter(item => item.saleTypeId !== id));
+      await api.delete(`/api/sale-types/${id}`);
       toast({
         title: "Success",
         description: "Sale type removed successfully",
       });
-    } catch (error) {
+      fetchSaleTypes();
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to delete sale type",
+        description: error.response?.data?.message || "Failed to delete sale type",
         variant: "destructive",
       });
     }
@@ -204,23 +274,31 @@ export default function AdditionalInfo() {
     setFormData({
       saleType: item.saleType,
       amount: item.amount?.toString() || "",
-      isProduct: item.isProduct ? "Yes" : "No"
+      isProduct: item.isProduct ? "Yes" : "No",
     });
     setIsDialogOpen(true);
   };
 
   return (
-    <PageWrapper title="Additional Information" breadcrumbs={[{ label: "Additional Info" }]}>
+    <PageWrapper
+      title="Additional Information"
+      breadcrumbs={[{ label: "Additional Info" }]}
+    >
       <Card className="mb-6">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <CardTitle>Sale Types & Payment</CardTitle>
-            <CardDescription>Manage sale types and their default total payment amounts.</CardDescription>
+            <CardDescription>
+              Manage sale types and their default total payment amounts.
+            </CardDescription>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) resetForm();
-          }}>
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) resetForm();
+            }}
+          >
             <DialogTrigger asChild>
               <Button size="sm" onClick={openAddDialog}>
                 <Plus className="w-4 h-4 mr-2" />
@@ -229,9 +307,13 @@ export default function AdditionalInfo() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{editingId ? "Edit Sale Type" : "Add Sale Type"}</DialogTitle>
+                <DialogTitle>
+                  {editingId ? "Edit Sale Type" : "Add Sale Type"}
+                </DialogTitle>
                 <DialogDescription>
-                  {editingId ? "Update sale type details." : "Create a new sale type configuration."}
+                  {editingId
+                    ? "Update sale type details."
+                    : "Create a new sale type configuration."}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -241,7 +323,9 @@ export default function AdditionalInfo() {
                     id="saleType"
                     placeholder="e.g. Canada Student"
                     value={formData.saleType}
-                    onChange={(e) => setFormData({ ...formData, saleType: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, saleType: e.target.value })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -251,12 +335,19 @@ export default function AdditionalInfo() {
                     type="number"
                     placeholder="e.g. 50000"
                     value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, amount: e.target.value })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="isProduct">Is Product</Label>
-                  <Select value={formData.isProduct} onValueChange={(value) => setFormData({ ...formData, isProduct: value })}>
+                  <Select
+                    value={formData.isProduct}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, isProduct: value })
+                    }
+                  >
                     <SelectTrigger id="isProduct">
                       <SelectValue placeholder="Select Status" />
                     </SelectTrigger>
@@ -268,9 +359,17 @@ export default function AdditionalInfo() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>Cancel</Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
                 <Button onClick={handleSave} disabled={isSaving}>
-                  {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {isSaving && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
                   {editingId ? "Update" : "Add"}
                 </Button>
               </DialogFooter>
@@ -304,21 +403,27 @@ export default function AdditionalInfo() {
                 ) : (
                   saleTypes.map((item) => (
                     <TableRow key={item.saleTypeId}>
-                      <TableCell className="font-medium">{item.saleType}</TableCell>
+                      <TableCell className="font-medium">
+                        {item.saleType}
+                      </TableCell>
                       <TableCell>{item.isProduct ? "Yes" : "No"}</TableCell>
-                      <TableCell>{item.amount ? `₹${Number(item.amount).toLocaleString()}` : "N/A"}</TableCell>
+                      <TableCell>
+                        {item.amount
+                          ? `₹${Number(item.amount).toLocaleString()}`
+                          : "N/A"}
+                      </TableCell>
                       <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8 mr-1 text-muted-foreground hover:text-primary"
                           onClick={() => openEditDialog(item)}
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8 text-destructive"
                           onClick={() => handleDelete(item.saleTypeId)}
                         >
@@ -338,7 +443,9 @@ export default function AdditionalInfo() {
         <CardHeader>
           <div>
             <CardTitle>Client Transfer</CardTitle>
-            <CardDescription>Transfer individual clients to another counsellor</CardDescription>
+            <CardDescription>
+              Transfer individual clients to another counsellor
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -360,13 +467,15 @@ export default function AdditionalInfo() {
               {showClientList && clientSearchInput.length >= 3 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
                   {filteredClients.length > 0 ? (
-                    filteredClients.map(client => (
+                    filteredClients.map((client) => (
                       <div
                         key={client.id}
                         className="px-3 py-2 hover:bg-slate-100 cursor-pointer border-b text-sm"
                         onClick={() => {
                           setSelectedClientId(client.id);
-                          setClientSearchInput(`${client.name} (${client.currentCounsellor})`);
+                          setClientSearchInput(
+                            `${client.name} (${client.currentCounsellor})`,
+                          );
                           setShowClientList(false);
                         }}
                         data-testid={`client-option-${client.id}`}
@@ -375,7 +484,9 @@ export default function AdditionalInfo() {
                       </div>
                     ))
                   ) : (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">No clients found</div>
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      No clients found
+                    </div>
                   )}
                 </div>
               )}
@@ -401,7 +512,7 @@ export default function AdditionalInfo() {
               {showCounsellorList && counsellorSearchInput.length >= 3 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
                   {filteredCounsellors.length > 0 ? (
-                    filteredCounsellors.map(counsellor => (
+                    filteredCounsellors.map((counsellor) => (
                       <div
                         key={counsellor}
                         className="px-3 py-2 hover:bg-slate-100 cursor-pointer border-b text-sm"
@@ -416,13 +527,18 @@ export default function AdditionalInfo() {
                       </div>
                     ))
                   ) : (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">No counsellors found</div>
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      No counsellors found
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
-            <Button onClick={handleTransferClient} data-testid="button-transfer">
+            <Button
+              onClick={handleTransferClient}
+              data-testid="button-transfer"
+            >
               Transfer
             </Button>
           </div>
@@ -443,10 +559,17 @@ export default function AdditionalInfo() {
                   </TableHeader>
                   <TableBody>
                     {clientTransfers.map((transfer, index) => {
-                      const client = clients.find(c => c.id === transfer.clientId);
+                      const client = clients.find(
+                        (c) => c.id === transfer.clientId,
+                      );
                       return (
-                        <TableRow key={index} data-testid={`transfer-row-${index}`}>
-                          <TableCell className="font-medium">{client?.name}</TableCell>
+                        <TableRow
+                          key={index}
+                          data-testid={`transfer-row-${index}`}
+                        >
+                          <TableCell className="font-medium">
+                            {client?.name}
+                          </TableCell>
                           <TableCell>{transfer.oldCounsellor}</TableCell>
                           <TableCell>{transfer.newCounsellor}</TableCell>
                           <TableCell>{transfer.date}</TableCell>
