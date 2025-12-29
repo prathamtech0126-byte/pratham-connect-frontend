@@ -145,10 +145,14 @@ export default function AdditionalInfo() {
       };
 
       if (editingId) {
-        toast({
-          title: "Notice",
-          description: "Editing sale types is currently in mockup mode.",
-        });
+        const response = await api.put(`/api/sale-types/${editingId}`, payload);
+        if (response.data.success) {
+          toast({
+            title: "Success",
+            description: "Sale type updated successfully",
+          });
+          fetchSaleTypes();
+        }
       } else {
         const response = await api.post("/api/users/sale-type", payload);
         if (response.data.success) {
