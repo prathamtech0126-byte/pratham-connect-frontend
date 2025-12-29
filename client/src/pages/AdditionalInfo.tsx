@@ -229,6 +229,7 @@ export default function AdditionalInfo() {
           setEditingId(null);
           setFormData({ saleType: "", amount: "", isProduct: "No" });
           fetchSaleTypes();
+          return; // Exit after successful update
         }
       } else {
         // Use real API for adding as requested
@@ -243,6 +244,7 @@ export default function AdditionalInfo() {
           setEditingId(null);
           setFormData({ saleType: "", amount: "", isProduct: "No" });
           fetchSaleTypes();
+          return; // Exit after successful add
         }
       }
     } catch (error: any) {
