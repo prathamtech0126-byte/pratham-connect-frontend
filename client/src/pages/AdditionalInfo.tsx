@@ -224,7 +224,8 @@ export default function AdditionalInfo() {
             title: "Success",
             description: "Sale type updated successfully",
           });
-          setEditingId(null); // Clear editing ID after successful update
+          setIsDialogOpen(false);
+          resetForm();
           fetchSaleTypes();
         }
       } else {
@@ -235,12 +236,11 @@ export default function AdditionalInfo() {
             title: "Success",
             description: "Sale type added successfully",
           });
+          setIsDialogOpen(false);
+          resetForm();
           fetchSaleTypes();
         }
       }
-      
-      setIsDialogOpen(false);
-      resetForm();
     } catch (error: any) {
       toast({
         title: "Error",
