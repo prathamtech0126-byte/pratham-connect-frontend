@@ -570,32 +570,30 @@ export default function ClientForm() {
                         <Label className="text-base font-semibold">
                           10. Recent Marriage / Relationship Affidavit
                         </Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <FormCurrencyInput
-                              name="spouseFields.relationshipAffidavit.amount"
-                              control={control}
-                              label="Amount"
-                            />
-                            <FormDateInput
-                              name="spouseFields.relationshipAffidavit.date"
-                              control={control}
-                              label="Date"
-                              maxDate={new Date()}
-                            />
-                            <FormTextInput
-                              name="spouseFields.relationshipAffidavit.invoiceNo"
-                              control={control}
-                              label="Invoice No"
-                            />
-                          </div>
-                          <FormTextInput
-                            name="spouseFields.relationshipAffidavit.remarks"
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormCurrencyInput
+                            name="spouseFields.relationshipAffidavit.amount"
                             control={control}
-                            label="Remarks"
-                            placeholder="Add remark for this section..."
+                            label="Amount"
+                          />
+                          <FormDateInput
+                            name="spouseFields.relationshipAffidavit.date"
+                            control={control}
+                            label="Date"
+                            maxDate={new Date()}
+                          />
+                          <FormTextInput
+                            name="spouseFields.relationshipAffidavit.invoiceNo"
+                            control={control}
+                            label="Invoice No"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="spouseFields.relationshipAffidavit.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Add remarks..."
+                        />
                       </div>
 
                       <FinancialEntry
