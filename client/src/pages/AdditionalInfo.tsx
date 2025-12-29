@@ -167,15 +167,12 @@ export default function AdditionalInfo() {
   const [isSaving, setIsSaving] = useState(false);
 
   const fetchSaleTypes = async () => {
-    try {
-      setIsLoading(true);
-      const response = await api.get("/api/sale-types");
-      setSaleTypes(response.data.data || []);
-    } catch (error) {
-      console.error("Failed to fetch sale types:", error);
-    } finally {
-      setIsLoading(false);
-    }
+    // Using mock data for prototype
+    setSaleTypes([
+      { saleTypeId: 1, saleType: "Canada Student", amount: 50000, isProduct: false },
+      { saleTypeId: 2, saleType: "UK Visa", amount: 35000, isProduct: false },
+      { saleTypeId: 3, saleType: "IELTS Course", amount: 15000, isProduct: true },
+    ]);
   };
 
   useEffect(() => {
@@ -202,32 +199,44 @@ export default function AdditionalInfo() {
 
     try {
       setIsSaving(true);
-      const payload = {
-        saleType: formData.saleType,
-        amount: formData.amount ? Number(formData.amount) : null,
-        isProduct: formData.isProduct === "Yes",
-      };
-
-      const endpoint = "/api/sale-types";
-      const response = editingId
-        ? await api.put(`${endpoint}/${editingId}`, payload)
-        : await api.post(endpoint, payload);
-
-      if (response.data.success) {
+      
+      if (editingId) {
+        // Mock update
+        setSaleTypes(saleTypes.map(item => 
+          item.saleTypeId === editingId 
+            ? { 
+                ...item, 
+                saleType: formData.saleType, 
+                amount: formData.amount ? Number(formData.amount) : null,
+                isProduct: formData.isProduct === "Yes"
+              } 
+            : item
+        ));
         toast({
           title: "Success",
-          description: `Sale type ${editingId ? "updated" : "added"} successfully`,
+          description: "Sale type updated successfully",
         });
-        fetchSaleTypes();
-        setIsDialogOpen(false);
-        resetForm();
+      } else {
+        // Mock add
+        const newSaleType = {
+          saleTypeId: Date.now(),
+          saleType: formData.saleType,
+          amount: formData.amount ? Number(formData.amount) : null,
+          isProduct: formData.isProduct === "Yes"
+        };
+        setSaleTypes([newSaleType, ...saleTypes]);
+        toast({
+          title: "Success",
+          description: "Sale type added successfully",
+        });
       }
+      
+      setIsDialogOpen(false);
+      resetForm();
     } catch (error: any) {
       toast({
         title: "Error",
-        description:
-          error.response?.data?.message ||
-          `Failed to ${editingId ? "update" : "add"} sale type`,
+        description: "Failed to save sale type",
         variant: "destructive",
       });
     } finally {
