@@ -86,9 +86,11 @@ export default function AdditionalInfo() {
 
   const openEditDialog = (item: any) => {
     setMode("edit");
-    setEditingId(item.saleTypeId);
+    // Ensure we use the correct ID property from the API response
+    const id = item.saleTypeId || item.id || item.sale_type_id;
+    setEditingId(id);
     setFormData({
-      saleType: item.saleType,
+      saleType: item.saleType || item.name || "",
       amount: item.amount?.toString() || "",
       isProduct: item.isProduct ? "Yes" : "No",
     });
