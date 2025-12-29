@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
-import { Trash2, Plus, Pencil, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Trash2, Plus, Pencil, ArrowRight, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import api from "@/lib/api";
 
 export default function AdditionalInfo() {
   const { toast } = useToast();
@@ -97,75 +98,99 @@ export default function AdditionalInfo() {
   };
 
   // State for Sale Types
-  const [saleTypes, setSaleTypes] = useState([
-    { id: 1, name: "Canada Student", totalPayment: "50000", isProduct: "Yes" },
-    { id: 2, name: "Canada Onshore Student", totalPayment: "45000", isProduct: "Yes" },
-    { id: 3, name: "UK Student", totalPayment: "15000", isProduct: "Yes" },
-    { id: 4, name: "Finland Student", totalPayment: "20000", isProduct: "Yes" },
-    { id: 5, name: "USA Student", totalPayment: "25000", isProduct: "Yes" },
-    { id: 6, name: "Germany Student", totalPayment: "20000", isProduct: "Yes" },
-    { id: 7, name: "Canada Spouse", totalPayment: "120000", isProduct: "Yes" },
-    { id: 8, name: "UK Spouse", totalPayment: "100000", isProduct: "Yes" },
-    { id: 9, name: "Finland Spouse", totalPayment: "80000", isProduct: "Yes" },
-    { id: 10, name: "UK Visitor", totalPayment: "5000", isProduct: "Yes" },
-    { id: 11, name: "Canada Visitor", totalPayment: "5000", isProduct: "Yes" },
-    { id: 12, name: "USA Visitor", totalPayment: "5000", isProduct: "Yes" },
-    { id: 13, name: "Schengen visa", totalPayment: "5000", isProduct: "Yes" },
-    { id: 14, name: "SPOUSAL PR", totalPayment: "60000", isProduct: "Yes" },
-  ]);
+  const [saleTypes, setSaleTypes] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const fetchSaleTypes = async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.get("/api/users/sale-type");
+      setSaleTypes(response.data.data || []);
+    } catch (error) {
+      console.error("Failed to fetch sale types:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSaleTypes();
+  }, []);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
-    name: "",
-    totalPayment: "",
-    isProduct: "Yes"
+    saleType: "",
+    amount: "",
+    isProduct: "No"
   });
 
-  const handleSave = () => {
-    if (!formData.name || !formData.totalPayment) {
+  const handleSave = async () => {
+    if (!formData.saleType) {
       toast({
         title: "Error",
-        description: "Please fill in all fields",
+        description: "Please fill in Sale Type Name",
         variant: "destructive",
       });
       return;
     }
 
-    if (editingId) {
-      setSaleTypes(saleTypes.map(item => 
-        item.id === editingId ? { ...item, ...formData } : item
-      ));
-      toast({
-        title: "Success",
-        description: "Sale type updated successfully",
-      });
-    } else {
-      const newItem = {
-        id: Date.now(),
-        ...formData
+    try {
+      setIsSaving(true);
+      const payload = {
+        saleType: formData.saleType,
+        amount: formData.amount ? Number(formData.amount) : null,
+        isProduct: formData.isProduct === "Yes"
       };
-      setSaleTypes([...saleTypes, newItem]);
-      toast({
-        title: "Success",
-        description: "Sale type added successfully",
-      });
-    }
 
-    setIsDialogOpen(false);
-    resetForm();
+      if (editingId) {
+        toast({
+          title: "Notice",
+          description: "Editing sale types is currently in mockup mode.",
+        });
+      } else {
+        const response = await api.post("/api/users/sale-type", payload);
+        if (response.data.success) {
+          toast({
+            title: "Success",
+            description: "Sale type added successfully",
+          });
+          fetchSaleTypes();
+        }
+      }
+
+      setIsDialogOpen(false);
+      resetForm();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to save sale type",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDelete = (id: number) => {
-    setSaleTypes(saleTypes.filter(item => item.id !== id));
-    toast({
-      title: "Success",
-      description: "Sale type removed successfully",
-    });
+  const handleDelete = async (id: number) => {
+    try {
+      setSaleTypes(saleTypes.filter(item => item.saleTypeId !== id));
+      toast({
+        title: "Success",
+        description: "Sale type removed successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete sale type",
+        variant: "destructive",
+      });
+    }
   };
 
   const resetForm = () => {
-    setFormData({ name: "", totalPayment: "", isProduct: "Yes" });
+    setFormData({ saleType: "", amount: "", isProduct: "No" });
     setEditingId(null);
   };
 
@@ -175,11 +200,11 @@ export default function AdditionalInfo() {
   };
 
   const openEditDialog = (item: any) => {
-    setEditingId(item.id);
+    setEditingId(item.saleTypeId);
     setFormData({
-      name: item.name,
-      totalPayment: item.totalPayment,
-      isProduct: item.isProduct
+      saleType: item.saleType,
+      amount: item.amount?.toString() || "",
+      isProduct: item.isProduct ? "Yes" : "No"
     });
     setIsDialogOpen(true);
   };
@@ -211,22 +236,22 @@ export default function AdditionalInfo() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Sale Type Name</Label>
+                  <Label htmlFor="saleType">Sale Type Name</Label>
                   <Input
-                    id="name"
+                    id="saleType"
                     placeholder="e.g. Canada Student"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    value={formData.saleType}
+                    onChange={(e) => setFormData({ ...formData, saleType: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="totalPayment">Total Payment (₹)</Label>
+                  <Label htmlFor="amount">Total Payment (₹)</Label>
                   <Input
-                    id="totalPayment"
+                    id="amount"
                     type="number"
                     placeholder="e.g. 50000"
-                    value={formData.totalPayment}
-                    onChange={(e) => setFormData({ ...formData, totalPayment: e.target.value })}
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -243,8 +268,11 @@ export default function AdditionalInfo() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleSave}>{editingId ? "Update" : "Add"}</Button>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>Cancel</Button>
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {editingId ? "Update" : "Add"}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -261,18 +289,24 @@ export default function AdditionalInfo() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {saleTypes.length === 0 ? (
+                {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center">
+                    <TableCell colSpan={4} className="h-24 text-center">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : saleTypes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
                       No sale types found.
                     </TableCell>
                   </TableRow>
                 ) : (
                   saleTypes.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>{item.isProduct}</TableCell>
-                      <TableCell>₹{parseInt(item.totalPayment).toLocaleString()}</TableCell>
+                    <TableRow key={item.saleTypeId}>
+                      <TableCell className="font-medium">{item.saleType}</TableCell>
+                      <TableCell>{item.isProduct ? "Yes" : "No"}</TableCell>
+                      <TableCell>{item.amount ? `₹${Number(item.amount).toLocaleString()}` : "N/A"}</TableCell>
                       <TableCell className="text-right">
                         <Button 
                           variant="ghost" 
@@ -286,7 +320,7 @@ export default function AdditionalInfo() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-destructive"
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => handleDelete(item.saleTypeId)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
