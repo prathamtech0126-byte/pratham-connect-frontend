@@ -301,7 +301,7 @@ export default function AdditionalInfo() {
             }}
           >
             <DialogTrigger asChild>
-              <Button size="sm" onClick={openAddDialog}>
+              <Button size="sm" onClick={openAddDialog} data-testid="button-add-sale-type">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Sale Type
               </Button>
@@ -419,14 +419,15 @@ export default function AdditionalInfo() {
                           size="icon"
                           className="h-8 w-8 mr-1 text-muted-foreground hover:text-primary"
                           onClick={() => {
-                            setEditingId(item.saleTypeId);
                             setFormData({
                               saleType: item.saleType,
                               amount: item.amount?.toString() || "",
                               isProduct: item.isProduct ? "Yes" : "No",
                             });
+                            setEditingId(item.saleTypeId);
                             setIsDialogOpen(true);
                           }}
+                          data-testid={`button-edit-sale-type-${item.saleTypeId}`}
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
