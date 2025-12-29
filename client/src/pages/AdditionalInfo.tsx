@@ -190,7 +190,7 @@ export default function AdditionalInfo() {
     isProduct: "No",
   });
 
-  const handleAddSaleType = async () => {
+  const handleSaveSaleType = async () => {
     if (!formData.saleType) {
       toast({
         title: "Error",
@@ -208,11 +208,15 @@ export default function AdditionalInfo() {
         isProduct: formData.isProduct === "Yes",
       };
 
-      const response = await api.post("/api/sale-types", payload);
+      const endpoint = "/api/users/sale-type";
+      const response = editingId 
+        ? await api.put(`${endpoint}/${editingId}`, payload)
+        : await api.post(endpoint, payload);
+
       if (response.data.success) {
         toast({
           title: "Success",
-          description: "Sale type added successfully",
+          description: `Sale type ${editingId ? "updated" : "added"} successfully`,
         });
         fetchSaleTypes();
         setIsDialogOpen(false);
@@ -221,46 +225,7 @@ export default function AdditionalInfo() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.response?.data?.message || "Failed to add sale type",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleEditSaleType = async () => {
-    if (!formData.saleType || !editingId) {
-      toast({
-        title: "Error",
-        description: "Please fill in Sale Type Name",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      const payload = {
-        saleType: formData.saleType,
-        amount: formData.amount ? Number(formData.amount) : null,
-        isProduct: formData.isProduct === "Yes",
-      };
-
-      const response = await api.put(`/api/sale-types/${editingId}`, payload);
-      if (response.data.success) {
-        toast({
-          title: "Success",
-          description: "Sale type updated successfully",
-        });
-        fetchSaleTypes();
-        setIsDialogOpen(false);
-        resetForm();
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.message || "Failed to update sale type",
+        description: error.response?.data?.message || `Failed to ${editingId ? "update" : "add"} sale type`,
         variant: "destructive",
       });
     } finally {
@@ -269,11 +234,7 @@ export default function AdditionalInfo() {
   };
 
   const handleSave = () => {
-    if (editingId) {
-      handleEditSaleType();
-    } else {
-      handleAddSaleType();
-    }
+    handleSaveSaleType();
   };
 
   const handleDelete = async (id: number) => {
