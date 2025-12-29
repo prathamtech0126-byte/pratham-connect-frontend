@@ -82,7 +82,12 @@ const spouseFieldsSchema = z.object({
   onshorePartTime: financialEntrySchema,
   marriagePhoto: financialEntrySchema,
   marriageCertificate: financialEntrySchema,
-  relationshipAffidavit: z.object({ amount: z.number().optional() }),
+  relationshipAffidavit: z.object({ 
+    amount: z.number().optional(),
+    date: z.string().optional(),
+    invoiceNo: z.string().optional(),
+    remarks: z.string().optional()
+  }),
   judicialReview: financialEntrySchema,
   simCard: simCardSchema,
   insurance: insuranceSchema,
@@ -565,22 +570,30 @@ export default function ClientForm() {
                         <Label className="text-base font-semibold">
                           10. Recent Marriage / Relationship Affidavit
                         </Label>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <FormCurrencyInput
-                            name="spouseFields.relationshipAffidavit.amount"
-                            control={control}
-                            label="Amount"
-                          />
-                          <FormDateInput
-                            name="spouseFields.relationshipAffidavit.date"
-                            control={control}
-                            label="Date"
-                            maxDate={new Date()}
-                          />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <FormCurrencyInput
+                              name="spouseFields.relationshipAffidavit.amount"
+                              control={control}
+                              label="Amount"
+                            />
+                            <FormDateInput
+                              name="spouseFields.relationshipAffidavit.date"
+                              control={control}
+                              label="Date"
+                              maxDate={new Date()}
+                            />
+                            <FormTextInput
+                              name="spouseFields.relationshipAffidavit.invoiceNo"
+                              control={control}
+                              label="Invoice No"
+                            />
+                          </div>
                           <FormTextInput
-                            name="spouseFields.relationshipAffidavit.invoiceNo"
+                            name="spouseFields.relationshipAffidavit.remarks"
                             control={control}
-                            label="Invoice No"
+                            label="Remarks"
+                            placeholder="Add remark for this section..."
                           />
                         </div>
                       </div>
