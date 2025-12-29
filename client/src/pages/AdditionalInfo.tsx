@@ -287,25 +287,28 @@ export default function AdditionalInfo() {
               Manage sale types and their default total payment amounts.
             </CardDescription>
           </div>
+          <Button size="sm" onClick={openAddDialog} data-testid="button-add-sale-type">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Sale Type
+          </Button>
           <Dialog
             open={isDialogOpen}
             onOpenChange={(open) => {
-              setIsDialogOpen(open);
-              if (!open) resetForm();
+              if (!open) {
+                setIsDialogOpen(false);
+                resetForm();
+              }
             }}
           >
-            <DialogTrigger asChild>
-              <Button size="sm" onClick={openAddDialog} data-testid="button-add-sale-type">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Sale Type
-              </Button>
-            </DialogTrigger>
             <SaleTypeDialog
               editingId={editingId}
               formData={formData}
               setFormData={setFormData}
               onSave={handleSave}
-              onCancel={() => setIsDialogOpen(false)}
+              onCancel={() => {
+                setIsDialogOpen(false);
+                resetForm();
+              }}
               isSaving={isSaving}
             />
           </Dialog>
