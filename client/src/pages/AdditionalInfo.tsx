@@ -208,8 +208,8 @@ export default function AdditionalInfo() {
         isProduct: formData.isProduct === "Yes",
       };
 
-      const endpoint = "/api/sale-type";
-      const response = editingId 
+      const endpoint = "/api/sale-types";
+      const response = editingId
         ? await api.put(`${endpoint}/${editingId}`, payload)
         : await api.post(endpoint, payload);
 
@@ -225,7 +225,9 @@ export default function AdditionalInfo() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.response?.data?.message || `Failed to ${editingId ? "update" : "add"} sale type`,
+        description:
+          error.response?.data?.message ||
+          `Failed to ${editingId ? "update" : "add"} sale type`,
         variant: "destructive",
       });
     } finally {
