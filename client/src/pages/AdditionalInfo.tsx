@@ -37,7 +37,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import api from "@/lib/api";
-import { SaleTypeDialog } from "@/components/SaleTypeDialog";
 
 export default function AdditionalInfo() {
   const { toast } = useToast();
@@ -191,7 +190,7 @@ export default function AdditionalInfo() {
     isProduct: "No",
   });
 
-  const handleSaveSaleType = async () => {
+  const handleSave = async () => {
     if (!formData.saleType) {
       toast({
         title: "Error",
@@ -209,33 +208,38 @@ export default function AdditionalInfo() {
         isProduct: formData.isProduct === "Yes",
       };
 
-      const endpoint = "/api/sale-type";
-      const response = editingId 
-        ? await api.put(`${endpoint}/${editingId}`, payload)
-        : await api.post(endpoint, payload);
-
-      if (response.data.success) {
-        toast({
-          title: "Success",
-          description: `Sale type ${editingId ? "updated" : "added"} successfully`,
-        });
-        fetchSaleTypes();
-        setIsDialogOpen(false);
-        resetForm();
+      if (editingId) {
+        const response = await api.put(`/api/sale-types/${editingId}`, payload);
+        if (response.data.success) {
+          toast({
+            title: "Success",
+            description: "Sale type updated successfully",
+          });
+          fetchSaleTypes();
+        }
+      } else {
+        const response = await api.post("/api/users/sale-type", payload);
+        if (response.data.success) {
+          toast({
+            title: "Success",
+            description: "Sale type added successfully",
+          });
+          fetchSaleTypes();
+        }
       }
+
+      setIsDialogOpen(false);
+      resetForm();
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.response?.data?.message || `Failed to ${editingId ? "update" : "add"} sale type`,
+        description:
+          error.response?.data?.message || "Failed to save sale type",
         variant: "destructive",
       });
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleSave = () => {
-    handleSaveSaleType();
   };
 
   const handleDelete = async (id: number) => {
@@ -287,30 +291,88 @@ export default function AdditionalInfo() {
               Manage sale types and their default total payment amounts.
             </CardDescription>
           </div>
-          <Button size="sm" onClick={openAddDialog} data-testid="button-add-sale-type">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Sale Type
-          </Button>
           <Dialog
             open={isDialogOpen}
             onOpenChange={(open) => {
-              if (!open) {
-                setIsDialogOpen(false);
-                resetForm();
-              }
+              setIsDialogOpen(open);
+              if (!open) resetForm();
             }}
           >
-            <SaleTypeDialog
-              editingId={editingId}
-              formData={formData}
-              setFormData={setFormData}
-              onSave={handleSave}
-              onCancel={() => {
-                setIsDialogOpen(false);
-                resetForm();
-              }}
-              isSaving={isSaving}
-            />
+            <DialogTrigger asChild>
+              <Button size="sm" onClick={openAddDialog}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Sale Type
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  {editingId ? "Update Sale Type" : "Add Sale Type"}
+                </DialogTitle>
+                <DialogDescription>
+                  {editingId
+                    ? "Modify the existing sale type configuration."
+                    : "Create a new sale type configuration."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="saleType">Sale Type Name</Label>
+                  <Input
+                    id="saleType"
+                    placeholder="e.g. Canada Student"
+                    value={formData.saleType}
+                    onChange={(e) =>
+                      setFormData({ ...formData, saleType: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Total Payment (₹)</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    placeholder="e.g. 50000"
+                    value={formData.amount}
+                    onChange={(e) =>
+                      setFormData({ ...formData, amount: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="isProduct">Is Product</Label>
+                  <Select
+                    value={formData.isProduct}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, isProduct: value })
+                    }
+                  >
+                    <SelectTrigger id="isProduct">
+                      <SelectValue placeholder="Select Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  {editingId ? "Update" : "Add"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
           </Dialog>
         </CardHeader>
         <CardContent>
