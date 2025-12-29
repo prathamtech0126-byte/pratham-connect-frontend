@@ -167,12 +167,23 @@ export default function AdditionalInfo() {
   const [isSaving, setIsSaving] = useState(false);
 
   const fetchSaleTypes = async () => {
-    // Using mock data for prototype
-    setSaleTypes([
-      { saleTypeId: 1, saleType: "Canada Student", amount: 50000, isProduct: false },
-      { saleTypeId: 2, saleType: "UK Visa", amount: 35000, isProduct: false },
-      { saleTypeId: 3, saleType: "IELTS Course", amount: 15000, isProduct: true },
-    ]);
+    try {
+      setIsLoading(true);
+      const response = await api.get("/api/sale-types");
+      if (response.data.success) {
+        setSaleTypes(response.data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch sale types:", error);
+      // Fallback to mock data if API fails in prototype environment
+      setSaleTypes([
+        { saleTypeId: 1, saleType: "Canada Student", amount: 50000, isProduct: false },
+        { saleTypeId: 2, saleType: "UK Visa", amount: 35000, isProduct: false },
+        { saleTypeId: 3, saleType: "IELTS Course", amount: 15000, isProduct: true },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
