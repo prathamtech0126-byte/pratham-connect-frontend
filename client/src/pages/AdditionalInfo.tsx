@@ -112,15 +112,26 @@ export default function AdditionalInfo() {
       };
 
       if (mode === "edit" && editingId !== null) {
-        await api.put(`/api/sale-types/${editingId}`, payload);
-        toast({ title: "Updated", description: "Sale type updated" });
+        const response = await api.put(`/api/sale-types/${editingId}`, payload);
+        if (response.data.success) {
+          toast({ title: "Updated", description: "Sale type updated successfully" });
+          setIsDialogOpen(false);
+          setEditingId(null);
+          setFormData({ saleType: "", amount: "", isProduct: "No" });
+          fetchSaleTypes();
+          return;
+        }
       } else {
-        await api.post("/api/sale-types", payload);
-        toast({ title: "Added", description: "Sale type added" });
+        const response = await api.post("/api/sale-types", payload);
+        if (response.data.success) {
+          toast({ title: "Added", description: "Sale type added successfully" });
+          setIsDialogOpen(false);
+          setEditingId(null);
+          setFormData({ saleType: "", amount: "", isProduct: "No" });
+          fetchSaleTypes();
+          return;
+        }
       }
-
-      setIsDialogOpen(false);
-      fetchSaleTypes();
     } catch (err: any) {
       toast({
         title: "Error",
