@@ -38,11 +38,7 @@ export function SaleTypeModal({
   useEffect(() => {
     if (isOpen) {
       if (editingId && initialData) {
-        setFormData({
-          saleType: initialData.saleType || "",
-          amount: initialData.amount || "",
-          isProduct: initialData.isProduct || "No"
-        });
+        setFormData(initialData);
       } else {
         setFormData({ saleType: "", amount: "", isProduct: "No" });
       }

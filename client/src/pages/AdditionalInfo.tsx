@@ -172,7 +172,7 @@ export default function AdditionalInfo() {
 
   const openAddDialog = () => {
     setEditingId(null);
-    setEditInitialData({ saleType: "", amount: "", isProduct: "No" });
+    setEditInitialData(undefined);
     setIsDialogOpen(true);
   };
 
