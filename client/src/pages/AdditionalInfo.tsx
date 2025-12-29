@@ -328,11 +328,11 @@ export default function AdditionalInfo() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  {editingId ? "Edit Sale Type" : "Add Sale Type"}
+                  {editingId ? "Update Sale Type" : "Add Sale Type"}
                 </DialogTitle>
                 <DialogDescription>
                   {editingId
-                    ? "Update sale type details."
+                    ? "Update the details for this sale type."
                     : "Create a new sale type configuration."}
                 </DialogDescription>
               </DialogHeader>
@@ -394,7 +394,7 @@ export default function AdditionalInfo() {
                   {isSaving && (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   )}
-                  {editingId ? "Update" : "Add"}
+                  {editingId ? "Update Sale Type" : "Add"}
                 </Button>
               </DialogFooter>
             </DialogContent>
