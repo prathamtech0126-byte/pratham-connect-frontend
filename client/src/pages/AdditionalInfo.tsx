@@ -209,6 +209,7 @@ export default function AdditionalInfo() {
       };
 
       if (editingId) {
+        // Correctly using the PUT method for updating specific sale type
         const response = await api.put(`/api/sale-types/${editingId}`, payload);
         if (response.data.success) {
           toast({
