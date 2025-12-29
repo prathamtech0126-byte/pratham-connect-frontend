@@ -225,7 +225,7 @@ export default function AdditionalInfo() {
             description: "Sale type updated successfully",
           });
           setIsDialogOpen(false);
-          // Directly reset state to prevent "Add" modal showing up next time
+          // CLEAR EDITING ID AND FORM
           setEditingId(null);
           setFormData({ saleType: "", amount: "", isProduct: "No" });
           fetchSaleTypes();
@@ -239,7 +239,7 @@ export default function AdditionalInfo() {
             description: "Sale type added successfully",
           });
           setIsDialogOpen(false);
-          // Directly reset state
+          // CLEAR EDITING ID AND FORM
           setEditingId(null);
           setFormData({ saleType: "", amount: "", isProduct: "No" });
           fetchSaleTypes();
@@ -383,7 +383,11 @@ export default function AdditionalInfo() {
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleSave} disabled={isSaving}>
+                <Button 
+                  onClick={handleSave} 
+                  disabled={isSaving}
+                  data-testid={editingId ? "button-update-sale-type" : "button-add-sale-type"}
+                >
                   {isSaving && (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   )}
