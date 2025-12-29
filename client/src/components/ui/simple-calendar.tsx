@@ -11,9 +11,17 @@ interface SimpleCalendarProps {
   onChange?: (value: Value) => void;
   selectRange?: boolean;
   showDoubleView?: boolean;
+  maxDate?: Date;
 }
 
-export function SimpleCalendar({ className, value, onChange, selectRange = false, showDoubleView = false }: SimpleCalendarProps) {
+export function SimpleCalendar({ 
+  className, 
+  value, 
+  onChange, 
+  selectRange = false, 
+  showDoubleView = false,
+  maxDate
+}: SimpleCalendarProps) {
   return (
     <div className={cn("p-3 bg-white rounded-lg shadow-sm border", className)}>
       <Calendar 
@@ -21,6 +29,7 @@ export function SimpleCalendar({ className, value, onChange, selectRange = false
         value={value}
         selectRange={selectRange}
         showDoubleView={showDoubleView}
+        maxDate={maxDate}
         className="w-full border-none font-sans"
         tileClassName={({ activeStartDate, date, view }) => 
           cn(

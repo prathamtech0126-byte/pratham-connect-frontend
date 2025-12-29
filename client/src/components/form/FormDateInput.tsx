@@ -17,6 +17,7 @@ interface FormDateInputProps<T extends FieldValues> {
   control: Control<T>;
   label: string;
   className?: string;
+  maxDate?: Date;
 }
 
 export function FormDateInput<T extends FieldValues>({
@@ -24,6 +25,7 @@ export function FormDateInput<T extends FieldValues>({
   control,
   label,
   className,
+  maxDate,
 }: FormDateInputProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -58,6 +60,7 @@ export function FormDateInput<T extends FieldValues>({
               <PopoverContent className="w-auto p-0" align="start">
                 <SimpleCalendar
                   value={field.value ? new Date(field.value) : undefined}
+                  maxDate={maxDate}
                   onChange={(date) => {
                     if (date instanceof Date) {
                       field.onChange(date.toISOString());

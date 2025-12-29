@@ -359,6 +359,7 @@ export default function ClientForm() {
             name="enrollmentDate"
             control={control}
             label="Enrollment Date"
+            maxDate={new Date()}
           />
           <FormSelectInput
             name="salesType"
