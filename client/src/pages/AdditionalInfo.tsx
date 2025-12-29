@@ -199,36 +199,31 @@ export default function AdditionalInfo() {
 
     try {
       setIsSaving(true);
-      
+      const payload = {
+        saleType: formData.saleType,
+        amount: formData.amount ? Number(formData.amount) : null,
+        isProduct: formData.isProduct === "Yes",
+      };
+
       if (editingId) {
-        // Mock update
+        // Mock update for prototype
         setSaleTypes(saleTypes.map(item => 
-          item.saleTypeId === editingId 
-            ? { 
-                ...item, 
-                saleType: formData.saleType, 
-                amount: formData.amount ? Number(formData.amount) : null,
-                isProduct: formData.isProduct === "Yes"
-              } 
-            : item
+          item.saleTypeId === editingId ? { ...item, ...payload } : item
         ));
         toast({
           title: "Success",
           description: "Sale type updated successfully",
         });
       } else {
-        // Mock add
-        const newSaleType = {
-          saleTypeId: Date.now(),
-          saleType: formData.saleType,
-          amount: formData.amount ? Number(formData.amount) : null,
-          isProduct: formData.isProduct === "Yes"
-        };
-        setSaleTypes([newSaleType, ...saleTypes]);
-        toast({
-          title: "Success",
-          description: "Sale type added successfully",
-        });
+        // Use real API for adding as requested
+        const response = await api.post("/api/sale-types", payload);
+        if (response.data.success) {
+          toast({
+            title: "Success",
+            description: "Sale type added successfully",
+          });
+          fetchSaleTypes();
+        }
       }
       
       setIsDialogOpen(false);
@@ -236,7 +231,7 @@ export default function AdditionalInfo() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to save sale type",
+        description: error.response?.data?.message || "Failed to save sale type",
         variant: "destructive",
       });
     } finally {
