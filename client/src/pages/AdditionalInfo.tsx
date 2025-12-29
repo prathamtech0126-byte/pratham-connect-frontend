@@ -225,7 +225,9 @@ export default function AdditionalInfo() {
             description: "Sale type updated successfully",
           });
           setIsDialogOpen(false);
-          resetForm();
+          // Directly reset state to prevent "Add" modal showing up next time
+          setEditingId(null);
+          setFormData({ saleType: "", amount: "", isProduct: "No" });
           fetchSaleTypes();
         }
       } else {
@@ -237,7 +239,9 @@ export default function AdditionalInfo() {
             description: "Sale type added successfully",
           });
           setIsDialogOpen(false);
-          resetForm();
+          // Directly reset state
+          setEditingId(null);
+          setFormData({ saleType: "", amount: "", isProduct: "No" });
           fetchSaleTypes();
         }
       }
