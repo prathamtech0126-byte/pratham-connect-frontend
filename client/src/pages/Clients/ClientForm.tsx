@@ -804,14 +804,6 @@ export default function ClientForm() {
                           placeholder="Sponsor charges remarks..."
                         />
                       </div>
-                      <div className="p-4 border rounded-lg bg-muted/20 mt-4">
-                        <FormTextareaInput
-                          name="visitorFields.financeRemarks"
-                          control={control}
-                          label="Remarks"
-                          placeholder="Add remarks for Visitor Fees & Employment section..."
-                        />
-                      </div>
                     </AccordionContent>
                   </AccordionItem>
 
@@ -964,14 +956,6 @@ export default function ClientForm() {
                           control={control}
                           label="Remarks"
                           placeholder="Air Ticket remarks..."
-                        />
-                      </div>
-                      <div className="p-4 border rounded-lg bg-muted/20 mt-4">
-                        <FormTextareaInput
-                          name="visitorFields.servicesRemarks"
-                          control={control}
-                          label="Remarks"
-                          placeholder="Add remarks for Additional Services section..."
                         />
                       </div>
                     </AccordionContent>
