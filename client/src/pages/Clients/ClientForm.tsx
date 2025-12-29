@@ -65,12 +65,13 @@ const simCardSchema = z.object({
   remarks: z.string().optional(),
 });
 
-const trvExtensionSchema = z.object({
-  type: z.string().optional(),
-  amount: z.number().optional(),
-  date: z.string().optional(),
-  invoiceNo: z.string().optional(),
-});
+  trvExtension: z.object({
+    type: z.string().optional(),
+    amount: z.number().optional(),
+    date: z.string().optional(),
+    invoiceNo: z.string().optional(),
+    remarks: z.string().optional(),
+  }),
 
 // Product Specific Schemas
 const spouseFieldsSchema = z.object({
@@ -538,6 +539,12 @@ export default function ClientForm() {
                             label="Invoice No"
                           />
                         </div>
+                        <FormTextareaInput
+                          name="spouseFields.trvExtension.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Add remark for this section..."
+                        />
                       </div>
                       <div className="p-4 border rounded-lg bg-muted/20 mt-4">
                         <FormTextareaInput
