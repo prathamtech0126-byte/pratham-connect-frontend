@@ -270,6 +270,7 @@ export default function AdditionalInfo() {
   };
 
   const openEditDialog = (item: any) => {
+    resetForm(); // First reset to clear everything
     setEditingId(item.saleTypeId);
     setFormData({
       saleType: item.saleType,
