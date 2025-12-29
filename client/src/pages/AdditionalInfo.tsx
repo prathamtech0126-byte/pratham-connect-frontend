@@ -17,11 +17,26 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Trash2, Plus, Pencil, ArrowRight, Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import api from "@/lib/api";
-import { SaleTypeModal } from "@/components/additional-info/SaleTypeModal";
 
 export default function AdditionalInfo() {
   const { toast } = useToast();
@@ -149,6 +164,7 @@ export default function AdditionalInfo() {
   // State for Sale Types
   const [saleTypes, setSaleTypes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const fetchSaleTypes = async () => {
     try {
@@ -168,22 +184,57 @@ export default function AdditionalInfo() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editInitialData, setEditInitialData] = useState<any>(undefined);
+  const [formData, setFormData] = useState({
+    saleType: "",
+    amount: "",
+    isProduct: "No",
+  });
 
-  const openAddDialog = () => {
-    setEditingId(null);
-    setEditInitialData(undefined);
-    setIsDialogOpen(true);
+  const handleSaveSaleType = async () => {
+    if (!formData.saleType) {
+      toast({
+        title: "Error",
+        description: "Please fill in Sale Type Name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const payload = {
+        saleType: formData.saleType,
+        amount: formData.amount ? Number(formData.amount) : null,
+        isProduct: formData.isProduct === "Yes",
+      };
+
+      const endpoint = "/api/sale-type";
+      const response = editingId 
+        ? await api.put(`${endpoint}/${editingId}`, payload)
+        : await api.post(endpoint, payload);
+
+      if (response.data.success) {
+        toast({
+          title: "Success",
+          description: `Sale type ${editingId ? "updated" : "added"} successfully`,
+        });
+        fetchSaleTypes();
+        setIsDialogOpen(false);
+        resetForm();
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || `Failed to ${editingId ? "update" : "add"} sale type`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const openEditDialog = (item: any) => {
-    setEditingId(item.saleTypeId);
-    setEditInitialData({
-      saleType: item.saleType,
-      amount: item.amount?.toString() || "",
-      isProduct: item.isProduct ? "Yes" : "No",
-    });
-    setIsDialogOpen(true);
+  const handleSave = () => {
+    handleSaveSaleType();
   };
 
   const handleDelete = async (id: number) => {
@@ -202,6 +253,26 @@ export default function AdditionalInfo() {
     }
   };
 
+  const resetForm = () => {
+    setFormData({ saleType: "", amount: "", isProduct: "No" });
+    setEditingId(null);
+  };
+
+  const openAddDialog = () => {
+    resetForm();
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (item: any) => {
+    setEditingId(item.saleTypeId);
+    setFormData({
+      saleType: item.saleType,
+      amount: item.amount?.toString() || "",
+      isProduct: item.isProduct ? "Yes" : "No",
+    });
+    setIsDialogOpen(true);
+  };
+
   return (
     <PageWrapper
       title="Additional Information"
@@ -215,17 +286,89 @@ export default function AdditionalInfo() {
               Manage sale types and their default total payment amounts.
             </CardDescription>
           </div>
-          <Button size="sm" onClick={openAddDialog}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Sale Type
-          </Button>
-          <SaleTypeModal
-            isOpen={isDialogOpen}
-            onOpenChange={setIsDialogOpen}
-            editingId={editingId}
-            initialData={editInitialData}
-            onSuccess={fetchSaleTypes}
-          />
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) resetForm();
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button size="sm" onClick={openAddDialog}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Sale Type
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  {editingId ? "Edit Sale Type" : "Add Sale Type"}
+                </DialogTitle>
+                <DialogDescription>
+                  {editingId
+                    ? "Update sale type details."
+                    : "Create a new sale type configuration."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="saleType">Sale Type Name</Label>
+                  <Input
+                    id="saleType"
+                    placeholder="e.g. Canada Student"
+                    value={formData.saleType}
+                    onChange={(e) =>
+                      setFormData({ ...formData, saleType: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Total Payment (₹)</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    placeholder="e.g. 50000"
+                    value={formData.amount}
+                    onChange={(e) =>
+                      setFormData({ ...formData, amount: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="isProduct">Is Product</Label>
+                  <Select
+                    value={formData.isProduct}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, isProduct: value })
+                    }
+                  >
+                    <SelectTrigger id="isProduct">
+                      <SelectValue placeholder="Select Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving && (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  )}
+                  {editingId ? "Update" : "Add"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
