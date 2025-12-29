@@ -601,14 +601,6 @@ export default function ClientForm() {
                         name="spouseFields.judicialReview"
                         label="11. Judicial Review Charge"
                       />
-                      <div className="p-4 border rounded-lg bg-muted/20 mt-4">
-                        <FormTextareaInput
-                          name="spouseFields.legalRemarks"
-                          control={control}
-                          label="Remarks"
-                          placeholder="Add remarks for Legal & Documentation section..."
-                        />
-                      </div>
                     </AccordionContent>
                   </AccordionItem>
 
@@ -761,14 +753,6 @@ export default function ClientForm() {
                           control={control}
                           label="Remarks"
                           placeholder="Air Ticket remarks..."
-                        />
-                      </div>
-                      <div className="p-4 border rounded-lg bg-muted/20 mt-4">
-                        <FormTextareaInput
-                          name="spouseFields.servicesRemarks"
-                          control={control}
-                          label="Remarks"
-                          placeholder="Add remarks for Services & Settlement section..."
                         />
                       </div>
                     </AccordionContent>
