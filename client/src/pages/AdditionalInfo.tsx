@@ -242,7 +242,7 @@ export default function AdditionalInfo() {
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {mode === "edit" ? "Update" : "Add"}
+              {mode === "edit" ? "Update Sale Type" : "Add"}
             </Button>
           </DialogFooter>
         </DialogContent>
