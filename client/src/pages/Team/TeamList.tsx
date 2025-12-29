@@ -76,6 +76,7 @@ export default function TeamList() {
     personal_phone_no: "",
     designation: ""
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Manager fetching state
   const [managers, setManagers] = useState<any[]>([]);
@@ -112,6 +113,13 @@ export default function TeamList() {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setNewMember(prev => ({ ...prev, password }));
+    // Clear password error if it exists
+    if (errors.password) {
+      setErrors(prev => {
+        const { password: _, ...rest } = prev;
+        return rest;
+      });
+    }
   };
 
   const resetForm = () => {
@@ -126,24 +134,32 @@ export default function TeamList() {
       personal_phone_no: "",
       designation: ""
     });
+    setErrors({});
     setEditingId(null);
   };
 
-  const handleSaveMember = async () => {
-    // Validation
-    if (!newMember.fullName || !newMember.email || !newMember.emp_id || !newMember.designation || (!editingId && !newMember.password)) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!newMember.fullName) newErrors.fullName = "Full name is required";
+    if (!newMember.email) newErrors.email = "Email address is required";
+    if (!editingId && !newMember.password) newErrors.password = "Password is required";
+    if (!editingId && newMember.password && newMember.password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters long";
+    }
+    if (!newMember.role) newErrors.role = "Role is required";
+    if (newMember.role === "Counsellor" && !newMember.managerId) {
+      newErrors.managerId = "Manager assignment is required";
     }
 
-    if (!editingId && newMember.password.length < 8) {
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSaveMember = async () => {
+    if (!validateForm()) {
       toast({
-        title: "Error",
-        description: "Password must be at least 8 characters long",
+        title: "Validation Error",
+        description: "Please fill in all required fields correctly",
         variant: "destructive",
       });
       return;
@@ -285,13 +301,19 @@ export default function TeamList() {
               </DialogHeader>
               <div className="grid grid-cols-2 gap-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="name" className={errors.fullName ? "text-destructive" : ""}>Full Name *</Label>
                   <Input
                     id="name"
                     placeholder="John Doe"
                     value={newMember.fullName}
-                    onChange={(e) => setNewMember({ ...newMember, fullName: e.target.value })}
+                    onChange={(e) => {
+                      setNewMember({ ...newMember, fullName: e.target.value });
+                      if (errors.fullName) setErrors(prev => { const { fullName, ...rest } = prev; return rest; });
+                    }}
+                    className={errors.fullName ? "border-destructive focus-visible:ring-destructive" : ""}
+                    data-testid="input-team-fullname"
                   />
+                  {errors.fullName && <p className="text-xs text-destructive">{errors.fullName}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="emp_id">Employee ID</Label>
@@ -300,17 +322,24 @@ export default function TeamList() {
                     placeholder="EMP123"
                     value={newMember.emp_id}
                     onChange={(e) => setNewMember({ ...newMember, emp_id: e.target.value })}
+                    data-testid="input-team-empid"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label htmlFor="email" className={errors.email ? "text-destructive" : ""}>Email Address *</Label>
                   <Input
                     id="email"
                     type="email"
                     placeholder="john@pratham.com"
                     value={newMember.email}
-                    onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                    onChange={(e) => {
+                      setNewMember({ ...newMember, email: e.target.value });
+                      if (errors.email) setErrors(prev => { const { email, ...rest } = prev; return rest; });
+                    }}
+                    className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+                    data-testid="input-team-email"
                   />
+                  {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="designation">Designation</Label>
@@ -319,6 +348,7 @@ export default function TeamList() {
                     placeholder="Senior Counsellor"
                     value={newMember.designation}
                     onChange={(e) => setNewMember({ ...newMember, designation: e.target.value })}
+                    data-testid="input-team-designation"
                   />
                 </div>
                 <div className="space-y-2">
@@ -328,6 +358,7 @@ export default function TeamList() {
                     placeholder="9876543210"
                     value={newMember.company_phone_no}
                     onChange={(e) => setNewMember({ ...newMember, company_phone_no: e.target.value })}
+                    data-testid="input-team-officephone"
                   />
                 </div>
                 <div className="space-y-2">
@@ -337,30 +368,42 @@ export default function TeamList() {
                     placeholder="9123456789"
                     value={newMember.personal_phone_no}
                     onChange={(e) => setNewMember({ ...newMember, personal_phone_no: e.target.value })}
+                    data-testid="input-team-personalphone"
                   />
                 </div>
                 <div className="space-y-2 col-span-2">
-                  <Label htmlFor="password">Password {editingId && "(Leave blank to keep current)"}</Label>
+                  <Label htmlFor="password" className={errors.password ? "text-destructive" : ""}>
+                    Password {editingId ? "(Leave blank to keep current)" : "*"}
+                  </Label>
                   <div className="flex gap-2">
                     <Input
                       id="password"
                       type="text"
                       placeholder={editingId ? "New Password (Optional)" : "Min 8 characters"}
                       value={newMember.password}
-                      onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}
+                      onChange={(e) => {
+                        setNewMember({ ...newMember, password: e.target.value });
+                        if (errors.password) setErrors(prev => { const { password, ...rest } = prev; return rest; });
+                      }}
+                      className={errors.password ? "border-destructive focus-visible:ring-destructive" : ""}
+                      data-testid="input-team-password"
                     />
-                    <Button variant="outline" type="button" onClick={generatePassword}>
+                    <Button variant="outline" type="button" onClick={generatePassword} data-testid="button-generate-password">
                       Generate
                     </Button>
                   </div>
+                  {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
+                  <Label htmlFor="role" className={errors.role ? "text-destructive" : ""}>Role *</Label>
                   <Select
                     value={newMember.role}
-                    onValueChange={(value) => setNewMember({ ...newMember, role: value })}
+                    onValueChange={(value) => {
+                      setNewMember({ ...newMember, role: value, managerId: value === "Manager" ? "" : newMember.managerId });
+                      if (errors.role) setErrors(prev => { const { role, ...rest } = prev; return rest; });
+                    }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className={errors.role ? "border-destructive" : ""} data-testid="select-team-role">
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
@@ -368,17 +411,21 @@ export default function TeamList() {
                       <SelectItem value="Counsellor">Counsellor</SelectItem>
                     </SelectContent>
                   </Select>
+                  {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
                 </div>
 
                 {newMember.role === "Counsellor" && (
                   <div className="space-y-2">
-                    <Label htmlFor="assignedTo">Assign to Manager</Label>
+                    <Label htmlFor="assignedTo" className={errors.managerId ? "text-destructive" : ""}>Assign to Manager *</Label>
                     <Select
                       value={newMember.managerId}
-                      onValueChange={(value) => setNewMember({ ...newMember, managerId: value })}
+                      onValueChange={(value) => {
+                        setNewMember({ ...newMember, managerId: value });
+                        if (errors.managerId) setErrors(prev => { const { managerId, ...rest } = prev; return rest; });
+                      }}
                       disabled={isLoadingManagers}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={errors.managerId ? "border-destructive" : ""} data-testid="select-team-manager">
                         <SelectValue placeholder={isLoadingManagers ? "Loading managers..." : "Select Manager"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -400,6 +447,7 @@ export default function TeamList() {
                         )}
                       </SelectContent>
                     </Select>
+                    {errors.managerId && <p className="text-xs text-destructive">{errors.managerId}</p>}
                   </div>
                 )}
               </div>
