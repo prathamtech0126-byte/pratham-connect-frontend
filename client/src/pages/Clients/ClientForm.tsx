@@ -23,8 +23,9 @@ import {
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import api from "@/lib/api";
 
 // --- Schema Definitions ---
 
@@ -193,63 +194,60 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const salesTypeOptions = [
-  {
-    label: "Core Product",
-    options: [
-      { label: "Canada Student", value: "Canada Student" },
-      { label: "Canada Onshore Student", value: "Canada Onshore Student" },
-      { label: "UK Student", value: "UK Student" },
-      { label: "Finland Student", value: "Finland Student" },
-      { label: "USA Student", value: "USA Student" },
-      { label: "Germany Student", value: "Germany Student" },
-      { label: "Canada Spouse", value: "Canada Spouse" },
-      { label: "UK Spouse", value: "UK Spouse" },
-      { label: "Finland Spouse", value: "Finland Spouse" },
-      { label: "UK Visitor", value: "UK Visitor" },
-      { label: "Canada Visitor", value: "Canada Visitor" },
-      { label: "USA Visitor", value: "USA Visitor" },
-      { label: "Schengen Visitor", value: "Schengen Visitor" },
-      { label: "SPOUSAL PR", value: "SPOUSAL PR" },
-    ],
-  },
-  {
-    label: "Other Products",
-    options: [
-      { label: "Spouse", value: "spouse" },
-      { label: "Student", value: "student" },
-      { label: "Visitor", value: "visitor" },
-    ],
-  },
-];
-
-const getProductType = (
-  salesType: string | undefined,
-  selectedProductType?: string,
-): "spouse" | "visitor" | "student" | null => {
-  if (!salesType) return null;
-
-  const lower = salesType.toLowerCase();
-
-  // For "Other Product", use the selectedProductType
-  if (lower === "other product") {
-    if (selectedProductType === "spouse") return "spouse";
-    if (selectedProductType === "visitor") return "visitor";
-    if (selectedProductType === "student") return "student";
-    return null;
-  }
-
-  // Handle standard sales types
-  if (lower.includes("spouse") || lower === "spousal pr") return "spouse";
-  if (lower.includes("visitor") || lower.includes("schengen")) return "visitor";
-  if (lower.includes("student")) return "student";
-  return null;
-};
-
 export default function ClientForm() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
+
+  useEffect(() => {
+    const fetchSaleTypes = async () => {
+      try {
+        const res = await api.get("/api/sale-types");
+        const types = res.data.data || [];
+        
+        const coreOptions = types
+          .filter((t: any) => t.isCoreProduct)
+          .map((t: any) => ({ label: t.saleType, value: t.saleType }));
+          
+        const otherOptions = types
+          .filter((t: any) => !t.isCoreProduct)
+          .map((t: any) => ({ label: t.saleType, value: t.saleType }));
+
+        setDynamicOptions([
+          { label: "Core Product", options: coreOptions },
+          { label: "Other Products", options: otherOptions }
+        ]);
+      } catch (err) {
+        console.error("Failed to fetch sale types", err);
+      }
+    };
+    fetchSaleTypes();
+  }, []);
+
+  const [dynamicOptions, setDynamicOptions] = useState<any[]>([]);
+
+  const getProductType = (
+    salesType: string | undefined,
+    selectedProductType?: string,
+  ): "spouse" | "visitor" | "student" | null => {
+    if (!salesType) return null;
+
+    const lower = salesType.toLowerCase();
+
+    // For "Other Product", use the selectedProductType
+    if (lower === "other product") {
+      if (selectedProductType === "spouse") return "spouse";
+      if (selectedProductType === "visitor") return "visitor";
+      if (selectedProductType === "student") return "student";
+      return null;
+    }
+
+    // Handle standard sales types
+    if (lower.includes("spouse") || lower === "spousal pr") return "spouse";
+    if (lower.includes("visitor") || lower.includes("schengen")) return "visitor";
+    if (lower.includes("student")) return "student";
+    return null;
+  };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -372,7 +370,7 @@ export default function ClientForm() {
             control={control}
             label="Sales Type"
             placeholder="Select Sales Type"
-            options={salesTypeOptions}
+            options={dynamicOptions}
           />
           {salesType === "Other Product" && (
             <FormSelectInput
