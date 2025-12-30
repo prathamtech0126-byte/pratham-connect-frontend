@@ -199,11 +199,15 @@ export default function ClientForm() {
   const { toast } = useToast();
   const { user } = useAuth();
 
+  const [dynamicOptions, setDynamicOptions] = useState<any[]>([]);
+  const [allSaleTypes, setAllSaleTypes] = useState<any[]>([]);
+
   useEffect(() => {
     const fetchSaleTypes = async () => {
       try {
         const res = await api.get("/api/sale-types");
         const types = res.data.data || [];
+        setAllSaleTypes(types);
         
         const coreOptions = types
           .filter((t: any) => t.isCoreProduct)
@@ -223,8 +227,6 @@ export default function ClientForm() {
     };
     fetchSaleTypes();
   }, []);
-
-  const [dynamicOptions, setDynamicOptions] = useState<any[]>([]);
 
   const getProductType = (
     salesType: string | undefined,
@@ -1289,8 +1291,8 @@ export default function ClientForm() {
     // Build step array based on sales type
     const allSteps = [basicStep];
 
-    // Check if it's an "Other Products" selection (spouse, student, visitor)
-    const isOtherProduct = ["spouse", "student", "visitor"].includes(salesType?.toLowerCase() || "");
+    const selectedTypeData = allSaleTypes.find(t => t.saleType === salesType);
+    const isOtherProduct = selectedTypeData ? !selectedTypeData.isCoreProduct : false;
 
     if (isOtherProduct) {
       // For "Other Products": Skip payment, go directly to product details
