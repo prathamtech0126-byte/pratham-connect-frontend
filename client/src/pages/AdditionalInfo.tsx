@@ -371,34 +371,47 @@ export default function AdditionalInfo() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <Input
-              placeholder="Sale Type"
-              value={formData.saleType}
-              onChange={(e) =>
-                setFormData({ ...formData, saleType: e.target.value })
-              }
-            />
-            <Input
-              type="number"
-              placeholder="Amount"
-              value={formData.amount}
-              onChange={(e) =>
-                setFormData({ ...formData, amount: e.target.value })
-              }
-            />
-            <Select
-              value={formData.isCoreProduct}
-              onValueChange={(v) => setFormData({ ...formData, isCoreProduct: v })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Yes">Yes</SelectItem>
-                <SelectItem value="No">No</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="saleType">Sale Type</Label>
+              <Input
+                id="saleType"
+                placeholder="e.g. Canada Student"
+                value={formData.saleType}
+                onChange={(e) =>
+                  setFormData({ ...formData, saleType: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount</Label>
+              <Input
+                id="amount"
+                type="number"
+                placeholder="0.00"
+                value={formData.amount}
+                onChange={(e) =>
+                  setFormData({ ...formData, amount: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Is Core Product?</Label>
+              <Select
+                value={formData.isCoreProduct}
+                onValueChange={(v) => setFormData({ ...formData, isCoreProduct: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Yes">Yes</SelectItem>
+                  <SelectItem value="No">No</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <DialogFooter>
