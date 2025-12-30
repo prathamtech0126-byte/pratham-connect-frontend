@@ -174,7 +174,7 @@ export default function AdditionalInfo() {
   const [formData, setFormData] = useState({
     saleType: "",
     amount: "",
-    isProduct: "No",
+    isCoreProduct: "No",
   });
 
   const fetchSaleTypes = async () => {
@@ -184,9 +184,9 @@ export default function AdditionalInfo() {
       setSaleTypes(res.data.data || []);
     } catch {
       setSaleTypes([
-        { id: 1, saleType: "Canada Student", amount: 50000, isProduct: false },
-        { id: 2, saleType: "UK Visa", amount: 35000, isProduct: false },
-        { id: 3, saleType: "IELTS Course", amount: 15000, isProduct: true },
+        { id: 1, saleType: "Canada Student", amount: 50000, isCoreProduct: false },
+        { id: 2, saleType: "UK Visa", amount: 35000, isCoreProduct: false },
+        { id: 3, saleType: "IELTS Course", amount: 15000, isCoreProduct: true },
       ]);
     } finally {
       setIsLoading(false);
@@ -202,7 +202,7 @@ export default function AdditionalInfo() {
   const openAddDialog = () => {
     setMode("add");
     setEditingId(null);
-    setFormData({ saleType: "", amount: "", isProduct: "No" });
+    setFormData({ saleType: "", amount: "", isCoreProduct: "No" });
     setIsDialogOpen(true);
   };
 
@@ -214,14 +214,18 @@ export default function AdditionalInfo() {
     setFormData({
       saleType: item.saleType || "",
       amount: item.amount?.toString() || "",
-      isProduct: item.isProduct ? "Yes" : "No",
+      isCoreProduct: item.isCoreProduct ? "Yes" : "No",
     });
     setIsDialogOpen(true);
   };
 
   const handleSave = async () => {
     if (!formData.saleType) {
-      toast({ title: "Error", description: "Sale type required", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Sale type required",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -230,26 +234,32 @@ export default function AdditionalInfo() {
       const payload = {
         saleType: formData.saleType,
         amount: formData.amount ? Number(formData.amount) : null,
-        isProduct: formData.isProduct === "Yes",
+        isCoreProduct: formData.isCoreProduct === "Yes",
       };
 
       if (mode === "edit" && editingId !== null) {
         const response = await api.put(`/api/sale-types/${editingId}`, payload);
         if (response.data.success) {
-          toast({ title: "Updated", description: "Sale type updated successfully" });
+          toast({
+            title: "Updated",
+            description: "Sale type updated successfully",
+          });
           setIsDialogOpen(false);
           setEditingId(null);
-          setFormData({ saleType: "", amount: "", isProduct: "No" });
+          setFormData({ saleType: "", amount: "", isCoreProduct: "No" });
           fetchSaleTypes();
           return;
         }
       } else {
         const response = await api.post("/api/sale-types", payload);
         if (response.data.success) {
-          toast({ title: "Added", description: "Sale type added successfully" });
+          toast({
+            title: "Added",
+            description: "Sale type added successfully",
+          });
           setIsDialogOpen(false);
           setEditingId(null);
-          setFormData({ saleType: "", amount: "", isProduct: "No" });
+          setFormData({ saleType: "", amount: "", isCoreProduct: "No" });
           fetchSaleTypes();
           return;
         }
@@ -268,7 +278,7 @@ export default function AdditionalInfo() {
   const handleDelete = async (id: number) => {
     try {
       await api.delete(`/api/sale-types/${id}`);
-      setSaleTypes(prev => prev.filter(x => x.id !== id));
+      setSaleTypes((prev) => prev.filter((x) => x.id !== id));
       toast({ title: "Deleted", description: "Sale type removed" });
     } catch (err: any) {
       toast({
@@ -280,7 +290,10 @@ export default function AdditionalInfo() {
   };
 
   return (
-    <PageWrapper title="Additional Information" breadcrumbs={[{ label: "Additional Info" }]}>
+    <PageWrapper
+      title="Additional Information"
+      breadcrumbs={[{ label: "Additional Info" }]}
+    >
       <Card>
         <CardHeader className="flex flex-row justify-between items-center">
           <div>
@@ -298,7 +311,7 @@ export default function AdditionalInfo() {
             <TableHeader>
               <TableRow>
                 <TableHead>Sale Type</TableHead>
-                <TableHead>Is Product</TableHead>
+                <TableHead>Is Core Product</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -312,11 +325,13 @@ export default function AdditionalInfo() {
                   </TableCell>
                 </TableRow>
               ) : (
-                saleTypes.map(item => (
+                saleTypes.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{item.saleType}</TableCell>
-                    <TableCell>{item.isProduct ? "Yes" : "No"}</TableCell>
-                    <TableCell>{item.amount ? `₹${item.amount}` : "N/A"}</TableCell>
+                    <TableCell>{item.isCoreProduct ? "Yes" : "No"}</TableCell>
+                    <TableCell>
+                      {item.amount ? `₹${item.amount}` : "N/A"}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
@@ -350,7 +365,9 @@ export default function AdditionalInfo() {
               {mode === "edit" ? "Update Sale Type" : "Add Sale Type"}
             </DialogTitle>
             <DialogDescription>
-              {mode === "edit" ? "Update existing sale type" : "Create new sale type"}
+              {mode === "edit"
+                ? "Update existing sale type"
+                : "Create new sale type"}
             </DialogDescription>
           </DialogHeader>
 
@@ -358,17 +375,21 @@ export default function AdditionalInfo() {
             <Input
               placeholder="Sale Type"
               value={formData.saleType}
-              onChange={e => setFormData({ ...formData, saleType: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, saleType: e.target.value })
+              }
             />
             <Input
               type="number"
               placeholder="Amount"
               value={formData.amount}
-              onChange={e => setFormData({ ...formData, amount: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, amount: e.target.value })
+              }
             />
             <Select
-              value={formData.isProduct}
-              onValueChange={v => setFormData({ ...formData, isProduct: v })}
+              value={formData.isCoreProduct}
+              onValueChange={(v) => setFormData({ ...formData, isCoreProduct: v })}
             >
               <SelectTrigger>
                 <SelectValue />
