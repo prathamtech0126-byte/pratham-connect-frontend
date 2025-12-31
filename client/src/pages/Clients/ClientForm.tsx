@@ -93,11 +93,11 @@ const spouseFieldsSchema = z.object({
   onshorePartTime: financialEntrySchema,
   marriagePhoto: financialEntrySchema,
   marriageCertificate: financialEntrySchema,
-  relationshipAffidavit: z.object({ 
+  relationshipAffidavit: z.object({
     amount: z.number().optional(),
     date: z.string().optional(),
     invoiceNo: z.string().optional(),
-    remarks: z.string().optional()
+    remarks: z.string().optional(),
   }),
   judicialReview: financialEntrySchema,
   simCard: simCardSchema,
@@ -113,9 +113,9 @@ const spouseFieldsSchema = z.object({
 const visitorFieldsSchema = z.object({
   baseFee: financialEntrySchema,
   indianSideEmployment: financialEntrySchema,
-  sponsorCharges: z.object({ 
+  sponsorCharges: z.object({
     amount: z.number().optional(),
-    remarks: z.string().optional()
+    remarks: z.string().optional(),
   }),
   simCard: simCardSchema,
   insurance: insuranceSchema,
@@ -140,22 +140,28 @@ const studentFieldsSchema = z.object({
     disbursementDate: z.string().optional(),
     remarks: z.string().optional(),
   }),
-  forexCard: z.object({
-    isActivated: z.string().optional(),
-    date: z.string().optional(),
-    remarks: z.string().optional(),
-  }).optional(),
-  forexFees: z.object({
-    side: z.string().optional(),
-    amount: z.number().optional(),
-    date: z.string().optional(),
-    remarks: z.string().optional(),
-  }).optional(),
-  tuitionFee: z.object({
-    status: z.string().optional(),
-    date: z.string().optional(),
-    remarks: z.string().optional(),
-  }).optional(),
+  forexCard: z
+    .object({
+      isActivated: z.string().optional(),
+      date: z.string().optional(),
+      remarks: z.string().optional(),
+    })
+    .optional(),
+  forexFees: z
+    .object({
+      side: z.string().optional(),
+      amount: z.number().optional(),
+      date: z.string().optional(),
+      remarks: z.string().optional(),
+    })
+    .optional(),
+  tuitionFee: z
+    .object({
+      status: z.string().optional(),
+      date: z.string().optional(),
+      remarks: z.string().optional(),
+    })
+    .optional(),
   simCard: simCardSchema,
   beaconAccount: z.object({
     openingDate: z.string().optional(),
@@ -216,7 +222,15 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-function NewServiceSection({ control, namePrefix, title }: { control: any, namePrefix: string, title: string }) {
+function NewServiceSection({
+  control,
+  namePrefix,
+  title,
+}: {
+  control: any;
+  namePrefix: string;
+  title: string;
+}) {
   return (
     <div className="p-4 border rounded-lg bg-primary/5 space-y-3">
       <Label className="text-base font-semibold flex items-center gap-2">
@@ -282,18 +296,18 @@ export default function ClientForm() {
         const res = await api.get("/api/sale-types");
         const types = res.data.data || [];
         setAllSaleTypes(types);
-        
+
         const coreOptions = types
           .filter((t: any) => t.isCoreProduct)
           .map((t: any) => ({ label: t.saleType, value: t.saleType }));
-          
+
         const otherOptions = types
           .filter((t: any) => !t.isCoreProduct)
           .map((t: any) => ({ label: t.saleType, value: t.saleType }));
 
         setDynamicOptions([
           { label: "Core Product", options: coreOptions },
-          { label: "Other Products", options: otherOptions }
+          { label: "Other Products", options: otherOptions },
         ]);
       } catch (err) {
         console.error("Failed to fetch sale types", err);
@@ -301,6 +315,18 @@ export default function ClientForm() {
     };
     fetchSaleTypes();
   }, []);
+
+  // Update Total Payment when Sales Type changes
+  useEffect(() => {
+    if (salesType) {
+      const selectedTypeData = allSaleTypes.find(
+        (t) => t.saleType === salesType,
+      );
+      if (selectedTypeData && selectedTypeData.amount) {
+        setValue("totalPayment", selectedTypeData.amount);
+      }
+    }
+  }, [salesType, allSaleTypes, setValue]);
 
   const getProductType = (
     salesType: string | undefined,
@@ -320,7 +346,8 @@ export default function ClientForm() {
 
     // Handle standard sales types
     if (lower.includes("spouse") || lower === "spousal pr") return "spouse";
-    if (lower.includes("visitor") || lower.includes("schengen")) return "visitor";
+    if (lower.includes("visitor") || lower.includes("schengen"))
+      return "visitor";
     if (lower.includes("student")) return "student";
     return null;
   };
@@ -384,25 +411,26 @@ export default function ClientForm() {
 
   const onSubmit = async (data: FormValues) => {
     try {
-      // Clean up data before sending: only include relevant product fields
-      const finalData = {
-        ...data,
+      // Clean up data before sending
+      const selectedTypeData = allSaleTypes.find(t => t.saleType === data.salesType);
+      
+      const payload = {
+        fullName: data.name,
+        enrollmentDate: data.enrollmentDate,
+        saleTypeId: selectedTypeData?.id,
+        counsellorId: user?.id || 2, // Defaulting to 2 as per user request example
+        totalPayment: data.totalPayment,
+        initialPayment: data.initialPayment,
+        beforeVisaPayment: data.beforeVisaPayment,
+        afterVisaPayment: data.afterVisaPayment,
         amountPending: calculatedPending,
-        // Map back to flat structure if backend expects it, or keep nested if backend is flexible.
-        // Since we are in mockup mode and I don't see the backend schema, I'll assume nested is fine or I should flatten it if needed.
-        // The original code had flat `initialAmountReceived`.
-        // Let's keep it consistent with the schema changes.
+        spouseFields: productType === "spouse" ? data.spouseFields : undefined,
+        visitorFields: productType === "visitor" ? data.visitorFields : undefined,
+        studentFields: productType === "student" ? data.studentFields : undefined,
+        status: "Active"
       };
 
-      if (productType !== "spouse") delete finalData.spouseFields;
-      if (productType !== "visitor") delete finalData.visitorFields;
-      if (productType !== "student") delete finalData.studentFields;
-
-      // @ts-ignore
-      await clientService.createClient({
-        ...finalData,
-        status: "Active",
-      });
+      await api.post("/api/clients", payload);
 
       toast({
         title: "Success",
@@ -832,14 +860,12 @@ export default function ClientForm() {
                   </AccordionItem>
 
                   <AccordionItem value="spouse-new-sell">
-                    <AccordionTrigger>
-                      Spouse - New Sell
-                    </AccordionTrigger>
+                    <AccordionTrigger>Spouse - New Sell</AccordionTrigger>
                     <AccordionContent className="pt-4">
-                      <NewServiceSection 
-                        control={control} 
-                        namePrefix="spouseFields" 
-                        title="Spouse - New Sell" 
+                      <NewServiceSection
+                        control={control}
+                        namePrefix="spouseFields"
+                        title="Spouse - New Sell"
                       />
                     </AccordionContent>
                   </AccordionItem>
@@ -1049,14 +1075,12 @@ export default function ClientForm() {
                   </AccordionItem>
 
                   <AccordionItem value="visitor-new-sell">
-                    <AccordionTrigger>
-                      Visitor - New Sell
-                    </AccordionTrigger>
+                    <AccordionTrigger>Visitor - New Sell</AccordionTrigger>
                     <AccordionContent className="pt-4">
-                      <NewServiceSection 
-                        control={control} 
-                        namePrefix="visitorFields" 
-                        title="Visitor - New Sell" 
+                      <NewServiceSection
+                        control={control}
+                        namePrefix="visitorFields"
+                        title="Visitor - New Sell"
                       />
                     </AccordionContent>
                   </AccordionItem>
@@ -1152,7 +1176,6 @@ export default function ClientForm() {
                           placeholder="Loan remarks..."
                         />
                       </div>
-
                     </AccordionContent>
                   </AccordionItem>
 
@@ -1244,8 +1267,8 @@ export default function ClientForm() {
                             label="Side"
                             placeholder="Select Side"
                             options={[
-                              { label: "Our Side", value: "Our Side" },
-                              { label: "Other Side", value: "Other Side" },
+                              { label: "Pratham Internation", value: "PI" },
+                              { label: "Third Party", value: "TP" },
                             ]}
                           />
                           <FormDateInput
@@ -1279,8 +1302,8 @@ export default function ClientForm() {
                             label="Status"
                             placeholder="Select Status"
                             options={[
-                              { label: "Done", value: "Done" },
-                              { label: "Not", value: "Not" },
+                              { label: "Paid", value: "Paid" },
+                              { label: "Panding", value: "Panding" },
                             ]}
                           />
                           <FormDateInput
@@ -1417,14 +1440,12 @@ export default function ClientForm() {
                   </AccordionItem>
 
                   <AccordionItem value="student-new-sell">
-                    <AccordionTrigger>
-                      Student - New Sell
-                    </AccordionTrigger>
+                    <AccordionTrigger>Student - New Sell</AccordionTrigger>
                     <AccordionContent className="pt-4">
-                      <NewServiceSection 
-                        control={control} 
-                        namePrefix="studentFields" 
-                        title="Student - New Sell" 
+                      <NewServiceSection
+                        control={control}
+                        namePrefix="studentFields"
+                        title="Student - New Sell"
                       />
                     </AccordionContent>
                   </AccordionItem>
@@ -1432,7 +1453,6 @@ export default function ClientForm() {
               </div>
             </div>
           )}
-
         </div>
       ),
     };
@@ -1440,8 +1460,10 @@ export default function ClientForm() {
     // Build step array based on sales type
     const allSteps = [basicStep];
 
-    const selectedTypeData = allSaleTypes.find(t => t.saleType === salesType);
-    const isOtherProduct = selectedTypeData ? !selectedTypeData.isCoreProduct : false;
+    const selectedTypeData = allSaleTypes.find((t) => t.saleType === salesType);
+    const isOtherProduct = selectedTypeData
+      ? !selectedTypeData.isCoreProduct
+      : false;
 
     if (isOtherProduct) {
       // For "Other Products": Skip payment, go directly to product details
