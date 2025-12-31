@@ -317,17 +317,6 @@ export default function ClientForm() {
   }, []);
 
   // Update Total Payment when Sales Type changes
-  useEffect(() => {
-    if (salesType) {
-      const selectedTypeData = allSaleTypes.find(
-        (t) => t.saleType === salesType,
-      );
-      if (selectedTypeData && selectedTypeData.amount) {
-        setValue("totalPayment", selectedTypeData.amount);
-      }
-    }
-  }, [salesType, allSaleTypes, setValue]);
-
   const getProductType = (
     salesType: string | undefined,
     selectedProductType?: string,
@@ -387,6 +376,18 @@ export default function ClientForm() {
   });
   const showDiscount = useWatch({ control, name: "showDiscount" });
   const showExtraPayment = useWatch({ control, name: "showExtraPayment" });
+
+  // Update Total Payment when Sales Type changes
+  useEffect(() => {
+    if (salesType) {
+      const selectedTypeData = allSaleTypes.find(
+        (t) => t.saleType === salesType,
+      );
+      if (selectedTypeData && selectedTypeData.amount) {
+        setValue("totalPayment", selectedTypeData.amount);
+      }
+    }
+  }, [salesType, allSaleTypes, setValue]);
 
   // Auto-calc pending amount
   const totalPayment = useWatch({ control, name: "totalPayment" }) || 0;
