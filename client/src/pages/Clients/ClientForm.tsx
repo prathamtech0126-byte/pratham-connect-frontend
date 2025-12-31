@@ -1461,16 +1461,14 @@ export default function ClientForm() {
     const allSteps = [basicStep];
 
     const selectedTypeData = allSaleTypes.find((t) => t.saleType === salesType);
-    const isOtherProduct = selectedTypeData
-      ? !selectedTypeData.isCoreProduct
-      : false;
+    const isCoreProduct = selectedTypeData ? selectedTypeData.isCoreProduct : true;
 
-    if (isOtherProduct) {
-      // For "Other Products": Skip payment, go directly to product details
+    if (isCoreProduct) {
+      // For core products: Include payment step and product details
+      allSteps.push(consultancyStep);
       allSteps.push(productFieldsStep);
     } else if (salesType) {
-      // For core products: Include payment step
-      allSteps.push(consultancyStep);
+      // For "Other Products": Skip payment, go directly to product details
       allSteps.push(productFieldsStep);
     }
 
