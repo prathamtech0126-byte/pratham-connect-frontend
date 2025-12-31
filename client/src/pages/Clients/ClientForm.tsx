@@ -413,36 +413,100 @@ export default function ClientForm() {
   const onSubmit = async (data: FormValues) => {
     try {
       // Clean up data before sending
-      const selectedTypeData = allSaleTypes.find(t => t.saleType === data.salesType);
-      
-      const payload = {
+      const selectedTypeData = allSaleTypes.find(
+        (t) => t.saleType === data.salesType,
+      );
+
+      const clientPayload = {
         fullName: data.name,
         enrollmentDate: data.enrollmentDate,
         saleTypeId: selectedTypeData?.id,
-        counsellorId: user?.id || 2, // Defaulting to 2 as per user request example
-        totalPayment: data.totalPayment,
-        initialPayment: data.initialPayment,
-        beforeVisaPayment: data.beforeVisaPayment,
-        afterVisaPayment: data.afterVisaPayment,
-        amountPending: calculatedPending,
-        spouseFields: productType === "spouse" ? data.spouseFields : undefined,
-        visitorFields: productType === "visitor" ? data.visitorFields : undefined,
-        studentFields: productType === "student" ? data.studentFields : undefined,
-        status: "Active"
+        counsellorId: user?.id || 2,
+        status: "Active",
       };
 
-      await api.post("/api/clients", payload);
+      // 1. Create the Client
+      const clientRes = await api.post("/api/clients", clientPayload);
+      const clientId = clientRes.data.data.clientId;
+
+      // 2. Create Payments if it's a Core Product
+      const isCoreProduct = selectedTypeData
+        ? selectedTypeData.isCoreProduct
+        : true;
+
+      if (isCoreProduct) {
+        const paymentPromises = [];
+
+        if (data.initialPayment?.amount) {
+          paymentPromises.push(
+            api.post("/api/client-payments", {
+              clientId,
+              totalPayment: data.totalPayment,
+              stage: "INITIAL",
+              amount: data.initialPayment.amount,
+              paymentDate: data.initialPayment.date,
+              invoiceNo: data.initialPayment.invoiceNo,
+              remarks: data.initialPayment.remarks,
+            }),
+          );
+        }
+
+        if (data.beforeVisaPayment?.amount) {
+          paymentPromises.push(
+            api.post("/api/client-payments", {
+              clientId,
+              totalPayment: data.totalPayment,
+              stage: "BEFORE_VISA",
+              amount: data.beforeVisaPayment.amount,
+              paymentDate: data.beforeVisaPayment.date,
+              invoiceNo: data.beforeVisaPayment.invoiceNo,
+              remarks: data.beforeVisaPayment.remarks,
+            }),
+          );
+        }
+
+        if (data.afterVisaPayment?.amount) {
+          paymentPromises.push(
+            api.post("/api/client-payments", {
+              clientId,
+              totalPayment: data.totalPayment,
+              stage: "AFTER_VISA",
+              amount: data.afterVisaPayment.amount,
+              paymentDate: data.afterVisaPayment.date,
+              invoiceNo: data.afterVisaPayment.invoiceNo,
+              remarks: data.afterVisaPayment.remarks,
+            }),
+          );
+        }
+
+        if (paymentPromises.length > 0) {
+          await Promise.all(paymentPromises);
+        }
+      }
+
+      // 3. Update Product Specific Details (if any)
+      const updatePayload: any = {};
+      if (productType === "spouse")
+        updatePayload.spouseFields = data.spouseFields;
+      if (productType === "visitor")
+        updatePayload.visitorFields = data.visitorFields;
+      if (productType === "student")
+        updatePayload.studentFields = data.studentFields;
+
+      if (Object.keys(updatePayload).length > 0) {
+        await api.patch(`/api/clients/${clientId}`, updatePayload);
+      }
 
       toast({
         title: "Success",
-        description: "Client created successfully",
+        description: "Client and payments created successfully",
       });
       setLocation("/clients");
     } catch (error) {
       console.error(error);
       toast({
         title: "Error",
-        description: "Failed to create client",
+        description: "Failed to create client or payments",
         variant: "destructive",
       });
     }
