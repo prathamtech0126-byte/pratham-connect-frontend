@@ -1053,14 +1053,6 @@ export default function ClientForm() {
                         />
                       </div>
 
-                      <div className="p-4 border rounded-lg bg-muted/20 mt-4">
-                        <FormTextareaInput
-                          name="studentFields.financeRemarks"
-                          control={control}
-                          label="Remarks"
-                          placeholder="Add remarks for Finance & Services section..."
-                        />
-                      </div>
                     </AccordionContent>
                   </AccordionItem>
 
