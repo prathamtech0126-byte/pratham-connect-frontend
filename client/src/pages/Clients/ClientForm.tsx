@@ -1269,14 +1269,6 @@ export default function ClientForm() {
                           placeholder="Insurance remarks..."
                         />
                       </div>
-                      <div className="p-4 border rounded-lg bg-muted/20 mt-4">
-                        <FormTextareaInput
-                          name="studentFields.servicesRemarks"
-                          control={control}
-                          label="Remarks"
-                          placeholder="Add remarks for Additional Services section..."
-                        />
-                      </div>
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
