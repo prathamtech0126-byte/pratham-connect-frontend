@@ -74,14 +74,6 @@ const trvExtensionSchema = z.object({
   remarks: z.string().optional(),
 });
 
-const newProductSchema = z.object({
-  productName: z.string().optional(),
-  date: z.string().optional(),
-  amount: z.number().optional(),
-  invoiceNo: z.string().optional(),
-  remarks: z.string().optional()
-});
-
 // Product Specific Schemas
 const spouseFieldsSchema = z.object({
   financeAndEmployment: financialEntrySchema,
@@ -103,7 +95,6 @@ const spouseFieldsSchema = z.object({
   insurance: insuranceSchema,
   myBeacon: beaconSchema,
   airTicket: airTicketSchema,
-  newProduct: newProductSchema.optional(),
   financeRemarks: z.string().optional(),
   legalRemarks: z.string().optional(),
   servicesRemarks: z.string().optional(),
@@ -120,7 +111,6 @@ const visitorFieldsSchema = z.object({
   insurance: insuranceSchema,
   airTicket: airTicketSchema,
   beaconAccount: beaconSchema,
-  newProduct: newProductSchema.optional(),
   financeRemarks: z.string().optional(),
   servicesRemarks: z.string().optional(),
 });
@@ -158,7 +148,6 @@ const studentFieldsSchema = z.object({
     policyNo: z.string().optional(),
     date: z.string().optional(),
   }),
-  newProduct: newProductSchema.optional(),
   financeRemarks: z.string().optional(),
   servicesRemarks: z.string().optional(),
 });
@@ -275,6 +264,7 @@ export default function ClientForm() {
       amountPending: 0,
       showDiscount: false,
       showExtraPayment: false,
+      // Initialize sub-objects to avoid undefined errors in deep nested components if needed
       spouseFields: {},
       visitorFields: {},
       studentFields: {},
@@ -294,7 +284,10 @@ export default function ClientForm() {
     control,
     name: "selectedProductType",
   });
-  
+  const showDiscount = useWatch({ control, name: "showDiscount" });
+  const showExtraPayment = useWatch({ control, name: "showExtraPayment" });
+
+  // Auto-calc pending amount
   const totalPayment = useWatch({ control, name: "totalPayment" }) || 0;
   const initialPayment = useWatch({ control, name: "initialPayment" });
   const beforeVisaPayment = useWatch({ control, name: "beforeVisaPayment" });
@@ -304,16 +297,27 @@ export default function ClientForm() {
   const beforeVisaAmount = beforeVisaPayment?.amount || 0;
   const afterVisaAmount = afterVisaPayment?.amount || 0;
 
+  // Formula: Total Payment - (Initial Amount + Before Visa Payment + After Visa Payment)
   const calculatedPending =
     totalPayment - (initialAmountReceived + beforeVisaAmount + afterVisaAmount);
+
+  // We can just display this or set it in form state. Setting in form state is better for submission.
+  // Using a useEffect to keep it in sync might cause re-renders but is safe for now.
+  // Alternatively, just calculate it on render for display and on submit for data.
+  // Let's set it in form so the input updates visually if we want it to be readonly.
 
   const productType = getProductType(salesType, selectedProductType);
 
   const onSubmit = async (data: FormValues) => {
     try {
+      // Clean up data before sending: only include relevant product fields
       const finalData = {
         ...data,
         amountPending: calculatedPending,
+        // Map back to flat structure if backend expects it, or keep nested if backend is flexible.
+        // Since we are in mockup mode and I don't see the backend schema, I'll assume nested is fine or I should flatten it if needed.
+        // The original code had flat `initialAmountReceived`.
+        // Let's keep it consistent with the schema changes.
       };
 
       if (productType !== "spouse") delete finalData.spouseFields;
@@ -341,6 +345,7 @@ export default function ClientForm() {
     }
   };
 
+  // Build steps dynamically based on sales type
   const buildSteps = () => {
     const basicStep = {
       id: "basic",
@@ -433,46 +438,6 @@ export default function ClientForm() {
       ),
     };
 
-    const NewProductSection = ({ prefix }: { prefix: "spouseFields.newProduct" | "visitorFields.newProduct" | "studentFields.newProduct" }) => (
-      <div className="p-4 border rounded-lg bg-primary/5 border-primary/20 space-y-4">
-        <Label className="text-base font-bold text-primary">
-          New Product Sale
-        </Label>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormTextInput
-            name={`${prefix}.productName`}
-            control={control}
-            label="Product Information"
-            placeholder="e.g. Flight Booking"
-          />
-          <FormDateInput
-            name={`${prefix}.date`}
-            control={control}
-            label="Date"
-            maxDate={new Date()}
-          />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormCurrencyInput
-            name={`${prefix}.amount`}
-            control={control}
-            label="Amount"
-          />
-          <FormTextInput
-            name={`${prefix}.invoiceNo`}
-            control={control}
-            label="Invoice No"
-          />
-        </div>
-        <FormTextareaInput
-          name={`${prefix}.remarks`}
-          control={control}
-          label="Remarks"
-          placeholder="Add product specific remarks..."
-        />
-      </div>
-    );
-
     const productFieldsStep = {
       id: "product_fields",
       title: "Product Details",
@@ -484,153 +449,856 @@ export default function ClientForm() {
             </div>
           )}
 
+          {/* SPOUSE PRODUCT */}
           {productType === "spouse" && (
             <div className="space-y-6">
-              <Accordion type="single" collapsible defaultValue="spouse-finance" className="w-full">
-                <AccordionItem value="spouse-finance">
-                  <AccordionTrigger>Spouse - Finance & Employment</AccordionTrigger>
-                  <AccordionContent className="pt-4 space-y-4">
-                    <FinancialEntry control={control} name="spouseFields.financeAndEmployment" label="1. All Finance & Employment (Base Fee)" />
-                    <FinancialEntry control={control} name="spouseFields.indianSideEmployment" label="2. India Side Employment" />
-                    <FinancialEntry control={control} name="spouseFields.nocLevelJob" label="3. NOC Level Job Arrangement" />
-                    <FinancialEntry control={control} name="spouseFields.lawyerRefuge" label="4. Lawyer Refusal Charge" />
-                    <FinancialEntry control={control} name="spouseFields.onshorePartTime" label="5. Onshore Part-Time Employment" />
-                    
-                    <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-                      <Label className="text-base font-semibold">6. TRV/ Work Permit Ext. / Study Permit Extension</Label>
-                      <FormSelectInput
-                        name="spouseFields.trvExtension.type"
+              {/* SPOUSE */}
+              <div className="space-y-6">
+                <Accordion
+                  type="single"
+                  collapsible
+                  defaultValue="spouse-finance"
+                  className="w-full"
+                >
+                  <AccordionItem value="spouse-finance">
+                    <AccordionTrigger>
+                      Spouse - Finance & Employment
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-4">
+                      <FinancialEntry
                         control={control}
-                        label="Type"
-                        placeholder="Select Type"
-                        options={[
-                          { label: "TRV", value: "TRV" },
-                          { label: "Study Permit Ext.", value: "Study Permit Ext." },
-                          { label: "Work Permit Ext.", value: "Work Permit Ext." },
-                          { label: "PGWP", value: "PGWP" },
-                          { label: "Visitor Record", value: "Visitor Record" },
-                        ]}
+                        name="spouseFields.financeAndEmployment"
+                        label="1. All Finance & Employment (Base Fee)"
                       />
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <FormCurrencyInput name="spouseFields.trvExtension.amount" control={control} label="Amount" />
-                        <FormDateInput name="spouseFields.trvExtension.date" control={control} label="Date" maxDate={new Date()} />
-                        <FormTextInput name="spouseFields.trvExtension.invoiceNo" control={control} label="Invoice No" />
-                      </div>
-                      <FormTextareaInput name="spouseFields.trvExtension.remarks" control={control} label="Remarks" />
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="spouse-legal">
-                  <AccordionTrigger>Spouse - Legal & Documentation</AccordionTrigger>
-                  <AccordionContent className="pt-4 space-y-4">
-                    <FinancialEntry control={control} name="spouseFields.marriagePhoto" label="8. Marriage Photo for Court Marriage" />
-                    <FinancialEntry control={control} name="spouseFields.marriageCertificate" label="9. Marriage Photo + Certificate (Common Law)" />
-                    
-                    <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-                      <Label className="text-base font-semibold">10. Recent Marriage / Relationship Affidavit</Label>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <FormCurrencyInput name="spouseFields.relationshipAffidavit.amount" control={control} label="Amount" />
-                        <FormDateInput name="spouseFields.relationshipAffidavit.date" control={control} label="Date" maxDate={new Date()} />
-                        <FormTextInput name="spouseFields.relationshipAffidavit.invoiceNo" control={control} label="Invoice No" />
-                      </div>
-                      <FormTextareaInput name="spouseFields.relationshipAffidavit.remarks" control={control} label="Remarks" />
-                    </div>
-                    <FinancialEntry control={control} name="spouseFields.judicialReview" label="11. Judicial Review Charge" />
-                  </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="spouse-services">
-                  <AccordionTrigger>Spouse - Services & Settlement</AccordionTrigger>
-                  <AccordionContent className="pt-4 space-y-4">
-                    <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-                      <Label className="text-base font-semibold">12. SIM Card Activation</Label>
-                      <FormSelectInput
-                        name="spouseFields.simCard.isActivated"
+                      <FinancialEntry
                         control={control}
-                        label="Activated"
-                        placeholder="Select Status"
-                        options={[{ label: "Yes", value: "Yes" }, { label: "No", value: "No" }]}
+                        name="spouseFields.indianSideEmployment"
+                        label="2. India Side Employment"
                       />
-                    </div>
-                    <NewProductSection prefix="spouseFields.newProduct" />
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+                      <FinancialEntry
+                        control={control}
+                        name="spouseFields.nocLevelJob"
+                        label="3. NOC Level Job Arrangement"
+                      />
+                      <FinancialEntry
+                        control={control}
+                        name="spouseFields.lawyerRefuge"
+                        label="4. Lawyer Refusal Charge"
+                      />
+
+                      <FinancialEntry
+                        control={control}
+                        name="spouseFields.onshorePartTime"
+                        label="5. Onshore Part-Time Employment"
+                      />
+
+                      {/* Item 6 - TRV Dropdown */}
+                      <div className="col-span-1 md:col-span-2 space-y-3 p-4 border rounded-lg bg-muted/20">
+                        <Label className="text-base font-semibold">
+                          6. TRV/ Work Permit Ext. / Study Permit Extension
+                        </Label>
+                        <div className="grid grid-cols-1 gap-4">
+                          <FormSelectInput
+                            name="spouseFields.trvExtension.type"
+                            control={control}
+                            label="Type"
+                            placeholder="Select Type"
+                            options={[
+                              { label: "TRV", value: "TRV" },
+                              {
+                                label: "Study Permit Ext.",
+                                value: "Study Permit Ext.",
+                              },
+                              {
+                                label: "Work Permit Ext.",
+                                value: "Work Permit Ext.",
+                              },
+                              { label: "PGWP", value: "PGWP" },
+                              {
+                                label: "Visitor Record",
+                                value: "Visitor Record",
+                              },
+                            ]}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormCurrencyInput
+                            name="spouseFields.trvExtension.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormDateInput
+                            name="spouseFields.trvExtension.date"
+                            control={control}
+                            label="Date"
+                            maxDate={new Date()}
+                          />
+                          <FormTextInput
+                            name="spouseFields.trvExtension.invoiceNo"
+                            control={control}
+                            label="Invoice No"
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="spouseFields.trvExtension.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Add remark for this section..."
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="spouse-legal">
+                    <AccordionTrigger>
+                      Spouse - Legal & Documentation
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-4">
+                      <FinancialEntry
+                        control={control}
+                        name="spouseFields.marriagePhoto"
+                        label="8. Marriage Photo for Court Marriage"
+                      />
+                      <FinancialEntry
+                        control={control}
+                        name="spouseFields.marriageCertificate"
+                        label="9. Marriage Photo + Certificate (Common Law)"
+                      />
+
+                      <div className="col-span-1 md:col-span-2 space-y-3 p-4 border rounded-lg bg-muted/20">
+                        <Label className="text-base font-semibold">
+                          10. Recent Marriage / Relationship Affidavit
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormCurrencyInput
+                            name="spouseFields.relationshipAffidavit.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormDateInput
+                            name="spouseFields.relationshipAffidavit.date"
+                            control={control}
+                            label="Date"
+                            maxDate={new Date()}
+                          />
+                          <FormTextInput
+                            name="spouseFields.relationshipAffidavit.invoiceNo"
+                            control={control}
+                            label="Invoice No"
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="spouseFields.relationshipAffidavit.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Add remarks..."
+                        />
+                      </div>
+
+                      <FinancialEntry
+                        control={control}
+                        name="spouseFields.judicialReview"
+                        label="11. Judicial Review Charge"
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="spouse-services">
+                    <AccordionTrigger>
+                      Spouse - Services & Settlement
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-4">
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          12. SIM Card Activation
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <FormSelectInput
+                            name="spouseFields.simCard.isActivated"
+                            control={control}
+                            label="Activated"
+                            placeholder="Select Status"
+                            options={[
+                              { label: "Yes", value: "Yes" },
+                              { label: "No", value: "No" },
+                            ]}
+                          />
+                          <FormTextInput
+                            name="spouseFields.simCard.plan"
+                            control={control}
+                            label="SIM Card Plan"
+                            placeholder="Enter plan details"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormDateInput
+                            name="spouseFields.simCard.date"
+                            control={control}
+                            label="Sim Card Giving Date"
+                            maxDate={new Date()}
+                          />
+                          <FormDateInput
+                            name="spouseFields.simCard.startDate"
+                            control={control}
+                            label="Activation Date"
+                            maxDate={new Date()}
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="spouseFields.simCard.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="SIM Card remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          13. Insurance
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormCurrencyInput
+                            name="spouseFields.insurance.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormTextInput
+                            name="spouseFields.insurance.insuranceNo"
+                            control={control}
+                            label="Insurance No"
+                          />
+                          <FormDateInput
+                            name="spouseFields.insurance.date"
+                            control={control}
+                            label="Date"
+                            maxDate={new Date()}
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="spouseFields.insurance.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Insurance remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          14. My Beacon Account
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormDateInput
+                            name="spouseFields.myBeacon.openingDate"
+                            control={control}
+                            label="Opening Date"
+                            maxDate={new Date()}
+                          />
+                          <FormDateInput
+                            name="spouseFields.myBeacon.fundingDate"
+                            control={control}
+                            label="Funding Date"
+                            maxDate={new Date()}
+                          />
+                          <FormCurrencyInput
+                            name="spouseFields.myBeacon.fundingAmount"
+                            control={control}
+                            label="Funding Amount (CAD)"
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="spouseFields.myBeacon.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Beacon Account remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          15. Air Ticket
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <FormSelectInput
+                            name="spouseFields.airTicket.isBooked"
+                            control={control}
+                            label="Ticket Booked"
+                            placeholder="Select Status"
+                            options={[
+                              { label: "Yes", value: "Yes" },
+                              { label: "No", value: "No" },
+                            ]}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormCurrencyInput
+                            name="spouseFields.airTicket.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormTextInput
+                            name="spouseFields.airTicket.invoiceNo"
+                            control={control}
+                            label="Invoice No"
+                          />
+                          <FormDateInput
+                            name="spouseFields.airTicket.date"
+                            control={control}
+                            label="Date"
+                            maxDate={new Date()}
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="spouseFields.airTicket.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Air Ticket remarks..."
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
             </div>
           )}
 
+          {/* VISITOR PRODUCT */}
           {productType === "visitor" && (
             <div className="space-y-6">
-              <Accordion type="single" collapsible defaultValue="visitor-finance" className="w-full">
-                <AccordionItem value="visitor-finance">
-                  <AccordionTrigger>Visitor - Fees & Employment</AccordionTrigger>
-                  <AccordionContent className="pt-4 space-y-4">
-                    <FinancialEntry control={control} name="visitorFields.baseFee" label="1. Visitor Base Fee" />
-                    <FinancialEntry control={control} name="visitorFields.indianSideEmployment" label="2. India Side Employment" />
-                    <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-                      <Label className="text-base font-semibold">3. Sponsor Charges</Label>
-                      <FormCurrencyInput name="visitorFields.sponsorCharges.amount" control={control} label="Amount" />
-                      <FormTextareaInput name="visitorFields.sponsorCharges.remarks" control={control} label="Remarks" />
-                    </div>
-                    <NewProductSection prefix="visitorFields.newProduct" />
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+              <div className="space-y-6">
+                <Accordion
+                  type="single"
+                  collapsible
+                  defaultValue="visitor-main"
+                  className="w-full"
+                >
+                  <AccordionItem value="visitor-main">
+                    <AccordionTrigger>
+                      Visitor - Fees & Employment
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-4">
+                      <FinancialEntry
+                        control={control}
+                        name="visitorFields.baseFee"
+                        label="1. Base Fee (All Finance & Employment)"
+                      />
+
+                      <FinancialEntry
+                        control={control}
+                        name="visitorFields.indianSideEmployment"
+                        label="2. Indian Side Employment (₹6,000/yr)"
+                      />
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          3. Sponsor Charges
+                        </Label>
+                        <FormCurrencyInput
+                          name="visitorFields.sponsorCharges.amount"
+                          control={control}
+                          label="Amount (₹10,000 + GST)"
+                        />
+                        <FormTextareaInput
+                          name="visitorFields.sponsorCharges.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Sponsor charges remarks..."
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="visitor-services">
+                    <AccordionTrigger>
+                      Visitor - Additional Services
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-4">
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          4. SIM Card Activation
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <FormSelectInput
+                            name="visitorFields.simCard.isActivated"
+                            control={control}
+                            label="Activated"
+                            placeholder="Select Status"
+                            options={[
+                              { label: "Yes", value: "Yes" },
+                              { label: "No", value: "No" },
+                            ]}
+                          />
+                          <FormTextInput
+                            name="visitorFields.simCard.plan"
+                            control={control}
+                            label="SIM Card Plan"
+                            placeholder="Enter plan details"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormDateInput
+                            name="visitorFields.simCard.date"
+                            control={control}
+                            label="Activation Date"
+                            maxDate={new Date()}
+                          />
+                          <FormDateInput
+                            name="visitorFields.simCard.startDate"
+                            control={control}
+                            label="Usage Start Date"
+                            maxDate={new Date()}
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="visitorFields.simCard.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="SIM Card remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          5. Insurance
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormCurrencyInput
+                            name="visitorFields.insurance.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormTextInput
+                            name="visitorFields.insurance.insuranceNo"
+                            control={control}
+                            label="Insurance No"
+                          />
+                          <FormDateInput
+                            name="visitorFields.insurance.date"
+                            control={control}
+                            label="Date"
+                            maxDate={new Date()}
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="visitorFields.insurance.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Insurance remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          6. Beacon Account
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormDateInput
+                            name="visitorFields.beaconAccount.openingDate"
+                            control={control}
+                            label="Opening Date"
+                            maxDate={new Date()}
+                          />
+                          <FormDateInput
+                            name="visitorFields.beaconAccount.fundingDate"
+                            control={control}
+                            label="Funding Date"
+                            maxDate={new Date()}
+                          />
+                          <FormCurrencyInput
+                            name="visitorFields.beaconAccount.fundingAmount"
+                            control={control}
+                            label="Funding Amount (GBP)"
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="visitorFields.beaconAccount.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Beacon Account remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          7. Air Ticket
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <FormSelectInput
+                            name="visitorFields.airTicket.isBooked"
+                            control={control}
+                            label="Ticket Booked"
+                            placeholder="Select Status"
+                            options={[
+                              { label: "Yes", value: "Yes" },
+                              { label: "No", value: "No" },
+                            ]}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormCurrencyInput
+                            name="visitorFields.airTicket.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormTextInput
+                            name="visitorFields.airTicket.invoiceNo"
+                            control={control}
+                            label="Invoice No"
+                          />
+                          <FormDateInput
+                            name="visitorFields.airTicket.date"
+                            control={control}
+                            label="Date"
+                            maxDate={new Date()}
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="visitorFields.airTicket.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Air Ticket remarks..."
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
             </div>
           )}
 
+          {/* STUDENT PRODUCT */}
           {productType === "student" && (
             <div className="space-y-6">
-              <Accordion type="single" collapsible defaultValue="student-finance" className="w-full">
-                <AccordionItem value="student-finance">
-                  <AccordionTrigger>Student - Finance & Services</AccordionTrigger>
-                  <AccordionContent className="pt-4 space-y-4">
-                    <FinancialEntry control={control} name="studentFields.financeAndEmployment" label="1. Finance & Employment" />
-                    <FinancialEntry control={control} name="studentFields.indianSideEmployment" label="2. Indian Side Employment" />
-                    
-                    <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-                      <Label className="text-base font-semibold">3. IELTS Enrollment</Label>
-                      <FormSelectInput
-                        name="studentFields.ieltsEnrollment.isEnrolled"
+              <div className="space-y-6">
+                <Accordion
+                  type="single"
+                  collapsible
+                  defaultValue="student-finance"
+                  className="w-full"
+                >
+                  <AccordionItem value="student-finance">
+                    <AccordionTrigger>
+                      Student - Finance & Services
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-4">
+                      <FinancialEntry
                         control={control}
-                        label="Enrolled"
-                        placeholder="Select Status"
-                        options={[{ label: "Yes", value: "Yes" }, { label: "No", value: "No" }]}
+                        name="studentFields.financeAndEmployment"
+                        label="1. Finance & Employment"
                       />
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormCurrencyInput name="studentFields.ieltsEnrollment.amount" control={control} label="Amount" />
-                        <FormDateInput name="studentFields.ieltsEnrollment.date" control={control} label="Date" maxDate={new Date()} />
+                      <FinancialEntry
+                        control={control}
+                        name="studentFields.indianSideEmployment"
+                        label="2. Indian Side Employment"
+                      />
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          3. IELTS Enrollment
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <FormSelectInput
+                            name="studentFields.ieltsEnrollment.isEnrolled"
+                            control={control}
+                            label="Enrolled"
+                            placeholder="Select Status"
+                            options={[
+                              { label: "Yes", value: "Yes" },
+                              { label: "No", value: "No" },
+                            ]}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormCurrencyInput
+                            name="studentFields.ieltsEnrollment.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormDateInput
+                            name="studentFields.ieltsEnrollment.date"
+                            control={control}
+                            label="Date"
+                            maxDate={new Date()}
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="studentFields.ieltsEnrollment.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="IELTS remarks..."
+                        />
                       </div>
-                      <FormTextareaInput name="studentFields.ieltsEnrollment.remarks" control={control} label="Remarks" />
-                    </div>
-                    
-                    <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-                      <Label className="text-base font-semibold">4. Loan Details</Label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormCurrencyInput name="studentFields.loan.amount" control={control} label="Amount" />
-                        <FormDateInput name="studentFields.loan.disbursementDate" control={control} label="Disbursement Date" maxDate={new Date()} />
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          4. Loan Details
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormCurrencyInput
+                            name="studentFields.loan.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormDateInput
+                            name="studentFields.loan.disbursementDate"
+                            control={control}
+                            label="Disbursement Date"
+                            maxDate={new Date()}
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="studentFields.loan.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Loan remarks..."
+                        />
                       </div>
-                      <FormTextareaInput name="studentFields.loan.remarks" control={control} label="Remarks" />
-                    </div>
-                    
-                    <NewProductSection prefix="studentFields.newProduct" />
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 mt-4">
+                        <FormTextareaInput
+                          name="studentFields.financeRemarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Add remarks for Finance & Services section..."
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="student-additional">
+                    <AccordionTrigger>
+                      Student - Additional Services
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-4">
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          4. SIM Card Activation
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <FormSelectInput
+                            name="studentFields.simCard.isActivated"
+                            control={control}
+                            label="Activated"
+                            placeholder="Select Status"
+                            options={[
+                              { label: "Yes", value: "Yes" },
+                              { label: "No", value: "No" },
+                            ]}
+                          />
+                          <FormTextInput
+                            name="studentFields.simCard.plan"
+                            control={control}
+                            label="SIM Card Plan"
+                            placeholder="Enter plan details"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormDateInput
+                            name="studentFields.simCard.date"
+                            control={control}
+                            label="Sim Card Giving Date"
+                          />
+                          <FormDateInput
+                            name="studentFields.simCard.startDate"
+                            control={control}
+                            label="Activation Date"
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="studentFields.simCard.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="SIM Card remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          5. Forex
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <FormSelectInput
+                            name="studentFields.forex.isActivated"
+                            control={control}
+                            label="Activated"
+                            placeholder="Select Status"
+                            options={[
+                              { label: "Yes", value: "Yes" },
+                              { label: "No", value: "No" },
+                            ]}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormCurrencyInput
+                            name="studentFields.forex.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormSelectInput
+                            name="studentFields.forex.currency"
+                            control={control}
+                            label="Currency"
+                            placeholder="Select Currency"
+                            options={[
+                              { label: "CAD", value: "CAD" },
+                              { label: "GBP", value: "GBP" },
+                              { label: "USD", value: "USD" },
+                              { label: "EUR", value: "EUR" },
+                            ]}
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="studentFields.forex.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Forex remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          6. Beacon Account
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormDateInput
+                            name="studentFields.beaconAccount.openingDate"
+                            control={control}
+                            label="Opening Date"
+                          />
+                          <FormDateInput
+                            name="studentFields.beaconAccount.fundingDate"
+                            control={control}
+                            label="Funding Date"
+                          />
+                          <FormCurrencyInput
+                            name="studentFields.beaconAccount.cadAmount"
+                            control={control}
+                            label="CAD Amount"
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="studentFields.beaconAccount.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Beacon Account remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          7. Credit Card
+                        </Label>
+                        <FormTextInput
+                          name="studentFields.creditCard.info"
+                          control={control}
+                          label="Card Information"
+                        />
+                        <FormTextareaInput
+                          name="studentFields.creditCard.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Credit Card remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          8. Air Ticket
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <FormSelectInput
+                            name="studentFields.airTicket.isBooked"
+                            control={control}
+                            label="Ticket Booked"
+                            placeholder="Select Status"
+                            options={[
+                              { label: "Yes", value: "Yes" },
+                              { label: "No", value: "No" },
+                            ]}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormCurrencyInput
+                            name="studentFields.airTicket.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormTextInput
+                            name="studentFields.airTicket.invoiceNo"
+                            control={control}
+                            label="Invoice No"
+                          />
+                          <FormDateInput
+                            name="studentFields.airTicket.date"
+                            control={control}
+                            label="Date"
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="studentFields.airTicket.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Air Ticket remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          9. Insurance
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormCurrencyInput
+                            name="studentFields.insurance.amount"
+                            control={control}
+                            label="Amount"
+                          />
+                          <FormTextInput
+                            name="studentFields.insurance.policyNo"
+                            control={control}
+                            label="Policy No"
+                          />
+                          <FormDateInput
+                            name="studentFields.insurance.date"
+                            control={control}
+                            label="Date"
+                          />
+                        </div>
+                        <FormTextareaInput
+                          name="studentFields.insurance.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Insurance remarks..."
+                        />
+                      </div>
+                      <div className="p-4 border rounded-lg bg-muted/20 mt-4">
+                        <FormTextareaInput
+                          name="studentFields.servicesRemarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Add remarks for Additional Services section..."
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
             </div>
           )}
+
         </div>
       ),
     };
 
+    // Build step array based on sales type
     const allSteps = [basicStep];
+
     const selectedTypeData = allSaleTypes.find(t => t.saleType === salesType);
     const isOtherProduct = selectedTypeData ? !selectedTypeData.isCoreProduct : false;
 
     if (isOtherProduct) {
+      // For "Other Products": Skip payment, go directly to product details
       allSteps.push(productFieldsStep);
     } else if (salesType) {
+      // For core products: Include payment step
       allSteps.push(consultancyStep);
       allSteps.push(productFieldsStep);
     }
