@@ -74,6 +74,14 @@ const trvExtensionSchema = z.object({
   remarks: z.string().optional(),
 });
 
+const newServiceSchema = z.object({
+  info: z.string().optional(),
+  amount: z.number().optional(),
+  date: z.string().optional(),
+  invoice: z.string().optional(),
+  remark: z.string().optional(),
+});
+
 // Product Specific Schemas
 const spouseFieldsSchema = z.object({
   financeAndEmployment: financialEntrySchema,
@@ -98,6 +106,7 @@ const spouseFieldsSchema = z.object({
   financeRemarks: z.string().optional(),
   legalRemarks: z.string().optional(),
   servicesRemarks: z.string().optional(),
+  newService: newServiceSchema.optional(),
 });
 
 const visitorFieldsSchema = z.object({
@@ -113,6 +122,7 @@ const visitorFieldsSchema = z.object({
   beaconAccount: beaconSchema,
   financeRemarks: z.string().optional(),
   servicesRemarks: z.string().optional(),
+  newService: newServiceSchema.optional(),
 });
 
 const studentFieldsSchema = z.object({
@@ -150,6 +160,7 @@ const studentFieldsSchema = z.object({
   }),
   financeRemarks: z.string().optional(),
   servicesRemarks: z.string().optional(),
+  newService: newServiceSchema.optional(),
 });
 
 const formSchema = z.object({
