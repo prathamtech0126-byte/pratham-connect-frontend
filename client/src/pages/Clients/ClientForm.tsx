@@ -144,6 +144,9 @@ const studentFieldsSchema = z.object({
     isActivated: z.string().optional(),
     amount: z.number().optional(),
     currency: z.string().optional(),
+    ourSideFees: z.number().optional(),
+    otherSideFees: z.number().optional(),
+    date: z.string().optional(),
     remarks: z.string().optional(),
   }).optional(),
   simCard: simCardSchema,
@@ -1195,7 +1198,7 @@ export default function ClientForm() {
 
                       <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
                         <Label className="text-base font-semibold">
-                          5. Forex
+                          5. Forex Card
                         </Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                           <FormSelectInput
@@ -1207,6 +1210,12 @@ export default function ClientForm() {
                               { label: "Yes", value: "Yes" },
                               { label: "No", value: "No" },
                             ]}
+                          />
+                          <FormDateInput
+                            name="studentFields.forex.date"
+                            control={control}
+                            label="Date"
+                            maxDate={new Date()}
                           />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1226,6 +1235,18 @@ export default function ClientForm() {
                               { label: "USD", value: "USD" },
                               { label: "EUR", value: "EUR" },
                             ]}
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormCurrencyInput
+                            name="studentFields.forex.ourSideFees"
+                            control={control}
+                            label="Forex Fees (Our Side)"
+                          />
+                          <FormCurrencyInput
+                            name="studentFields.forex.otherSideFees"
+                            control={control}
+                            label="Forex Fees (Other Side)"
                           />
                         </div>
                         <FormTextareaInput
