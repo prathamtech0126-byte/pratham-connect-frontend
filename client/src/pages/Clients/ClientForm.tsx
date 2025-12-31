@@ -820,13 +820,20 @@ export default function ClientForm() {
                       </div>
                     </AccordionContent>
                   </AccordionItem>
-                </Accordion>
 
-                <NewServiceSection 
-                  control={control} 
-                  namePrefix="spouseFields" 
-                  title="Spouse - New Sell" 
-                />
+                  <AccordionItem value="spouse-new-sell">
+                    <AccordionTrigger>
+                      Spouse - New Sell
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4">
+                      <NewServiceSection 
+                        control={control} 
+                        namePrefix="spouseFields" 
+                        title="Spouse - New Sell" 
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
             </div>
           )}
@@ -1030,13 +1037,20 @@ export default function ClientForm() {
                       </div>
                     </AccordionContent>
                   </AccordionItem>
-                </Accordion>
 
-                <NewServiceSection 
-                  control={control} 
-                  namePrefix="visitorFields" 
-                  title="Visitor - New Sell" 
-                />
+                  <AccordionItem value="visitor-new-sell">
+                    <AccordionTrigger>
+                      Visitor - New Sell
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4">
+                      <NewServiceSection 
+                        control={control} 
+                        namePrefix="visitorFields" 
+                        title="Visitor - New Sell" 
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
             </div>
           )}
@@ -1339,13 +1353,20 @@ export default function ClientForm() {
                       </div>
                     </AccordionContent>
                   </AccordionItem>
-                </Accordion>
 
-                <NewServiceSection 
-                  control={control} 
-                  namePrefix="studentFields" 
-                  title="Student - New Sell" 
-                />
+                  <AccordionItem value="student-new-sell">
+                    <AccordionTrigger>
+                      Student - New Sell
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4">
+                      <NewServiceSection 
+                        control={control} 
+                        namePrefix="studentFields" 
+                        title="Student - New Sell" 
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
             </div>
           )}
