@@ -142,8 +142,6 @@ const studentFieldsSchema = z.object({
   }),
   forex: z.object({
     isActivated: z.string().optional(),
-    amount: z.number().optional(),
-    currency: z.string().optional(),
     ourSideFees: z.number().optional(),
     otherSideFees: z.number().optional(),
     date: z.string().optional(),
@@ -1216,25 +1214,6 @@ export default function ClientForm() {
                             control={control}
                             label="Date"
                             maxDate={new Date()}
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormCurrencyInput
-                            name="studentFields.forex.amount"
-                            control={control}
-                            label="Amount"
-                          />
-                          <FormSelectInput
-                            name="studentFields.forex.currency"
-                            control={control}
-                            label="Currency"
-                            placeholder="Select Currency"
-                            options={[
-                              { label: "CAD", value: "CAD" },
-                              { label: "GBP", value: "GBP" },
-                              { label: "USD", value: "USD" },
-                              { label: "EUR", value: "EUR" },
-                            ]}
                           />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
