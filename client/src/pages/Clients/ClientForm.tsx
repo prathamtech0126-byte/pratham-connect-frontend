@@ -75,10 +75,11 @@ const trvExtensionSchema = z.object({
 });
 
 const newServiceSchema = z.object({
-  info: z.string().optional(),
+  serviceName: z.string().optional(),
+  serviceInfo: z.string().optional(),
   amount: z.number().optional(),
   date: z.string().optional(),
-  invoice: z.string().optional(),
+  invoiceNo: z.string().optional(),
   remark: z.string().optional(),
 });
 
@@ -204,6 +205,58 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+function NewServiceSection({ control, namePrefix }: { control: any, namePrefix: string }) {
+  return (
+    <div className="p-4 border rounded-lg bg-primary/5 space-y-3">
+      <Label className="text-base font-semibold flex items-center gap-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+          NEW
+        </span>
+        New Service Sell
+      </Label>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <FormTextInput
+          name={`${namePrefix}.newService.serviceName`}
+          control={control}
+          label="Service Name"
+          placeholder="e.g. Extra Documentation"
+        />
+        <FormTextInput
+          name={`${namePrefix}.newService.serviceInfo`}
+          control={control}
+          label="Service Information"
+          placeholder="Enter service details"
+        />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <FormCurrencyInput
+          name={`${namePrefix}.newService.amount`}
+          control={control}
+          label="Amount"
+        />
+        <FormDateInput
+          name={`${namePrefix}.newService.date`}
+          control={control}
+          label="Date"
+          maxDate={new Date()}
+        />
+        <FormTextInput
+          name={`${namePrefix}.newService.invoiceNo`}
+          control={control}
+          label="Invoice No"
+          placeholder="INV-000"
+        />
+      </div>
+      <FormTextareaInput
+        name={`${namePrefix}.newService.remark`}
+        control={control}
+        label="Remark"
+        placeholder="Add any specific remarks for this new service"
+      />
+    </div>
+  );
+}
 
 export default function ClientForm() {
   const [, setLocation] = useLocation();
@@ -611,6 +664,8 @@ export default function ClientForm() {
                         name="spouseFields.judicialReview"
                         label="11. Judicial Review Charge"
                       />
+
+                      <NewServiceSection control={control} namePrefix="spouseFields" />
                     </AccordionContent>
                   </AccordionItem>
 
@@ -969,6 +1024,8 @@ export default function ClientForm() {
                           placeholder="Air Ticket remarks..."
                         />
                       </div>
+
+                      <NewServiceSection control={control} namePrefix="visitorFields" />
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
@@ -1272,6 +1329,8 @@ export default function ClientForm() {
                           placeholder="Insurance remarks..."
                         />
                       </div>
+
+                      <NewServiceSection control={control} namePrefix="studentFields" />
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
