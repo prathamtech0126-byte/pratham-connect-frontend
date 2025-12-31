@@ -664,8 +664,6 @@ export default function ClientForm() {
                         name="spouseFields.judicialReview"
                         label="11. Judicial Review Charge"
                       />
-
-                      <NewServiceSection control={control} namePrefix="spouseFields" />
                     </AccordionContent>
                   </AccordionItem>
 
@@ -820,6 +818,8 @@ export default function ClientForm() {
                           placeholder="Air Ticket remarks..."
                         />
                       </div>
+
+                      <NewServiceSection control={control} namePrefix="spouseFields" />
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
