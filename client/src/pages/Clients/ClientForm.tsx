@@ -206,14 +206,14 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-function NewServiceSection({ control, namePrefix }: { control: any, namePrefix: string }) {
+function NewServiceSection({ control, namePrefix, title }: { control: any, namePrefix: string, title: string }) {
   return (
     <div className="p-4 border rounded-lg bg-primary/5 space-y-3">
       <Label className="text-base font-semibold flex items-center gap-2">
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
           NEW
         </span>
-        New Service Sell
+        {title}
       </Label>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormTextInput
@@ -818,11 +818,15 @@ export default function ClientForm() {
                           placeholder="Air Ticket remarks..."
                         />
                       </div>
-
-                      <NewServiceSection control={control} namePrefix="spouseFields" />
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
+
+                <NewServiceSection 
+                  control={control} 
+                  namePrefix="spouseFields" 
+                  title="Spouse - New Sell" 
+                />
               </div>
             </div>
           )}
@@ -1024,11 +1028,15 @@ export default function ClientForm() {
                           placeholder="Air Ticket remarks..."
                         />
                       </div>
-
-                      <NewServiceSection control={control} namePrefix="visitorFields" />
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
+
+                <NewServiceSection 
+                  control={control} 
+                  namePrefix="visitorFields" 
+                  title="Visitor - New Sell" 
+                />
               </div>
             </div>
           )}
@@ -1329,11 +1337,15 @@ export default function ClientForm() {
                           placeholder="Insurance remarks..."
                         />
                       </div>
-
-                      <NewServiceSection control={control} namePrefix="studentFields" />
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
+
+                <NewServiceSection 
+                  control={control} 
+                  namePrefix="studentFields" 
+                  title="Student - New Sell" 
+                />
               </div>
             </div>
           )}
