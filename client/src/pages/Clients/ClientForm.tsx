@@ -140,10 +140,19 @@ const studentFieldsSchema = z.object({
     disbursementDate: z.string().optional(),
     remarks: z.string().optional(),
   }),
-  forex: z.object({
+  forexCard: z.object({
     isActivated: z.string().optional(),
-    ourSideFees: z.number().optional(),
-    otherSideFees: z.number().optional(),
+    date: z.string().optional(),
+    remarks: z.string().optional(),
+  }).optional(),
+  forexFees: z.object({
+    side: z.string().optional(),
+    amount: z.number().optional(),
+    date: z.string().optional(),
+    remarks: z.string().optional(),
+  }).optional(),
+  tuitionFee: z.object({
+    status: z.string().optional(),
     date: z.string().optional(),
     remarks: z.string().optional(),
   }).optional(),
@@ -1198,9 +1207,9 @@ export default function ClientForm() {
                         <Label className="text-base font-semibold">
                           5. Forex Card
                         </Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <FormSelectInput
-                            name="studentFields.forex.isActivated"
+                            name="studentFields.forexCard.isActivated"
                             control={control}
                             label="Activated"
                             placeholder="Select Status"
@@ -1210,29 +1219,82 @@ export default function ClientForm() {
                             ]}
                           />
                           <FormDateInput
-                            name="studentFields.forex.date"
+                            name="studentFields.forexCard.date"
                             control={control}
                             label="Date"
                             maxDate={new Date()}
                           />
                         </div>
+                        <FormTextareaInput
+                          name="studentFields.forexCard.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Forex Card remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          6. Forex Fees
+                        </Label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormCurrencyInput
-                            name="studentFields.forex.ourSideFees"
+                          <FormSelectInput
+                            name="studentFields.forexFees.side"
                             control={control}
-                            label="Forex Fees (Our Side)"
+                            label="Side"
+                            placeholder="Select Side"
+                            options={[
+                              { label: "Our Side", value: "Our Side" },
+                              { label: "Other Side", value: "Other Side" },
+                            ]}
                           />
-                          <FormCurrencyInput
-                            name="studentFields.forex.otherSideFees"
+                          <FormDateInput
+                            name="studentFields.forexFees.date"
                             control={control}
-                            label="Forex Fees (Other Side)"
+                            label="Date"
+                            maxDate={new Date()}
+                          />
+                        </div>
+                        <FormCurrencyInput
+                          name="studentFields.forexFees.amount"
+                          control={control}
+                          label="Amount"
+                        />
+                        <FormTextareaInput
+                          name="studentFields.forexFees.remarks"
+                          control={control}
+                          label="Remarks"
+                          placeholder="Forex Fees remarks..."
+                        />
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+                        <Label className="text-base font-semibold">
+                          7. Tuition Fee
+                        </Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormSelectInput
+                            name="studentFields.tuitionFee.status"
+                            control={control}
+                            label="Status"
+                            placeholder="Select Status"
+                            options={[
+                              { label: "Done", value: "Done" },
+                              { label: "Not", value: "Not" },
+                            ]}
+                          />
+                          <FormDateInput
+                            name="studentFields.tuitionFee.date"
+                            control={control}
+                            label="Date"
+                            maxDate={new Date()}
                           />
                         </div>
                         <FormTextareaInput
-                          name="studentFields.forex.remarks"
+                          name="studentFields.tuitionFee.remarks"
                           control={control}
                           label="Remarks"
-                          placeholder="Forex remarks..."
+                          placeholder="Tuition Fee remarks..."
                         />
                       </div>
 
