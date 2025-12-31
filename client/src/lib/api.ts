@@ -2,7 +2,7 @@ import axios, { InternalAxiosRequestConfig } from "axios";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  "https://roller-wisdom-internationally-details.trycloudflare.com";
+  "https://creative-worldwide-spam-complete.trycloudflare.com";
 
 let inMemoryToken: string | null = null;
 
