@@ -234,7 +234,7 @@ export default function AdditionalInfo() {
       const payload = {
         saleType: formData.saleType,
         amount: formData.amount ? Number(formData.amount) : null,
-        isProduct: formData.isCoreProduct === "Yes",
+        isCoreProduct: formData.isCoreProduct === "Yes",
       };
 
       if (mode === "edit" && editingId !== null) {
