@@ -437,45 +437,40 @@ export default function ClientForm() {
       if (isCoreProduct) {
         const paymentPromises = [];
 
-        if (data.initialPayment?.amount) {
+        const createPaymentPayload = (paymentData: any, stage: string) => ({
+          clientId,
+          totalPayment: data.totalPayment,
+          stage,
+          amount: paymentData.amount,
+          paymentDate: paymentData.date,
+          invoiceNo: paymentData.invoiceNo,
+          remarks: paymentData.remarks,
+        });
+
+        if (data.initialPayment?.amount && data.initialPayment.amount > 0) {
           paymentPromises.push(
-            api.post("/api/client-payments", {
-              clientId,
-              totalPayment: data.totalPayment,
-              stage: "INITIAL",
-              amount: data.initialPayment.amount,
-              paymentDate: data.initialPayment.date,
-              invoiceNo: data.initialPayment.invoiceNo,
-              remarks: data.initialPayment.remarks,
-            }),
+            api.post(
+              "/api/client-payments",
+              createPaymentPayload(data.initialPayment, "INITIAL"),
+            ),
           );
         }
 
-        if (data.beforeVisaPayment?.amount) {
+        if (data.beforeVisaPayment?.amount && data.beforeVisaPayment.amount > 0) {
           paymentPromises.push(
-            api.post("/api/client-payments", {
-              clientId,
-              totalPayment: data.totalPayment,
-              stage: "BEFORE_VISA",
-              amount: data.beforeVisaPayment.amount,
-              paymentDate: data.beforeVisaPayment.date,
-              invoiceNo: data.beforeVisaPayment.invoiceNo,
-              remarks: data.beforeVisaPayment.remarks,
-            }),
+            api.post(
+              "/api/client-payments",
+              createPaymentPayload(data.beforeVisaPayment, "BEFORE_VISA"),
+            ),
           );
         }
 
-        if (data.afterVisaPayment?.amount) {
+        if (data.afterVisaPayment?.amount && data.afterVisaPayment.amount > 0) {
           paymentPromises.push(
-            api.post("/api/client-payments", {
-              clientId,
-              totalPayment: data.totalPayment,
-              stage: "AFTER_VISA",
-              amount: data.afterVisaPayment.amount,
-              paymentDate: data.afterVisaPayment.date,
-              invoiceNo: data.afterVisaPayment.invoiceNo,
-              remarks: data.afterVisaPayment.remarks,
-            }),
+            api.post(
+              "/api/client-payments",
+              createPaymentPayload(data.afterVisaPayment, "AFTER_VISA"),
+            ),
           );
         }
 
