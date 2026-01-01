@@ -1565,7 +1565,7 @@ export default function ClientForm() {
           return false;
         }
 
-        // If moving from basic step, hit the payment API
+        // If moving from basic step, hit the client creation API
         if (stepId === "basic") {
           const data = form.getValues();
           const selectedTypeData = allSaleTypes.find(
@@ -1573,14 +1573,15 @@ export default function ClientForm() {
           );
 
           try {
-            await api.post("/api/client-payments", {
+            await api.post("/api/clients", {
               fullName: data.name,
               enrollmentDate: data.enrollmentDate,
               saleTypeId: selectedTypeData?.id,
-              // Add other necessary fields for your specific backend API
+              counsellorId: user?.id || 1,
+              status: "Active",
             });
           } catch (error) {
-            console.error("Failed to post payment info", error);
+            console.error("Failed to create client", error);
           }
         }
       }
