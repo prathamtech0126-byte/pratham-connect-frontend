@@ -1573,8 +1573,9 @@ export default function ClientForm() {
           );
 
           try {
-            // Use user.id from session, which is now correctly mapped from backend userId
-            const counsellorId = user?.id;
+            // Use user.id from session
+            // If it's still coming as a string, convert to Number to be safe for backend
+            const counsellorId = user?.id ? Number(user.id) : null;
             console.log("Creating client with counsellorId:", counsellorId);
             
             await api.post("/api/clients", {
