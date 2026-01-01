@@ -69,27 +69,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (storedUser) {
         try {
           const userData = JSON.parse(storedUser);
-          console.log("✓ User restored from localStorage:", userData.username);
-          setUser(userData);
-          setIsLoading(false);
           
-          // 2. Then try to refresh in the background (don't wait, don't block)
-          try {
-            const res = await api.post(
-              "/api/users/refresh",
-              {},
-              { withCredentials: true, timeout: 5000 }
-            );
+          // Fix: If stored user has a timestamp-like ID, clear it to force a refresh
+          if (userData.id && userData.id.length > 10) {
+            console.log("⚠ Detected legacy timestamp ID, clearing localStorage");
+            localStorage.removeItem('auth_user');
+            // Fall through to refresh
+          } else {
+            console.log("✓ User restored from localStorage:", userData.username);
+            setUser(userData);
+            setIsLoading(false);
+            
+            // 2. Then try to refresh in the background (don't wait, don't block)
+            try {
+              const res = await api.post(
+                "/api/users/refresh",
+                {},
+                { withCredentials: true, timeout: 5000 }
+              );
 
-            if (!cancelled && res.data?.accessToken) {
-              setInMemoryToken(res.data.accessToken);
-              console.log("✓ Background refresh successful");
+              if (!cancelled && res.data?.accessToken) {
+                setInMemoryToken(res.data.accessToken);
+                console.log("✓ Background refresh successful");
+              }
+            } catch (refreshErr: any) {
+              // Log but don't clear session - user is already logged in via localStorage
+              console.log("⚠ Background refresh failed (keeping user logged in)");
             }
-          } catch (refreshErr: any) {
-            // Log but don't clear session - user is already logged in via localStorage
-            console.log("⚠ Background refresh failed (keeping user logged in)");
+            return;
           }
-          return;
         } catch (e) {
           console.error("Failed to parse stored user");
           localStorage.removeItem('auth_user');
