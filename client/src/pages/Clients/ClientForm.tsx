@@ -1577,7 +1577,7 @@ export default function ClientForm() {
               fullName: data.name,
               enrollmentDate: data.enrollmentDate,
               saleTypeId: selectedTypeData?.id,
-              counsellorId: user?.id,
+              counsellorId: user?.id ? Number(user.id) : null,
               status: "Active",
             });
           } catch (error) {
