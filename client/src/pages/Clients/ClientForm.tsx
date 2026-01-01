@@ -1584,6 +1584,17 @@ export default function ClientForm() {
             const clientId = clientRes.data?.data?.clientId || clientRes.data?.clientId;
 
             if (clientId) {
+              // Add to local storage for persistence in mockup mode
+              const existingClients = JSON.parse(localStorage.getItem("clients") || "[]");
+              existingClients.push({
+                ...data,
+                clientId,
+                id: clientId,
+                createdAt: new Date().toISOString()
+              });
+              localStorage.setItem("clients", JSON.stringify(existingClients));
+              console.log("✓ Saved to local storage");
+
               const totalPayment = selectedTypeData?.amount || 0;
               const paymentPromises = [];
 
