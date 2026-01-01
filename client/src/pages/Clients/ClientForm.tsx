@@ -1573,17 +1573,12 @@ export default function ClientForm() {
           );
 
           try {
-            // Use user.id from session
-            // If it's still coming as a string, convert to Number to be safe for backend
-            const counsellorId = user?.id ? Number(user.id) : null;
-            console.log("Creating client with counsellorId:", counsellorId);
+            console.log("Creating client (counsellorId handled by backend auth)...");
             
             await api.post("/api/clients", {
               fullName: data.name,
               enrollmentDate: data.enrollmentDate,
-              saleTypeId: selectedTypeData?.id,
-              counsellorId: counsellorId,
-              status: "Active",
+              saleTypeId: selectedTypeData?.id
             });
           } catch (error) {
             console.error("Failed to create client", error);
