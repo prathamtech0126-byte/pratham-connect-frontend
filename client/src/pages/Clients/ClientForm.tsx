@@ -1573,15 +1573,48 @@ export default function ClientForm() {
           );
 
           try {
-            console.log("Creating client (counsellorId handled by backend auth)...");
+            console.log("Creating client and recording payments...");
             
-            await api.post("/api/clients", {
+            const clientRes = await api.post("/api/clients", {
               fullName: data.name,
               enrollmentDate: data.enrollmentDate,
               saleTypeId: selectedTypeData?.id
             });
+
+            const clientId = clientRes.data?.data?.clientId || clientRes.data?.clientId;
+
+            if (clientId) {
+              const totalPayment = selectedTypeData?.amount || 0;
+              const paymentPromises = [];
+
+              // Helper for payment requests
+              const createPaymentPayload = (paymentData: any, stage: string) => ({
+                clientId,
+                totalPayment: String(totalPayment),
+                stage,
+                amount: String(paymentData?.amount || 0),
+                paymentDate: paymentData?.date,
+                invoiceNo: paymentData?.invoiceNo,
+                remarks: paymentData?.remarks
+              });
+
+              if (data.initialPayment?.amount && data.initialPayment.amount > 0) {
+                paymentPromises.push(api.post("/api/client-payments", createPaymentPayload(data.initialPayment, "INITIAL")));
+              }
+              if (data.beforeVisaPayment?.amount && data.beforeVisaPayment.amount > 0) {
+                paymentPromises.push(api.post("/api/client-payments", createPaymentPayload(data.beforeVisaPayment, "BEFORE_VISA")));
+              }
+              if (data.afterVisaPayment?.amount && data.afterVisaPayment.amount > 0) {
+                paymentPromises.push(api.post("/api/client-payments", createPaymentPayload(data.afterVisaPayment, "AFTER_VISA")));
+              }
+
+              if (paymentPromises.length > 0) {
+                await Promise.all(paymentPromises);
+                console.log("✓ Payments recorded successfully");
+              }
+            }
           } catch (error) {
-            console.error("Failed to create client", error);
+            console.error("Failed to create client or payments", error);
           }
         }
       }
