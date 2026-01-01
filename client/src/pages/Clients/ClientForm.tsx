@@ -1573,11 +1573,14 @@ export default function ClientForm() {
           );
 
           try {
+            // Log for debugging
+            console.log("Creating client with counsellorId:", user?.id);
+            
             await api.post("/api/clients", {
               fullName: data.name,
               enrollmentDate: data.enrollmentDate,
               saleTypeId: selectedTypeData?.id,
-              counsellorId: user?.id ? Number(user.id) : null,
+              counsellorId: user?.id, // Send directly from user object
               status: "Active",
             });
           } catch (error) {
