@@ -926,7 +926,7 @@ export default function ClientForm() {
                   </AccordionItem>
 
                   <AccordionItem value="spouse-new-sell">
-                    <AccordionTrigger>Spouse - New Sell</AccordionTrigger>
+                    <AccordionTrigger>Extra Other</AccordionTrigger>
                     <AccordionContent className="pt-4">
                       <NewServiceSection
                         control={control}
