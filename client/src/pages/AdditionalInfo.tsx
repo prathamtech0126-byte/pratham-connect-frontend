@@ -214,7 +214,7 @@ export default function AdditionalInfo() {
     setFormData({
       saleType: item.saleType || "",
       amount: item.amount?.toString() || "",
-      isCoreProduct: item.isCoreProduct ? "Yes" : "No",
+      isCoreProduct: item.isCoreProduct === true || item.isCoreProduct === "true" ? "Yes" : "No",
     });
     setIsDialogOpen(true);
   };
