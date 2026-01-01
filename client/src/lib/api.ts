@@ -2,7 +2,7 @@ import axios, { InternalAxiosRequestConfig } from "axios";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  " https://affair-predicted-firefox-remark.trycloudflare.com";
+  "https://enquiry-drain-destiny-appearance.trycloudflare.com";
 
 let inMemoryToken: string | null = null;
 

@@ -570,6 +570,7 @@ export default function ClientForm() {
             name="totalPayment"
             control={control}
             label="Total Payment"
+            data-testid="input-total-payment"
           />
 
           <FinancialEntry
@@ -597,7 +598,7 @@ export default function ClientForm() {
             <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
               Amount Pending (Auto-calculated)
             </label>
-            <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+            <div className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" data-testid="text-amount-pending">
               ₹ {calculatedPending.toLocaleString()}
             </div>
           </div>
@@ -1562,6 +1563,25 @@ export default function ClientForm() {
             variant: "destructive",
           });
           return false;
+        }
+
+        // If moving from basic step, hit the payment API
+        if (stepId === "basic") {
+          const data = form.getValues();
+          const selectedTypeData = allSaleTypes.find(
+            (t) => t.saleType === data.salesType
+          );
+
+          try {
+            await api.post("/api/client-payments", {
+              fullName: data.name,
+              enrollmentDate: data.enrollmentDate,
+              saleTypeId: selectedTypeData?.id,
+              // Add other necessary fields for your specific backend API
+            });
+          } catch (error) {
+            console.error("Failed to post payment info", error);
+          }
         }
       }
     }
