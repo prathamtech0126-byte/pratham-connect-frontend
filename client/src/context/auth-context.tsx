@@ -118,9 +118,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ) as UserRole;
 
         const userData: User = {
-          id: String(Date.now()),
-          username: 'user',
-          name: 'User',
+          id: String(res.data.userId || Date.now()),
+          username: res.data.username || 'user',
+          name: res.data.name || 'User',
           role: mappedRole,
         };
 

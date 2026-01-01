@@ -1573,14 +1573,15 @@ export default function ClientForm() {
           );
 
           try {
-            // Log for debugging
-            console.log("Creating client with counsellorId:", user?.id);
+            // Use user.id from session, which is now correctly mapped from backend userId
+            const counsellorId = user?.id;
+            console.log("Creating client with counsellorId:", counsellorId);
             
             await api.post("/api/clients", {
               fullName: data.name,
               enrollmentDate: data.enrollmentDate,
               saleTypeId: selectedTypeData?.id,
-              counsellorId: user?.id, // Send directly from user object
+              counsellorId: counsellorId,
               status: "Active",
             });
           } catch (error) {
