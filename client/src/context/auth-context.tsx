@@ -64,100 +64,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const restoreSession = async () => {
-      // 1. FIRST: Check if user is already in localStorage
+      // FORCE CLEAR for this debugging session
+      // localStorage.removeItem('auth_user'); 
+      
       const storedUser = localStorage.getItem('auth_user');
       if (storedUser) {
         try {
           const userData = JSON.parse(storedUser);
           
-          // Fix: If stored user has a timestamp-like ID, clear it to force a refresh
-          if (userData.id && userData.id.length > 10) {
+          if (userData.id && String(userData.id).length > 10) {
             console.log("⚠ Detected legacy timestamp ID, clearing localStorage");
             localStorage.removeItem('auth_user');
-            // Fall through to refresh
           } else {
             console.log("✓ User restored from localStorage:", userData.username);
             setUser(userData);
             setIsLoading(false);
-            
-            // 2. Then try to refresh in the background (don't wait, don't block)
-            try {
-              const res = await api.post(
-                "/api/users/refresh",
-                {},
-                { withCredentials: true, timeout: 5000 }
-              );
-
-              if (!cancelled && res.data?.accessToken) {
-                setInMemoryToken(res.data.accessToken);
-                console.log("✓ Background refresh successful");
-              }
-            } catch (refreshErr: any) {
-              // Log but don't clear session - user is already logged in via localStorage
-              console.log("⚠ Background refresh failed (keeping user logged in)");
-            }
             return;
           }
         } catch (e) {
-          console.error("Failed to parse stored user");
           localStorage.removeItem('auth_user');
         }
       }
 
-      // 3. If no stored user, try refresh endpoint
       try {
-        console.log("AuthProvider: Attempting to refresh session...");
-        
-        const res = await api.post(
-          "/api/users/refresh",
-          {},
-          { withCredentials: true, timeout: 5000 }
-        );
-
+        const res = await api.post("/api/users/refresh", {}, { withCredentials: true, timeout: 5000 });
         if (cancelled) return;
 
-        const { accessToken, role } = res.data;
-        console.log("✓ Session refresh successful, role:", role);
-
+        const { accessToken, role, userId, username, name } = res.data;
         setInMemoryToken(accessToken);
 
-        const mappedRole = (
-          role === "admin" ? "superadmin" : role
-        ) as UserRole;
-
+        const mappedRole = (role === "admin" ? "superadmin" : role) as UserRole;
         const userData: User = {
-          id: String(res.data.userId || Date.now()),
-          username: res.data.username || 'user',
-          name: res.data.name || 'User',
+          id: String(userId || '1'), // FALLBACK TO '1' INSTEAD OF TIMESTAMP
+          username: username || 'user',
+          name: name || 'User',
           role: mappedRole,
         };
 
         setUser(userData);
         localStorage.setItem('auth_user', JSON.stringify(userData));
-        console.log("✓ User restored from refresh:", userData.username);
-
       } catch (err: any) {
         if (!cancelled) {
-          const status = err.response?.status;
-          console.log("AuthProvider: Refresh failed", { status, message: err.message });
-          
-          // No stored user and refresh failed = logged out
           setUser(null);
           setInMemoryToken(null);
           localStorage.removeItem('auth_user');
         }
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     restoreSession();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const login = (role: UserRole, userData?: Partial<User>) => {
