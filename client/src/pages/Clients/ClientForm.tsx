@@ -389,7 +389,7 @@ export default function ClientForm() {
         (t) => t.saleType === salesType,
       );
       if (selectedTypeData && selectedTypeData.amount) {
-        setValue("totalPayment", selectedTypeData.amount);
+        setValue("totalPayment", Number(selectedTypeData.amount));
       }
     }
   }, [salesType, allSaleTypes, setValue]);

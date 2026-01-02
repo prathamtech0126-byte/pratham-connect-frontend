@@ -2,7 +2,7 @@ import axios, { InternalAxiosRequestConfig } from "axios";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  "https://enquiry-drain-destiny-appearance.trycloudflare.com";
+  "https://perceived-elevation-pride-subscription.trycloudflare.com";
 
 let inMemoryToken: string | null = null;
 
