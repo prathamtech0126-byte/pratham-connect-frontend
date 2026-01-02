@@ -435,49 +435,45 @@ export default function ClientForm() {
       const clientId = clientRes.data.data.clientId;
 
       // 2. Create Payments if it's a Core Product
-      const isCoreProduct = selectedTypeData
-        ? selectedTypeData.isCoreProduct
-        : true;
-
       if (isCoreProduct) {
-        const paymentPromises = [];
+        const paymentStages = [
+          { key: "initialPayment", stage: "INITIAL" },
+          { key: "beforeVisaPayment", stage: "BEFORE_VISA" },
+          { key: "afterVisaPayment", stage: "AFTER_VISA" },
+        ];
 
-        const createPaymentPayload = (paymentData: any, stage: string) => ({
-          clientId,
-          totalPayment: data.totalPayment,
-          stage,
-          amount: paymentData.amount,
-          paymentDate: paymentData.date,
-          invoiceNo: paymentData.invoiceNo,
-          remarks: paymentData.remarks,
-        });
+        const paymentPromises = paymentStages
+          .filter(item => {
+            const paymentData = (data as any)[item.key];
+            return paymentData?.amount && paymentData.amount > 0;
+          })
+          .map(async (item) => {
+            const paymentData = (data as any)[item.key];
+            const existingId = paymentIds[item.key];
 
-        if (data.initialPayment?.amount && data.initialPayment.amount > 0) {
-          paymentPromises.push(
-            api.post(
-              "/api/client-payments",
-              createPaymentPayload(data.initialPayment, "INITIAL"),
-            ),
-          );
-        }
+            const payload: any = {
+              clientId: clientId, // Using the local clientId from step 1
+              totalPayment: String(data.totalPayment),
+              stage: item.stage,
+              amount: String(paymentData.amount),
+              paymentDate: paymentData.date,
+              invoiceNo: paymentData.invoiceNo,
+              remarks: paymentData.remarks,
+            };
 
-        if (data.beforeVisaPayment?.amount && data.beforeVisaPayment.amount > 0) {
-          paymentPromises.push(
-            api.post(
-              "/api/client-payments",
-              createPaymentPayload(data.beforeVisaPayment, "BEFORE_VISA"),
-            ),
-          );
-        }
+            if (existingId) {
+              payload.paymentId = existingId;
+            }
 
-        if (data.afterVisaPayment?.amount && data.afterVisaPayment.amount > 0) {
-          paymentPromises.push(
-            api.post(
-              "/api/client-payments",
-              createPaymentPayload(data.afterVisaPayment, "AFTER_VISA"),
-            ),
-          );
-        }
+            const res = await api.post("/api/client-payments", payload);
+            const returnedPayment = res.data?.data?.payment || res.data?.data || res.data;
+            const newPaymentId = returnedPayment?.paymentId || returnedPayment?.id;
+
+            if (newPaymentId) {
+              setPaymentIds(prev => ({ ...prev, [item.key]: newPaymentId }));
+            }
+            return res;
+          });
 
         if (paymentPromises.length > 0) {
           await Promise.all(paymentPromises);
@@ -1544,6 +1540,7 @@ export default function ClientForm() {
   const steps = buildSteps();
 
   const [paymentIds, setPaymentIds] = useState<{ [key: string]: number }>({});
+  const [internalClientId, setInternalClientId] = useState<number | null>(null);
 
   const handleStepChange = async (currentStep: number, nextStep: number) => {
     if (nextStep > currentStep) {
@@ -1581,18 +1578,18 @@ export default function ClientForm() {
               saleTypeId: selectedTypeData?.id
             };
 
-            if (clientId) {
-              payload.clientId = clientId;
+            if (internalClientId) {
+              payload.clientId = internalClientId;
             }
 
-            console.log(clientId ? "Updating client..." : "Creating client...");
+            console.log(internalClientId ? "Updating client..." : "Creating client...");
             
             const clientRes = await api.post("/api/clients", payload);
             const returnedClient = clientRes.data?.data?.client;
             const newId = returnedClient?.clientId || clientRes.data?.data?.clientId || clientRes.data?.clientId;
 
             if (newId) {
-              setClientId(newId);
+              setInternalClientId(newId);
               
               // Sync local storage
               const existingClients = JSON.parse(localStorage.getItem("clients") || "[]");
@@ -1612,7 +1609,7 @@ export default function ClientForm() {
               }
               
               localStorage.setItem("clients", JSON.stringify(existingClients));
-              console.log(`✓ Client ${clientId ? "Updated" : "Created"} and saved to local storage`);
+              console.log(`✓ Client ${internalClientId ? "Updated" : "Created"} and saved to local storage`);
             }
           } catch (error) {
             console.error("Failed to process client", error);
@@ -1625,7 +1622,7 @@ export default function ClientForm() {
           const selectedTypeData = allSaleTypes.find(
             (t) => t.saleType === data.salesType
           );
-          const totalPaymentVal = data.totalPayment || selectedTypeData?.amount || 0;
+          const currentTotalPaymentVal = data.totalPayment || selectedTypeData?.amount || 0;
 
           try {
             const paymentStages = [
@@ -1644,8 +1641,8 @@ export default function ClientForm() {
                 const existingId = paymentIds[item.key];
 
                 const payload: any = {
-                  clientId: clientId, // Use the clientId from component state
-                  totalPayment: String(totalPaymentVal),
+                  clientId: internalClientId,
+                  totalPayment: String(currentTotalPaymentVal),
                   stage: item.stage,
                   amount: String(paymentData.amount),
                   paymentDate: paymentData.date,
@@ -1657,8 +1654,6 @@ export default function ClientForm() {
                   payload.paymentId = existingId;
                 }
 
-                console.log(existingId ? `Updating ${item.stage} payment...` : `Creating ${item.stage} payment...`);
-                
                 const res = await api.post("/api/client-payments", payload);
                 const returnedPayment = res.data?.data?.payment || res.data?.data || res.data;
                 const newPaymentId = returnedPayment?.paymentId || returnedPayment?.id;
@@ -1671,7 +1666,6 @@ export default function ClientForm() {
 
             if (promises.length > 0) {
               await Promise.all(promises);
-              console.log("✓ All payments processed successfully");
             }
           } catch (error) {
             console.error("Failed to process payments", error);
