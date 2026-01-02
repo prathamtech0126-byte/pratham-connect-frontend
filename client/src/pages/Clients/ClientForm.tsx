@@ -1543,7 +1543,7 @@ export default function ClientForm() {
 
   const steps = buildSteps();
 
-  const [clientId, setClientId] = useState<number | null>(null);
+  const [paymentIds, setPaymentIds] = useState<{ [key: string]: number }>({});
 
   const handleStepChange = async (currentStep: number, nextStep: number) => {
     if (nextStep > currentStep) {
@@ -1567,7 +1567,7 @@ export default function ClientForm() {
           return false;
         }
 
-        // If moving from basic step, create or update the client
+        // --- Step 1: Basic Details (Client Creation/Update) ---
         if (stepId === "basic") {
           const data = form.getValues();
           const selectedTypeData = allSaleTypes.find(
@@ -1581,7 +1581,6 @@ export default function ClientForm() {
               saleTypeId: selectedTypeData?.id
             };
 
-            // If we already have a clientId, include it to trigger an UPDATE
             if (clientId) {
               payload.clientId = clientId;
             }
@@ -1614,39 +1613,68 @@ export default function ClientForm() {
               
               localStorage.setItem("clients", JSON.stringify(existingClients));
               console.log(`✓ Client ${clientId ? "Updated" : "Created"} and saved to local storage`);
-
-              // Handle payments if this is the first time (Created) or always (Update/Upsert)
-              // Note: Usually payments are only recorded on creation or separate stage, 
-              // but here we keep the existing logic.
-              const totalPayment = selectedTypeData?.amount || 0;
-              const paymentPromises = [];
-
-              const createPaymentPayload = (paymentData: any, stage: string) => ({
-                clientId: newId,
-                totalPayment: String(totalPayment),
-                stage,
-                amount: String(paymentData?.amount || 0),
-                paymentDate: paymentData?.date,
-                invoiceNo: paymentData?.invoiceNo,
-                remarks: paymentData?.remarks
-              });
-
-              if (data.initialPayment?.amount && data.initialPayment.amount > 0) {
-                paymentPromises.push(api.post("/api/client-payments", createPaymentPayload(data.initialPayment, "INITIAL")));
-              }
-              if (data.beforeVisaPayment?.amount && data.beforeVisaPayment.amount > 0) {
-                paymentPromises.push(api.post("/api/client-payments", createPaymentPayload(data.beforeVisaPayment, "BEFORE_VISA")));
-              }
-              if (data.afterVisaPayment?.amount && data.afterVisaPayment.amount > 0) {
-                paymentPromises.push(api.post("/api/client-payments", createPaymentPayload(data.afterVisaPayment, "AFTER_VISA")));
-              }
-
-              if (paymentPromises.length > 0) {
-                await Promise.all(paymentPromises);
-              }
             }
           } catch (error) {
             console.error("Failed to process client", error);
+          }
+        }
+
+        // --- Step 2: Consultancy Payment (Payment Creation/Update) ---
+        if (stepId === "consultancy") {
+          const data = form.getValues();
+          const selectedTypeData = allSaleTypes.find(
+            (t) => t.saleType === data.salesType
+          );
+          const totalPaymentVal = data.totalPayment || selectedTypeData?.amount || 0;
+
+          try {
+            const paymentStages = [
+              { key: "initialPayment", stage: "INITIAL" },
+              { key: "beforeVisaPayment", stage: "BEFORE_VISA" },
+              { key: "afterVisaPayment", stage: "AFTER_VISA" },
+            ];
+
+            const promises = paymentStages
+              .filter(item => {
+                const paymentData = (data as any)[item.key];
+                return paymentData?.amount && paymentData.amount > 0;
+              })
+              .map(async (item) => {
+                const paymentData = (data as any)[item.key];
+                const existingId = paymentIds[item.key];
+
+                const payload: any = {
+                  clientId,
+                  totalPayment: String(totalPaymentVal),
+                  stage: item.stage,
+                  amount: String(paymentData.amount),
+                  paymentDate: paymentData.date,
+                  invoiceNo: paymentData.invoiceNo,
+                  remarks: paymentData.remarks,
+                };
+
+                if (existingId) {
+                  payload.paymentId = existingId;
+                }
+
+                console.log(existingId ? `Updating ${item.stage} payment...` : `Creating ${item.stage} payment...`);
+                
+                const res = await api.post("/api/client-payments", payload);
+                const returnedPayment = res.data?.data?.payment || res.data?.data || res.data;
+                const newPaymentId = returnedPayment?.paymentId || returnedPayment?.id;
+
+                if (newPaymentId) {
+                  setPaymentIds(prev => ({ ...prev, [item.key]: newPaymentId }));
+                }
+                return res;
+              });
+
+            if (promises.length > 0) {
+              await Promise.all(promises);
+              console.log("✓ All payments processed successfully");
+            }
+          } catch (error) {
+            console.error("Failed to process payments", error);
           }
         }
       }
