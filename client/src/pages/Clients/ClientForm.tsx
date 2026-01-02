@@ -1543,6 +1543,8 @@ export default function ClientForm() {
 
   const steps = buildSteps();
 
+  const [clientId, setClientId] = useState<number | null>(null);
+
   const handleStepChange = async (currentStep: number, nextStep: number) => {
     if (nextStep > currentStep) {
       const stepId = steps[currentStep].id;
@@ -1565,7 +1567,7 @@ export default function ClientForm() {
           return false;
         }
 
-        // If moving from basic step, hit the client creation API
+        // If moving from basic step, create or update the client
         if (stepId === "basic") {
           const data = form.getValues();
           const selectedTypeData = allSaleTypes.find(
@@ -1573,34 +1575,54 @@ export default function ClientForm() {
           );
 
           try {
-            console.log("Creating client and recording payments...");
-            
-            const clientRes = await api.post("/api/clients", {
+            const payload: any = {
               fullName: data.name,
               enrollmentDate: data.enrollmentDate,
               saleTypeId: selectedTypeData?.id
-            });
+            };
 
-            const clientId = clientRes.data?.data?.clientId || clientRes.data?.clientId;
-
+            // If we already have a clientId, include it to trigger an UPDATE
             if (clientId) {
-              // Add to local storage for persistence in mockup mode
-              const existingClients = JSON.parse(localStorage.getItem("clients") || "[]");
-              existingClients.push({
-                ...data,
-                clientId,
-                id: clientId,
-                createdAt: new Date().toISOString()
-              });
-              localStorage.setItem("clients", JSON.stringify(existingClients));
-              console.log("✓ Saved to local storage");
+              payload.clientId = clientId;
+            }
 
+            console.log(clientId ? "Updating client..." : "Creating client...");
+            
+            const clientRes = await api.post("/api/clients", payload);
+            const returnedClient = clientRes.data?.data?.client;
+            const newId = returnedClient?.clientId || clientRes.data?.data?.clientId || clientRes.data?.clientId;
+
+            if (newId) {
+              setClientId(newId);
+              
+              // Sync local storage
+              const existingClients = JSON.parse(localStorage.getItem("clients") || "[]");
+              const clientIndex = existingClients.findIndex((c: any) => c.clientId === newId || c.id === newId);
+              
+              const clientData = {
+                ...data,
+                clientId: newId,
+                id: newId,
+                updatedAt: new Date().toISOString()
+              };
+
+              if (clientIndex > -1) {
+                existingClients[clientIndex] = clientData;
+              } else {
+                existingClients.push({ ...clientData, createdAt: new Date().toISOString() });
+              }
+              
+              localStorage.setItem("clients", JSON.stringify(existingClients));
+              console.log(`✓ Client ${clientId ? "Updated" : "Created"} and saved to local storage`);
+
+              // Handle payments if this is the first time (Created) or always (Update/Upsert)
+              // Note: Usually payments are only recorded on creation or separate stage, 
+              // but here we keep the existing logic.
               const totalPayment = selectedTypeData?.amount || 0;
               const paymentPromises = [];
 
-              // Helper for payment requests
               const createPaymentPayload = (paymentData: any, stage: string) => ({
-                clientId,
+                clientId: newId,
                 totalPayment: String(totalPayment),
                 stage,
                 amount: String(paymentData?.amount || 0),
@@ -1621,11 +1643,10 @@ export default function ClientForm() {
 
               if (paymentPromises.length > 0) {
                 await Promise.all(paymentPromises);
-                console.log("✓ Payments recorded successfully");
               }
             }
           } catch (error) {
-            console.error("Failed to create client or payments", error);
+            console.error("Failed to process client", error);
           }
         }
       }
