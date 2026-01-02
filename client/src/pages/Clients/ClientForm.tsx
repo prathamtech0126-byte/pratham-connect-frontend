@@ -1644,7 +1644,7 @@ export default function ClientForm() {
                 const existingId = paymentIds[item.key];
 
                 const payload: any = {
-                  clientId,
+                  clientId: clientId, // Use the clientId from component state
                   totalPayment: String(totalPaymentVal),
                   stage: item.stage,
                   amount: String(paymentData.amount),
