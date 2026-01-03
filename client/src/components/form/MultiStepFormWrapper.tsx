@@ -108,11 +108,7 @@ export function MultiStepFormWrapper({ title, steps, onSubmit, isSubmitting, onS
               </Button>
             )}
           </div>
-          <Button 
-            type={currentStep === steps.length - 1 ? "submit" : "button"}
-            onClick={handleNext} 
-            disabled={isSubmitting}
-          >
+          <Button onClick={handleNext} disabled={isSubmitting}>
             {currentStep === steps.length - 1 ? (
               isSubmitting ? "Saving..." : "Submit"
             ) : (

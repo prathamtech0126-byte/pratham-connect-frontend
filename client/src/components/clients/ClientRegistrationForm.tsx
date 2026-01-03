@@ -111,14 +111,12 @@ export function ClientRegistrationForm({ onSuccess }: ClientRegistrationFormProp
     salesType?.toLowerCase().includes("spouse") || salesType === "SPOUSAL PR";
 
   const onSubmit = async (data: FormValues) => {
-    console.log("Submitting form data:", data);
     try {
       // @ts-ignore - mapping simplified for demo
-      const result = await clientService.createClient({
+      await clientService.createClient({
         ...data,
         status: "Active",
       });
-      console.log("Creation result:", result);
 
       toast({
         title: "Success",
@@ -126,7 +124,6 @@ export function ClientRegistrationForm({ onSuccess }: ClientRegistrationFormProp
       });
       onSuccess();
     } catch (error) {
-      console.error("Submission error:", error);
       toast({
         title: "Error",
         description: "Failed to create client",
@@ -337,12 +334,10 @@ export function ClientRegistrationForm({ onSuccess }: ClientRegistrationFormProp
   ];
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <MultiStepFormWrapper
-        title="Client Registration"
-        steps={allSteps}
-        onSubmit={handleSubmit(onSubmit)}
-      />
-    </form>
+    <MultiStepFormWrapper
+      title="Client Registration"
+      steps={allSteps}
+      onSubmit={handleSubmit(onSubmit)}
+    />
   );
 }
