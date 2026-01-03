@@ -527,38 +527,45 @@ export default function ClientForm() {
         if (productFields) {
           const productPaymentPromises: Promise<any>[] = [];
 
-          const createProductPayment = (productName: string, entityData: any, amount: number = 0, invoiceNo?: string, productPaymentId?: number) => {
+          const createProductPayment = (productName: string, entityData: any, amount: number = 0, invoiceNo?: string, key?: string) => {
+            const productPaymentId = key ? productPaymentIds[key] : undefined;
             return api.post("/api/client-product-payments", {
               productPaymentId, // Include for updates
               clientId,
               productName,
-              amount,
+              amount: String(amount), // Convert amount to string for API
               invoiceNo,
               paymentDate: entityData.date || entityData.extensionDate || entityData.sellDate || new Date().toISOString().split('T')[0],
               remarks: entityData.remarks || entityData.remark,
               entityData
+            }).then(res => {
+              const returnedId = res.data?.data?.productPaymentId || res.data?.data?.id;
+              if (returnedId && key) {
+                setProductPaymentIds(prev => ({ ...prev, [key]: returnedId }));
+              }
+              return res;
             });
           };
 
           // Mapping logic for standard fields
           if (productFields.simCard?.amount > 0) {
-            productPaymentPromises.push(createProductPayment("SIM_CARD_ACTIVATION", productFields.simCard, productFields.simCard.amount));
+            productPaymentPromises.push(createProductPayment("SIM_CARD_ACTIVATION", productFields.simCard, productFields.simCard.amount, undefined, "simCard"));
           }
           if (productFields.airTicket?.amount > 0) {
-            productPaymentPromises.push(createProductPayment("AIR_TICKET", productFields.airTicket, productFields.airTicket.amount, productFields.airTicket.invoiceNo));
+            productPaymentPromises.push(createProductPayment("AIR_TICKET", productFields.airTicket, productFields.airTicket.amount, productFields.airTicket.invoiceNo, "airTicket"));
           }
           if (productFields.insurance?.amount > 0) {
-            productPaymentPromises.push(createProductPayment("INSURANCE", productFields.insurance, productFields.insurance.amount));
+            productPaymentPromises.push(createProductPayment("INSURANCE", productFields.insurance, productFields.insurance.amount, undefined, "insurance"));
           }
           if (productFields.trvExtension?.amount > 0) {
-            productPaymentPromises.push(createProductPayment("VISA_EXTENSION", productFields.trvExtension, productFields.trvExtension.amount, productFields.trvExtension.invoiceNo));
+            productPaymentPromises.push(createProductPayment("VISA_EXTENSION", productFields.trvExtension, productFields.trvExtension.amount, productFields.trvExtension.invoiceNo, "trvExtension"));
           }
 
           // Handle dynamic New Sells
           if (productFields.newServices && Array.isArray(productFields.newServices)) {
-            productFields.newServices.forEach((service: any) => {
+            productFields.newServices.forEach((service: any, index: number) => {
               if (service.amount > 0) {
-                productPaymentPromises.push(createProductPayment("OTHER_NEW_SELL", service, service.amount, service.invoiceNo));
+                productPaymentPromises.push(createProductPayment("OTHER_NEW_SELL", service, service.amount, service.invoiceNo, `newService_${index}`));
               }
             });
           }
@@ -566,13 +573,13 @@ export default function ClientForm() {
           // Student specific
           if (productType === "student") {
             if (productFields.ieltsEnrollment?.amount > 0) {
-              productPaymentPromises.push(createProductPayment("IELTS_ENROLLMENT", productFields.ieltsEnrollment, productFields.ieltsEnrollment.amount));
+              productPaymentPromises.push(createProductPayment("IELTS_ENROLLMENT", productFields.ieltsEnrollment, productFields.ieltsEnrollment.amount, undefined, "ieltsEnrollment"));
             }
             if (productFields.loan?.amount > 0) {
-              productPaymentPromises.push(createProductPayment("LOAN_DETAILS", productFields.loan, productFields.loan.amount));
+              productPaymentPromises.push(createProductPayment("LOAN_DETAILS", productFields.loan, productFields.loan.amount, undefined, "loan"));
             }
             if (productFields.forexFees?.amount > 0) {
-              productPaymentPromises.push(createProductPayment("FOREX_FEES", productFields.forexFees, productFields.forexFees.amount));
+              productPaymentPromises.push(createProductPayment("FOREX_FEES", productFields.forexFees, productFields.forexFees.amount, undefined, "forexFees"));
             }
           }
 
@@ -1632,6 +1639,7 @@ export default function ClientForm() {
 
   const [paymentIds, setPaymentIds] = useState<{ [key: string]: number }>({});
   const [internalClientId, setInternalClientId] = useState<number | null>(null);
+  const [productPaymentIds, setProductPaymentIds] = useState<Record<string, number>>({});
 
   const handleStepChange = async (currentStep: number, nextStep: number) => {
     if (nextStep > currentStep) {
