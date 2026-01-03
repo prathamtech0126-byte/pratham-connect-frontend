@@ -527,8 +527,9 @@ export default function ClientForm() {
         if (productFields) {
           const productPaymentPromises: Promise<any>[] = [];
 
-          const createProductPayment = (productName: string, entityData: any, amount: number = 0, invoiceNo?: string) => {
+          const createProductPayment = (productName: string, entityData: any, amount: number = 0, invoiceNo?: string, productPaymentId?: number) => {
             return api.post("/api/client-product-payments", {
+              productPaymentId, // Include for updates
               clientId,
               productName,
               amount,
