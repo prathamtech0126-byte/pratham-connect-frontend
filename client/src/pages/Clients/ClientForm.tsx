@@ -8,7 +8,8 @@ import { FormCurrencyInput } from "@/components/form/FormCurrencyInput";
 import { FormSwitchInput } from "@/components/form/FormSwitchInput";
 import { FormTextareaInput } from "@/components/form/FormTextareaInput";
 import { FinancialEntry } from "@/components/form/FinancialEntry";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch, useFieldArray } from "react-hook-form";
+import { Plus, Trash2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useLocation } from "wouter";
@@ -107,7 +108,7 @@ const spouseFieldsSchema = z.object({
   financeRemarks: z.string().optional(),
   legalRemarks: z.string().optional(),
   servicesRemarks: z.string().optional(),
-  newService: newServiceSchema.optional(),
+  newServices: z.array(newServiceSchema).optional(),
 });
 
 const visitorFieldsSchema = z.object({
@@ -123,7 +124,7 @@ const visitorFieldsSchema = z.object({
   beaconAccount: beaconSchema,
   financeRemarks: z.string().optional(),
   servicesRemarks: z.string().optional(),
-  newService: newServiceSchema.optional(),
+  newServices: z.array(newServiceSchema).optional(),
 });
 
 const studentFieldsSchema = z.object({
@@ -182,7 +183,7 @@ const studentFieldsSchema = z.object({
   }),
   financeRemarks: z.string().optional(),
   servicesRemarks: z.string().optional(),
-  newService: newServiceSchema.optional(),
+  newServices: z.array(newServiceSchema).optional(),
 });
 
 const formSchema = z.object({
@@ -236,53 +237,80 @@ function NewServiceSection({
   namePrefix: string;
   title: string;
 }) {
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: `${namePrefix}.newServices`,
+  });
+
   return (
-    <div className="p-4 border rounded-lg bg-primary/5 space-y-3">
-      <Label className="text-base font-semibold flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-          NEW
-        </span>
-        {title}
-      </Label>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FormTextInput
-          name={`${namePrefix}.newService.serviceName`}
-          control={control}
-          label="Service Name"
-          placeholder="e.g. Extra Documentation"
-        />
-        <FormTextInput
-          name={`${namePrefix}.newService.serviceInfo`}
-          control={control}
-          label="Service Information"
-          placeholder="Enter service details"
-        />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <FormCurrencyInput
-          name={`${namePrefix}.newService.amount`}
-          control={control}
-          label="Amount"
-        />
-        <FormDateInput
-          name={`${namePrefix}.newService.date`}
-          control={control}
-          label="Date"
-          maxDate={new Date()}
-        />
-        <FormTextInput
-          name={`${namePrefix}.newService.invoiceNo`}
-          control={control}
-          label="Invoice No"
-          placeholder="INV-000"
-        />
-      </div>
-      <FormTextareaInput
-        name={`${namePrefix}.newService.remark`}
-        control={control}
-        label="Remark"
-        placeholder="Add any specific remarks for this new service"
-      />
+    <div className="space-y-4">
+      {fields.map((field, index) => (
+        <div key={field.id} className="p-4 border rounded-lg bg-primary/5 space-y-3 relative group">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={() => remove(index)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+          <Label className="text-base font-semibold flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+              NEW
+            </span>
+            {title} - Sell {index + 1}
+          </Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormTextInput
+              name={`${namePrefix}.newServices.${index}.serviceName`}
+              control={control}
+              label="Service Name"
+              placeholder="e.g. Extra Documentation"
+            />
+            <FormTextInput
+              name={`${namePrefix}.newServices.${index}.serviceInfo`}
+              control={control}
+              label="Service Information"
+              placeholder="Enter service details"
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <FormCurrencyInput
+              name={`${namePrefix}.newServices.${index}.amount`}
+              control={control}
+              label="Amount"
+            />
+            <FormDateInput
+              name={`${namePrefix}.newServices.${index}.date`}
+              control={control}
+              label="Date"
+              maxDate={new Date()}
+            />
+            <FormTextInput
+              name={`${namePrefix}.newServices.${index}.invoiceNo`}
+              control={control}
+              label="Invoice No"
+              placeholder="INV-000"
+            />
+          </div>
+          <FormTextareaInput
+            name={`${namePrefix}.newServices.${index}.remark`}
+            control={control}
+            label="Remark"
+            placeholder="Add any specific remarks for this new service"
+          />
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full border-dashed"
+        onClick={() => append({})}
+      >
+        <Plus className="h-4 w-4 mr-2" />
+        Add Another Sell
+      </Button>
     </div>
   );
 }
