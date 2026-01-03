@@ -445,11 +445,7 @@ export default function ClientForm() {
 
   const onSubmit = async (data: FormValues) => {
     try {
-      // 1. Redirect immediately to show responsiveness
-      setLocation("/clients");
-
-      // 2. Background processing (Mockup mode: usually fast enough, but we skip complexity if it fails)
-      // Clean up data before sending
+      // 1. Prepare data
       const selectedTypeData = allSaleTypes.find(
         (t) => t.saleType === data.salesType
       );
@@ -463,155 +459,136 @@ export default function ClientForm() {
         status: "Active",
       };
 
-      // 1. Create the Client
+      // 2. Create the Client (MUST happen first to get clientId)
       const clientRes = await api.post("/api/clients", clientPayload);
       const clientId = clientRes.data.data.clientId;
 
-      // 2. Create Payments if it's a Core Product
-      if (isCoreProduct) {
-        const paymentStages = [
-          { key: "initialPayment", stage: "INITIAL" },
-          { key: "beforeVisaPayment", stage: "BEFORE_VISA" },
-          { key: "afterVisaPayment", stage: "AFTER_VISA" },
-        ];
+      // 3. Kick off background requests
+      const backgroundTasks = async () => {
+        try {
+          // Create Payments if it's a Core Product
+          if (isCoreProduct) {
+            const paymentStages = [
+              { key: "initialPayment", stage: "INITIAL" },
+              { key: "beforeVisaPayment", stage: "BEFORE_VISA" },
+              { key: "afterVisaPayment", stage: "AFTER_VISA" },
+            ];
 
-        const paymentPromises = paymentStages
-          .filter(item => {
-            const paymentData = (data as any)[item.key];
-            return paymentData?.amount && paymentData.amount > 0;
-          })
-          .map(async (item) => {
-            const paymentData = (data as any)[item.key];
-            const existingId = paymentIds[item.key];
+            const paymentPromises = paymentStages
+              .filter(item => {
+                const paymentData = (data as any)[item.key];
+                return paymentData?.amount && paymentData.amount > 0;
+              })
+              .map(async (item) => {
+                const paymentData = (data as any)[item.key];
+                const payload: any = {
+                  clientId: clientId,
+                  totalPayment: String(data.totalPayment),
+                  stage: item.stage,
+                  amount: String(paymentData.amount),
+                  paymentDate: paymentData.date,
+                  invoiceNo: paymentData.invoiceNo,
+                  remarks: paymentData.remarks,
+                };
+                return api.post("/api/client-payments", payload);
+              });
 
-            const payload: any = {
-              clientId: clientId,
-              totalPayment: String(data.totalPayment),
-              stage: item.stage,
-              amount: String(paymentData.amount),
-              paymentDate: paymentData.date,
-              invoiceNo: paymentData.invoiceNo,
-              remarks: paymentData.remarks,
+            if (paymentPromises.length > 0) {
+              await Promise.all(paymentPromises);
+            }
+          }
+
+          // Update Product Specific Details
+          const productFields = data[`${productType}Fields` as keyof FormValues] as any;
+          if (productFields) {
+            const productPaymentPromises: Promise<any>[] = [];
+
+            const createProductPayment = (productName: string, entityData: any, amount: number = 0, invoiceNo?: string) => {
+              if (!entityData) return Promise.resolve();
+              return api.post("/api/client-product-payments", {
+                clientId,
+                productName,
+                amount: String(amount),
+                invoiceNo,
+                paymentDate: entityData.date || entityData.extensionDate || entityData.sellDate || new Date().toISOString().split('T')[0],
+                remarks: entityData.remarks || entityData.remark,
+                entityData
+              });
             };
 
-            if (existingId) {
-              payload.paymentId = existingId;
+            // SIM Card
+            if (productFields.simCard && (productFields.simCard.amount > 0 || productFields.simCard.isActivated || productFields.simCard.plan)) {
+              productPaymentPromises.push(createProductPayment("SIM_CARD_ACTIVATION", productFields.simCard, productFields.simCard.amount || 0));
+            }
+            // Air Ticket
+            if (productFields.airTicket && (productFields.airTicket.amount > 0 || productFields.airTicket.isBooked)) {
+              productPaymentPromises.push(createProductPayment("AIR_TICKET", productFields.airTicket, productFields.airTicket.amount || 0, productFields.airTicket.invoiceNo));
+            }
+            // Insurance
+            if (productFields.insurance && (productFields.insurance.amount > 0 || productFields.insurance.insuranceNo || productFields.insurance.policyNo)) {
+              productPaymentPromises.push(createProductPayment("INSURANCE", productFields.insurance, productFields.insurance.amount || 0));
+            }
+            // TRV Extension
+            if (productFields.trvExtension && (productFields.trvExtension.amount > 0 || productFields.trvExtension.type)) {
+              productPaymentPromises.push(createProductPayment("VISA_EXTENSION", productFields.trvExtension, productFields.trvExtension.amount || 0, productFields.trvExtension.invoiceNo));
             }
 
-            const res = await api.post("/api/client-payments", payload);
-            const returnedPayment = res.data?.data?.payment || res.data?.data || res.data;
-            const newPaymentId = returnedPayment?.paymentId || returnedPayment?.id;
-
-            if (newPaymentId) {
-              setPaymentIds(prev => ({ ...prev, [item.key]: newPaymentId }));
-            }
-            return res;
-          });
-
-        if (paymentPromises.length > 0) {
-          await Promise.all(paymentPromises);
-        }
-      }
-
-      // 3. Update Product Specific Details (if any)
-      const updatePayload: any = {};
-      if (productType === "spouse")
-        updatePayload.spouseFields = data.spouseFields;
-      if (productType === "visitor")
-        updatePayload.visitorFields = data.visitorFields;
-      if (productType === "student")
-        updatePayload.studentFields = data.studentFields;
-
-      if (Object.keys(updatePayload).length > 0) {
-        // --- NEW PRODUCT PAYMENT API INTEGRATION ---
-        // We will process specific fields and send them to /api/client-product-payments
-        // This handles specialized tables like simCard, airTicket, etc.
-        const productFields = data[`${productType}Fields` as keyof FormValues] as any;
-        if (productFields) {
-          const productPaymentPromises: Promise<any>[] = [];
-
-          const createProductPayment = (productName: string, entityData: any, amount: number = 0, invoiceNo?: string, key?: string) => {
-            // Check if entityData exists before accessing its properties
-            if (!entityData) return Promise.resolve();
-            
-            const productPaymentId = key ? (window as any).productPaymentIds?.[key] : undefined;
-            return api.post("/api/client-product-payments", {
-              productPaymentId, // Include for updates
-              clientId,
-              productName,
-              amount: String(amount), // Convert amount to string for API
-              invoiceNo,
-              paymentDate: entityData.date || entityData.extensionDate || entityData.sellDate || new Date().toISOString().split('T')[0],
-              remarks: entityData.remarks || entityData.remark,
-              entityData
-            }).then(res => {
-              const returnedId = res.data?.data?.productPaymentId || res.data?.data?.id;
-              if (returnedId && key) {
-                if (!(window as any).productPaymentIds) (window as any).productPaymentIds = {};
-                (window as any).productPaymentIds[key] = returnedId;
+            // Student specific
+            if (productType === "student") {
+              if (productFields.ieltsEnrollment && (productFields.ieltsEnrollment.amount > 0 || productFields.ieltsEnrollment.isEnrolled)) {
+                productPaymentPromises.push(createProductPayment("IELTS_ENROLLMENT", productFields.ieltsEnrollment, productFields.ieltsEnrollment.amount || 0));
               }
-              return res;
-            });
-          };
+              if (productFields.loan && (productFields.loan.amount > 0 || productFields.loan.remarks)) {
+                productPaymentPromises.push(createProductPayment("LOAN_DETAILS", productFields.loan, productFields.loan.amount || 0));
+              }
+              if (productFields.forexFees && (productFields.forexFees.amount > 0 || productFields.forexFees.side)) {
+                productPaymentPromises.push(createProductPayment("FOREX_FEES", productFields.forexFees, productFields.forexFees.amount || 0));
+              }
+              if (productFields.forexCard && (productFields.forexCard.isActivated || productFields.forexCard.remarks)) {
+                productPaymentPromises.push(createProductPayment("FOREX_CARD", productFields.forexCard, 0));
+              }
+              if (productFields.tuitionFee && (productFields.tuitionFee.status || productFields.tuitionFee.remarks)) {
+                productPaymentPromises.push(createProductPayment("TUTION_FEES", productFields.tuitionFee, 0));
+              }
+              if (productFields.beaconAccount && (productFields.beaconAccount.cadAmount > 0 || productFields.beaconAccount.remarks || productFields.beaconAccount.fundingAmount > 0)) {
+                const beaconAmount = productFields.beaconAccount.cadAmount || productFields.beaconAccount.fundingAmount || 0;
+                productPaymentPromises.push(createProductPayment("BEACON_ACCOUNT", productFields.beaconAccount, beaconAmount));
+              }
+              if (productFields.creditCard && (productFields.creditCard.info || productFields.creditCard.remarks)) {
+                productPaymentPromises.push(createProductPayment("CREDIT_CARD", productFields.creditCard, 0));
+              }
+            }
 
-          // Mapping logic for standard fields
-          if (productFields.simCard && (productFields.simCard.amount > 0 || productFields.simCard.isActivated || productFields.simCard.plan)) {
-            productPaymentPromises.push(createProductPayment("SIM_CARD_ACTIVATION", productFields.simCard, productFields.simCard.amount || 0, undefined, "simCard"));
-          }
-          if (productFields.airTicket && (productFields.airTicket.amount > 0 || productFields.airTicket.isBooked)) {
-            productPaymentPromises.push(createProductPayment("AIR_TICKET", productFields.airTicket, productFields.airTicket.amount || 0, productFields.airTicket.invoiceNo, "airTicket"));
-          }
-          if (productFields.insurance && (productFields.insurance.amount > 0 || productFields.insurance.insuranceNo || productFields.insurance.policyNo)) {
-            productPaymentPromises.push(createProductPayment("INSURANCE", productFields.insurance, productFields.insurance.amount || 0, undefined, "insurance"));
-          }
-          if (productFields.trvExtension && (productFields.trvExtension.amount > 0 || productFields.trvExtension.type)) {
-            productPaymentPromises.push(createProductPayment("VISA_EXTENSION", productFields.trvExtension, productFields.trvExtension.amount || 0, productFields.trvExtension.invoiceNo, "trvExtension"));
-          }
+            if (productPaymentPromises.length > 0) {
+              await Promise.all(productPaymentPromises);
+            }
 
-          // Student specific
-          if (productType === "student") {
-            if (productFields.ieltsEnrollment && (productFields.ieltsEnrollment.amount > 0 || productFields.ieltsEnrollment.isEnrolled)) {
-              productPaymentPromises.push(createProductPayment("IELTS_ENROLLMENT", productFields.ieltsEnrollment, productFields.ieltsEnrollment.amount || 0, undefined, "ieltsEnrollment"));
-            }
-            if (productFields.loan && (productFields.loan.amount > 0 || productFields.loan.remarks)) {
-              productPaymentPromises.push(createProductPayment("LOAN_DETAILS", productFields.loan, productFields.loan.amount || 0, undefined, "loan"));
-            }
-            if (productFields.forexFees && (productFields.forexFees.amount > 0 || productFields.forexFees.side)) {
-              productPaymentPromises.push(createProductPayment("FOREX_FEES", productFields.forexFees, productFields.forexFees.amount || 0, undefined, "forexFees"));
-            }
-            if (productFields.forexCard && (productFields.forexCard.isActivated || productFields.forexCard.remarks)) {
-              productPaymentPromises.push(createProductPayment("FOREX_CARD", productFields.forexCard, 0, undefined, "forexCard"));
-            }
-            if (productFields.tuitionFee && (productFields.tuitionFee.status || productFields.tuitionFee.remarks)) {
-              productPaymentPromises.push(createProductPayment("TUTION_FEES", productFields.tuitionFee, 0, undefined, "tuitionFee"));
-            }
-            if (productFields.beaconAccount && (productFields.beaconAccount.cadAmount > 0 || productFields.beaconAccount.remarks || productFields.beaconAccount.fundingAmount > 0)) {
-              const beaconAmount = productFields.beaconAccount.cadAmount || productFields.beaconAccount.fundingAmount || 0;
-              productPaymentPromises.push(createProductPayment("BEACON_ACCOUNT", productFields.beaconAccount, beaconAmount, undefined, "beaconAccount"));
-            }
-            if (productFields.creditCard && (productFields.creditCard.info || productFields.creditCard.remarks)) {
-              productPaymentPromises.push(createProductPayment("CREDIT_CARD", productFields.creditCard, 0, undefined, "creditCard"));
-            }
+            const updatePayload: any = {};
+            if (productType === "spouse") updatePayload.spouseFields = data.spouseFields;
+            if (productType === "visitor") updatePayload.visitorFields = data.visitorFields;
+            if (productType === "student") updatePayload.studentFields = data.studentFields;
+            await api.patch(`/api/clients/${clientId}`, updatePayload);
           }
-
-          if (productPaymentPromises.length > 0) {
-            await Promise.all(productPaymentPromises);
-          }
+        } catch (err) {
+          console.error("Background task failed:", err);
         }
+      };
 
-        await api.patch(`/api/clients/${clientId}`, updatePayload);
-      }
+      // Execute background tasks without blocking redirect
+      backgroundTasks();
 
+      // 4. Redirect immediately
       toast({
-        title: "Success",
-        description: "Client and payments created successfully",
+        title: "Processing",
+        description: "Client created. Financial details are being saved...",
       });
       setLocation("/clients");
+
     } catch (error) {
-      console.error(error);
+      console.error("Submission failed:", error);
       toast({
         title: "Error",
-        description: "Failed to create client or payments",
+        description: "Failed to create client",
         variant: "destructive",
       });
     }
