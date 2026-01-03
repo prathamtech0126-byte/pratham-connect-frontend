@@ -520,6 +520,66 @@ export default function ClientForm() {
         updatePayload.studentFields = data.studentFields;
 
       if (Object.keys(updatePayload).length > 0) {
+        // --- NEW PRODUCT PAYMENT API INTEGRATION ---
+        // We will process specific fields and send them to /api/client-product-payments
+        // This handles specialized tables like simCard, airTicket, etc.
+        const productFields = data[`${productType}Fields` as keyof FormValues] as any;
+        if (productFields) {
+          const productPaymentPromises: Promise<any>[] = [];
+
+          const createProductPayment = (productName: string, entityData: any, amount: number = 0, invoiceNo?: string) => {
+            return api.post("/api/client-product-payments", {
+              clientId,
+              productName,
+              amount,
+              invoiceNo,
+              paymentDate: entityData.date || entityData.extensionDate || entityData.sellDate || new Date().toISOString().split('T')[0],
+              remarks: entityData.remarks || entityData.remark,
+              entityData
+            });
+          };
+
+          // Mapping logic for standard fields
+          if (productFields.simCard?.amount > 0) {
+            productPaymentPromises.push(createProductPayment("SIM_CARD_ACTIVATION", productFields.simCard, productFields.simCard.amount));
+          }
+          if (productFields.airTicket?.amount > 0) {
+            productPaymentPromises.push(createProductPayment("AIR_TICKET", productFields.airTicket, productFields.airTicket.amount, productFields.airTicket.invoiceNo));
+          }
+          if (productFields.insurance?.amount > 0) {
+            productPaymentPromises.push(createProductPayment("INSURANCE", productFields.insurance, productFields.insurance.amount));
+          }
+          if (productFields.trvExtension?.amount > 0) {
+            productPaymentPromises.push(createProductPayment("VISA_EXTENSION", productFields.trvExtension, productFields.trvExtension.amount, productFields.trvExtension.invoiceNo));
+          }
+
+          // Handle dynamic New Sells
+          if (productFields.newServices && Array.isArray(productFields.newServices)) {
+            productFields.newServices.forEach((service: any) => {
+              if (service.amount > 0) {
+                productPaymentPromises.push(createProductPayment("OTHER_NEW_SELL", service, service.amount, service.invoiceNo));
+              }
+            });
+          }
+
+          // Student specific
+          if (productType === "student") {
+            if (productFields.ieltsEnrollment?.amount > 0) {
+              productPaymentPromises.push(createProductPayment("IELTS_ENROLLMENT", productFields.ieltsEnrollment, productFields.ieltsEnrollment.amount));
+            }
+            if (productFields.loan?.amount > 0) {
+              productPaymentPromises.push(createProductPayment("LOAN_DETAILS", productFields.loan, productFields.loan.amount));
+            }
+            if (productFields.forexFees?.amount > 0) {
+              productPaymentPromises.push(createProductPayment("FOREX_FEES", productFields.forexFees, productFields.forexFees.amount));
+            }
+          }
+
+          if (productPaymentPromises.length > 0) {
+            await Promise.all(productPaymentPromises);
+          }
+        }
+
         await api.patch(`/api/clients/${clientId}`, updatePayload);
       }
 

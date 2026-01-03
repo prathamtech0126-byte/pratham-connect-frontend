@@ -1,0 +1,107 @@
+export const saveClientProductPayment = async (
+  data: SaveClientProductPaymentInput
+) => {
+  const {
+    productPaymentId,
+    clientId,
+    productName,
+    amount,
+    paymentDate,
+    remarks,
+    invoiceNo,
+    entityData,
+  } = data;
+
+  if (!clientId || !productName) {
+    throw new Error("clientId and productName are required");
+  }
+
+  const entityType = productToEntityTypeMap[productName];
+  if (!entityType) throw new Error("Invalid productName");
+
+  // ---------------------------
+  // AMOUNT VALIDATION (STRICT)
+  // ---------------------------
+  let amountValue: number | null = null;
+
+  if (entityType === "master_only") {
+    if (amount === undefined || amount === null) {
+      throw new Error("amount is required for master_only products");
+    }
+
+    amountValue = typeof amount === "string" ? parseFloat(amount) : amount;
+
+    if (!isFinite(amountValue) || amountValue <= 0) {
+      throw new Error("Invalid amount");
+    }
+  }
+
+  // ---------------------------
+  // UPDATE
+  // ---------------------------
+  if (productPaymentId) {
+    const [existing] = await db
+      .select()
+      .from(clientProductPayments)
+      .where(eq(clientProductPayments.productPaymentId, productPaymentId));
+
+    if (!existing) throw new Error("Record not found");
+
+    // update entity table only if exists
+    if (entityData && entityType !== "master_only") {
+      const table = entityTypeToTable[entityType];
+      await db
+        .update(table)
+        .set(entityData)
+        .where(eq(table.id, existing.entityId));
+    }
+
+    const [updated] = await db
+      .update(clientProductPayments)
+      .set({
+        amount:
+          entityType === "master_only"
+            ? amountValue!.toString()
+            : existing.amount,
+        paymentDate: paymentDate ?? existing.paymentDate,
+        invoiceNo: invoiceNo ?? existing.invoiceNo,
+        remarks: remarks ?? existing.remarks,
+      })
+      .where(eq(clientProductPayments.productPaymentId, productPaymentId))
+      .returning();
+
+    return { action: "UPDATED", record: updated };
+  }
+
+  // ---------------------------
+  // CREATE
+  // ---------------------------
+  let entityId: number | null = null;
+
+  if (entityType !== "master_only") {
+    if (!entityData) {
+      throw new Error("entityData required");
+    }
+
+    entityId = await createEntityRecord(entityType, entityData);
+  }
+
+  const [record] = await db
+    .insert(clientProductPayments)
+    .values({
+      clientId,
+      productName: productName as any,
+      entityType: entityType as any,
+      entityId,
+      amount:
+        entityType === "master_only"
+          ? amountValue!.toString()
+          : null,
+      paymentDate: paymentDate ?? null,
+      invoiceNo: invoiceNo ?? null,
+      remarks: remarks ?? null,
+    })
+    .returning();
+
+  return { action: "CREATED", record };
+};
