@@ -1,0 +1,82 @@
+
+          const createProductPayment = (productName: string, entityData: any, amount: number = 0, invoiceNo?: string, key?: string) => {
+            const productPaymentId = key ? productPaymentIds[key] : undefined;
+            return api.post("/api/client-product-payments", {
+              productPaymentId, // Include for updates
+              clientId,
+              productName,
+              amount: String(amount), // Convert amount to string for API
+              invoiceNo,
+              paymentDate: entityData.date || entityData.extensionDate || entityData.sellDate || new Date().toISOString().split('T')[0],
+              remarks: entityData.remarks || entityData.remark,
+              entityData
+            }).then(res => {
+              const returnedId = res.data?.data?.productPaymentId || res.data?.data?.id;
+              if (returnedId && key) {
+                setProductPaymentIds(prev => ({ ...prev, [key]: returnedId }));
+              }
+              return res;
+            });
+          };
+
+          // Mapping logic for standard fields
+          if (productFields.simCard?.amount > 0 || productFields.simCard?.activatedStatus || productFields.simCard?.simcardPlan) {
+            productPaymentPromises.push(createProductPayment("SIM_CARD_ACTIVATION", productFields.simCard, productFields.simCard.amount || 0, undefined, "simCard"));
+          }
+          if (productFields.airTicket?.amount > 0 || productFields.airTicket?.isTicketBooked) {
+            productPaymentPromises.push(createProductPayment("AIR_TICKET", productFields.airTicket, productFields.airTicket.amount || 0, productFields.airTicket.invoiceNo, "airTicket"));
+          }
+          if (productFields.insurance?.amount > 0 || productFields.insurance?.policyNo) {
+            productPaymentPromises.push(createProductPayment("INSURANCE", productFields.insurance, productFields.insurance.amount || 0, undefined, "insurance"));
+          }
+          if (productFields.trvExtension?.amount > 0 || productFields.trvExtension?.type) {
+            productPaymentPromises.push(createProductPayment("VISA_EXTENSION", productFields.trvExtension, productFields.trvExtension.amount || 0, productFields.trvExtension.invoiceNo, "trvExtension"));
+          }
+
+          // Student specific
+          if (productType === "student") {
+            if (productFields.ieltsEnrollment?.amount > 0 || productFields.ieltsEnrollment?.enrolledStatus) {
+              productPaymentPromises.push(createProductPayment("IELTS_ENROLLMENT", productFields.ieltsEnrollment, productFields.ieltsEnrollment.amount || 0, undefined, "ieltsEnrollment"));
+            }
+            if (productFields.loan?.amount > 0 || productFields.loan?.remarks) {
+              productPaymentPromises.push(createProductPayment("LOAN_DETAILS", productFields.loan, productFields.loan.amount || 0, undefined, "loan"));
+            }
+            if (productFields.forexFees?.amount > 0 || productFields.forexFees?.side) {
+              productPaymentPromises.push(createProductPayment("FOREX_FEES", productFields.forexFees, productFields.forexFees.amount || 0, undefined, "forexFees"));
+            }
+            if (productFields.forexCard?.forexCardStatus || productFields.forexCard?.remarks) {
+              productPaymentPromises.push(createProductPayment("FOREX_CARD", productFields.forexCard, 0, undefined, "forexCard"));
+            }
+            if (productFields.tuitionFee?.status || productFields.tuitionFee?.remarks) {
+              productPaymentPromises.push(createProductPayment("TUTION_FEES", productFields.tuitionFee, 0, undefined, "tuitionFee"));
+            }
+            if (productFields.beaconAccount?.cadAmount > 0 || productFields.beaconAccount?.remarks) {
+              productPaymentPromises.push(createProductPayment("BEACON_ACCOUNT", productFields.beaconAccount, productFields.beaconAccount.cadAmount || 0, undefined, "beaconAccount"));
+            }
+            if (productFields.creditCard?.info || productFields.creditCard?.remarks) {
+              productPaymentPromises.push(createProductPayment("CREDIT_CARD", productFields.creditCard, 0, undefined, "creditCard"));
+            }
+          }
+
+          if (productPaymentPromises.length > 0) {
+            await Promise.all(productPaymentPromises);
+          }
+        }
+
+        await api.patch(`/api/clients/${clientId}`, updatePayload);
+      }
+
+      toast({
+        title: "Success",
+        description: "Client and payments created successfully",
+      });
+      setLocation("/clients");
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to create client or payments",
+        variant: "destructive",
+      });
+    }
+  };

@@ -528,7 +528,10 @@ export default function ClientForm() {
           const productPaymentPromises: Promise<any>[] = [];
 
           const createProductPayment = (productName: string, entityData: any, amount: number = 0, invoiceNo?: string, key?: string) => {
-            const productPaymentId = key ? productPaymentIds[key] : undefined;
+            // Check if entityData exists before accessing its properties
+            if (!entityData) return Promise.resolve();
+            
+            const productPaymentId = key ? (window as any).productPaymentIds?.[key] : undefined;
             return api.post("/api/client-product-payments", {
               productPaymentId, // Include for updates
               clientId,
@@ -541,47 +544,49 @@ export default function ClientForm() {
             }).then(res => {
               const returnedId = res.data?.data?.productPaymentId || res.data?.data?.id;
               if (returnedId && key) {
-                setProductPaymentIds(prev => ({ ...prev, [key]: returnedId }));
+                if (!(window as any).productPaymentIds) (window as any).productPaymentIds = {};
+                (window as any).productPaymentIds[key] = returnedId;
               }
               return res;
             });
           };
 
           // Mapping logic for standard fields
-          if (productFields.simCard?.amount > 0 || productFields.simCard?.activatedStatus || productFields.simCard?.simcardPlan) {
+          if (productFields.simCard && (productFields.simCard.amount > 0 || productFields.simCard.isActivated || productFields.simCard.plan)) {
             productPaymentPromises.push(createProductPayment("SIM_CARD_ACTIVATION", productFields.simCard, productFields.simCard.amount || 0, undefined, "simCard"));
           }
-          if (productFields.airTicket?.amount > 0 || productFields.airTicket?.isTicketBooked) {
+          if (productFields.airTicket && (productFields.airTicket.amount > 0 || productFields.airTicket.isBooked)) {
             productPaymentPromises.push(createProductPayment("AIR_TICKET", productFields.airTicket, productFields.airTicket.amount || 0, productFields.airTicket.invoiceNo, "airTicket"));
           }
-          if (productFields.insurance?.amount > 0 || productFields.insurance?.policyNo) {
+          if (productFields.insurance && (productFields.insurance.amount > 0 || productFields.insurance.insuranceNo || productFields.insurance.policyNo)) {
             productPaymentPromises.push(createProductPayment("INSURANCE", productFields.insurance, productFields.insurance.amount || 0, undefined, "insurance"));
           }
-          if (productFields.trvExtension?.amount > 0 || productFields.trvExtension?.type) {
+          if (productFields.trvExtension && (productFields.trvExtension.amount > 0 || productFields.trvExtension.type)) {
             productPaymentPromises.push(createProductPayment("VISA_EXTENSION", productFields.trvExtension, productFields.trvExtension.amount || 0, productFields.trvExtension.invoiceNo, "trvExtension"));
           }
 
           // Student specific
           if (productType === "student") {
-            if (productFields.ieltsEnrollment?.amount > 0 || productFields.ieltsEnrollment?.enrolledStatus) {
+            if (productFields.ieltsEnrollment && (productFields.ieltsEnrollment.amount > 0 || productFields.ieltsEnrollment.isEnrolled)) {
               productPaymentPromises.push(createProductPayment("IELTS_ENROLLMENT", productFields.ieltsEnrollment, productFields.ieltsEnrollment.amount || 0, undefined, "ieltsEnrollment"));
             }
-            if (productFields.loan?.amount > 0 || productFields.loan?.remarks) {
+            if (productFields.loan && (productFields.loan.amount > 0 || productFields.loan.remarks)) {
               productPaymentPromises.push(createProductPayment("LOAN_DETAILS", productFields.loan, productFields.loan.amount || 0, undefined, "loan"));
             }
-            if (productFields.forexFees?.amount > 0 || productFields.forexFees?.side) {
+            if (productFields.forexFees && (productFields.forexFees.amount > 0 || productFields.forexFees.side)) {
               productPaymentPromises.push(createProductPayment("FOREX_FEES", productFields.forexFees, productFields.forexFees.amount || 0, undefined, "forexFees"));
             }
-            if (productFields.forexCard?.forexCardStatus || productFields.forexCard?.remarks) {
+            if (productFields.forexCard && (productFields.forexCard.isActivated || productFields.forexCard.remarks)) {
               productPaymentPromises.push(createProductPayment("FOREX_CARD", productFields.forexCard, 0, undefined, "forexCard"));
             }
-            if (productFields.tuitionFee?.status || productFields.tuitionFee?.remarks) {
+            if (productFields.tuitionFee && (productFields.tuitionFee.status || productFields.tuitionFee.remarks)) {
               productPaymentPromises.push(createProductPayment("TUTION_FEES", productFields.tuitionFee, 0, undefined, "tuitionFee"));
             }
-            if (productFields.beaconAccount?.cadAmount > 0 || productFields.beaconAccount?.remarks) {
-              productPaymentPromises.push(createProductPayment("BEACON_ACCOUNT", productFields.beaconAccount, productFields.beaconAccount.cadAmount || 0, undefined, "beaconAccount"));
+            if (productFields.beaconAccount && (productFields.beaconAccount.cadAmount > 0 || productFields.beaconAccount.remarks || productFields.beaconAccount.fundingAmount > 0)) {
+              const beaconAmount = productFields.beaconAccount.cadAmount || productFields.beaconAccount.fundingAmount || 0;
+              productPaymentPromises.push(createProductPayment("BEACON_ACCOUNT", productFields.beaconAccount, beaconAmount, undefined, "beaconAccount"));
             }
-            if (productFields.creditCard?.info || productFields.creditCard?.remarks) {
+            if (productFields.creditCard && (productFields.creditCard.info || productFields.creditCard.remarks)) {
               productPaymentPromises.push(createProductPayment("CREDIT_CARD", productFields.creditCard, 0, undefined, "creditCard"));
             }
           }
