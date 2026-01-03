@@ -445,6 +445,10 @@ export default function ClientForm() {
 
   const onSubmit = async (data: FormValues) => {
     try {
+      // 1. Redirect immediately to show responsiveness
+      setLocation("/clients");
+
+      // 2. Background processing (Mockup mode: usually fast enough, but we skip complexity if it fails)
       // Clean up data before sending
       const selectedTypeData = allSaleTypes.find(
         (t) => t.saleType === data.salesType
@@ -462,7 +466,6 @@ export default function ClientForm() {
       // 1. Create the Client
       const clientRes = await api.post("/api/clients", clientPayload);
       const clientId = clientRes.data.data.clientId;
-      setInternalClientId(clientId);
 
       // 2. Create Payments if it's a Core Product
       if (isCoreProduct) {
