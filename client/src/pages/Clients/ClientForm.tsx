@@ -548,38 +548,41 @@ export default function ClientForm() {
           };
 
           // Mapping logic for standard fields
-          if (productFields.simCard?.amount > 0) {
-            productPaymentPromises.push(createProductPayment("SIM_CARD_ACTIVATION", productFields.simCard, productFields.simCard.amount, undefined, "simCard"));
+          if (productFields.simCard?.amount > 0 || productFields.simCard?.activatedStatus || productFields.simCard?.simcardPlan) {
+            productPaymentPromises.push(createProductPayment("SIM_CARD_ACTIVATION", productFields.simCard, productFields.simCard.amount || 0, undefined, "simCard"));
           }
-          if (productFields.airTicket?.amount > 0) {
-            productPaymentPromises.push(createProductPayment("AIR_TICKET", productFields.airTicket, productFields.airTicket.amount, productFields.airTicket.invoiceNo, "airTicket"));
+          if (productFields.airTicket?.amount > 0 || productFields.airTicket?.isTicketBooked) {
+            productPaymentPromises.push(createProductPayment("AIR_TICKET", productFields.airTicket, productFields.airTicket.amount || 0, productFields.airTicket.invoiceNo, "airTicket"));
           }
-          if (productFields.insurance?.amount > 0) {
-            productPaymentPromises.push(createProductPayment("INSURANCE", productFields.insurance, productFields.insurance.amount, undefined, "insurance"));
+          if (productFields.insurance?.amount > 0 || productFields.insurance?.policyNo) {
+            productPaymentPromises.push(createProductPayment("INSURANCE", productFields.insurance, productFields.insurance.amount || 0, undefined, "insurance"));
           }
-          if (productFields.trvExtension?.amount > 0) {
-            productPaymentPromises.push(createProductPayment("VISA_EXTENSION", productFields.trvExtension, productFields.trvExtension.amount, productFields.trvExtension.invoiceNo, "trvExtension"));
-          }
-
-          // Handle dynamic New Sells
-          if (productFields.newServices && Array.isArray(productFields.newServices)) {
-            productFields.newServices.forEach((service: any, index: number) => {
-              if (service.amount > 0) {
-                productPaymentPromises.push(createProductPayment("OTHER_NEW_SELL", service, service.amount, service.invoiceNo, `newService_${index}`));
-              }
-            });
+          if (productFields.trvExtension?.amount > 0 || productFields.trvExtension?.type) {
+            productPaymentPromises.push(createProductPayment("VISA_EXTENSION", productFields.trvExtension, productFields.trvExtension.amount || 0, productFields.trvExtension.invoiceNo, "trvExtension"));
           }
 
           // Student specific
           if (productType === "student") {
-            if (productFields.ieltsEnrollment?.amount > 0) {
-              productPaymentPromises.push(createProductPayment("IELTS_ENROLLMENT", productFields.ieltsEnrollment, productFields.ieltsEnrollment.amount, undefined, "ieltsEnrollment"));
+            if (productFields.ieltsEnrollment?.amount > 0 || productFields.ieltsEnrollment?.enrolledStatus) {
+              productPaymentPromises.push(createProductPayment("IELTS_ENROLLMENT", productFields.ieltsEnrollment, productFields.ieltsEnrollment.amount || 0, undefined, "ieltsEnrollment"));
             }
-            if (productFields.loan?.amount > 0) {
-              productPaymentPromises.push(createProductPayment("LOAN_DETAILS", productFields.loan, productFields.loan.amount, undefined, "loan"));
+            if (productFields.loan?.amount > 0 || productFields.loan?.remarks) {
+              productPaymentPromises.push(createProductPayment("LOAN_DETAILS", productFields.loan, productFields.loan.amount || 0, undefined, "loan"));
             }
-            if (productFields.forexFees?.amount > 0) {
-              productPaymentPromises.push(createProductPayment("FOREX_FEES", productFields.forexFees, productFields.forexFees.amount, undefined, "forexFees"));
+            if (productFields.forexFees?.amount > 0 || productFields.forexFees?.side) {
+              productPaymentPromises.push(createProductPayment("FOREX_FEES", productFields.forexFees, productFields.forexFees.amount || 0, undefined, "forexFees"));
+            }
+            if (productFields.forexCard?.forexCardStatus || productFields.forexCard?.remarks) {
+              productPaymentPromises.push(createProductPayment("FOREX_CARD", productFields.forexCard, 0, undefined, "forexCard"));
+            }
+            if (productFields.tuitionFee?.status || productFields.tuitionFee?.remarks) {
+              productPaymentPromises.push(createProductPayment("TUTION_FEES", productFields.tuitionFee, 0, undefined, "tuitionFee"));
+            }
+            if (productFields.beaconAccount?.cadAmount > 0 || productFields.beaconAccount?.remarks) {
+              productPaymentPromises.push(createProductPayment("BEACON_ACCOUNT", productFields.beaconAccount, productFields.beaconAccount.cadAmount || 0, undefined, "beaconAccount"));
+            }
+            if (productFields.creditCard?.info || productFields.creditCard?.remarks) {
+              productPaymentPromises.push(createProductPayment("CREDIT_CARD", productFields.creditCard, 0, undefined, "creditCard"));
             }
           }
 
