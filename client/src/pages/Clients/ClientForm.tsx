@@ -447,8 +447,9 @@ export default function ClientForm() {
     try {
       // Clean up data before sending
       const selectedTypeData = allSaleTypes.find(
-        (t) => t.saleType === data.salesType,
+        (t) => t.saleType === data.salesType
       );
+      const isCoreProduct = selectedTypeData ? selectedTypeData.isCoreProduct : true;
 
       const clientPayload = {
         fullName: data.name,
@@ -461,6 +462,7 @@ export default function ClientForm() {
       // 1. Create the Client
       const clientRes = await api.post("/api/clients", clientPayload);
       const clientId = clientRes.data.data.clientId;
+      setInternalClientId(clientId);
 
       // 2. Create Payments if it's a Core Product
       if (isCoreProduct) {
@@ -480,7 +482,7 @@ export default function ClientForm() {
             const existingId = paymentIds[item.key];
 
             const payload: any = {
-              clientId: clientId, // Using the local clientId from step 1
+              clientId: clientId,
               totalPayment: String(data.totalPayment),
               stage: item.stage,
               amount: String(paymentData.amount),

@@ -52,7 +52,19 @@ export function MultiStepFormWrapper({ title, steps, onSubmit, isSubmitting, onS
         </div>
         <div className="relative flex justify-between w-full">
           {steps.map((step, index) => (
-            <div key={step.id} className="flex flex-col items-center relative">
+            <button
+              key={step.id}
+              type="button"
+              onClick={() => {
+                if (index < currentStep) {
+                  setCurrentStep(index);
+                }
+              }}
+              className={cn(
+                "flex flex-col items-center relative transition-all duration-200",
+                index < currentStep ? "cursor-pointer hover:opacity-80" : "cursor-default"
+              )}
+            >
               <div 
                 className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-all duration-300 bg-background z-10 relative",
@@ -68,7 +80,7 @@ export function MultiStepFormWrapper({ title, steps, onSubmit, isSubmitting, onS
               )}>
                 {step.title}
               </span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
