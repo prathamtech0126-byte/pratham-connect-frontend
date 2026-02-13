@@ -111,7 +111,7 @@ export default defineConfig(({ mode }) => {
 
     // Build output: /client/dist
     build: {
-      outDir: "dist",
+      outDir: "../dist",
       emptyOutDir: true,
       sourcemap: !isProd,
     },
