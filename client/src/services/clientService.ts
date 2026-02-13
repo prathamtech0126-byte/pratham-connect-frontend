@@ -1,3 +1,5 @@
+import api from "@/lib/api";
+
 export interface Client {
   id: string;
   name: string;
@@ -7,22 +9,22 @@ export interface Client {
   productManager: string;
   salesType: string;
   status: 'Active' | 'Completed' | 'Pending' | 'Dropped';
-  stage?: 'Initial' | 'Financial' | 'Before Visa' | 'After Visa Payment' | 'Visa Submitted';
-  
+  stage?: 'Initial' | 'Financial' | 'Before Visa' | 'After Visa' | 'After Visa Payment' | 'Submitted Visa' | 'Visa Submitted';
+
   // Finance
   totalPayment: number;
   amountReceived: number;
   amountPending: number;
-  
+
   // Details for mock data
   email?: string;
   phone?: string;
-  
+
   // Form Data - Product specific fields
   spouseFields?: any;
   studentFields?: any;
   visitorFields?: any;
-  
+
   // Steps Data
   consultancyPayment?: {
     total: number;
@@ -31,14 +33,14 @@ export interface Client {
     productPaymentAmount: number;
     productPaymentDate: string;
   };
-  
+
   ieltsLoan?: {
     ieltsAmount: number;
     ieltsDate: string;
     loanAmount: number;
     loanDisbursementDate: string;
   };
-  
+
   legalServices?: {
     commonLawAffidavit: number;
     lawyerCharges: number;
@@ -358,10 +360,184 @@ const mockActivities: ActivityLogItem[] = [
 ];
 
 export const clientService = {
-  getClients: async (): Promise<Client[]> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return [...clients];
+  // Admin view: Returns counsellor-first structure
+  // { "3": { counsellor: {...}, clients: { "2026": { "Jan": { clients: [...], total: 4 } } } } }
+  // Uses the same endpoint as counsellors, but backend returns different structure for admin
+  getClients: async (): Promise<any> => {
+    try {
+      const res = await api.get("/api/clients/counsellor-clients");
+      // console.log("Clients API Response (Admin):", res.data);
+
+      // Handle response structure: { success: true, data: {...} }
+      let data = res.data;
+      if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+        data = data.data;
+        // console.log("Extracted data from success wrapper:", data);
+      }
+
+      // Handle nested response structure: { data: {...} }
+      if (data && data.data) {
+        data = data.data;
+        // console.log("Extracted data.data:", data);
+      }
+
+      // Admin receives counsellor-first structure: { "3": { counsellor: {...}, clients: {...} } }
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        // Check if it's the new counsellor-first structure (keys are counsellorIds)
+        const keys = Object.keys(data);
+        const isCounsellorFirstStructure = keys.some(key => {
+          const value = data[key];
+          return value && typeof value === 'object' && (value.counsellor || value.clients);
+        });
+
+        if (isCounsellorFirstStructure) {
+          // console.log("Admin: Received counsellor-first structure");
+          return data;
+        }
+
+        // Check if it's the old year/month structure (keys are years like "2026")
+        const isYearMonthStructure = keys.some(key => /^\d{4}$/.test(key));
+        if (isYearMonthStructure) {
+          // console.log("Admin: Received year/month structure, returning as-is");
+          return data;
+        }
+      }
+
+      // Fallback: return empty object if structure doesn't match
+      console.warn("Admin: Unexpected data structure:", typeof data, data);
+      return {};
+    } catch (err: any) {
+      console.error("Failed to fetch clients from API", err);
+      // Check if it's a 404 error (endpoint doesn't exist)
+      if (err.response?.status === 404) {
+        console.error("❌ Backend Error: API endpoint /api/clients/counsellor-clients does not exist (404). Please check backend implementation.");
+      }
+      return {};
+    }
+  },
+
+  getArchivedClients: async (): Promise<any> => {
+    try {
+      const res = await api.get("/api/clients/archived-clients");
+      // console.log("📦 [getArchivedClients] Full API Response:", res);
+      // console.log("📦 [getArchivedClients] res.data:", res.data);
+
+      // Handle response structure: { success: true, data: clients }
+      let data = res.data;
+      if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+        // console.log("📦 [getArchivedClients] Found success wrapper, extracting data");
+        data = data.data;
+        // console.log("📦 [getArchivedClients] Extracted data:", data);
+      }
+
+      // Handle nested response structure: { data: {...} }
+      if (data && typeof data === 'object' && !Array.isArray(data) && data.data) {
+        // console.log("📦 [getArchivedClients] Found nested data.data, extracting");
+        data = data.data;
+        // console.log("📦 [getArchivedClients] Extracted data.data:", data);
+      }
+
+      // Check if it's the counsellor-first structure: { "3": { counsellor: {...}, clients: {...} } }
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const keys = Object.keys(data);
+        const isCounsellorFirstStructure = keys.some(key => {
+          const value = data[key];
+          return value && typeof value === 'object' && (value.counsellor || value.clients);
+        });
+
+        if (isCounsellorFirstStructure) {
+          // console.log("✅ [getArchivedClients] Admin: Received counsellor-first structure");
+          return data;
+        }
+      }
+
+      // Return array if it's an array (for counsellor view)
+      if (Array.isArray(data)) {
+        // console.log("✅ [getArchivedClients] Returning array with", data.length, "clients");
+        return data;
+      }
+
+      console.warn("⚠️ [getArchivedClients] Unexpected data structure, returning as-is. Data:", data);
+      return data || {};
+    } catch (err: any) {
+      console.error("❌ [getArchivedClients] Failed to fetch archived clients from API", err);
+      if (err.response) {
+        console.error("❌ [getArchivedClients] Error response:", err.response.data);
+        console.error("❌ [getArchivedClients] Error status:", err.response.status);
+      }
+      if (err.response?.status === 404) {
+        console.error("❌ Backend Error: API endpoint /api/clients/archived-clients does not exist (404). Please check backend implementation.");
+      }
+      return {};
+    }
+  },
+
+  getCounsellorClients: async (): Promise<Client[]> => {
+    try {
+      const res = await api.get("/api/clients/counsellor-clients");
+      // console.log("Counsellor Clients API Response (raw):", res.data);
+
+      let data = res.data;
+
+      // Handle response structure: { success: true, data: {...} }
+      if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+        data = data.data;
+        // console.log("Extracted data from success wrapper:", data);
+      }
+
+      // Handle nested response structure: { data: {...} }
+      if (data && data.data) {
+        data = data.data;
+        // console.log("Extracted data.data:", data);
+      }
+
+      // Check if data is already a flat array
+      if (Array.isArray(data)) {
+        // console.log("Data is already an array, returning:", data.length, "clients");
+        return data;
+      }
+
+      // Handle nested structure: { "2026": { "Jan": { "clients": [...] } } }
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const allClients: any[] = [];
+
+        // Iterate through years
+        Object.keys(data).forEach(year => {
+          const yearData = data[year];
+          if (yearData && typeof yearData === 'object' && !Array.isArray(yearData)) {
+            // Iterate through months
+            Object.keys(yearData).forEach(month => {
+              const monthData = yearData[month];
+              if (monthData && typeof monthData === 'object') {
+                // Check if it has a clients array
+                if (monthData.clients && Array.isArray(monthData.clients)) {
+                  // Extract clients from this month
+                  allClients.push(...monthData.clients);
+                } else if (Array.isArray(monthData)) {
+                  // Sometimes the month data might be directly an array
+                  allClients.push(...monthData);
+                }
+              }
+            });
+          } else if (Array.isArray(yearData)) {
+            // Sometimes year data might be directly an array
+            allClients.push(...yearData);
+          }
+        });
+
+        // console.log("Flattened clients from nested structure:", allClients.length, "clients");
+        // if (allClients.length > 0) {
+        //   console.log("First client sample:", allClients[0]);
+        // }
+        return allClients;
+      }
+
+      console.warn("Could not parse counsellor clients data. Structure:", typeof data, data);
+      return [];
+    } catch (err) {
+      console.error("Failed to fetch counsellor clients from API", err);
+      return [];
+    }
   },
 
   getClientById: async (id: string): Promise<Client | undefined> => {
@@ -383,7 +559,7 @@ export const clientService = {
     await new Promise(resolve => setTimeout(resolve, 600));
     const index = clients.findIndex(s => s.id === id);
     if (index === -1) return undefined;
-    
+
     clients[index] = { ...clients[index], ...data };
     return clients[index];
   },
@@ -394,28 +570,460 @@ export const clientService = {
     clients = clients.filter(s => s.id !== id);
     return clients.length !== initialLength;
   },
-  
+
   // Dashboard Metrics
-  getDashboardStats: async () => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const totalClients = clients.length;
-    const totalPayment = clients.reduce((sum, s) => sum + s.totalPayment, 0);
-    const totalReceived = clients.reduce((sum, s) => sum + s.amountReceived, 0);
-    const totalPending = clients.reduce((sum, s) => sum + s.amountPending, 0);
-    
-    return {
-      totalClients,
-      totalPayment,
-      totalReceived,
-      totalPending,
-      todaysEnrollments: 2, // Mock
-      upcomingPayments: 5   // Mock
-    };
+  getDashboardStats: async (filter?: string, afterDate?: string, beforeDate?: string) => {
+    try {
+      let url = "/api/dashboard/stats";
+      const params = new URLSearchParams();
+
+      if (filter) {
+        params.append("filter", filter);
+      }
+      if (afterDate) {
+        params.append("afterDate", afterDate);
+      }
+      if (beforeDate) {
+        params.append("beforeDate", beforeDate);
+      }
+
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
+      const res = await api.get(url);
+      return res.data.data || res.data;
+    } catch (err) {
+      console.error("Failed to fetch dashboard stats", err);
+      // Return fallback data on error
+      return {
+        totalClients: { count: 0, change: 0, changeType: "no-change" },
+        totalRevenue: {
+          totalCorePayment: "0.00",
+          totalProductPayment: "0.00",
+          total: "0.00",
+          change: 0,
+          changeType: "no-change"
+        },
+        pendingAmount: {
+          amount: "0.00",
+          breakdown: {
+            initial: "0.00",
+            beforeVisa: "0.00",
+            afterVisa: "0.00",
+            submittedVisa: "0.00"
+          },
+          label: "total outstanding"
+        },
+        newEnrollments: { count: 0, label: "new clients in period" },
+        revenueOverview: []
+      };
+    }
   },
 
   // Activity Logs
   getRecentActivities: async (): Promise<ActivityLogItem[]> => {
     await new Promise(resolve => setTimeout(resolve, 400));
     return [...mockActivities];
+  },
+
+  // Get Activity Logs from API
+  getActivityLogs: async (page: number = 1, limit: number = 50, filters?: {
+    action?: string;
+    entityType?: string;
+    performedBy?: number;
+    clientId?: number;
+  }): Promise<{
+    data: any[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
+  }> => {
+    try {
+      const params = new URLSearchParams();
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
+
+      if (filters?.action) params.append("action", filters.action);
+      if (filters?.entityType) params.append("entityType", filters.entityType);
+      if (filters?.performedBy) params.append("performedBy", filters.performedBy.toString());
+      if (filters?.clientId) params.append("clientId", filters.clientId.toString());
+
+      const res = await api.get(`/api/activity-logs?${params.toString()}`);
+      return {
+        data: res.data.data || [],
+        pagination: res.data.pagination || {
+          page: 1,
+          limit: 50,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+        },
+      };
+    } catch (err) {
+      console.error("Failed to fetch activity logs", err);
+      return {
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 50,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+        },
+      };
+    }
+  },
+
+  getCounsellors: async (search?: string): Promise<any[]> => {
+    try {
+      let url = "/api/users/counsellors";
+      if (search && search.length >= 3) {
+        url += `?search=${encodeURIComponent(search)}`;
+      }
+      const res = await api.get(url);
+      return res.data.data || [];
+    } catch (err) {
+      console.error("Failed to fetch counsellors", err);
+      return [];
+    }
+  },
+
+  // Get all clients for admin (with optional search)
+  getAllClients: async (search?: string): Promise<any[]> => {
+    try {
+      let url = "/api/clients/admin/all-clients";
+      if (search && search.length >= 3) {
+        url += `?search=${encodeURIComponent(search)}`;
+      }
+      const res = await api.get(url);
+      return res.data.data || res.data || [];
+    } catch (err) {
+      console.error("Failed to fetch all clients", err);
+      return [];
+    }
+  },
+
+  // Transfer client to another counsellor
+  transferClient: async (clientId: number, counsellorId: number): Promise<any> => {
+    try {
+      const res = await api.put("/api/clients/admin/transfer-client", {
+        clientId,
+        counsellorId
+      });
+      return res.data.data || res.data;
+    } catch (err: any) {
+      console.error("Failed to transfer client", err);
+      throw err;
+    }
+  },
+
+  // Get current user profile
+  getUserProfile: async (): Promise<any> => {
+    try {
+      const res = await api.get("/api/users/me");
+      // console.log("[getUserProfile] API Response:", res.data);
+
+      // API returns data directly at root level (not nested in data property)
+      // Response structure: { message, fullname, email, empid, ... }
+      // Extract the user data (exclude 'message' field)
+      const { message, ...userData } = res.data || {};
+      return userData;
+    } catch (err: any) {
+      console.error("Failed to fetch user profile", err);
+
+      // Provide more detailed error information
+      if (err.response?.status === 404) {
+        console.error("❌ Backend Error: API endpoint /api/users/me does not exist (404).");
+        console.error("   Please verify that the backend has this endpoint implemented.");
+        console.error("   Expected endpoint: GET /api/users/me");
+      } else if (err.response?.status === 401) {
+        console.error("❌ Authentication Error: User is not authenticated (401).");
+      } else if (err.response?.status === 403) {
+        console.error("❌ Authorization Error: User does not have permission (403).");
+      } else if (err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
+        console.error("❌ Network Error: Could not reach the backend server.");
+        console.error("   Check if the backend is running and accessible.");
+      }
+
+      throw err;
+    }
+  },
+
+  getClientsByCounsellor: async (counsellorId: number): Promise<any> => {
+    try {
+      const res = await api.get(`/api/clients/${counsellorId}`);
+      return res.data.data || {};
+    } catch (err: any) {
+      console.error(`Failed to fetch clients for counsellor ${counsellorId}`, err);
+      // Check if it's a 400 error (bad request - wrong endpoint format)
+      if (err.response?.status === 400) {
+        console.error(`❌ Backend Error: API endpoint /api/clients/${counsellorId} returned 400 (Bad Request). The endpoint may not accept this format.`);
+      } else if (err.response?.status === 404) {
+        console.error(`❌ Backend Error: API endpoint /api/clients/${counsellorId} does not exist (404).`);
+      }
+      return {};
+    }
+  },
+
+  getClientCompleteDetails: async (clientId: number): Promise<any> => {
+    try {
+      const res = await api.get(`/api/clients/${clientId}/complete`);
+      return res.data.data || null;
+    } catch (err) {
+      console.error(`Failed to fetch complete details for client ${clientId}`, err);
+      return null;
+    }
+  },
+
+  archiveClient: async (clientId: number, archived: boolean): Promise<any> => {
+    try {
+      const res = await api.put(`/api/clients/${clientId}/archive`, { archived });
+      return res.data.data || res.data;
+    } catch (err: any) {
+      console.error(`Failed to archive/unarchive client ${clientId}`, err);
+      throw err;
+    }
+  },
+
+  // Leaderboard APIs
+  getLeaderboard: async (month: number, year: number): Promise<{ data: any[]; summary?: { totalCounsellors: number; totalEnrollments: number; totalRevenue: number } }> => {
+    try {
+      const res = await api.get(`/api/leaderboard?month=${month}&year=${year}`);
+      const body = res.data;
+      // API returns { success, data, summary, month, year }; return so component can use summary
+      if (body && typeof body === 'object' && Array.isArray(body.data)) {
+        return { data: body.data, summary: body.summary };
+      }
+      return { data: Array.isArray(body) ? body : [], summary: undefined };
+    } catch (err: any) {
+      console.error(`Failed to fetch leaderboard for ${month}/${year}`, err);
+      throw err;
+    }
+  },
+
+  setTarget: async (counsellorId: number, target: number, month: number, year: number): Promise<any> => {
+    try {
+      const res = await api.post("/api/leaderboard/target", {
+        counsellorId,
+        target,
+        month,
+        year
+      });
+      return res.data.data || res.data;
+    } catch (err: any) {
+      console.error(`Failed to set target for counsellor ${counsellorId}`, err);
+      throw err;
+    }
+  },
+
+  // Message APIs
+  acknowledgeMessage: async (messageId: number, method: 'button' | 'timer' = 'button'): Promise<any> => {
+    try {
+      const res = await api.post(`/api/messages/${messageId}/acknowledge`, { method });
+      return res.data.data || res.data;
+    } catch (err: any) {
+      console.error(`Failed to acknowledge message ${messageId}`, err);
+      throw err;
+    }
+  },
+
+  getUnacknowledgedMessages: async (): Promise<any[]> => {
+    try {
+      const res = await api.get("/api/messages/unacknowledged");
+      // Handle response structure: { success: true, data: { messages: [...] } } or { data: [...] }
+      if (res.data?.data?.messages && Array.isArray(res.data.data.messages)) {
+        return res.data.data.messages;
+      }
+      if (res.data?.data && Array.isArray(res.data.data)) {
+        return res.data.data;
+      }
+      if (Array.isArray(res.data)) {
+        return res.data;
+      }
+      return [];
+    } catch (err: any) {
+      console.error("Failed to fetch unacknowledged messages", err);
+      return [];
+    }
+  },
+
+  getMessages: async (): Promise<any[]> => {
+    try {
+      const res = await api.get("/api/messages");
+      // Handle response structure: { success: true, data: { messages: [...], pagination: {...} } }
+      if (res.data?.data?.messages && Array.isArray(res.data.data.messages)) {
+        return res.data.data.messages;
+      }
+      if (res.data?.data && Array.isArray(res.data.data)) {
+        return res.data.data;
+      }
+      if (Array.isArray(res.data)) {
+        return res.data;
+      }
+      return [];
+    } catch (err: any) {
+      console.error("Failed to fetch messages", err);
+      return [];
+    }
+  },
+
+  // Get inbox messages for counsellors and managers (their messages only)
+  getInboxMessages: async (): Promise<any[]> => {
+    try {
+      const res = await api.get("/api/messages/inbox");
+      // Handle response structure: { success: true, data: { messages: [...], pagination: {...} } }
+      if (res.data?.data?.messages && Array.isArray(res.data.data.messages)) {
+        return res.data.data.messages;
+      }
+      if (res.data?.data && Array.isArray(res.data.data)) {
+        return res.data.data;
+      }
+      if (Array.isArray(res.data)) {
+        return res.data;
+      }
+      return [];
+    } catch (err: any) {
+      console.error("Failed to fetch inbox messages", err);
+      return [];
+    }
+  },
+
+  // Admin only - Send broadcast message
+  createBroadcastMessage: async (data: {
+    title?: string;
+    message: string;
+    targetRoles: string[]; // ['manager', 'counsellor'] or both
+    priority?: 'low' | 'normal' | 'high' | 'urgent';
+  }): Promise<any> => {
+    try {
+      const res = await api.post("/api/messages/broadcast", data);
+      return res.data.data || res.data;
+    } catch (err: any) {
+      console.error("Failed to create broadcast message", err);
+      throw err;
+    }
+  },
+
+  // Admin only - Send individual message
+  createIndividualMessage: async (data: {
+    title?: string;
+    message: string;
+    targetUserIds: number[]; // [5, 10, 15] - specific user IDs
+    priority?: 'low' | 'normal' | 'high' | 'urgent';
+  }): Promise<any> => {
+    try {
+      const res = await api.post("/api/messages/individual", data);
+      return res.data.data || res.data;
+    } catch (err: any) {
+      console.error("Failed to create individual message", err);
+      throw err;
+    }
+  },
+
+  // Get users for message targeting (Admin only)
+  getUsersForMessage: async (roles?: string[]): Promise<any[]> => {
+    try {
+      const params = roles ? { roles: roles.join(',') } : {};
+      const res = await api.get("/api/users", { params });
+      // Handle different response structures
+      if (res.data?.data && Array.isArray(res.data.data)) {
+        return res.data.data;
+      }
+      if (Array.isArray(res.data)) {
+        return res.data;
+      }
+      return [];
+    } catch (err: any) {
+      console.error("Failed to fetch users for message", err);
+      return [];
+    }
+  },
+
+  // Get message acknowledgment status (Admin only)
+  getMessageStatus: async (messageId: number): Promise<any> => {
+    try {
+      const res = await api.get(`/api/messages/${messageId}/acknowledgments`);
+      return res.data.data || res.data;
+    } catch (err: any) {
+      console.error(`Failed to fetch message status for ${messageId}`, err);
+      throw err;
+    }
+  },
+
+  // Deactivate message (Admin only)
+  deactivateMessage: async (messageId: number): Promise<any> => {
+    try {
+      const res = await api.patch(`/api/messages/${messageId}/deactivate`, {});
+      return res.data.data || res.data;
+    } catch (err: any) {
+      console.error(`Failed to deactivate message ${messageId}`, err);
+      throw err;
+    }
+  },
+
+  // All Finance Approval APIs
+  // Get pending all finance approvals (Admin/Manager only)
+  getPendingAllFinanceApprovals: async (): Promise<any[]> => {
+    try {
+      // console.log("[clientService] Fetching pending all finance approvals...");
+      const res = await api.get("/api/all-finance/pending");
+      // console.log("[clientService] Pending approvals API response:", {
+      //   status: res.status,
+      //   data: res.data,
+      //   dataData: res.data?.data,
+      //   count: res.data?.data?.length || res.data?.count || 0
+      // });
+      const approvals = res.data.data || res.data || [];
+      // console.log("[clientService] Returning approvals:", approvals);
+      return approvals;
+    } catch (err: any) {
+      console.error("[clientService] Failed to fetch pending all finance approvals", err);
+      console.error("[clientService] Error details:", {
+        message: err?.message,
+        response: err?.response,
+        status: err?.response?.status,
+        data: err?.response?.data
+      });
+      // Return empty array instead of throwing to prevent UI errors
+      return [];
+    }
+  },
+
+  // Approve all finance payment (Admin/Manager only)
+  approveAllFinancePayment: async (financeId: number): Promise<any> => {
+    try {
+      // console.log(`[clientService] Approving all finance payment, financeId: ${financeId}`);
+      // console.log(`[clientService] API endpoint: /api/all-finance/${financeId}/approve`);
+      const res = await api.post(`/api/all-finance/${financeId}/approve`);
+      // console.log(`[clientService] Approval response:`, res.data);
+      return res.data.data || res.data;
+    } catch (err: any) {
+      console.error(`[clientService] Failed to approve all finance payment ${financeId}`, err);
+      console.error(`[clientService] Error response:`, err?.response);
+      throw err;
+    }
+  },
+
+  // Reject all finance payment (Admin/Manager only)
+  rejectAllFinancePayment: async (financeId: number): Promise<any> => {
+    try {
+      // console.log(`[clientService] Rejecting all finance payment, financeId: ${financeId}`);
+      // console.log(`[clientService] API endpoint: /api/all-finance/${financeId}/reject`);
+      const res = await api.post(`/api/all-finance/${financeId}/reject`);
+      // console.log(`[clientService] Rejection response:`, res.data);
+      return res.data.data || res.data;
+    } catch (err: any) {
+      console.error(`[clientService] Failed to reject all finance payment ${financeId}`, err);
+      console.error(`[clientService] Error response:`, err?.response);
+      throw err;
+    }
   }
 };

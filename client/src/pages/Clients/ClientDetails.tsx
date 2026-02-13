@@ -64,21 +64,21 @@ export default function ClientDetails() {
   const paymentsTab = (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
-        <PaymentCard 
-          title="Total Payment" 
-          amount={client.totalPayment} 
-          status="Pending" 
-          className="border-l-blue-500" 
+        <PaymentCard
+          title="Total Payment"
+          amount={client.totalPayment}
+          status="Pending"
+          className="border-l-blue-500"
         />
-        <PaymentCard 
-          title="Received Amount" 
-          amount={client.amountReceived} 
-          status="Paid" 
+        <PaymentCard
+          title="Received Amount"
+          amount={client.amountReceived}
+          status="Paid"
         />
-        <PaymentCard 
-          title="Pending Amount" 
-          amount={client.amountPending} 
-          status={client.amountPending > 0 ? "Pending" : "Paid"} 
+        <PaymentCard
+          title="Pending Amount"
+          amount={client.amountPending}
+          status={client.amountPending > 0 ? "Pending" : "Paid"}
           className={client.amountPending > 0 ? "border-l-red-500" : "border-l-green-500"}
         />
       </div>
@@ -172,7 +172,7 @@ export default function ClientDetails() {
       if (client.visitorFields.baseFee?.amount) items.push({ label: "Base Fee", value: `₹${client.visitorFields.baseFee.amount.toLocaleString()}` });
       if (client.visitorFields.sponsorCharges?.amount) items.push({ label: "Sponsor Charges", value: `₹${client.visitorFields.sponsorCharges.amount.toLocaleString()}` });
       if (client.visitorFields.insurance?.amount) items.push({ label: "Insurance", value: `₹${client.visitorFields.insurance.amount.toLocaleString()}` });
-      if (client.visitorFields.beaconAccount?.fundingAmount) items.push({ label: "Beacon Account Funding", value: `₹${client.visitorFields.beaconAccount.fundingAmount.toLocaleString()}` });
+      if (client.visitorFields.beaconAccount?.fundingAmount) items.push({ label: "Beacon Account Funding", value: `$${client.visitorFields.beaconAccount.fundingAmount.toLocaleString()}` });
       if (client.visitorFields.airTicket?.amount) items.push({ label: "Air Ticket", value: `₹${client.visitorFields.airTicket.amount.toLocaleString()}` });
       return items;
     }
@@ -197,7 +197,7 @@ export default function ClientDetails() {
   );
 
   return (
-    <PageWrapper 
+    <PageWrapper
       title={`Client: ${client.name}`}
       breadcrumbs={[
         { label: "Clients", href: "/clients" },
@@ -210,7 +210,7 @@ export default function ClientDetails() {
         </Button>
       }
     >
-      <SectionTabs 
+      <SectionTabs
         items={[
           { value: "overview", label: "Overview", content: overviewTab },
           { value: "payments", label: "Payments", content: paymentsTab },

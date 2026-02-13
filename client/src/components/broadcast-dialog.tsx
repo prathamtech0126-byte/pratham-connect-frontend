@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { 
+import { useState, useMemo } from "react";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -13,64 +13,86 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { AlertTriangle, Send, Megaphone, PartyPopper } from "lucide-react";
+import { AlertTriangle, Send, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAlert, AlertType } from "@/context/alert-context";
+import { clientService } from "@/services/clientService";
+import { useQueryClient } from "@tanstack/react-query";
+import { MessagePriority } from "@/types/message.types";
 
 export function BroadcastDialog({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [title, setTitle] = useState("Important Announcement");
-  const [type, setType] = useState<AlertType>("announcement");
+  const [priority, setPriority] = useState<MessagePriority>("normal");
+  const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
-  const { triggerAlert } = useAlert();
-  
+  const queryClient = useQueryClient();
+
   const [recipients, setRecipients] = useState({
     all: false,
     managers: true,
     counselors: true,
-    directors: true,
+    directors: false, // Directors typically don't receive broadcast messages
   });
 
-  const handleSend = () => {
-    if (!message.trim()) return;
-
-    // Determine target roles
-    const targetRoles: string[] = [];
+  // Determine target roles (only manager and counsellor for new message system)
+  const targetRoles = useMemo(() => {
+    const roles: string[] = [];
     if (recipients.all) {
-      targetRoles.push('all');
+      roles.push('manager', 'counsellor');
     } else {
-      if (recipients.managers) targetRoles.push('manager');
-      if (recipients.counselors) targetRoles.push('counsellor');
-      if (recipients.directors) targetRoles.push('director');
+      if (recipients.managers) roles.push('manager');
+      if (recipients.counselors) roles.push('counsellor');
+    }
+    return roles;
+  }, [recipients]);
+
+  const handleSend = async () => {
+    if (!message.trim() || message.trim().length < 5) {
+      // Error is shown below the textarea, no toast needed
+      return;
     }
 
-    // 1. Show toast that message is "sent"
-    toast({
-      title: "Broadcast Sent Successfully",
-      description: `Message sent to ${recipients.all ? "all users" : "selected groups"}.`,
-      variant: "default", 
-      className: "bg-green-600 text-white border-none"
-    });
+    if (targetRoles.length === 0) {
+      toast({
+        title: "No recipients selected",
+        description: "Please select at least one recipient role (Manager or Counsellor).",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setOpen(false);
+    setIsSending(true);
+    try {
+      await clientService.createBroadcastMessage({
+        title: title || undefined,
+        message: message,
+        targetRoles: targetRoles,
+        priority: priority,
+      });
 
-    // 2. Simulate the effect locally after a short delay so the admin sees what happens
-    // NOTE: Admin/Director won't see the freeze themselves due to updated logic in EmergencyAlert
-    setTimeout(() => {
-      triggerAlert(message, targetRoles, title, type);
-    }, 1500);
-    
-    setMessage("");
-    setTitle("Important Announcement");
-  };
+      toast({
+        title: "Broadcast Sent Successfully",
+        description: `Message sent to ${targetRoles.length} role(s) via WebSocket.`,
+        variant: "default",
+      });
 
-  const getTypeStyles = (t: AlertType) => {
-    switch(t) {
-      case 'emergency': return "bg-red-100 text-red-600 border-red-200";
-      case 'good_news': return "bg-green-100 text-green-600 border-green-200";
-      default: return "bg-blue-100 text-blue-600 border-blue-200";
+      setOpen(false);
+      setMessage("");
+      setTitle("Important Announcement");
+      setPriority("normal");
+
+      // Refresh messages list
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      queryClient.invalidateQueries({ queryKey: ["messageHistory"] });
+    } catch (error: any) {
+      toast({
+        title: "Failed to send broadcast",
+        description: error.response?.data?.message || error.message || "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -79,72 +101,15 @@ export function BroadcastDialog({ children }: { children: React.ReactNode }) {
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-w-[95vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`p-2 rounded-full ${getTypeStyles(type)}`}>
-              {type === 'emergency' && <AlertTriangle className="w-5 h-5" />}
-              {type === 'announcement' && <Megaphone className="w-5 h-5" />}
-              {type === 'good_news' && <PartyPopper className="w-5 h-5" />}
-            </div>
-            <DialogTitle className="text-xl">Send Broadcast</DialogTitle>
-          </div>
+          <DialogTitle className="text-xl">Send Broadcast</DialogTitle>
           <DialogDescription>
             Send a full-screen alert to users. They will be required to acknowledge it to continue working.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-6 py-4">
-          
-          <div className="space-y-3">
-            <Label className="font-semibold">Alert Type</Label>
-            <RadioGroup 
-              defaultValue="announcement" 
-              value={type} 
-              onValueChange={(v) => {
-                setType(v as AlertType);
-                // Update default title based on type if user hasn't typed a custom one or it matches a default
-                if (title === "Emergency Alert" || title === "Important Announcement" || title === "Good News!") {
-                  if (v === 'emergency') setTitle("Emergency Alert");
-                  else if (v === 'good_news') setTitle("Good News!");
-                  else setTitle("Important Announcement");
-                }
-              }}
-              className="grid grid-cols-3 gap-4"
-            >
-              <div>
-                <RadioGroupItem value="announcement" id="type-announcement" className="peer sr-only" />
-                <Label
-                  htmlFor="type-announcement"
-                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-blue-500 peer-data-[state=checked]:bg-blue-50 peer-data-[state=checked]:text-blue-700 cursor-pointer"
-                >
-                  <Megaphone className="mb-2 h-6 w-6" />
-                  Announcement
-                </Label>
-              </div>
-              <div>
-                <RadioGroupItem value="good_news" id="type-good_news" className="peer sr-only" />
-                <Label
-                  htmlFor="type-good_news"
-                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-green-500 peer-data-[state=checked]:bg-green-50 peer-data-[state=checked]:text-green-700 cursor-pointer"
-                >
-                  <PartyPopper className="mb-2 h-6 w-6" />
-                  Good News
-                </Label>
-              </div>
-              <div>
-                <RadioGroupItem value="emergency" id="type-emergency" className="peer sr-only" />
-                <Label
-                  htmlFor="type-emergency"
-                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-red-500 peer-data-[state=checked]:bg-red-50 peer-data-[state=checked]:text-red-700 cursor-pointer"
-                >
-                  <AlertTriangle className="mb-2 h-6 w-6" />
-                  Emergency
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-
+        <div className="grid gap-6 py-4 px-1">
           <div className="grid gap-2">
             <Label htmlFor="title" className="font-semibold">Subject / Title</Label>
             <Input
@@ -157,22 +122,53 @@ export function BroadcastDialog({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="message" className="font-semibold">Message Content</Label>
+            <Label htmlFor="message" className="font-semibold">Message Content *</Label>
             <Textarea
               id="message"
-              placeholder="Enter your message here..."
+              placeholder="Enter your message here (minimum 5 characters)..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="min-h-[100px]"
+              className={`min-h-[120px] resize-none ${
+                message.trim().length > 0 && message.trim().length < 5
+                  ? "border-destructive focus-visible:ring-destructive"
+                  : ""
+              }`}
+              minLength={5}
             />
+            {message.trim().length > 0 && message.trim().length < 5 && (
+              <p className="text-sm text-destructive font-medium flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4" />
+                Message must be at least 5 characters ({message.trim().length}/5)
+              </p>
+            )}
+            {message.trim().length >= 5 && (
+              <p className="text-xs text-muted-foreground">
+                {message.trim().length} characters
+              </p>
+            )}
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="priority" className="font-semibold">Priority</Label>
+            <select
+              id="priority"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as MessagePriority)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
           </div>
 
           <div className="space-y-3">
-            <Label className="font-semibold">Recipients</Label>
-            <div className="grid grid-cols-2 gap-4">
+            <Label className="font-semibold text-base">Recipients</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-muted/30 rounded-lg border border-border">
               <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="all" 
+                <Checkbox
+                  id="all"
                   checked={recipients.all}
                   onCheckedChange={(checked) => setRecipients(prev => ({ ...prev, all: !!checked }))}
                 />
@@ -181,8 +177,8 @@ export function BroadcastDialog({ children }: { children: React.ReactNode }) {
                 </label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="managers" 
+                <Checkbox
+                  id="managers"
                   checked={recipients.managers || recipients.all}
                   disabled={recipients.all}
                   onCheckedChange={(checked) => setRecipients(prev => ({ ...prev, managers: !!checked }))}
@@ -192,8 +188,8 @@ export function BroadcastDialog({ children }: { children: React.ReactNode }) {
                 </label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="counselors" 
+                <Checkbox
+                  id="counselors"
                   checked={recipients.counselors || recipients.all}
                   disabled={recipients.all}
                   onCheckedChange={(checked) => setRecipients(prev => ({ ...prev, counselors: !!checked }))}
@@ -202,30 +198,27 @@ export function BroadcastDialog({ children }: { children: React.ReactNode }) {
                   Counselors
                 </label>
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="directors" 
-                  checked={recipients.directors || recipients.all}
-                  disabled={recipients.all}
-                  onCheckedChange={(checked) => setRecipients(prev => ({ ...prev, directors: !!checked }))}
-                />
-                <label htmlFor="directors" className="text-sm font-medium leading-none cursor-pointer">
-                  Directors
-                </label>
-              </div>
             </div>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button 
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={isSending}>Cancel</Button>
+          <Button
             onClick={handleSend}
-            disabled={!message.trim()}
+            disabled={!message.trim() || message.trim().length < 5 || isSending || targetRoles.length === 0}
             className="bg-primary text-primary-foreground gap-2"
+            title={!message.trim() ? "Please enter a message" : message.trim().length < 5 ? `Message must be at least 5 characters (${message.trim().length}/5)` : targetRoles.length === 0 ? "Please select at least one recipient" : ""}
           >
-            <Send className="w-4 h-4" />
-            Send Broadcast
+            {isSending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Sending...
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" /> Send Broadcast
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

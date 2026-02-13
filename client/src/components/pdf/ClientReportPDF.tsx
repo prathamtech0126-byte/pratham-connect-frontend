@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   statusActive: { backgroundColor: '#dcfce7', color: '#166534' },
   statusPending: { backgroundColor: '#fef9c3', color: '#854d0e' },
   statusCompleted: { backgroundColor: '#f3f4f6', color: '#374151' },
-  
+
   // Money text
   moneyText: {
     fontFamily: 'Helvetica-Bold',
@@ -208,20 +208,20 @@ export const ClientReportPDF = ({ clients, filterDescription }: ClientReportPDFP
             <Text style={[styles.tableCell, styles.colDate]}>{client.enrollmentDate}</Text>
             <Text style={[styles.tableCell, styles.colPM]}>{client.productManager}</Text>
             <Text style={[styles.tableCell, styles.colPayment]}>₹{client.totalPayment.toLocaleString()}</Text>
-            
+
             <Text style={[styles.tableCell, styles.colReceived, styles.moneyText, styles.textGreen]}>
               ₹{client.amountReceived.toLocaleString()}
             </Text>
-            
+
             <Text style={[
-              styles.tableCell, 
-              styles.colPending, 
-              styles.moneyText, 
+              styles.tableCell,
+              styles.colPending,
+              styles.moneyText,
               client.amountPending > 0 ? styles.textRed : styles.textMuted
             ]}>
               ₹{client.amountPending.toLocaleString()}
             </Text>
-            
+
             <Text style={[styles.tableCell, styles.colCounsellor]}>{client.counsellor}</Text>
             <StatusBadge status={client.status} />
           </View>

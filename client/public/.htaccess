@@ -1,0 +1,28 @@
+Options -MultiViews
+
+RewriteEngine On
+
+# SPA Redirects
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [QSA,L]
+
+# Cache static assets correctly
+<IfModule mod_headers.c>
+
+  # Cache JS/CSS for 7 days
+  <FilesMatch "\.(js|css)$">
+    Header set Cache-Control "public, max-age=604800, immutable"
+  </FilesMatch>
+
+  # Cache images for 1 month
+  <FilesMatch "\.(png|jpg|jpeg|gif|svg|webp)$">
+    Header set Cache-Control "public, max-age=2592000, immutable"
+  </FilesMatch>
+
+  # Do NOT cache HTML
+  <FilesMatch "\.(html)$">
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+  </FilesMatch>
+
+</IfModule>

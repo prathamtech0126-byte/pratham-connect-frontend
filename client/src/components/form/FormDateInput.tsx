@@ -12,13 +12,15 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 
-interface FormDateInputProps<T extends FieldValues> {
-  name: Path<T>;
-  control: Control<T>;
+interface FormDateInputProps<TFieldValues extends FieldValues> {
+  name: Path<TFieldValues>;
+  control: Control<TFieldValues, any, any>;
   label: string;
   className?: string;
   maxDate?: Date;
+  disabled?: boolean;
 }
+
 
 export function FormDateInput<T extends FieldValues>({
   name,
@@ -26,6 +28,7 @@ export function FormDateInput<T extends FieldValues>({
   label,
   className,
   maxDate,
+  disabled,
 }: FormDateInputProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -42,6 +45,8 @@ export function FormDateInput<T extends FieldValues>({
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
+                  type="button"
+                  disabled={disabled}
                   className={cn(
                     "w-full pl-3 text-left font-normal",
                     !field.value && "text-muted-foreground",
@@ -49,7 +54,17 @@ export function FormDateInput<T extends FieldValues>({
                   )}
                 >
                   {field.value ? (
-                    format(new Date(field.value), "PPP")
+                    (() => {
+                      try {
+                        // Handle both YYYY-MM-DD and ISO string formats
+                        const dateStr = field.value.includes("T")
+                          ? field.value
+                          : `${field.value}T00:00:00`;
+                        return format(new Date(dateStr), "PPP");
+                      } catch {
+                        return field.value;
+                      }
+                    })()
                   ) : (
                     <span>Pick a date</span>
                   )}
@@ -59,13 +74,34 @@ export function FormDateInput<T extends FieldValues>({
 
               <PopoverContent className="w-auto p-0" align="start">
                 <SimpleCalendar
-                  value={field.value ? new Date(field.value) : undefined}
+                  value={field.value ? (() => {
+                    try {
+                      // Handle both YYYY-MM-DD and ISO string formats
+                      const dateStr = field.value.includes("T")
+                        ? field.value
+                        : `${field.value}T00:00:00`;
+                      return new Date(dateStr);
+                    } catch {
+                      return undefined;
+                    }
+                  })() : undefined}
                   maxDate={maxDate}
                   onChange={(date) => {
                     if (date instanceof Date) {
-                      field.onChange(date.toISOString());
+                      // Format as YYYY-MM-DD to avoid timezone conversion issues
+                      // Use local date components to preserve the selected date
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      field.onChange(`${year}-${month}-${day}`);
                     } else if (Array.isArray(date) && date.length > 0 && date[0] instanceof Date) {
-                      field.onChange(date[0].toISOString());
+                      // Format as YYYY-MM-DD to avoid timezone conversion issues
+                      // Use local date components to preserve the selected date
+                      const d = date[0];
+                      const year = d.getFullYear();
+                      const month = String(d.getMonth() + 1).padStart(2, '0');
+                      const day = String(d.getDate()).padStart(2, '0');
+                      field.onChange(`${year}-${month}-${day}`);
                     }
                     setIsOpen(false);
                   }}

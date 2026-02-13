@@ -18,11 +18,13 @@ import {
     Crown,
     ArrowRight,
     CheckCircle2,
+    Eye,
+    EyeOff,
 } from "lucide-react";
 import logoUrl from "@/assets/images/Pratham Logo.svg";
 import { ModeToggle } from "@/components/mode-toggle";
 
-import api, { setInMemoryToken } from "@/lib/api";
+import api, { setInMemoryToken, setCsrfToken } from "@/lib/api";
 
 import { useToast } from "@/hooks/use-toast";
 
@@ -38,6 +40,7 @@ export default function Login() {
         username?: boolean;
         password?: boolean;
     }>({});
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleLogin = async (e?: React.FormEvent) => {
         if (e) {
@@ -63,7 +66,22 @@ export default function Login() {
         setIsSubmitting(true);
 
         try {
-            console.log("Attempting login...");
+
+            // For Render.com free tier: Wake up the server first
+            // Free tier instances spin down after inactivity and take ~50 seconds to wake up
+            // We'll make a lightweight request first to wake it up
+            try {
+                // Try a simple GET request to wake up the server
+                // Use a shorter timeout for the wake-up call
+                await Promise.race([
+                    api.get("/api/users/refresh", { timeout: 30000 }).catch(() => {}),
+                    new Promise(resolve => setTimeout(resolve, 2000)) // Don't wait more than 2 seconds
+                ]);
+            } catch (healthError) {
+                // Ignore - server might be waking up, we'll proceed with login
+                console.error("Server may be waking up, proceeding with login...", healthError);
+            }
+
             const response = await api.post(
                 "/api/users/login",
                 {
@@ -74,43 +92,41 @@ export default function Login() {
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    timeout: 10000,
+                    timeout: 90000, // 90 seconds - increased for Render.com free tier
                 },
             );
-            console.log("Login response:", response.status);
-
-            const { accessToken, role } = response.data;
+            const { accessToken, role, csrfToken: csrf, csrf_token: csrfSnake } = response.data;
 
             if (!accessToken) {
                 throw new Error("No access token received from server");
             }
 
-            // Remove old accessToken from localStorage if it exists
             localStorage.removeItem("accessToken");
-
-            // Store token in memory via api helper
             setInMemoryToken(accessToken);
-            
+            const newCsrf = csrf ?? csrfSnake ?? null;
+            if (newCsrf) setCsrfToken(newCsrf);
+
             // Cleanup: ensure no legacy token is in cookies/localStorage
-            document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-            
+            document.cookie =
+                "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
             const mappedRole = (
                 role === "admin" ? "superadmin" : role
             ) as UserRole;
 
             // Clear all other potentially stale tokens from previous sessions
-            localStorage.removeItem('auth_user');
-            
+            localStorage.removeItem("auth_user");
+
             // Create user object from backend response
+            // Get user info from backend response if available
             const userData = {
-              id: String(Date.now()),
-              username: username,
-              name: username.split("@")[0],
-              role: mappedRole
+                id: response.data.userId ? String(response.data.userId) : String(Date.now()),
+                username: response.data.username || username,
+                name: response.data.name || response.data.fullname || username.split("@")[0],
+                role: mappedRole,
             };
-            
+
             // Pass both role and user data
-            console.log("Logging in user:", userData);
             login(mappedRole, userData);
 
             toast({
@@ -119,16 +135,69 @@ export default function Login() {
             });
         } catch (error: any) {
             console.error("Login error caught:", error);
-            
+            console.error("Error details:", {
+                code: error.code,
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                request: error.request,
+                config: {
+                    url: error.config?.url,
+                    baseURL: error.config?.baseURL,
+                    method: error.config?.method,
+                },
+            });
+
             let msg = "Invalid email or password";
 
-            if (error.code === 'ECONNABORTED') {
-                msg = "Request timeout. Please check your connection.";
+            // Check for CORS errors specifically
+            if (error.message?.includes('CORS') || error.code === 'ERR_CORS') {
+                msg = "CORS Error: Backend server needs to allow requests from this domain. Please configure CORS on the backend to allow: " + window.location.origin;
+            } else if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
+                msg = "Request timeout. The server might be waking up (Render.com free tier takes ~50 seconds). Please try again in a moment.";
+            } else if (error.code === "ERR_NETWORK" || error.code === "ECONNREFUSED") {
+                const backendUrl = import.meta.env.VITE_API_URL || "https://csm-backend-59rq.onrender.com";
+                // Check if it's a CORS issue by looking at the error
+                if (error.message?.includes('CORS') || error.message?.includes('Access-Control')) {
+                    msg = `CORS Error: Backend at ${backendUrl} is not allowing requests from ${window.location.origin}. Please configure CORS on the backend.`;
+                } else {
+                    msg = `Cannot reach server at ${backendUrl}. The server might be spinning up (free tier). Please wait 30-60 seconds and try again.`;
+                }
             } else if (error.response) {
-                console.log("Error response data:", error.response.data);
-                msg = error.response.data?.message || "Invalid credentials";
+                // Check response status
+                if (error.response.status === 0) {
+                    msg = "CORS Error: Backend is blocking requests from this domain. Please configure CORS on the backend.";
+                } else if (error.response.status === 500) {
+                    // 500 Internal Server Error - backend issue
+                    const errorData = error.response.data;
+                    let errorMessage = "Internal server error";
+
+                    if (typeof errorData === 'string') {
+                        errorMessage = errorData;
+                    } else if (errorData?.message) {
+                        errorMessage = errorData.message;
+                    } else if (errorData?.error) {
+                        errorMessage = errorData.error;
+                    }
+
+                    msg = `Server Error (500): ${errorMessage}. Please check backend logs.`;
+                    console.error("[Login] 500 Error Full Response:", {
+                        status: error.response.status,
+                        data: errorData,
+                        headers: error.response.headers,
+                    });
+                } else if (error.response.status === 401 || error.response.status === 403) {
+                    msg = error.response.data?.message || "Invalid credentials";
+                } else {
+                    msg = error.response.data?.message || `Server returned error ${error.response.status}`;
+                }
             } else if (error.request) {
-                msg = "Cannot reach server. Please try again.";
+                // No response received - could be CORS or network issue
+                if (error.request.status === 0) {
+                    msg = "CORS Error: Backend server is not allowing requests from " + window.location.origin + ". Please configure CORS on the backend.";
+                } else {
+                    msg = "Cannot reach server. If using Render.com free tier, the server may be spinning up (takes ~50 seconds). Please wait and try again.";
+                }
             }
 
             setErrorMessage(msg);
@@ -147,11 +216,14 @@ export default function Login() {
     const isLoading = authLoading || isSubmitting;
 
     return (
-        <div className="min-h-screen w-full flex bg-background transition-colors duration-300" onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-                handleLogin();
-            }
-        }}>
+        <div
+            className="min-h-screen w-full flex bg-background transition-colors duration-300"
+            onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                    handleLogin();
+                }
+            }}
+        >
             <div className="absolute top-4 right-4 z-50">
                 <ModeToggle />
             </div>
@@ -239,7 +311,10 @@ export default function Login() {
 
             {/* Right Panel - Login Form */}
             <div className="flex-1 flex items-center justify-center p-8 lg:p-12 relative">
-                <div className="w-full max-w-[420px] space-y-8" onClick={(e) => e.stopPropagation()}>
+                <div
+                    className="w-full max-w-[420px] space-y-8"
+                    onClick={(e) => e.stopPropagation()}
+                >
                     <div className="text-center lg:text-left space-y-2">
                         <h2 className="text-3xl font-bold tracking-tight text-foreground">
                             Welcome back
@@ -252,7 +327,7 @@ export default function Login() {
                     <Card className="border border-border/50 shadow-2xl shadow-primary/5 bg-card/50 backdrop-blur-sm">
                         <CardContent className="pt-8 pb-8 px-8">
                             <div className="space-y-6">
-                                <div className="space-y-2">
+                                {/* <div className="space-y-2">
                                     <Label
                                         htmlFor="role"
                                         className="text-foreground font-medium"
@@ -307,7 +382,7 @@ export default function Login() {
                                             </SelectItem>
                                         </SelectContent>
                                     </Select>
-                                </div>
+                                </div> */}
 
                                 <div className="space-y-2">
                                     <Label
@@ -341,29 +416,45 @@ export default function Login() {
                                         >
                                             Password
                                         </Label>
-                                        <a
+                                        {/* <a
                                             href="#"
                                             className="text-xs font-medium text-primary hover:text-primary/80"
                                         >
                                             Forgot password?
-                                        </a>
+                                        </a> */}
                                     </div>
-                                    <Input
-                                        id="password"
-                                        type="password"
-                                        placeholder="••••••••"
-                                        value={password}
-                                        onChange={(e) => {
-                                            setPassword(e.target.value);
-                                            if (fieldErrors.password) {
-                                                setFieldErrors((prev) => ({
-                                                    ...prev,
-                                                    password: false,
-                                                }));
-                                            }
-                                        }}
-                                        className={`h-12 bg-background border-input focus:ring-primary/20 focus:border-primary text-foreground placeholder:text-muted-foreground ${fieldErrors.password ? "border-destructive" : ""}`}
-                                    />
+                                    <div className="relative login-password-wrap">
+                                        <Input
+                                            id="password"
+                                            type={showPassword ? "text" : "password"}
+                                            placeholder="••••••••"
+                                            value={password}
+                                            onChange={(e) => {
+                                                setPassword(e.target.value);
+                                                if (fieldErrors.password) {
+                                                    setFieldErrors((prev) => ({
+                                                        ...prev,
+                                                        password: false,
+                                                    }));
+                                                }
+                                            }}
+                                            autoComplete="current-password"
+                                            className={`h-12 bg-background border-input focus:ring-primary/20 focus:border-primary text-foreground placeholder:text-muted-foreground pr-10 ${fieldErrors.password ? "border-destructive" : ""}`}
+                                        />
+                                        <button
+                                            type="button"
+                                            tabIndex={-1}
+                                            onClick={() => setShowPassword((p) => !p)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-0"
+                                            aria-label={showPassword ? "Hide password" : "Show password"}
+                                        >
+                                            {showPassword ? (
+                                                <EyeOff className="h-4 w-4" />
+                                            ) : (
+                                                <Eye className="h-4 w-4" />
+                                            )}
+                                        </button>
+                                    </div>
                                     {errorMessage && (
                                         <p className="text-xs font-medium text-destructive mt-1 animate-in fade-in slide-in-from-top-1">
                                             {errorMessage}
@@ -382,6 +473,16 @@ export default function Login() {
                                         <ArrowRight className="ml-2 w-4 h-4" />
                                     )}
                                 </Button>
+                                {errorMessage && (
+                                    (errorMessage.includes("Cannot reach server") ||
+                                     errorMessage.includes("timeout") ||
+                                     errorMessage.includes("spinning up") ||
+                                     errorMessage.includes("CORS")) && (
+                                        <p className="text-xs text-muted-foreground text-center mt-2">
+                                            Wait 30–60 seconds for the server to wake up, then click Sign In again.
+                                        </p>
+                                    )
+                                )}
                             </div>
                         </CardContent>
                     </Card>

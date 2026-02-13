@@ -7,20 +7,20 @@ import { X, ArrowLeft, Users, TrendingUp, DollarSign, ArrowUpRight, CalendarRang
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/context/auth-context";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer, 
-  LineChart, 
-  Line, 
-  PieChart, 
-  Pie, 
-  Cell 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell
 } from 'recharts';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
@@ -76,7 +76,7 @@ type YearFilter = '2025' | '2024' | '2023';
 export default function Reports() {
   const { user } = useAuth();
   const [location, setLocation] = useLocation();
-  
+
   // Parse query params to see if a counselor is pre-selected
   const searchParams = new URLSearchParams(window.location.search);
   const initialUser = searchParams.get('counselor');
@@ -101,7 +101,7 @@ export default function Reports() {
     }
   };
 
-  const { data: recentClients } = useQuery({
+  const { data: recentClients, isLoading: isLoadingClients, error: clientsError } = useQuery({
     queryKey: ['recent-clients'],
     queryFn: clientService.getClients
   });
@@ -118,14 +118,23 @@ export default function Reports() {
 
   const isFilterActive = periodFilter !== "6m" || salesTypeFilter !== "all" || selectedUser !== null || viewMode !== 'monthly' || yearFilter !== '2025';
 
-  const canViewAll = user?.role === 'superadmin' || user?.role === 'director';
-  const canViewCounselors = user?.role === 'manager';
+  const isManager = user?.role === 'manager';
+  const isSupervisor = isManager && user?.isSupervisor === true;
+  const canViewAll = user?.role === 'superadmin' || user?.role === 'director' || isSupervisor;
+  const canViewCounselors = isManager; // All managers can view counselors, but supervisor sees all
   const isIndividual = !canViewAll && !canViewCounselors;
 
   // Mock filtering logic for demonstration
   const getFilteredData = (data: any[]) => {
-    if (!selectedUser && (canViewAll || canViewCounselors)) return data; 
-    
+    // Supervisor managers see all data (like admin)
+    if (!selectedUser && (canViewAll || (canViewCounselors && isSupervisor))) return data;
+    // Non-supervisor managers see filtered data (only their team)
+    if (!selectedUser && canViewCounselors && !isSupervisor) {
+      // TODO: Backend should filter this, but for now return filtered data
+      // In future: filter to only show data from assigned counsellors
+      return data;
+    }
+
     // Simulate specific user data by reducing values
     return data.map(item => {
       const newItem = { ...item };
@@ -167,42 +176,127 @@ export default function Reports() {
 
   const baseFinancialData = selectedUser || isIndividual ? getFilteredData(fullYearData) : fullYearData;
   const currentFinancialData = aggregateData(baseFinancialData, viewMode);
-  
+
   // Use same base data for enrollment since we generated combined mock data
-  const currentEnrollmentData = aggregateData(baseFinancialData, viewMode); 
-  
+  const currentEnrollmentData = aggregateData(baseFinancialData, viewMode);
+
   const currentServiceData = selectedUser || isIndividual ? getFilteredData(serviceData) : serviceData;
-  
+
   const showLists = !selectedUser && !isIndividual;
 
+  // Extract clients from nested API structure
+  // Handle both array format and nested structure from API
+  let clientsArray: Client[] = [];
+
+  try {
+    if (Array.isArray(recentClients)) {
+      // Already an array
+      clientsArray = recentClients;
+    } else if (recentClients && typeof recentClients === 'object') {
+      // Handle nested structure: { "3": { counsellor: {...}, clients: { "2026": { "Jan": { clients: [...] } } } } }
+      clientsArray = Object.values(recentClients).flatMap((item: any) => {
+        if (!item || typeof item !== 'object') return [];
+
+        // Check if it has a clients property (counsellor-first structure)
+        if (item.clients && typeof item.clients === 'object') {
+          return Object.values(item.clients).flatMap((yearData: any) => {
+            if (!yearData || typeof yearData !== 'object') return [];
+            return Object.values(yearData).flatMap((monthData: any) => {
+              if (!monthData || typeof monthData !== 'object') return [];
+              return Array.isArray(monthData.clients) ? monthData.clients : [];
+            });
+          });
+        }
+
+        // Check if it's year/month structure: { "2026": { "Jan": { clients: [...] } } }
+        const keys = Object.keys(item);
+        const isYearMonthStructure = keys.some(key => /^\d{4}$/.test(key));
+        if (isYearMonthStructure) {
+          return Object.values(item).flatMap((yearData: any) => {
+            if (!yearData || typeof yearData !== 'object') return [];
+            return Object.values(yearData).flatMap((monthData: any) => {
+              if (!monthData || typeof monthData !== 'object') return [];
+              return Array.isArray(monthData.clients) ? monthData.clients : [];
+            });
+          });
+        }
+
+        return [];
+      });
+    }
+  } catch (error) {
+    console.error('Error extracting clients from API response:', error);
+    clientsArray = [];
+  }
+
   // Filter clients based on selected user (mock logic)
-  const filteredClients = selectedUser 
-    ? recentClients?.filter(c => c.counsellor === selectedUser || c.productManager === selectedUser) 
-    : recentClients;
+  const filteredClients = selectedUser
+    ? clientsArray.filter((c: any) => {
+        const counsellorName = c.counsellor?.name || c.counsellor || '';
+        const productManagerName = c.productManager?.name || c.productManager || '';
+        return counsellorName === selectedUser || productManagerName === selectedUser;
+      })
+    : clientsArray;
 
-  const groupedClients = (filteredClients || []).reduce((acc, client) => {
-    const date = new Date(client.enrollmentDate);
-    const year = date.getFullYear().toString();
-    const month = date.toLocaleString('default', { month: 'long' });
+  const groupedClients = (filteredClients || []).reduce((acc, client: any) => {
+    try {
+      if (!client || !client.enrollmentDate) return acc;
 
-    if (!acc[year]) acc[year] = {};
-    if (!acc[year][month]) acc[year][month] = [];
+      const date = new Date(client.enrollmentDate);
+      if (isNaN(date.getTime())) return acc;
 
-    acc[year][month].push(client);
+      const year = date.getFullYear().toString();
+      const month = date.toLocaleString('default', { month: 'long' });
+
+      if (!acc[year]) acc[year] = {};
+      if (!acc[year][month]) acc[year][month] = [];
+
+      acc[year][month].push(client);
+    } catch (error) {
+      console.error('Error processing client for grouping:', error, client);
+    }
     return acc;
   }, {} as Record<string, Record<string, Client[]>>);
 
   // Sort years descending
   const sortedYears = Object.keys(groupedClients).sort((a, b) => Number(b) - Number(a));
 
+  // Show loading state
+  if (isLoadingClients) {
+    return (
+      <PageWrapper
+        title="Reports"
+        breadcrumbs={[{ label: "Reports" }]}
+      >
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading reports...</div>
+        </div>
+      </PageWrapper>
+    );
+  }
+
+  // Show error state
+  if (clientsError) {
+    return (
+      <PageWrapper
+        title="Reports"
+        breadcrumbs={[{ label: "Reports" }]}
+      >
+        <div className="flex items-center justify-center h-64">
+          <div className="text-destructive">Error loading reports. Please try again.</div>
+        </div>
+      </PageWrapper>
+    );
+  }
+
   return (
-    <PageWrapper 
-      title="Reports" 
+    <PageWrapper
+      title="Reports"
       breadcrumbs={[{ label: "Reports" }]}
     >
       <div className="space-y-6">
         {/* Toolbar for Filters */}
-        <TableToolbar 
+        <TableToolbar
           searchPlaceholder="Search reports..."
           onSearch={() => {}} // Placeholder search
           filters={
@@ -212,29 +306,29 @@ export default function Reports() {
                         <ArrowLeft className="w-4 h-4" /> Back to List
                     </Button>
                 )}
-              
+
               {(selectedUser || isIndividual) && (
                 <>
                   <div className="bg-muted p-1 rounded-lg flex items-center mr-2">
-                      <Button 
-                        variant={viewMode === 'monthly' ? 'default' : 'ghost'} 
-                        size="sm" 
+                      <Button
+                        variant={viewMode === 'monthly' ? 'default' : 'ghost'}
+                        size="sm"
                         onClick={() => setViewMode('monthly')}
                         className={viewMode === 'monthly' ? 'shadow-sm bg-background text-foreground hover:bg-background/90' : 'hover:bg-transparent text-muted-foreground hover:text-foreground'}
                       >
                         Monthly
                       </Button>
-                      <Button 
-                        variant={viewMode === 'quarterly' ? 'default' : 'ghost'} 
-                        size="sm" 
+                      <Button
+                        variant={viewMode === 'quarterly' ? 'default' : 'ghost'}
+                        size="sm"
                         onClick={() => setViewMode('quarterly')}
                         className={viewMode === 'quarterly' ? 'shadow-sm bg-background text-foreground hover:bg-background/90' : 'hover:bg-transparent text-muted-foreground hover:text-foreground'}
                       >
                         Quarterly
                       </Button>
-                      <Button 
-                        variant={viewMode === 'yearly' ? 'default' : 'ghost'} 
-                        size="sm" 
+                      <Button
+                        variant={viewMode === 'yearly' ? 'default' : 'ghost'}
+                        size="sm"
                         onClick={() => setViewMode('yearly')}
                         className={viewMode === 'yearly' ? 'shadow-sm bg-background text-foreground hover:bg-background/90' : 'hover:bg-transparent text-muted-foreground hover:text-foreground'}
                       >
@@ -270,8 +364,8 @@ export default function Reports() {
               </Select>
 
               {isFilterActive && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={handleClearFilters}
                   className="bg-card text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
                 >
@@ -297,8 +391,8 @@ export default function Reports() {
                         <CardContent>
                             <div className="space-y-4">
                                 {managerData.map((manager, index) => (
-                                    <div 
-                                        key={index} 
+                                    <div
+                                        key={index}
                                         className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors border border-transparent hover:border-border/50"
                                         onClick={() => updateSelectedUser(manager.name)}
                                     >
@@ -336,8 +430,8 @@ export default function Reports() {
                     <CardContent>
                         <div className="space-y-4">
                             {counsellorData.map((counsellor, index) => (
-                                <div 
-                                    key={index} 
+                                <div
+                                    key={index}
                                     className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors border border-transparent hover:border-border/50"
                                     onClick={() => updateSelectedUser(counsellor.name)}
                                 >
@@ -380,14 +474,14 @@ export default function Reports() {
                         <BarChart data={currentFinancialData}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                             <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" />
-                            <YAxis 
-                            fontSize={12} 
-                            tickLine={false} 
+                            <YAxis
+                            fontSize={12}
+                            tickLine={false}
                             axisLine={false}
                             tickFormatter={(value) => `₹${value/1000}k`}
                             stroke="hsl(var(--muted-foreground))"
                             />
-                            <Tooltip 
+                            <Tooltip
                             formatter={(value: number) => [`₹${value.toLocaleString()}`, undefined]}
                             cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
                             contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))' }}
@@ -414,15 +508,15 @@ export default function Reports() {
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                             <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" />
                             <YAxis fontSize={12} tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" />
-                            <Tooltip 
+                            <Tooltip
                                 contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))' }}
                                 itemStyle={{ color: 'hsl(var(--foreground))' }}
                             />
-                            <Line 
-                            type="monotone" 
-                            dataKey="students" 
+                            <Line
+                            type="monotone"
+                            dataKey="students"
                             name="New Clients"
-                            stroke="#f97316" 
+                            stroke="#f97316"
                             strokeWidth={2}
                             dot={{ r: 4, fill: "#f97316" }}
                             activeDot={{ r: 6 }}
@@ -456,7 +550,7 @@ export default function Reports() {
                                 <Cell key={`cell-${index}`} fill={entry.color} stroke="hsl(var(--card))" />
                             ))}
                             </Pie>
-                            <Tooltip 
+                            <Tooltip
                                 contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))' }}
                                 itemStyle={{ color: 'hsl(var(--foreground))' }}
                             />
@@ -466,8 +560,8 @@ export default function Reports() {
                     </div>
                     </CardContent>
                 </Card>
-                
-                {/* Show Top Performers only if looking at aggregate and NOT for individual counselors 
+
+                {/* Show Top Performers only if looking at aggregate and NOT for individual counselors
                     who shouldn't see others' data.
                 */}
                 {!selectedUser && !isIndividual && (
@@ -482,13 +576,13 @@ export default function Reports() {
                                 const topPerformer = counsellorData[0];
                                 const remainingForTop = topPerformer.clients - counsellor.clients;
                                 const isCurrentUser = counsellor.isCurrentUser;
-                                
+
                                 return (
-                                <div 
-                                    key={index} 
+                                <div
+                                    key={index}
                                     className={`flex flex-col p-3 rounded-lg transition-colors ${
-                                        isCurrentUser 
-                                        ? "bg-primary/5 border border-primary/20 ring-1 ring-primary/10" 
+                                        isCurrentUser
+                                        ? "bg-primary/5 border border-primary/20 ring-1 ring-primary/10"
                                         : "hover:bg-muted/50"
                                     }`}
                                 >
@@ -496,7 +590,7 @@ export default function Reports() {
                                         <div className="flex items-center gap-3">
                                             <div className={`
                                                 flex items-center justify-center w-8 h-8 rounded-full font-bold text-xs
-                                                ${index === 0 ? "bg-yellow-100 text-yellow-700" : 
+                                                ${index === 0 ? "bg-yellow-100 text-yellow-700" :
                                                   index === 1 ? "bg-slate-100 text-slate-700" :
                                                   index === 2 ? "bg-orange-100 text-orange-700" : "bg-primary/10 text-primary"}
                                             `}>
@@ -519,7 +613,7 @@ export default function Reports() {
                                             {/* Revenue hidden for all as requested */}
                                         </div>
                                     </div>
-                                    
+
                                     {isCurrentUser && index > 0 && (
                                         <div className="mt-3 ml-11 p-2 bg-white/50 rounded text-xs text-muted-foreground border border-slate-100">
                                             You need <span className="font-bold text-primary">{remainingForTop}</span> more active clients for top position! 🚀
@@ -561,30 +655,30 @@ export default function Reports() {
                                                                 {month} ({clients.length})
                                                             </AccordionTrigger>
                                                             <AccordionContent>
-                                                                <DataTable 
+                                                                <DataTable
                                                                     data={clients}
                                                                     onRowClick={(client: Client) => setLocation(`/clients/${client.id}`)}
                                                                     columns={[
-                                                                        { 
-                                                                            header: "Client Name", 
+                                                                        {
+                                                                            header: "Client Name",
                                                                             accessorKey: "name",
                                                                             cell: (client: Client) => (
                                                                                 <div className="font-medium">{client.name}</div>
                                                                             )
                                                                         },
                                                                         { header: "Sales Type", accessorKey: "salesType" },
-                                                                        { 
-                                                                            header: "Date", 
+                                                                        {
+                                                                            header: "Date",
                                                                             accessorKey: "enrollmentDate",
                                                                             cell: (client: Client) => new Date(client.enrollmentDate).toLocaleDateString()
                                                                         },
-                                                                        { 
-                                                                            header: "Status", 
+                                                                        {
+                                                                            header: "Status",
                                                                             accessorKey: "status",
                                                                             cell: (client: Client) => (
                                                                                 <Badge variant={
-                                                                                    client.status === 'Active' ? 'default' : 
-                                                                                    client.status === 'Pending' ? 'secondary' : 
+                                                                                    client.status === 'Active' ? 'default' :
+                                                                                    client.status === 'Pending' ? 'secondary' :
                                                                                     client.status === 'Completed' ? 'outline' : 'destructive'
                                                                                 }>
                                                                                     {client.status}

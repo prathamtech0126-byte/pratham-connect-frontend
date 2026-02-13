@@ -24,8 +24,6 @@ const formSchema = z.object({
 
   // Step 2: Consultancy Payment
   totalPayment: z.number().min(0),
-  showDiscount: z.boolean().optional(),
-  discount: z.number().min(0).optional(),
   initialAmountReceived: z.number().min(0),
   amountPending: z.number().min(0),
   showExtraPayment: z.boolean().optional(),
@@ -103,8 +101,6 @@ export function ClientRegistrationForm({ onSuccess }: ClientRegistrationFormProp
 
   const { control, handleSubmit } = form;
   const salesType = useWatch({ control, name: "salesType" });
-  const showDiscount = useWatch({ control, name: "showDiscount" });
-  const showExtraPayment = useWatch({ control, name: "showExtraPayment" });
 
   const isStudent = salesType?.toLowerCase().includes("student");
   const isSpouse =

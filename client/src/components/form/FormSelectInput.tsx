@@ -21,9 +21,9 @@ interface OptionGroup {
   options: Option[];
 }
 
-interface FormSelectInputProps<T extends FieldValues> {
-  name: Path<T>;
-  control: Control<T>;
+interface FormSelectInputProps<TFieldValues extends FieldValues> {
+  name: Path<TFieldValues>;
+  control: Control<TFieldValues, any, any>;
   label: string;
   options: Option[] | OptionGroup[];
   placeholder?: string;
@@ -49,7 +49,7 @@ export function FormSelectInput<T extends FieldValues>({
       render={({ field, fieldState: { error } }) => (
         <div className={cn("space-y-2", className)}>
           <Label className={cn(error && "text-destructive")}>{label}</Label>
-          <Select onValueChange={field.onChange} defaultValue={field.value}>
+          <Select onValueChange={field.onChange} value={field.value || ""}>
             <SelectTrigger className={cn(error && "border-destructive")}>
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>

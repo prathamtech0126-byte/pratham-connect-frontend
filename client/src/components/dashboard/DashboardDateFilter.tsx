@@ -1,3 +1,49 @@
+// import * as React from "react";
+// import { cn } from "@/lib/utils";
+
+// interface DashboardDateFilterProps {
+//   activeTab?: string;
+//   onTabChange?: (tab: string) => void;
+//   className?: string;
+//   align?: "center" | "start" | "end";
+// }
+
+// export function DashboardDateFilter({
+//   activeTab: controlledTab,
+//   onTabChange,
+//   className,
+//   align = "end",
+// }: DashboardDateFilterProps) {
+//   const [internalTab, setInternalTab] = React.useState<string>("Today");
+//   const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
+
+//   const handleTabClick = (tab: string) => {
+//     if (onTabChange) {
+//         onTabChange(tab);
+//     } else {
+//         setInternalTab(tab);
+//     }
+//   };
+
+//   return (
+//     <div className={cn("flex items-center bg-muted/50 p-1 rounded-lg border border-border/50", className)}>
+//       {(["Today", "Weekly", "Monthly", "Yearly", "Custom"] as const).map((tab) => (
+//         <button
+//           key={tab}
+//           onClick={() => handleTabClick(tab)}
+//           className={cn(
+//             "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
+//             activeTab === tab
+//               ? "bg-primary text-primary-foreground shadow-sm"
+//               : "text-muted-foreground hover:text-foreground hover:bg-muted"
+//           )}
+//         >
+//           {tab}
+//         </button>
+//       ))}
+//     </div>
+//   );
+// }
 import * as React from "react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
@@ -45,7 +91,7 @@ export function DashboardDateFilter({
     }
   }
   const [isOpen, _setIsOpen] = React.useState(false);
-  
+
   // Custom date range state
   const [startDate, setStartDate] = React.useState<Date | undefined>(date?.[0] || undefined);
   const [endDate, setEndDate] = React.useState<Date | undefined>(date?.[1] || undefined);
@@ -59,27 +105,36 @@ export function DashboardDateFilter({
   }, [date]);
 
   const handleTabClick = (tab: string) => {
-    if (onTabChange) {
-        onTabChange(tab);
-    } else {
-        setInternalTab(tab);
+    if (tab === "Custom") {
+      // Only open popover, no dashboard change
+      setInternalTab("Custom");
+      _setIsOpen(true);
+      return;
     }
 
-    if (tab === "Custom") {
-      _setIsOpen(true);
+    // Normal tabs
+    if (onTabChange) {
+      onTabChange(tab);
     } else {
-      _setIsOpen(false); 
+      setInternalTab(tab);
     }
+
+    _setIsOpen(false);
+  };
+  const handleCustomClick = () => {
+    setInternalTab("Custom");
+    _setIsOpen(true);
   };
 
-  const handleCustomClick = () => {
-    handleTabClick("Custom");
-  }
-
   const handleApplyCustom = () => {
+    if (onTabChange) {
+      onTabChange("Custom"); // 🔥 dashboard updates here
+    }
+
     if (onDateChange) {
       onDateChange([startDate || null, endDate || null]);
     }
+
     _setIsOpen(false);
   };
 
@@ -140,21 +195,22 @@ export function DashboardDateFilter({
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-primary">After</label>
                 <div className="relative">
-                    <DateInput 
-                        value={startDate} 
-                        onChange={setStartDate} 
+                    <DateInput
+                        value={startDate}
+                        onChange={setStartDate}
                         placeholder="Select start date"
                         className="border-primary ring-1 ring-primary bg-background text-foreground placeholder:text-muted-foreground"
                     />
                 </div>
               </div>
-              
+
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">Before</label>
                 <div className="relative">
-                    <DateInput 
-                        value={endDate} 
-                        onChange={setEndDate} 
+                    <DateInput
+                        value={endDate}
+                        onChange={setEndDate}
+
                         placeholder="Select end date"
                         className="bg-background text-foreground placeholder:text-muted-foreground"
                     />
@@ -163,16 +219,16 @@ export function DashboardDateFilter({
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border mt-4">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleCancelCustom}
                 className="text-muted-foreground hover:text-foreground"
               >
                 Cancel
               </Button>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 onClick={handleApplyCustom}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >

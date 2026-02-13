@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Trash2, Plus, Filter, Search, Pencil, X, Loader2 } from "lucide-react";
@@ -16,7 +17,7 @@ import api from "@/lib/api";
 
 export default function TeamList() {
   const { toast } = useToast();
-  
+
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -38,7 +39,8 @@ export default function TeamList() {
           emp_id: u.empId || u.emp_id || u.empID,
           company_phone_no: u.officePhone || u.company_phone_no || u.office_phone,
           personal_phone_no: u.personalPhone || u.personal_phone_no || u.personal_phone,
-          designation: u.designation
+          designation: u.designation,
+          isSupervisor: u.isSupervisor || false
         })));
       }
     } catch (error) {
@@ -74,7 +76,8 @@ export default function TeamList() {
     emp_id: "",
     company_phone_no: "",
     personal_phone_no: "",
-    designation: ""
+    designation: "",
+    isSupervisor: false
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -140,13 +143,39 @@ export default function TeamList() {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!newMember.fullName) newErrors.fullName = "Full name is required";
-    if (!newMember.email) newErrors.email = "Email address is required";
-    if (!editingId && !newMember.password) newErrors.password = "Password is required";
-    if (!editingId && newMember.password && newMember.password.length < 8) {
+
+    // Full Name validation
+    if (!newMember.fullName) {
+      newErrors.fullName = "Full name is required";
+    } else if (newMember.fullName.trim().length < 2) {
+      newErrors.fullName = "Full name must be at least 2 characters";
+    }
+
+    // Email validation
+    if (!newMember.email) {
+      newErrors.email = "Email address is required";
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(newMember.email.trim())) {
+        newErrors.email = "Please enter a valid email address";
+      }
+    }
+
+    // Password validation
+    if (!editingId && !newMember.password) {
+      newErrors.password = "Password is required";
+    } else if (!editingId && newMember.password && newMember.password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters long";
+    } else if (editingId && newMember.password && newMember.password.length < 8) {
       newErrors.password = "Password must be at least 8 characters long";
     }
-    if (!newMember.role) newErrors.role = "Role is required";
+
+    // Role validation
+    if (!newMember.role) {
+      newErrors.role = "Role is required";
+    }
+
+    // Manager assignment validation
     if (newMember.role === "Counsellor" && !newMember.managerId) {
       newErrors.managerId = "Manager assignment is required";
     }
@@ -171,17 +200,18 @@ export default function TeamList() {
           ...newMember,
           email: newMember.email.toLowerCase().trim(),
           role: newMember.role.toLowerCase(),
-          managerId: newMember.role.toLowerCase() === "counsellor" ? Number(newMember.managerId) : undefined
+          managerId: newMember.role.toLowerCase() === "counsellor" ? Number(newMember.managerId) : undefined,
+          isSupervisor: newMember.role.toLowerCase() === "manager" ? newMember.isSupervisor : undefined
         };
 
         // Call the update API
         await api.put(`/api/users/users-update/${editingId}`, payload);
-        
+
         toast({
           title: "Success",
           description: "Team member updated successfully",
         });
-        
+
         // Refresh the list immediately
         fetchTeamMembers();
       } else {
@@ -189,16 +219,17 @@ export default function TeamList() {
           ...newMember,
           email: newMember.email.toLowerCase().trim(),
           role: newMember.role.toLowerCase(),
-          managerId: newMember.role.toLowerCase() === "counsellor" ? Number(newMember.managerId) : undefined
+          managerId: newMember.role.toLowerCase() === "counsellor" ? Number(newMember.managerId) : undefined,
+          isSupervisor: newMember.role.toLowerCase() === "manager" ? newMember.isSupervisor : false
         };
 
         const response = await api.post("/api/users/register", payload);
-        
+
         toast({
           title: "Success",
           description: "Team member registered successfully",
         });
-        
+
         // Refresh the list immediately to show the new user
         fetchTeamMembers();
       }
@@ -206,12 +237,71 @@ export default function TeamList() {
       setIsAddMemberOpen(false);
       resetForm();
     } catch (error: any) {
-      const message = error.response?.data?.message || "Failed to register team member";
-      toast({
-        title: "Registration Failed",
-        description: message,
-        variant: "destructive",
-      });
+      const backendErrors: Record<string, string> = {};
+      const errorData = error.response?.data;
+      const errorMessage = errorData?.message || "Failed to save team member";
+
+      // Parse backend errors and map to field names
+      if (errorData) {
+        // Check for field-specific errors in different possible formats
+        if (errorData.errors) {
+          // Handle validation errors array format: { errors: [{ field: "email", message: "..." }] }
+          if (Array.isArray(errorData.errors)) {
+            errorData.errors.forEach((err: any) => {
+              const fieldName = err.field || err.path || err.param;
+              if (fieldName) {
+                // Map backend field names to frontend field names
+                const fieldMap: Record<string, string> = {
+                  'fullName': 'fullName',
+                  'email': 'email',
+                  'password': 'password',
+                  'role': 'role',
+                  'managerId': 'managerId',
+                  'empId': 'emp_id',
+                  'officePhone': 'company_phone_no',
+                  'personalPhone': 'personal_phone_no',
+                  'designation': 'designation'
+                };
+                const frontendField = fieldMap[fieldName] || fieldName;
+                backendErrors[frontendField] = err.message || errorMessage;
+              }
+            });
+          }
+        }
+
+        // Check for common error patterns in message
+        const messageLower = errorMessage.toLowerCase();
+        if (messageLower.includes('email') && (messageLower.includes('already') || messageLower.includes('exists') || messageLower.includes('duplicate'))) {
+          backendErrors.email = "This email address is already registered";
+        } else if (messageLower.includes('email') && (messageLower.includes('invalid') || messageLower.includes('format'))) {
+          backendErrors.email = "Please enter a valid email address";
+        } else if (messageLower.includes('password')) {
+          backendErrors.password = errorMessage;
+        } else if (messageLower.includes('fullname') || messageLower.includes('full name') || messageLower.includes('name')) {
+          backendErrors.fullName = errorMessage;
+        } else if (messageLower.includes('role')) {
+          backendErrors.role = errorMessage;
+        } else if (messageLower.includes('manager')) {
+          backendErrors.managerId = errorMessage;
+        }
+      }
+
+      // If we found field-specific errors, set them
+      if (Object.keys(backendErrors).length > 0) {
+        setErrors(backendErrors);
+        toast({
+          title: "Validation Error",
+          description: "Please fix the errors in the form",
+          variant: "destructive",
+        });
+      } else {
+        // If no field-specific errors, show general error toast
+        toast({
+          title: editingId ? "Update Failed" : "Registration Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -224,7 +314,7 @@ export default function TeamList() {
     setEditingId(member.id);
     // Ensure role is mapped correctly for the Select component (capitalized)
     const displayRole = member.role ? member.role.charAt(0).toUpperCase() + member.role.slice(1).toLowerCase() : "Counsellor";
-    
+
     setNewMember({
       fullName: member.fullName || member.name || "",
       email: member.email || "",
@@ -234,7 +324,8 @@ export default function TeamList() {
       emp_id: member.empId || member.emp_id || member.empID || "",
       company_phone_no: member.officePhone || member.company_phone_no || member.office_phone || "",
       personal_phone_no: member.personalPhone || member.personal_phone_no || member.personal_phone || "",
-      designation: member.designation || ""
+      designation: member.designation || "",
+      isSupervisor: member.isSupervisor || false
     });
     setIsAddMemberOpen(true);
   };
@@ -242,14 +333,14 @@ export default function TeamList() {
   const filteredMembers = teamMembers.filter(member => {
     const matchesRole = roleFilter === "all" || member.role.toLowerCase() === roleFilter.toLowerCase();
     const nameToSearch = member.name || member.fullName || "";
-    const matchesSearch = nameToSearch.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch = nameToSearch.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          member.email.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesRole && matchesSearch;
   });
 
   const handleDeleteMember = async () => {
     if (!deleteId) return;
-    
+
     try {
       await api.delete(`/api/users/users-delete/${deleteId}`);
       toast({
@@ -414,6 +505,29 @@ export default function TeamList() {
                   {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
                 </div>
 
+                {newMember.role === "Manager" && (
+                  <div className="space-y-2 col-span-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="isSupervisor"
+                        checked={newMember.isSupervisor}
+                        onCheckedChange={(checked) => {
+                          setNewMember({ ...newMember, isSupervisor: checked === true });
+                        }}
+                      />
+                      <Label
+                        htmlFor="isSupervisor"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Is Supervisor (Can view all counsellors and clients)
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground ml-6">
+                      When enabled, this manager can see all counsellors and all clients, regardless of assignments.
+                    </p>
+                  </div>
+                )}
+
                 {newMember.role === "Counsellor" && (
                   <div className="space-y-2">
                     <Label htmlFor="assignedTo" className={errors.managerId ? "text-destructive" : ""}>Assign to Manager *</Label>
@@ -486,8 +600,8 @@ export default function TeamList() {
             </div>
 
             {isFilterActive && (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleClearFilters}
                 className="bg-white text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
               >
@@ -529,9 +643,16 @@ export default function TeamList() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="font-normal">
-                          {member.role}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="font-normal">
+                            {member.role}
+                          </Badge>
+                          {member.role?.toLowerCase() === "manager" && member.isSupervisor && (
+                            <Badge variant="default" className="font-normal text-xs">
+                              Supervisor
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={member.status === "Active" ? "default" : "secondary"}>
@@ -539,17 +660,17 @@ export default function TeamList() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8 mr-1 text-muted-foreground hover:text-primary"
                           onClick={() => openEditMember(member)}
                         >
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8 text-destructive"
                           onClick={() => confirmDelete(member)}
                         >

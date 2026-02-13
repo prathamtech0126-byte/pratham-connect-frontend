@@ -19,7 +19,7 @@ export function PageWrapper({ title, breadcrumbs, actions, children, className }
         </div>
         {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
-      
+
       <div className="min-h-[calc(100vh-200px)]">
         {children}
       </div>

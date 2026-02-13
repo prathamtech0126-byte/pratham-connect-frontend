@@ -1,10 +1,10 @@
 import { format } from "date-fns";
-import { 
-  Activity, 
-  UserPlus, 
-  CreditCard, 
-  FileText, 
-  CheckCircle, 
+import {
+  Activity,
+  UserPlus,
+  CreditCard,
+  FileText,
+  CheckCircle,
   AlertCircle,
   FileEdit,
   Trash2
@@ -91,7 +91,7 @@ export function ActivityLog({ activities, className, maxHeight = "400px", varian
         <div className="space-y-6 relative ml-2">
           {/* Vertical line */}
           <div className="absolute left-4 top-2 bottom-4 w-px bg-border z-0" />
-          
+
           {activities.map((activity) => (
             <div key={activity.id} className="relative z-10 flex gap-4 group">
               <div className={cn(
@@ -100,7 +100,7 @@ export function ActivityLog({ activities, className, maxHeight = "400px", varian
               )}>
                 {getActivityIcon(activity.type)}
               </div>
-              
+
               <div className="flex flex-col flex-1 gap-1 pb-1">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium leading-none text-foreground">
@@ -181,7 +181,7 @@ export function ActivityLog({ activities, className, maxHeight = "400px", varian
             )}>
               {getActivityIcon(activity.type)}
             </div>
-            
+
             <div className="flex flex-1 items-center justify-between gap-4">
               <p className="text-sm font-medium text-foreground">
                 {activity.title}
