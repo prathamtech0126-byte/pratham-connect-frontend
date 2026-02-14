@@ -2049,8 +2049,9 @@ export default function ClientForm() {
   }, [totalPayment, initialAmountReceived, beforeVisaAmount, afterVisaAmount, clearErrors]);
 
 
-  // Check if service payment data exists
+  // Check if service payment data exists: allow save when Sales Type + Total Payment are set, or when any payment section has data
   const hasServiceData = useMemo(() => {
+    const hasSalesTypeAndTotal = Boolean(salesType && totalPayment != null && Number(totalPayment) > 0);
     const hasInitial = initialPayment && (
       (initialPayment.amount && initialPayment.amount > 0) ||
       initialPayment.date ||
@@ -2069,8 +2070,8 @@ export default function ClientForm() {
       afterVisaPayment.invoiceNo ||
       afterVisaPayment.remarks
     );
-    return hasInitial || hasBeforeVisa || hasAfterVisa;
-  }, [initialPayment, beforeVisaPayment, afterVisaPayment]);
+    return hasSalesTypeAndTotal || hasInitial || hasBeforeVisa || hasAfterVisa;
+  }, [salesType, totalPayment, initialPayment, beforeVisaPayment, afterVisaPayment]);
 
   // Check if product data exists
   const hasProductData = useMemo(() => {
@@ -2332,10 +2333,37 @@ export default function ClientForm() {
         // Redirect to All Clients after saving core service (full nav so it always works)
         setTimeout(() => { window.location.href = "/clients"; }, 150);
       } else {
-        toast({
-          title: "Info",
-          description: "No payment data to save.",
-        });
+        // No payment amounts entered: save core service (sales type + total) with one INITIAL payment (amount 0)
+        const payload: any = {
+          clientId: internalClientId,
+          saleTypeId: saleTypeId,
+          totalPayment: String(currentTotalPaymentVal),
+          stage: "INITIAL",
+          amount: "0",
+          paymentDate: data.initialPayment?.date || null,
+          invoiceNo: data.initialPayment?.invoiceNo || null,
+          remarks: data.initialPayment?.remarks || null,
+        };
+        const existingInitialId = paymentIds.initialPayment;
+        if (existingInitialId) payload.paymentId = existingInitialId;
+
+        try {
+          const res = await api.post("/api/client-payments", payload);
+          const returnedPayment = res.data?.data?.payment || res.data?.data || res.data;
+          const newPaymentId = returnedPayment?.paymentId || returnedPayment?.id;
+          if (newPaymentId) {
+            setPaymentIds((prev) => ({ ...prev, initialPayment: newPaymentId }));
+          }
+          toast({
+            title: "Success",
+            description: "Core service (sales type and total amount) saved successfully.",
+          });
+          setTimeout(() => { window.location.href = "/clients"; }, 150);
+        } catch (err: any) {
+          console.error("Failed to save core service", err);
+          const msg = err.response?.data?.message || err.message || "Failed to save core service.";
+          toast({ title: "Error", description: msg, variant: "destructive" });
+        }
       }
     } catch (error: any) {
       console.error("Failed to save service payments", error);
