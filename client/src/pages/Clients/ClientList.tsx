@@ -190,22 +190,22 @@ export default function ClientList() {
     return clientsRaw;
   }, [clientsRaw, isCounsellor]);
 
-  // Debug logging
-  useEffect(() => {
-    if (clients) {
-      console.log("Clients data received (after processing):", clients);
-      console.log("Is array?", Array.isArray(clients));
-      if (Array.isArray(clients)) {
-        console.log("Number of clients:", clients.length);
-        if (clients.length > 0) {
-          console.log("First client sample:", clients[0]);
-        }
-      }
-    }
-    if (error) {
-      console.error("Error fetching clients:", error);
-    }
-  }, [clients, error]);
+  // Debug logging---------------------------------------------------------
+  // useEffect(() => {
+  //   if (clients) {
+  //     console.log("Clients data received (after processing):", clients);
+  //     console.log("Is array?", Array.isArray(clients));
+  //     if (Array.isArray(clients)) {
+  //       console.log("Number of clients:", clients.length);
+  //       if (clients.length > 0) {
+  //         console.log("First client sample:", clients[0]);
+  //       }
+  //     }
+  //   }
+  //   if (error) {
+  //     console.error("Error fetching clients:", error);
+  //   }
+  // }, [clients, error]);
 
   const [counsellorsList, setCounsellorsList] = useState<any[]>([]);
 
@@ -286,7 +286,7 @@ export default function ClientList() {
       });
 
       if (allClients.length > 0) {
-        console.log('[ClientList] Flattened counsellor clients from nested structure:', allClients.length, 'clients');
+        // console.log('[ClientList] Flattened counsellor clients from nested structure:', allClients.length, 'clients');
         return allClients;
       }
     }
@@ -298,12 +298,12 @@ export default function ClientList() {
   // Note: If socket events are not received, ClientForm also invalidates cache as fallback
   useEffect(() => {
     if (!socket || !isConnected) {
-      console.log('[ClientList] Socket not available, skipping socket listeners');
-      console.log('[ClientList] Note: Cache will still be invalidated by ClientForm after client creation');
+      // console.log('[ClientList] Socket not available, skipping socket listeners');
+      // console.log('[ClientList] Note: Cache will still be invalidated by ClientForm after client creation');
       return;
     }
 
-    console.log('[ClientList] Setting up socket event listeners for role:', user?.role);
+    // console.log('[ClientList] Setting up socket event listeners for role:', user?.role);
 
     // Listen for client:created event
     const handleClientCreated = (data: {
@@ -312,23 +312,23 @@ export default function ClientList() {
       clients: any; // For counsellor: year/month structure or array. For admin: counsellor-first structure
       allClients?: any; // Full admin list in new structure (if available)
     }) => {
-      console.log('🔵 [ClientList] ========== CLIENT:CREATED EVENT RECEIVED ==========');
-      console.log('[ClientList] User role:', user?.role, '| isCounsellor:', isCounsellor);
-      console.log('[ClientList] Full event data:', JSON.stringify(data, null, 2));
-      console.log('[ClientList] data.clients type:', typeof data.clients, '| isArray:', Array.isArray(data.clients));
-      console.log('[ClientList] data.clients keys:', data.clients && typeof data.clients === 'object' ? Object.keys(data.clients) : 'N/A');
-      console.log('[ClientList] data.allClients exists:', !!data.allClients);
+      // console.log('🔵 [ClientList] ========== CLIENT:CREATED EVENT RECEIVED ==========');
+      // console.log('[ClientList] User role:', user?.role, '| isCounsellor:', isCounsellor);
+      // console.log('[ClientList] Full event data:', JSON.stringify(data, null, 2));
+      // console.log('[ClientList] data.clients type:', typeof data.clients, '| isArray:', Array.isArray(data.clients));
+      // console.log('[ClientList] data.clients keys:', data.clients && typeof data.clients === 'object' ? Object.keys(data.clients) : 'N/A');
+      // console.log('[ClientList] data.allClients exists:', !!data.allClients);
 
       // Update React Query cache with new clients data
       if (data.clients || data.allClients) {
         if (isCounsellor) {
-          console.log('[ClientList] 🔵 Processing as COUNSELLOR...');
-          console.log('[ClientList] Raw data.clients structure:', {
-            type: typeof data.clients,
-            isArray: Array.isArray(data.clients),
-            keys: data.clients && typeof data.clients === 'object' ? Object.keys(data.clients) : 'N/A',
-            sample: data.clients && typeof data.clients === 'object' ? JSON.stringify(Object.keys(data.clients).slice(0, 2).reduce((acc, key) => ({ ...acc, [key]: data.clients[key] }), {})) : 'N/A'
-          });
+          // console.log('[ClientList] 🔵 Processing as COUNSELLOR...');
+          // console.log('[ClientList] Raw data.clients structure:', {
+          //   type: typeof data.clients,
+          //   isArray: Array.isArray(data.clients),
+          //   keys: data.clients && typeof data.clients === 'object' ? Object.keys(data.clients) : 'N/A',
+          //   sample: data.clients && typeof data.clients === 'object' ? JSON.stringify(Object.keys(data.clients).slice(0, 2).reduce((acc, key) => ({ ...acc, [key]: data.clients[key] }), {})) : 'N/A'
+          // });
 
           // Counsellor: Flatten year/month structure to array if needed
           const flattenedClients = flattenCounsellorClients(data.clients);
@@ -359,21 +359,21 @@ export default function ClientList() {
             console.warn('[ClientList] Original data.clients:', JSON.stringify(data.clients, null, 2));
             // Fallback: invalidate and refetch
             queryClient.invalidateQueries({ queryKey: ['counsellor-clients'] });
-            console.log('[ClientList] ⚠️ Invalidated cache as fallback (will refetch)');
+            // console.log('[ClientList] ⚠️ Invalidated cache as fallback (will refetch)');
           } else {
             // Get current cache to compare
             const currentCache = queryClient.getQueryData(['counsellor-clients']);
             const currentCount = Array.isArray(currentCache) ? currentCache.length : 0;
-            console.log('[ClientList] Current cache count:', currentCount, '| New count:', normalizedClients.length);
+            // console.log('[ClientList] Current cache count:', currentCount, '| New count:', normalizedClients.length);
 
             // Set query data with new array reference (spread to ensure new reference)
             // Use a function updater to ensure React Query detects the change
             queryClient.setQueryData(['counsellor-clients'], (oldData: any) => {
               const oldCount = Array.isArray(oldData) ? oldData.length : 0;
-              console.log('[ClientList] setQueryData updater called, oldData length:', oldCount, '| new length:', normalizedClients.length);
+              // console.log('[ClientList] setQueryData updater called, oldData length:', oldCount, '| new length:', normalizedClients.length);
               return [...normalizedClients]; // Return normalized clients with validated dates
             });
-            console.log('[ClientList] ✅ Updated counsellor-clients cache with', normalizedClients.length, 'clients');
+            // console.log('[ClientList] ✅ Updated counsellor-clients cache with', normalizedClients.length, 'clients');
 
             // Force React Query to recognize the update and trigger re-render
             // Invalidate the query - this will mark it as stale and trigger a re-render
@@ -388,12 +388,12 @@ export default function ClientList() {
               queryKey: ['counsellor-clients'],
               type: 'active'
             });
-            console.log('[ClientList] ✅ Invalidated and refetched query to force re-render');
+            // console.log('[ClientList] ✅ Invalidated and refetched query to force re-render');
 
             // Verify the update immediately
             const cachedData = queryClient.getQueryData(['counsellor-clients']);
             const cachedCount = Array.isArray(cachedData) ? cachedData.length : 0;
-            console.log('[ClientList] ✅ Verified cache - cached data type:', typeof cachedData, '| isArray:', Array.isArray(cachedData), '| length:', cachedCount);
+            // console.log('[ClientList] ✅ Verified cache - cached data type:', typeof cachedData, '| isArray:', Array.isArray(cachedData), '| length:', cachedCount);
           }
         } else {
           // Admin: Use full admin list in new structure if available
@@ -401,15 +401,15 @@ export default function ClientList() {
             // Backend sent full admin list in new structure - update instantly
             // Structure: { "3": { counsellor: {...}, clients: { "2026": { "Jan": {...} } } } }
             queryClient.setQueryData(['clients'], data.allClients);
-            console.log('[ClientList] Updated clients cache with full admin list (instant, new structure)');
+            // console.log('[ClientList] Updated clients cache with full admin list (instant, new structure)');
           } else if (data.clients && typeof data.clients === 'object' && !Array.isArray(data.clients)) {
             // Backend sent counsellor-first structure directly
             queryClient.setQueryData(['clients'], data.clients);
-            console.log('[ClientList] Updated clients cache with counsellor-first structure');
+            // console.log('[ClientList] Updated clients cache with counsellor-first structure');
           } else {
             // Backend only sent counsellor list or old structure - need to refetch full list
             queryClient.invalidateQueries({ queryKey: ['clients'] });
-            console.log('[ClientList] Invalidated clients cache (will refetch)');
+            // console.log('[ClientList] Invalidated clients cache (will refetch)');
           }
         }
 
@@ -428,7 +428,7 @@ export default function ClientList() {
       clients: any; // For counsellor: array. For admin: counsellor-first structure
       allClients?: any; // Full admin list in new structure (if available)
     }) => {
-      console.log('[ClientList] Received client:updated event:', data);
+      // console.log('[ClientList] Received client:updated event:', data);
 
       // Update React Query cache with updated clients data
       if (data.clients || data.allClients) {
@@ -439,10 +439,10 @@ export default function ClientList() {
             queryClient.setQueryData(['counsellor-clients'], [...flattenedClients], {
               updatedAt: Date.now()
             });
-            console.log('[ClientList] ✅ Updated counsellor-clients cache with', flattenedClients.length, 'clients');
+            // console.log('[ClientList] ✅ Updated counsellor-clients cache with', flattenedClients.length, 'clients');
           } else {
             queryClient.invalidateQueries({ queryKey: ['counsellor-clients'] });
-            console.log('[ClientList] ⚠️ Invalidated cache (flattened array was empty)');
+            //  console.log('[ClientList] ⚠️ Invalidated cache (flattened array was empty)');
           }
         } else {
           // Admin: Use full admin list in new structure if available
@@ -450,15 +450,15 @@ export default function ClientList() {
             // Backend sent full admin list in new structure - update instantly
             // Structure: { "3": { counsellor: {...}, clients: { "2026": { "Jan": {...} } } } }
             queryClient.setQueryData(['clients'], data.allClients);
-            console.log('[ClientList] Updated clients cache with full admin list (instant, new structure)');
+            // console.log('[ClientList] Updated clients cache with full admin list (instant, new structure)');
           } else if (data.clients && typeof data.clients === 'object' && !Array.isArray(data.clients)) {
             // Backend sent counsellor-first structure directly
             queryClient.setQueryData(['clients'], data.clients);
-            console.log('[ClientList] Updated clients cache with counsellor-first structure');
+            // console.log('[ClientList] Updated clients cache with counsellor-first structure');
           } else {
             // Backend only sent counsellor list or old structure - need to refetch full list
             queryClient.invalidateQueries({ queryKey: ['clients'] });
-            console.log('[ClientList] Invalidated clients cache (will refetch)');
+            // console.log('[ClientList] Invalidated clients cache (will refetch)');
           }
         }
 
@@ -475,7 +475,7 @@ export default function ClientList() {
       counsellorId: number;
       clients: any;
     }) => {
-      console.log('[ClientList] Received clients:fetched event:', data);
+      // console.log('[ClientList] Received clients:fetched event:', data);
 
       // Update the counsellorDataMap with the fetched clients
       if (data.clients && data.counsellorId) {
@@ -483,7 +483,7 @@ export default function ClientList() {
           ...prev,
           [data.counsellorId]: data.clients
         }));
-        console.log('[ClientList] Updated counsellorDataMap for counsellor:', data.counsellorId);
+        // console.log('[ClientList] Updated counsellorDataMap for counsellor:', data.counsellorId);
 
         // Show toast notification
         toast({
@@ -501,13 +501,13 @@ export default function ClientList() {
       clients: any; // Updated client list (counsellor or admin structure)
       allClients?: any; // Full admin list (if available)
     }) => {
-      console.log('💳 [ClientList] Received payment:created event:', data);
+      // console.log('💳 [ClientList] Received payment:created event:', data);
 
       // Update client details cache
       if (data.client && data.clientId) {
         queryClient.setQueryData(['client-complete', data.clientId], data.client);
         queryClient.setQueryData(['client', data.clientId], data.client);
-        console.log('[ClientList] ✅ Updated client details cache for clientId:', data.clientId);
+        // console.log('[ClientList] ✅ Updated client details cache for clientId:', data.clientId);
       }
 
       // Update client list cache
@@ -519,22 +519,22 @@ export default function ClientList() {
             queryClient.setQueryData(['counsellor-clients'], [...flattenedClients], {
               updatedAt: Date.now()
             });
-            console.log('[ClientList] ✅ Updated counsellor-clients cache with', flattenedClients.length, 'clients');
+            // console.log('[ClientList] ✅ Updated counsellor-clients cache with', flattenedClients.length, 'clients');
           } else {
             queryClient.invalidateQueries({ queryKey: ['counsellor-clients'] });
-            console.log('[ClientList] ⚠️ Invalidated cache (flattened array was empty)');
+            // console.log('[ClientList] ⚠️ Invalidated cache (flattened array was empty)');
           }
         } else {
           // Admin: Use full admin list in new structure if available
           if (data.allClients) {
             queryClient.setQueryData(['clients'], data.allClients);
-            console.log('[ClientList] ✅ Updated clients cache with full admin list (payment created)');
+            // console.log('[ClientList] ✅ Updated clients cache with full admin list (payment created)');
           } else if (data.clients && typeof data.clients === 'object' && !Array.isArray(data.clients)) {
             queryClient.setQueryData(['clients'], data.clients);
-            console.log('[ClientList] ✅ Updated clients cache with counsellor-first structure (payment created)');
+            // console.log('[ClientList] ✅ Updated clients cache with counsellor-first structure (payment created)');
           } else {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
-            console.log('[ClientList] Invalidated clients cache (will refetch)');
+            //  console.log('[ClientList] Invalidated clients cache (will refetch)');
           }
         }
       }
@@ -554,13 +554,13 @@ export default function ClientList() {
       clients: any; // Updated client list (counsellor or admin structure)
       allClients?: any; // Full admin list (if available)
     }) => {
-      console.log('💳 [ClientList] Received payment:updated event:', data);
+      // console.log('💳 [ClientList] Received payment:updated event:', data);
 
       // Update client details cache
       if (data.client && data.clientId) {
         queryClient.setQueryData(['client-complete', data.clientId], data.client);
         queryClient.setQueryData(['client', data.clientId], data.client);
-        console.log('[ClientList] ✅ Updated client details cache for clientId:', data.clientId);
+        // console.log('[ClientList] ✅ Updated client details cache for clientId:', data.clientId);
       }
 
       // Update client list cache
@@ -572,22 +572,22 @@ export default function ClientList() {
             queryClient.setQueryData(['counsellor-clients'], [...flattenedClients], {
               updatedAt: Date.now()
             });
-            console.log('[ClientList] ✅ Updated counsellor-clients cache with', flattenedClients.length, 'clients');
+            // console.log('[ClientList] ✅ Updated counsellor-clients cache with', flattenedClients.length, 'clients');
           } else {
             queryClient.invalidateQueries({ queryKey: ['counsellor-clients'] });
-            console.log('[ClientList] ⚠️ Invalidated cache (flattened array was empty)');
+            // console.log('[ClientList] ⚠️ Invalidated cache (flattened array was empty)');
           }
         } else {
           // Admin: Use full admin list in new structure if available
           if (data.allClients) {
             queryClient.setQueryData(['clients'], data.allClients);
-            console.log('[ClientList] ✅ Updated clients cache with full admin list (payment updated)');
+            // console.log('[ClientList] ✅ Updated clients cache with full admin list (payment updated)');
           } else if (data.clients && typeof data.clients === 'object' && !Array.isArray(data.clients)) {
             queryClient.setQueryData(['clients'], data.clients);
-            console.log('[ClientList] ✅ Updated clients cache with counsellor-first structure (payment updated)');
+            // console.log('[ClientList] ✅ Updated clients cache with counsellor-first structure (payment updated)');
           } else {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
-            console.log('[ClientList] Invalidated clients cache (will refetch)');
+            // console.log('[ClientList] Invalidated clients cache (will refetch)');
           }
         }
       }
@@ -607,13 +607,13 @@ export default function ClientList() {
       clients: any; // Updated client list (counsellor or admin structure)
       allClients?: any; // Full admin list (if available)
     }) => {
-      console.log('📦 [ClientList] Received productPayment:created event:', data);
+      // console.log('📦 [ClientList] Received productPayment:created event:', data);
 
       // Update client details cache
       if (data.client && data.clientId) {
         queryClient.setQueryData(['client-complete', data.clientId], data.client);
         queryClient.setQueryData(['client', data.clientId], data.client);
-        console.log('[ClientList] ✅ Updated client details cache for clientId:', data.clientId);
+        // console.log('[ClientList] ✅ Updated client details cache for clientId:', data.clientId);
       }
 
       // Update client list cache
@@ -622,18 +622,18 @@ export default function ClientList() {
           // Counsellor: Flatten year/month structure to array if needed
           const flattenedClients = flattenCounsellorClients(data.clients);
           queryClient.setQueryData(['counsellor-clients'], flattenedClients);
-          console.log('[ClientList] ✅ Updated counsellor-clients cache with', flattenedClients.length, 'clients');
+          // console.log('[ClientList] ✅ Updated counsellor-clients cache with', flattenedClients.length, 'clients');
         } else {
           // Admin: Use full admin list in new structure if available
           if (data.allClients) {
             queryClient.setQueryData(['clients'], data.allClients);
-            console.log('[ClientList] ✅ Updated clients cache with full admin list (product payment created)');
+            // console.log('[ClientList] ✅ Updated clients cache with full admin list (product payment created)');
           } else if (data.clients && typeof data.clients === 'object' && !Array.isArray(data.clients)) {
             queryClient.setQueryData(['clients'], data.clients);
-            console.log('[ClientList] ✅ Updated clients cache with counsellor-first structure (product payment created)');
+            //  console.log('[ClientList] ✅ Updated clients cache with counsellor-first structure (product payment created)');
           } else {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
-            console.log('[ClientList] Invalidated clients cache (will refetch)');
+            // console.log('[ClientList] Invalidated clients cache (will refetch)');
           }
         }
       }
@@ -653,13 +653,13 @@ export default function ClientList() {
       clients: any; // Updated client list (counsellor or admin structure)
       allClients?: any; // Full admin list (if available)
     }) => {
-      console.log('📦 [ClientList] Received productPayment:updated event:', data);
+      // console.log('📦 [ClientList] Received productPayment:updated event:', data);
 
       // Update client details cache
       if (data.client && data.clientId) {
         queryClient.setQueryData(['client-complete', data.clientId], data.client);
         queryClient.setQueryData(['client', data.clientId], data.client);
-        console.log('[ClientList] ✅ Updated client details cache for clientId:', data.clientId);
+        // console.log('[ClientList] ✅ Updated client details cache for clientId:', data.clientId);
       }
 
       // Update client list cache
@@ -668,18 +668,18 @@ export default function ClientList() {
           // Counsellor: Flatten year/month structure to array if needed
           const flattenedClients = flattenCounsellorClients(data.clients);
           queryClient.setQueryData(['counsellor-clients'], flattenedClients);
-          console.log('[ClientList] ✅ Updated counsellor-clients cache with', flattenedClients.length, 'clients');
+          // console.log('[ClientList] ✅ Updated counsellor-clients cache with', flattenedClients.length, 'clients');
         } else {
           // Admin: Use full admin list in new structure if available
           if (data.allClients) {
             queryClient.setQueryData(['clients'], data.allClients);
-            console.log('[ClientList] ✅ Updated clients cache with full admin list (product payment updated)');
+            // console.log('[ClientList] ✅ Updated clients cache with full admin list (product payment updated)');
           } else if (data.clients && typeof data.clients === 'object' && !Array.isArray(data.clients)) {
             queryClient.setQueryData(['clients'], data.clients);
-            console.log('[ClientList] ✅ Updated clients cache with counsellor-first structure (product payment updated)');
+            // console.log('[ClientList] ✅ Updated clients cache with counsellor-first structure (product payment updated)');
           } else {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
-            console.log('[ClientList] Invalidated clients cache (will refetch)');
+            // console.log('[ClientList] Invalidated clients cache (will refetch)');
           }
         }
       }
@@ -698,7 +698,7 @@ export default function ClientList() {
       clients: any; // For counsellor: array. For admin: counsellor-first structure
       allClients?: any; // Full admin list in new structure (if available)
     }) => {
-      console.log('[ClientList] Received client:archived/unarchived event:', data);
+      // console.log('[ClientList] Received client:archived/unarchived event:', data);
 
       // Update React Query cache with updated clients data
       if (data.clients || data.allClients) {
@@ -709,22 +709,22 @@ export default function ClientList() {
             queryClient.setQueryData(['counsellor-clients'], [...flattenedClients], {
               updatedAt: Date.now()
             });
-            console.log('[ClientList] ✅ Updated counsellor-clients cache with', flattenedClients.length, 'clients');
+            // console.log('[ClientList] ✅ Updated counsellor-clients cache with', flattenedClients.length, 'clients');
           } else {
             queryClient.invalidateQueries({ queryKey: ['counsellor-clients'] });
-            console.log('[ClientList] ⚠️ Invalidated cache (flattened array was empty)');
+            // console.log('[ClientList] ⚠️ Invalidated cache (flattened array was empty)');
           }
         } else {
           // Admin: Use full admin list in new structure if available
           if (data.allClients) {
             queryClient.setQueryData(['clients'], data.allClients);
-            console.log('[ClientList] ✅ Updated clients cache with full admin list (client archived/unarchived)');
+            // console.log('[ClientList] ✅ Updated clients cache with full admin list (client archived/unarchived)');
           } else if (data.clients && typeof data.clients === 'object' && !Array.isArray(data.clients)) {
             queryClient.setQueryData(['clients'], data.clients);
-            console.log('[ClientList] ✅ Updated clients cache with counsellor-first structure (client archived/unarchived)');
+            //  console.log('[ClientList] ✅ Updated clients cache with counsellor-first structure (client archived/unarchived)');
           } else {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
-            console.log('[ClientList] Invalidated clients cache (will refetch)');
+            // console.log('[ClientList] Invalidated clients cache (will refetch)');
           }
         }
       }
@@ -737,7 +737,7 @@ export default function ClientList() {
     };
 
     // Register event listeners
-    console.log('🟢 [ClientList] Registering socket event listeners...');
+    // console.log('🟢 [ClientList] Registering socket event listeners...');
     socket.on('client:created', handleClientCreated);
     socket.on('client:updated', handleClientUpdated);
     socket.on('client:archived', handleClientArchived);
@@ -750,19 +750,19 @@ export default function ClientList() {
 
     // Add test listener to verify socket is working
     socket.on('connect', () => {
-      console.log('🟢 [ClientList] Socket connected event received in ClientList');
+      // console.log('🟢 [ClientList] Socket connected event received in ClientList');
     });
 
-    console.log('✅ [ClientList] Socket event listeners registered for:', {
-      role: user?.role,
-      socketId: socket.id,
-      connected: socket.connected,
-      events: ['client:created', 'client:updated', 'clients:fetched', 'payment:created', 'payment:updated', 'productPayment:created', 'productPayment:updated']
-    });
+    // console.log('✅ [ClientList] Socket event listeners registered for:', {
+    //   role: user?.role,
+    //   socketId: socket.id,
+    //   connected: socket.connected,
+    //   events: ['client:created', 'client:updated', 'clients:fetched', 'payment:created', 'payment:updated', 'productPayment:created', 'productPayment:updated']
+    // });
 
     // Cleanup on unmount
     return () => {
-      console.log('[ClientList] Cleaning up socket event listeners');
+      // console.log('[ClientList] Cleaning up socket event listeners');
       socket.off('client:created', handleClientCreated);
       socket.off('client:updated', handleClientUpdated);
       socket.off('client:archived', handleClientArchived);
@@ -1805,14 +1805,14 @@ export default function ClientList() {
                   }
 
                   // Debug logging to help identify the issue
-                  console.log('[ClientList] Counsellor role lookup:', {
-                    counsellorId,
-                    counsellorName,
-                    foundRole: counsellorRole,
-                    counsellorInfoKeys: Object.keys(counsellorInfo),
-                    counsellorsListLength: counsellorsList.length,
-                    counsellorInfo: counsellorInfo
-                  });
+                  // console.log('[ClientList] Counsellor role lookup:', {
+                  //   counsellorId,
+                  //   counsellorName,
+                  //   foundRole: counsellorRole,
+                  //   counsellorInfoKeys: Object.keys(counsellorInfo),
+                  //   counsellorsListLength: counsellorsList.length,
+                  //   counsellorInfo: counsellorInfo
+                  // });
 
                   const roleBadge = getRoleBadge(counsellorRole);
                   const counsellorClientsData = counsellorData?.clients || {};

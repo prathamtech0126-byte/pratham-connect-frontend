@@ -85,11 +85,11 @@ export default function CounsellorLeaderboard() {
   // WebSocket listener for leaderboard updates
   useEffect(() => {
     if (!socket || !isConnected) {
-      console.log('[CounsellorLeaderboard] Socket not available, skipping socket listeners');
+      // console.log('[CounsellorLeaderboard] Socket not available, skipping socket listeners');
       return;
     }
 
-    console.log('[CounsellorLeaderboard] Setting up socket event listeners for leaderboard');
+    // console.log('[CounsellorLeaderboard] Setting up socket event listeners for leaderboard');
 
     const handleLeaderboardUpdated = (data: {
       action: "CREATED" | "UPDATED";
@@ -99,14 +99,14 @@ export default function CounsellorLeaderboard() {
       month: number;
       year: number;
     }) => {
-      console.log('[CounsellorLeaderboard] Received leaderboard:updated event:', data);
+      // console.log('[CounsellorLeaderboard] Received leaderboard:updated event:', data);
 
       // Only update if the event is for the currently selected month/year
       if (data.month === month && data.year === year) {
         // Update React Query cache with new leaderboard data
         if (data.leaderboard) {
           queryClient.setQueryData(['leaderboard', month, year], data.leaderboard);
-          console.log('[CounsellorLeaderboard] ✅ Updated leaderboard cache with', data.leaderboard.length, 'counsellors');
+          // console.log('[CounsellorLeaderboard] ✅ Updated leaderboard cache with', data.leaderboard.length, 'counsellors');
         }
 
         // Show toast notification
@@ -115,17 +115,17 @@ export default function CounsellorLeaderboard() {
           description: `Target ${data.action === "CREATED" ? "set" : "updated"} successfully.`,
         });
       } else {
-        console.log('[CounsellorLeaderboard] Event is for different month/year, ignoring');
+        // console.log('[CounsellorLeaderboard] Event is for different month/year, ignoring');
       }
     };
 
     // Register event listener
     socket.on('leaderboard:updated', handleLeaderboardUpdated);
-    console.log('[CounsellorLeaderboard] ✅ Socket event listener registered: leaderboard:updated');
+    // console.log('[CounsellorLeaderboard] ✅ Socket event listener registered: leaderboard:updated');
 
     // Cleanup on unmount
     return () => {
-      console.log('[CounsellorLeaderboard] Cleaning up socket event listeners');
+      // console.log('[CounsellorLeaderboard] Cleaning up socket event listeners');
       socket.off('leaderboard:updated', handleLeaderboardUpdated);
     };
   }, [socket, isConnected, queryClient, toast, month, year]);
@@ -231,7 +231,7 @@ export default function CounsellorLeaderboard() {
   const handleSaveTarget = async () => {
     // ✅ Prevent multiple clicks
     if (isSubmitting || requestInFlightRef.current) {
-      console.log('[CounsellorLeaderboard] Request already in progress, ignoring click');
+      // console.log('[CounsellorLeaderboard] Request already in progress, ignoring click');
       return;
     }
 

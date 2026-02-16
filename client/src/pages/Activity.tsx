@@ -19,7 +19,8 @@ import {
   LogIn,
   LogOut,
   Loader2,
-  Package
+  Package,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -44,7 +45,7 @@ interface ChangeDetail {
 
 interface ActivityLogItem {
   id: string;
-  type: "create" | "payment" | "product" | "status_change" | "upload" | "update" | "login" | "logout";
+  type: "create" | "payment" | "product" | "status_change" | "upload" | "update" | "deleted" | "login" | "logout";
   title: string;
   description: string;
   timestamp: string;
@@ -62,6 +63,10 @@ interface ActivityLogItem {
   rawOldValue?: any;
   rawNewValue?: any;
   action?: string;
+  /** For delete actions: show in modal */
+  performerId?: number | null;
+  performerEmail?: string | null;
+  productLabel?: string | null;
 }
 
 // Format activity text: Rupee instead of Dollar, null → Not set, backend product names → friendly names
@@ -77,7 +82,7 @@ const formatActivityDescription = (text: string | null | undefined): string => {
   return out;
 };
 
-// Map API action to component type: any UPDATE action shows as "update"; adds show as payment/product
+// Map API action to component type: DELETED actions show as "deleted"; UPDATE as "update"; adds as payment/product
 const mapActionToType = (action: string): ActivityLogItem["type"] => {
   switch (action) {
     case "LOGIN":
@@ -86,6 +91,9 @@ const mapActionToType = (action: string): ActivityLogItem["type"] => {
       return "logout";
     case "CREATE":
       return "create";
+    case "PAYMENT_DELETED":
+    case "PRODUCT_DELETED":
+      return "deleted";
     case "UPDATE":
     case "PAYMENT_UPDATED":
     case "PRODUCT_UPDATED":
@@ -258,6 +266,9 @@ const transformActivityLog = (log: any): ActivityLogItem => {
     rawOldValue: log.oldValue ?? log.old_value,
     rawNewValue: log.newValue ?? log.new_value,
     action: log.action,
+    performerId: log.performerId ?? log.performedBy ?? null,
+    performerEmail: log.performerEmail ?? null,
+    productLabel: log.productLabel ?? null,
   };
 };
 
@@ -332,6 +343,7 @@ export default function Activity() {
       case "status_change": return <CheckCircle2 className="h-4 w-4 text-orange-500" />;
       case "upload": return <Upload className="h-4 w-4 text-purple-500" />;
       case "update": return <RefreshCw className="h-4 w-4 text-indigo-500" />;
+      case "deleted": return <Trash2 className="h-4 w-4 text-red-500" />;
       case "login": return <LogIn className="h-4 w-4 text-emerald-500" />;
       case "logout": return <LogOut className="h-4 w-4 text-gray-500" />;
       default: return <FileText className="h-4 w-4 text-gray-500" />;
@@ -346,6 +358,7 @@ export default function Activity() {
       case "status_change": return <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">Status</Badge>;
       case "upload": return <Badge variant="outline" className="text-purple-600 border-purple-200 bg-purple-50">Upload</Badge>;
       case "update": return <Badge variant="outline" className="text-indigo-600 border-indigo-200 bg-indigo-50">Update</Badge>;
+      case "deleted": return <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">Deleted</Badge>;
       case "login": return <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50">Login</Badge>;
       case "logout": return <Badge variant="outline" className="text-gray-600 border-gray-200 bg-gray-50">Logout</Badge>;
       default: return <Badge variant="outline">Activity</Badge>;
@@ -446,6 +459,7 @@ export default function Activity() {
                       <SelectItem value="payment">Payment</SelectItem>
                       <SelectItem value="product">Product</SelectItem>
                       <SelectItem value="update">Update</SelectItem>
+                      <SelectItem value="deleted">Delete</SelectItem>
                       <SelectItem value="login">Login</SelectItem>
                       <SelectItem value="logout">Logout</SelectItem>
                     </SelectContent>
@@ -465,6 +479,8 @@ export default function Activity() {
                       <SelectItem value="PAYMENT_UPDATED">Payment Updated</SelectItem>
                       <SelectItem value="PRODUCT_ADDED">Product Added</SelectItem>
                       <SelectItem value="PRODUCT_UPDATED">Product Updated</SelectItem>
+                      <SelectItem value="PRODUCT_DELETED">Product Deleted</SelectItem>
+                      <SelectItem value="PAYMENT_DELETED">Payment Deleted</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -597,6 +613,34 @@ export default function Activity() {
                 </DialogHeader>
 
                 <div className="py-4">
+                  {(selectedActivity?.action === "PAYMENT_DELETED" || selectedActivity?.action === "PRODUCT_DELETED") && (
+                    <div className="mb-6 p-4 bg-muted/30 rounded-lg space-y-2 border border-muted">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Delete details</p>
+                      {selectedActivity.description && (
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Reason: </span>
+                          <span className="font-medium text-foreground">{selectedActivity.description}</span>
+                        </p>
+                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                        {selectedActivity.performerId != null && (
+                          <p><span className="text-muted-foreground">Performer ID:</span> <span className="font-medium">{selectedActivity.performerId}</span></p>
+                        )}
+                        <p><span className="text-muted-foreground">Performer Name:</span> <span className="font-medium">{selectedActivity?.user.name}</span></p>
+                        {selectedActivity?.performerEmail && (
+                          <p><span className="text-muted-foreground">Performer Email:</span> <span className="font-medium">{selectedActivity.performerEmail}</span></p>
+                        )}
+                        <p><span className="text-muted-foreground">Performer Role:</span> <span className="font-medium capitalize">{selectedActivity?.user.role.replace("_", " ")}</span></p>
+                        {selectedActivity?.clientName && (
+                          <p><span className="text-muted-foreground">Client:</span> <span className="font-medium">{selectedActivity.clientName}</span></p>
+                        )}
+                        {selectedActivity?.productLabel && (
+                          <p className="sm:col-span-2"><span className="text-muted-foreground">Product:</span> <span className="font-medium">{selectedActivity.productLabel}</span></p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-4 mb-6 p-4 bg-muted/30 rounded-lg">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={selectedActivity?.user.avatar} />

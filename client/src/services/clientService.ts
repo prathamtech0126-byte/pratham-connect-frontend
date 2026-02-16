@@ -793,6 +793,25 @@ export const clientService = {
     }
   },
 
+  deleteClientPayment: async (paymentId: number, reason: string): Promise<void> => {
+    const res = await api.delete(`/api/client-payments/${paymentId}`, {
+      data: { reason: reason.trim() },
+    });
+    if (res.data?.data !== undefined) return res.data.data;
+  },
+
+  /**
+   * Delete a client product payment.
+   * DELETE /api/client-product-payments/:productPaymentId
+   * Body: { "reason": "..." }
+   */
+  deleteClientProductPayment: async (productPaymentId: number, reason: string): Promise<void> => {
+    const res = await api.delete(`/api/client-product-payments/${productPaymentId}`, {
+      data: { reason: reason.trim() },
+    });
+    if (res.data?.data !== undefined) return res.data.data;
+  },
+
   // Leaderboard APIs
   getLeaderboard: async (month: number, year: number): Promise<{ data: any[]; summary?: { totalCounsellors: number; totalEnrollments: number; totalRevenue: number } }> => {
     try {

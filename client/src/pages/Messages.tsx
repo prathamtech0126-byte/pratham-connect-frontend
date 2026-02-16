@@ -59,12 +59,12 @@ export default function Messages() {
 
   // Debug log to check pending approvals
   useEffect(() => {
-    console.log("[Messages] Pending approvals check:", {
-      userRole: user?.role,
-      canApprovePayments,
-      pendingApprovalsCount: pendingApprovals.length,
-      pendingApprovals: pendingApprovals
-    });
+    // console.log("[Messages] Pending approvals check:", {
+    //   userRole: user?.role,
+    //   canApprovePayments,
+    //   pendingApprovalsCount: pendingApprovals.length,
+    //   pendingApprovals: pendingApprovals
+    // });
   }, [user?.role, canApprovePayments, pendingApprovals]);
 
   // Socket listeners for real-time pending approval updates
@@ -81,7 +81,7 @@ export default function Messages() {
       clientName?: string;
       amount?: string;
     }) => {
-      console.log("[Messages] New pending approval created:", data);
+      // console.log("[Messages] New pending approval created:", data);
 
       toast({
         title: "New Pending Approval",
@@ -100,7 +100,7 @@ export default function Messages() {
       clientName?: string;
       amount?: string;
     }) => {
-      console.log("[Messages] All Finance approved event received:", data);
+      // console.log("[Messages] All Finance approved event received:", data);
 
       // Refresh pending approvals
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
@@ -114,7 +114,7 @@ export default function Messages() {
       clientName?: string;
       amount?: string;
     }) => {
-      console.log("[Messages] All Finance rejected event received:", data);
+      // console.log("[Messages] All Finance rejected event received:", data);
 
       // Refresh pending approvals
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
@@ -125,7 +125,7 @@ export default function Messages() {
     socket.on("allFinance:approved", handleAllFinanceApproved);
     socket.on("allFinance:rejected", handleAllFinanceRejected);
 
-    console.log("[Messages] Socket listeners registered for allFinance events");
+    // console.log("[Messages] Socket listeners registered for allFinance events");
 
     // Cleanup on unmount
     return () => {
@@ -163,7 +163,7 @@ export default function Messages() {
     }
 
     const handleAcknowledgment = async (data: { messageId: number; userId: number; acknowledgedAt: string }) => {
-      console.log('📨 [Messages] Real-time acknowledgment received:', data);
+      // console.log('📨 [Messages] Real-time acknowledgment received:', data);
 
       // If the currently selected message matches, refresh its acknowledgment status
       if (selectedMessage && selectedMessage.id === data.messageId) {
@@ -192,7 +192,7 @@ export default function Messages() {
     };
 
     socket.on('message:acknowledged', handleAcknowledgment);
-    console.log('[Messages] ✅ Listening for message:acknowledged events');
+    // console.log('[Messages] ✅ Listening for message:acknowledged events');
 
     return () => {
       socket.off('message:acknowledged', handleAcknowledgment);
@@ -263,7 +263,7 @@ export default function Messages() {
       setProcessingApproval(financeId);
 
       const result = await clientService.approveAllFinancePayment(financeId);
-      console.log("[Messages] Approval successful, result:", result);
+      // console.log("[Messages] Approval successful, result:", result);
 
       toast({
         title: "Payment Approved",
@@ -296,11 +296,11 @@ export default function Messages() {
   // Handle reject payment
   const handleReject = async (financeId: number) => {
     try {
-      console.log("[Messages] Rejecting payment, financeId:", financeId);
+      // console.log("[Messages] Rejecting payment, financeId:", financeId);
       setProcessingApproval(financeId);
 
       const result = await clientService.rejectAllFinancePayment(financeId);
-      console.log("[Messages] Rejection successful, result:", result);
+      // console.log("[Messages] Rejection successful, result:", result);
 
       toast({
         title: "Payment Rejected",
@@ -787,19 +787,18 @@ export default function Messages() {
                                   <p className="font-medium text-foreground">{approval.invoiceNo}</p>
                                 </div>
                               )}
+
                               {approval.counsellor && (
                                 <div>
                                   <span className="text-muted-foreground">Counsellor:</span>
                                   <p className="font-medium text-foreground">{approval.counsellor.fullName}</p>
                                 </div>
                               )}
-                            </div>
-                            {approval.remarks && (
-                              <div className="mt-2">
-                                <span className="text-muted-foreground text-sm">Remarks: </span>
-                                <span className="text-foreground text-sm">{approval.remarks}</span>
+                              <div className="col-span-2">
+                                <span className="text-muted-foreground">Remarks:</span>
+                                <p className="font-medium text-foreground">{approval.remarks || "—"}</p>
                               </div>
-                            )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-2 ml-4">
                             <Button

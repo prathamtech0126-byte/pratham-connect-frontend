@@ -354,10 +354,10 @@ export default function Dashboard() {
     }
 
     // Debug: Log user ID and first counsellor ID for comparison
-    if (finalLeaderboardData.length > 0 && user?.id) {
-      console.log('[Dashboard Leaderboard] User ID:', user.id, 'Type:', typeof user.id);
-      console.log('[Dashboard Leaderboard] First counsellor ID:', finalLeaderboardData[0].counsellorId, 'Type:', typeof finalLeaderboardData[0].counsellorId);
-    }
+    // if (finalLeaderboardData.length > 0 && user?.id) {
+    //   console.log('[Dashboard Leaderboard] User ID:', user.id, 'Type:', typeof user.id);
+    //   console.log('[Dashboard Leaderboard] First counsellor ID:', finalLeaderboardData[0].counsellorId, 'Type:', typeof finalLeaderboardData[0].counsellorId);
+    // }
 
     return finalLeaderboardData.map((item: any) => {
       const counsellorId = item.counsellorId;
@@ -377,21 +377,21 @@ export default function Dashboard() {
 
         if (userCounsellorIdStr === counsellorIdStr) {
           isCurrentUser = true;
-          console.log('[Dashboard Leaderboard] ✅ Match found (counsellorId string):', fullName, 'User CounsellorId:', userCounsellorIdStr, 'Leaderboard CounsellorId:', counsellorIdStr);
+          // console.log('[Dashboard Leaderboard] ✅ Match found (counsellorId string):', fullName, 'User CounsellorId:', userCounsellorIdStr, 'Leaderboard CounsellorId:', counsellorIdStr);
         } else {
           // Try number comparison (handle cases where one is string and one is number)
           const userCounsellorIdNum = Number(userCounsellorId);
           const counsellorIdNum = Number(counsellorId);
           if (!isNaN(userCounsellorIdNum) && !isNaN(counsellorIdNum) && userCounsellorIdNum === counsellorIdNum) {
             isCurrentUser = true;
-            console.log('[Dashboard Leaderboard] ✅ Match found (counsellorId number):', fullName, 'User CounsellorId:', userCounsellorIdNum, 'Leaderboard CounsellorId:', counsellorIdNum);
+            // console.log('[Dashboard Leaderboard] ✅ Match found (counsellorId number):', fullName, 'User CounsellorId:', userCounsellorIdNum, 'Leaderboard CounsellorId:', counsellorIdNum);
           }
         }
       }
 
       // Debug: Log if no match found for debugging
       if (!isCurrentUser && userCounsellorId) {
-        console.log('[Dashboard Leaderboard] No match:', fullName, 'User CounsellorId:', userCounsellorId, 'Leaderboard CounsellorId:', counsellorId);
+        // console.log('[Dashboard Leaderboard] No match:', fullName, 'User CounsellorId:', userCounsellorId, 'Leaderboard CounsellorId:', counsellorId);
       }
 
       return {
@@ -485,27 +485,27 @@ export default function Dashboard() {
   // WebSocket listener for real-time dashboard updates
   useEffect(() => {
     if (!socket || !isConnected) {
-      console.log('[Dashboard] Socket not available, skipping dashboard WebSocket listener');
+      // console.log('[Dashboard] Socket not available, skipping dashboard WebSocket listener');
       return;
     }
 
     // Only listen if user is admin (superadmin, manager, director)
     const isAdmin = user?.role === 'superadmin' || user?.role === 'manager' || user?.role === 'director';
     if (!isAdmin) {
-      console.log('[Dashboard] User is not admin, skipping dashboard WebSocket listener');
+      // console.log('[Dashboard] User is not admin, skipping dashboard WebSocket listener');
       return;
     }
 
-    console.log('[Dashboard] Setting up dashboard:updated WebSocket listener');
+    // console.log('[Dashboard] Setting up dashboard:updated WebSocket listener');
 
     // Ensure admin joins both admin room (for client events) and admin:dashboard room (for dashboard events)
     // Note: join:admin is already handled in socket-context.tsx, but we ensure join:admin:dashboard here
     socket.emit('join:admin:dashboard');
-    console.log('[Dashboard] ✅ Joined admin:dashboard room');
+    // console.log('[Dashboard] ✅ Joined admin:dashboard room');
 
     // Also ensure admin room is joined (should already be done in socket-context, but double-check)
     socket.emit('join:admin');
-    console.log('[Dashboard] ✅ Joined admin room (for client events)');
+    // console.log('[Dashboard] ✅ Joined admin room (for client events)');
 
     // Listen for dashboard:updated event
     const handleDashboardUpdated = (eventData: {
@@ -533,14 +533,14 @@ export default function Dashboard() {
         revenueOverview: Array<{ month: string; revenue: string }>;
       };
     }) => {
-      console.log('📊 [Dashboard] ========== DASHBOARD:UPDATED EVENT RECEIVED ==========');
-      console.log('[Dashboard] Event filter:', eventData.filter, '| Current filter:', timeFilter);
-      console.log('[Dashboard] Event data:', eventData.data);
+      // console.log('📊 [Dashboard] ========== DASHBOARD:UPDATED EVENT RECEIVED ==========');
+      // console.log('[Dashboard] Event filter:', eventData.filter, '| Current filter:', timeFilter);
+      // console.log('[Dashboard] Event data:', eventData.data);
 
       // Only update if current filter matches the event filter (or if event filter is "today")
       // Backend currently only emits for "today" filter
       if (eventData.filter === timeFilter || eventData.filter === 'today') {
-        console.log('[Dashboard] ✅ Filter matches, updating dashboard data');
+        // console.log('[Dashboard] ✅ Filter matches, updating dashboard data');
 
         // Update React Query cache with new data
         queryClient.setQueryData(
@@ -548,7 +548,7 @@ export default function Dashboard() {
           eventData.data
         );
 
-        console.log('[Dashboard] ✅ Updated dashboard stats cache');
+        // console.log('[Dashboard] ✅ Updated dashboard stats cache');
 
         // Show toast notification (optional, can be removed if too noisy)
         // toast({
@@ -556,7 +556,7 @@ export default function Dashboard() {
         //   description: "Dashboard statistics have been updated in real-time.",
         // });
       } else {
-        console.log('[Dashboard] ⏭️ Filter mismatch, skipping update. Event filter:', eventData.filter, 'Current filter:', timeFilter);
+        // console.log('[Dashboard] ⏭️ Filter mismatch, skipping update. Event filter:', eventData.filter, 'Current filter:', timeFilter);
       }
     };
 
@@ -567,7 +567,7 @@ export default function Dashboard() {
       clients?: any;
       allClients?: any;
     }) => {
-      console.log('📊 [Dashboard] Received client:created event, invalidating dashboard stats');
+      // console.log('📊 [Dashboard] Received client:created event, invalidating dashboard stats');
 
       // Force immediate refetch of dashboard stats
       queryClient.invalidateQueries({
@@ -581,7 +581,7 @@ export default function Dashboard() {
         type: 'active'
       });
 
-      console.log('[Dashboard] ✅ Invalidated and refetching dashboard stats');
+      // console.log('[Dashboard] ✅ Invalidated and refetching dashboard stats');
     };
 
     // Listen for client:updated event to update dashboard instantly
@@ -591,7 +591,7 @@ export default function Dashboard() {
       clients?: any;
       allClients?: any;
     }) => {
-      console.log('📊 [Dashboard] Received client:updated event, invalidating dashboard stats');
+      // console.log('📊 [Dashboard] Received client:updated event, invalidating dashboard stats');
 
       // Force immediate refetch of dashboard stats
       queryClient.invalidateQueries({
@@ -604,7 +604,7 @@ export default function Dashboard() {
         type: 'active'
       });
 
-      console.log('[Dashboard] ✅ Invalidated and refetching dashboard stats');
+      // console.log('[Dashboard] ✅ Invalidated and refetching dashboard stats');
     };
 
     // Listen for payment:created event (affects revenue and pending amount)
@@ -613,7 +613,7 @@ export default function Dashboard() {
       client: any;
       clients?: any;
     }) => {
-      console.log('📊 [Dashboard] Received payment:created event, invalidating dashboard stats');
+      // console.log('📊 [Dashboard] Received payment:created event, invalidating dashboard stats');
 
       queryClient.invalidateQueries({
         queryKey: ['dashboard-stats'],
@@ -625,7 +625,7 @@ export default function Dashboard() {
         type: 'active'
       });
 
-      console.log('[Dashboard] ✅ Invalidated and refetching dashboard stats (payment created)');
+      // console.log('[Dashboard] ✅ Invalidated and refetching dashboard stats (payment created)');
     };
 
     // Listen for payment:updated event (affects revenue and pending amount)
@@ -634,7 +634,7 @@ export default function Dashboard() {
       client: any;
       clients?: any;
     }) => {
-      console.log('📊 [Dashboard] Received payment:updated event, invalidating dashboard stats');
+      // console.log('📊 [Dashboard] Received payment:updated event, invalidating dashboard stats');
 
       queryClient.invalidateQueries({
         queryKey: ['dashboard-stats'],
@@ -646,7 +646,7 @@ export default function Dashboard() {
         type: 'active'
       });
 
-      console.log('[Dashboard] ✅ Invalidated and refetching dashboard stats (payment updated)');
+      // console.log('[Dashboard] ✅ Invalidated and refetching dashboard stats (payment updated)');
     };
 
     // Listen for productPayment:created event (affects revenue)
@@ -655,7 +655,7 @@ export default function Dashboard() {
       client: any;
       clients?: any;
     }) => {
-      console.log('📊 [Dashboard] Received productPayment:created event, invalidating dashboard stats');
+      // console.log('📊 [Dashboard] Received productPayment:created event, invalidating dashboard stats');
 
       queryClient.invalidateQueries({
         queryKey: ['dashboard-stats'],
@@ -667,7 +667,7 @@ export default function Dashboard() {
         type: 'active'
       });
 
-      console.log('[Dashboard] ✅ Invalidated and refetching dashboard stats (product payment created)');
+      // console.log('[Dashboard] ✅ Invalidated and refetching dashboard stats (product payment created)');
     };
 
     // Listen for productPayment:updated event (affects revenue)
@@ -676,7 +676,7 @@ export default function Dashboard() {
       client: any;
       clients?: any;
     }) => {
-      console.log('📊 [Dashboard] Received productPayment:updated event, invalidating dashboard stats');
+      //  console.log('📊 [Dashboard] Received productPayment:updated event, invalidating dashboard stats');
 
       queryClient.invalidateQueries({
         queryKey: ['dashboard-stats'],
@@ -688,7 +688,7 @@ export default function Dashboard() {
         type: 'active'
       });
 
-      console.log('[Dashboard] ✅ Invalidated and refetching dashboard stats (product payment updated)');
+      // console.log('[Dashboard] ✅ Invalidated and refetching dashboard stats (product payment updated)');
     };
 
     // Register all event listeners
@@ -699,11 +699,11 @@ export default function Dashboard() {
     socket.on('payment:updated', handlePaymentUpdated);
     socket.on('productPayment:created', handleProductPaymentCreated);
     socket.on('productPayment:updated', handleProductPaymentUpdated);
-    console.log('[Dashboard] ✅ Registered WebSocket event listeners: dashboard:updated, client:created, client:updated, payment:created, payment:updated, productPayment:created, productPayment:updated');
+    // console.log('[Dashboard] ✅ Registered WebSocket event listeners: dashboard:updated, client:created, client:updated, payment:created, payment:updated, productPayment:created, productPayment:updated');
 
     // Cleanup on unmount
     return () => {
-      console.log('[Dashboard] Cleaning up dashboard WebSocket listeners');
+      // console.log('[Dashboard] Cleaning up dashboard WebSocket listeners');
       socket.off('dashboard:updated', handleDashboardUpdated);
       socket.off('client:created', handleClientCreated);
       socket.off('client:updated', handleClientUpdated);

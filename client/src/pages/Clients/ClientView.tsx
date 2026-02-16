@@ -328,15 +328,13 @@ export default function ClientView() {
     enabled: !!clientId,
   });
 
-  console.log("client", client);
-
   // WebSocket listeners for real-time payment and product payment updates
   useEffect(() => {
     if (!socket || !isConnected || !clientId) {
       return;
     }
 
-    console.log('🟢 [ClientView] Setting up socket event listeners for clientId:', clientId);
+    // console.log('🟢 [ClientView] Setting up socket event listeners for clientId:', clientId);
 
     // Listen for payment:created event
     const handlePaymentCreated = (data: {
@@ -345,10 +343,10 @@ export default function ClientView() {
       client: any; // Full client details with updated payments
     }) => {
       if (data.clientId === clientId && data.client) {
-        console.log('💳 [ClientView] Received payment:created event for clientId:', clientId);
+        // console.log('💳 [ClientView] Received payment:created event for clientId:', clientId);
         queryClient.setQueryData(['client-complete', clientId], data.client);
         queryClient.setQueryData(['client', clientId], data.client);
-        console.log('[ClientView] ✅ Updated client details cache');
+        // console.log('[ClientView] ✅ Updated client details cache');
         toast({
           title: "Payment Added",
           description: "Payment has been added and the view has been updated.",
@@ -363,10 +361,10 @@ export default function ClientView() {
       client: any; // Full client details with updated payments
     }) => {
       if (data.clientId === clientId && data.client) {
-        console.log('💳 [ClientView] Received payment:updated event for clientId:', clientId);
+        // console.log('💳 [ClientView] Received payment:updated event for clientId:', clientId);
         queryClient.setQueryData(['client-complete', clientId], data.client);
         queryClient.setQueryData(['client', clientId], data.client);
-        console.log('[ClientView] ✅ Updated client details cache');
+        // console.log('[ClientView] ✅ Updated client details cache');
         toast({
           title: "Payment Updated",
           description: "Payment has been updated and the view has been refreshed.",
@@ -381,10 +379,10 @@ export default function ClientView() {
       client: any; // Full client details with updated productPayments
     }) => {
       if (data.clientId === clientId && data.client) {
-        console.log('📦 [ClientView] Received productPayment:created event for clientId:', clientId);
+        // console.log('📦 [ClientView] Received productPayment:created event for clientId:', clientId);
         queryClient.setQueryData(['client-complete', clientId], data.client);
         queryClient.setQueryData(['client', clientId], data.client);
-        console.log('[ClientView] ✅ Updated client details cache');
+        // console.log('[ClientView] ✅ Updated client details cache');
         toast({
           title: "Product Payment Added",
           description: "Product payment has been added and the view has been updated.",
@@ -399,10 +397,10 @@ export default function ClientView() {
       client: any; // Full client details with updated productPayments
     }) => {
       if (data.clientId === clientId && data.client) {
-        console.log('📦 [ClientView] Received productPayment:updated event for clientId:', clientId);
+        // console.log('📦 [ClientView] Received productPayment:updated event for clientId:', clientId);
         queryClient.setQueryData(['client-complete', clientId], data.client);
         queryClient.setQueryData(['client', clientId], data.client);
-        console.log('[ClientView] ✅ Updated client details cache');
+        // console.log('[ClientView] ✅ Updated client details cache');
         toast({
           title: "Product Payment Updated",
           description: "Product payment has been updated and the view has been refreshed.",
@@ -416,11 +414,11 @@ export default function ClientView() {
     socket.on('productPayment:created', handleProductPaymentCreated);
     socket.on('productPayment:updated', handleProductPaymentUpdated);
 
-    console.log('✅ [ClientView] Socket event listeners registered for payment events');
+    // console.log('✅ [ClientView] Socket event listeners registered for payment events');
 
     // Cleanup on unmount
     return () => {
-      console.log('[ClientView] Cleaning up socket event listeners');
+      // console.log('[ClientView] Cleaning up socket event listeners');
       socket.off('payment:created', handlePaymentCreated);
       socket.off('payment:updated', handlePaymentUpdated);
       socket.off('productPayment:created', handleProductPaymentCreated);

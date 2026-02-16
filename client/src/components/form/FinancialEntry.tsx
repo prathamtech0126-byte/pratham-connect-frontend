@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { Control, FieldValues, Path } from "react-hook-form";
 import { FormCurrencyInput } from "./FormCurrencyInput";
 import { FormDateInput } from "./FormDateInput";
@@ -15,6 +16,8 @@ interface FinancialEntryProps<TFieldValues extends FieldValues> {
   invoicePlaceholder?: string; // Placeholder for invoice field
   remarksPlaceholder?: string; // Placeholder for remarks field
   disabled?: boolean;
+  /** Optional action (e.g. Delete button) shown in the top-right of the section */
+  rightAction?: ReactNode;
 }
 
 export function FinancialEntry<T extends FieldValues>({
@@ -27,10 +30,14 @@ export function FinancialEntry<T extends FieldValues>({
   invoicePlaceholder = "Enter invoice number",
   remarksPlaceholder = "Enter remarks",
   disabled = false,
+  rightAction,
 }: FinancialEntryProps<T>) {
   return (
     <div className="col-span-1 md:col-span-2 space-y-3 p-4 border rounded-lg bg-muted/20">
-      <Label className="text-base font-semibold">{label}</Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-base font-semibold">{label}</Label>
+        {rightAction != null ? <div className="shrink-0">{rightAction}</div> : null}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <FormCurrencyInput
           name={`${name}.amount` as Path<T>}

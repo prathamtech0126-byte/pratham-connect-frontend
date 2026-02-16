@@ -101,21 +101,25 @@ export default function Login() {
                 throw new Error("No access token received from server");
             }
 
+            // Clear old localStorage and in-memory data first, then set new login data
+            setInMemoryToken(null);
+            setCsrfToken(null);
             localStorage.removeItem("accessToken");
+            localStorage.removeItem("auth_user");
+            localStorage.removeItem("currentClientId");
+            localStorage.removeItem("clients");
+            sessionStorage.removeItem("showNotifications");
+            document.cookie =
+                "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+            // Set new token and CSRF for this session
             setInMemoryToken(accessToken);
             const newCsrf = csrf ?? csrfSnake ?? null;
             if (newCsrf) setCsrfToken(newCsrf);
 
-            // Cleanup: ensure no legacy token is in cookies/localStorage
-            document.cookie =
-                "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-
             const mappedRole = (
                 role === "admin" ? "superadmin" : role
             ) as UserRole;
-
-            // Clear all other potentially stale tokens from previous sessions
-            localStorage.removeItem("auth_user");
 
             // Create user object from backend response
             // Get user info from backend response if available
@@ -234,11 +238,11 @@ export default function Login() {
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-950/90 via-slate-900/80 to-primary/20" />
 
                 <div className="relative z-10 max-w-lg text-white space-y-8">
-                    <div className="h-20 w-auto bg-white/10 backdrop-blur-md p-4 rounded-xl inline-block mb-4 border border-white/10 shadow-xl">
+                    <div className="h-20 w-auto bg-white/10 p-4 rounded-xl inline-block mb-4 border border-white/10 shadow-xl">
                         <img
                             src={logoUrl}
                             alt="Logo"
-                            className="h-full w-auto brightness-0 invert"
+                            className="h-full w-auto"
                         />
                     </div>
 

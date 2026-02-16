@@ -25,10 +25,19 @@ import {
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { useState, useEffect, useRef, useMemo } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Search, X, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/api";
 
 // --- Schema Definitions ---
@@ -445,7 +454,7 @@ export default function ClientForm() {
       clientName?: string;
       amount?: string;
     }) => {
-      console.log("[ClientForm] All Finance approved event received:", data);
+      // console.log("[ClientForm] All Finance approved event received:", data);
 
       // Check if this approval is for the current client
       if (data.clientId && Number(clientIdFromUrl) === data.clientId) {
@@ -479,7 +488,7 @@ export default function ClientForm() {
       clientName?: string;
       amount?: string;
     }) => {
-      console.log("[ClientForm] All Finance rejected event received:", data);
+      // console.log("[ClientForm] All Finance rejected event received:", data);
 
       // Check if this rejection is for the current client
       if (data.clientId && Number(clientIdFromUrl) === data.clientId) {
@@ -505,7 +514,7 @@ export default function ClientForm() {
     socket.on("allFinance:approved", handleAllFinanceApproved);
     socket.on("allFinance:rejected", handleAllFinanceRejected);
 
-    console.log("[ClientForm] Socket event listeners registered for allFinance events");
+    // console.log("[ClientForm] Socket event listeners registered for allFinance events");
 
     // Cleanup on unmount
     return () => {
@@ -1256,27 +1265,27 @@ export default function ClientForm() {
   }, []);
 
   // Debug: Log watched leadSource value
-  useEffect(() => {
-    if (watchedLeadSource) {
-      console.log('[ClientForm] ✅ Watched leadSource value:', watchedLeadSource);
-    } else if (isEditMode) {
-      console.log('[ClientForm] ⚠️ Watched leadSource is EMPTY in edit mode');
-    }
-  }, [watchedLeadSource, isEditMode]);
+  // useEffect(() => {
+  //   if (watchedLeadSource) {
+  //     console.log('[ClientForm] ✅ Watched leadSource value:', watchedLeadSource);
+  //   } else if (isEditMode) {
+  //     console.log('[ClientForm] ⚠️ Watched leadSource is EMPTY in edit mode');
+  //   }
+  // }, [watchedLeadSource, isEditMode]);
 
   // Update leadSource when leadTypes are loaded and we have clientData with leadTypeId
   useEffect(() => {
-    console.log('[ClientForm] 🔍 useEffect triggered. clientDataToLoad:', !!clientDataToLoad, 'leadTypes count:', leadTypes.length);
+    // console.log('[ClientForm] 🔍 useEffect triggered. clientDataToLoad:', !!clientDataToLoad, 'leadTypes count:', leadTypes.length);
 
     if (!clientDataToLoad || leadTypes.length === 0) {
-      console.log('[ClientForm] useEffect: Skipping leadSource mapping. clientDataToLoad:', !!clientDataToLoad, 'leadTypes count:', leadTypes.length);
+      // console.log('[ClientForm] useEffect: Skipping leadSource mapping. clientDataToLoad:', !!clientDataToLoad, 'leadTypes count:', leadTypes.length);
       return;
     }
 
     // Check if we have leadTypeId in the original client data
     const leadTypeId = (clientDataToLoad as any).originalLeadTypeId;
 
-    console.log('[ClientForm] useEffect: Checking leadSource mapping. leadTypeId:', leadTypeId, 'leadTypes count:', leadTypes.length);
+    // console.log('[ClientForm] useEffect: Checking leadSource mapping. leadTypeId:', leadTypeId, 'leadTypes count:', leadTypes.length);
 
     if (leadTypeId) {
       const leadType = leadTypes.find((lt: any) => {
@@ -1287,7 +1296,7 @@ export default function ClientForm() {
       if (leadType?.leadType) {
         const currentLeadSource = form.getValues("leadSource");
         if (currentLeadSource !== leadType.leadType) {
-          console.log('[ClientForm] ✅ Setting leadSource from leadTypeId:', leadTypeId, '->', leadType.leadType);
+          // console.log('[ClientForm] ✅ Setting leadSource from leadTypeId:', leadTypeId, '->', leadType.leadType);
           form.setValue("leadSource", leadType.leadType, {
             shouldValidate: false,
             shouldDirty: false,
@@ -1296,21 +1305,21 @@ export default function ClientForm() {
           // Verify it was set
           setTimeout(() => {
             const verifyValue = form.getValues("leadSource");
-            console.log('[ClientForm] ✅ Verified leadSource after setting:', verifyValue);
+            // console.log('[ClientForm] ✅ Verified leadSource after setting:', verifyValue);
           }, 100);
         } else {
-          console.log('[ClientForm] LeadSource already set correctly:', currentLeadSource);
+          // console.log('[ClientForm] LeadSource already set correctly:', currentLeadSource);
         }
       } else {
-        console.warn('[ClientForm] ⚠️ Lead type not found for leadTypeId:', leadTypeId, 'Available leadTypes:', leadTypes.map((lt: any) => ({ id: lt.id || lt.leadTypeId, leadType: lt.leadType })));
+        // console.warn('[ClientForm] ⚠️ Lead type not found for leadTypeId:', leadTypeId, 'Available leadTypes:', leadTypes.map((lt: any) => ({ id: lt.id || lt.leadTypeId, leadType: lt.leadType })));
       }
     } else {
-      console.log('[ClientForm] No leadTypeId found in clientDataToLoad. clientDataToLoad keys:', Object.keys(clientDataToLoad || {}));
+      // console.log('[ClientForm] No leadTypeId found in clientDataToLoad. clientDataToLoad keys:', Object.keys(clientDataToLoad || {}));
       // Also check if leadSource is already set in clientDataToLoad
       if (clientDataToLoad.leadSource) {
         const currentLeadSource = form.getValues("leadSource");
         if (currentLeadSource !== clientDataToLoad.leadSource) {
-          console.log('[ClientForm] ✅ Setting leadSource from clientDataToLoad.leadSource:', clientDataToLoad.leadSource);
+          // console.log('[ClientForm] ✅ Setting leadSource from clientDataToLoad.leadSource:', clientDataToLoad.leadSource);
           form.setValue("leadSource", clientDataToLoad.leadSource, {
             shouldValidate: false,
             shouldDirty: false,
@@ -1335,7 +1344,7 @@ export default function ClientForm() {
     if (saleTypeId && !currentSalesType) {
       const saleTypeObj = allSaleTypes.find((st: any) => st.id === saleTypeId);
       if (saleTypeObj?.saleType) {
-        console.log('[ClientForm] ✅ Setting salesType from saleTypeId:', saleTypeId, '->', saleTypeObj.saleType);
+        // console.log('[ClientForm] ✅ Setting salesType from saleTypeId:', saleTypeId, '->', saleTypeObj.saleType);
         form.setValue("salesType", saleTypeObj.saleType, {
           shouldValidate: false,
           shouldDirty: false,
@@ -1401,14 +1410,14 @@ export default function ClientForm() {
         }
 
         // Log client data for debugging
-        console.log('🔍 [ClientForm] ========== CLIENT DATA RECEIVED ==========');
-        console.log('[ClientForm] Full clientData object:', clientData);
-        console.log('[ClientForm] leadTypeId (direct):', clientData.leadTypeId);
-        console.log('[ClientForm] leadType (object):', clientData.leadType);
-        console.log('[ClientForm] leadSource (direct):', clientData.leadSource);
-        console.log('[ClientForm] All clientData keys:', Object.keys(clientData || {}));
-        console.log('[ClientForm] leadTypes loaded:', leadTypes.length, 'types');
-        console.log('[ClientForm] leadTypes:', leadTypes);
+        // console.log('🔍 [ClientForm] ========== CLIENT DATA RECEIVED ==========');
+        // console.log('[ClientForm] Full clientData object:', clientData);
+        // console.log('[ClientForm] leadTypeId (direct):', clientData.leadTypeId);
+        // console.log('[ClientForm] leadType (object):', clientData.leadType);
+        // console.log('[ClientForm] leadSource (direct):', clientData.leadSource);
+        // console.log('[ClientForm] All clientData keys:', Object.keys(clientData || {}));
+        // console.log('[ClientForm] leadTypes loaded:', leadTypes.length, 'types');
+        // console.log('[ClientForm] leadTypes:', leadTypes);
 
         if (clientData) {
           setInternalClientId(Number(clientIdFromUrl));
@@ -1438,11 +1447,11 @@ export default function ClientForm() {
               if (pp.productPaymentId) {
                 existingProductPaymentIds[pp.productName] = pp.productPaymentId;
               } else {
-                console.warn(`⚠ Product payment ${pp.productName} has no productPaymentId:`, pp);
+                //  console.warn(`⚠ Product payment ${pp.productName} has no productPaymentId:`, pp);
               }
             });
           } else {
-            console.warn("⚠ No productPayments found in clientData:", clientData);
+            // console.warn("⚠ No productPayments found in clientData:", clientData);
           }
           setProductPaymentIds(existingProductPaymentIds);
           productPaymentIdsRef.current = existingProductPaymentIds; // Update ref immediately
@@ -1572,51 +1581,51 @@ export default function ClientForm() {
             (clientData.leadType && typeof clientData.leadType === 'object' ? clientData.leadType.id : null) ||
             null;
 
-          console.log('🔍 [ClientForm] ========== LEAD SOURCE MAPPING ==========');
-          console.log('[ClientForm] Extracted leadTypeId:', leadTypeId);
-          console.log('[ClientForm] clientData.leadTypeId:', clientData.leadTypeId);
-          console.log('[ClientForm] clientData.leadType:', clientData.leadType);
-          console.log('[ClientForm] clientData.leadSource:', clientData.leadSource);
-          console.log('[ClientForm] leadTypes available:', leadTypes.length);
-          console.log('[ClientForm] leadTypes array:', leadTypes.map((lt: any) => ({ id: lt.id, leadTypeId: lt.leadTypeId, leadType: lt.leadType })));
+          // console.log('🔍 [ClientForm] ========== LEAD SOURCE MAPPING ==========');
+          // console.log('[ClientForm] Extracted leadTypeId:', leadTypeId);
+          // console.log('[ClientForm] clientData.leadTypeId:', clientData.leadTypeId);
+          // console.log('[ClientForm] clientData.leadType:', clientData.leadType);
+          // console.log('[ClientForm] clientData.leadSource:', clientData.leadSource);
+          // console.log('[ClientForm] leadTypes available:', leadTypes.length);
+          // console.log('[ClientForm] leadTypes array:', leadTypes.map((lt: any) => ({ id: lt.id, leadTypeId: lt.leadTypeId, leadType: lt.leadType })));
 
           let leadSourceValue = "";
 
           // Strategy 1: If we have leadTypeId and leadTypes are loaded, map it
           if (leadTypeId && leadTypes.length > 0) {
-            console.log('[ClientForm] Attempting to map leadTypeId:', leadTypeId, 'with', leadTypes.length, 'available leadTypes');
+            // console.log('[ClientForm] Attempting to map leadTypeId:', leadTypeId, 'with', leadTypes.length, 'available leadTypes');
             const leadType = leadTypes.find((lt: any) => {
               const ltId = lt.id || lt.leadTypeId;
               const matches = ltId === leadTypeId || String(ltId) === String(leadTypeId);
               if (matches) {
-                console.log('[ClientForm] ✅ Found matching leadType:', { id: ltId, leadType: lt.leadType });
+                // console.log('[ClientForm] ✅ Found matching leadType:', { id: ltId, leadType: lt.leadType });
               }
               return matches;
             });
 
             if (leadType?.leadType) {
               leadSourceValue = leadType.leadType;
-              console.log('[ClientForm] ✅ Mapped leadTypeId to leadSource:', leadTypeId, '->', leadSourceValue);
+              // console.log('[ClientForm] ✅ Mapped leadTypeId to leadSource:', leadTypeId, '->', leadSourceValue);
             } else {
-              console.warn('[ClientForm] ⚠️ leadTypeId found but no matching leadType in array. leadTypeId:', leadTypeId);
-              console.warn('[ClientForm] Available leadType IDs:', leadTypes.map((lt: any) => lt.id || lt.leadTypeId));
+              // console.warn('[ClientForm] ⚠️ leadTypeId found but no matching leadType in array. leadTypeId:', leadTypeId);
+              // console.warn('[ClientForm] Available leadType IDs:', leadTypes.map((lt: any) => lt.id || lt.leadTypeId));
             }
           }
 
           // Strategy 2: Use leadSource directly from API if available
           if (!leadSourceValue && clientData.leadSource) {
             leadSourceValue = clientData.leadSource;
-            console.log('[ClientForm] ✅ Using leadSource directly from clientData:', leadSourceValue);
+            // console.log('[ClientForm] ✅ Using leadSource directly from clientData:', leadSourceValue);
           }
 
           // Strategy 3: Extract from leadType object if it's a string or has leadType property
           if (!leadSourceValue && clientData.leadType) {
             if (typeof clientData.leadType === 'string') {
               leadSourceValue = clientData.leadType;
-              console.log('[ClientForm] ✅ Using leadType as string:', leadSourceValue);
+              // console.log('[ClientForm] ✅ Using leadType as string:', leadSourceValue);
             } else if (typeof clientData.leadType === 'object' && clientData.leadType.leadType) {
               leadSourceValue = clientData.leadType.leadType;
-              console.log('[ClientForm] ✅ Using leadType.leadType from object:', leadSourceValue);
+              // console.log('[ClientForm] ✅ Using leadType.leadType from object:', leadSourceValue);
             }
           }
 
@@ -1680,9 +1689,19 @@ export default function ClientForm() {
 
           // Reset the entire form with all data
           reset(formData);
-          setIsPartialPayment(false); // Reset partial payment state
-          setApprovalStatus(null); // Reset approval status
-          setApproverName(null); // Reset approver name
+          // Sync approval state from All Finance product (mapProductDataToForm already set it;
+          // only clear when this client has no All Finance product so we don't keep previous client's state)
+          const allFinance = clientData.productPayments?.find((pp: any) => pp.productName === "ALL_FINANCE_EMPLOYEMENT");
+          const entity = allFinance?.entity || {};
+          if (allFinance) {
+            setIsPartialPayment(entity.partialPayment === true);
+            setApprovalStatus((entity.approvalStatus as "pending" | "approved" | "rejected") || null);
+            setApproverName(entity.approver?.name ?? null);
+          } else {
+            setIsPartialPayment(false);
+            setApprovalStatus(null);
+            setApproverName(null);
+          }
 
           // Show sections if data exists in edit mode
           if (clientData.payments && clientData.payments.length > 0) {
@@ -1832,7 +1851,7 @@ export default function ClientForm() {
                         setValue("productFields.forexCard.isActivated" as any, isActivatedValue, { shouldValidate: false, shouldDirty: false });
                         setValue("productFields.forexCard.date" as any, entity.cardDate || "", { shouldValidate: false, shouldDirty: false });
                         setValue("productFields.forexCard.remarks" as any, entity.remarks || "", { shouldValidate: false, shouldDirty: false });
-                        console.log('[ClientForm] ✅ Loaded Forex Card data:', { isActivated: isActivatedValue, date: entity.cardDate, remarks: entity.remarks });
+                        // console.log('[ClientForm] ✅ Loaded Forex Card data:', { isActivated: isActivatedValue, date: entity.cardDate, remarks: entity.remarks });
                       }
                       // Add other single-instance products here as needed
                     } else {
@@ -1843,7 +1862,7 @@ export default function ClientForm() {
                         setValue(`productFields.${productId}.date` as any, pp.paymentDate || "", { shouldValidate: false, shouldDirty: false });
                         setValue(`productFields.${productId}.invoiceNo` as any, pp.invoiceNo || "", { shouldValidate: false, shouldDirty: false });
                         setValue(`productFields.${productId}.remarks` as any, pp.remarks || "", { shouldValidate: false, shouldDirty: false });
-                        console.log(`[ClientForm] ✅ Loaded ${productId} data:`, { amount: pp.amount, date: pp.paymentDate, invoiceNo: pp.invoiceNo, remarks: pp.remarks });
+                        // console.log(`[ClientForm] ✅ Loaded ${productId} data:`, { amount: pp.amount, date: pp.paymentDate, invoiceNo: pp.invoiceNo, remarks: pp.remarks });
                       }
                     }
                   }
@@ -1856,11 +1875,11 @@ export default function ClientForm() {
 
           // Immediately try to set leadSource if we have it, even before useEffect runs
           if (formData.leadSource) {
-            console.log('[ClientForm] ✅ Immediately setting leadSource after reset:', formData.leadSource);
+            // console.log('[ClientForm] ✅ Immediately setting leadSource after reset:', formData.leadSource);
             setTimeout(() => {
               setValue("leadSource", formData.leadSource, { shouldValidate: false, shouldDirty: false, shouldTouch: true });
               const verify = form.getValues("leadSource");
-              console.log('[ClientForm] ✅ Verified immediate leadSource set:', verify);
+              // console.log('[ClientForm] ✅ Verified immediate leadSource set:', verify);
             }, 50);
           }
 
@@ -1888,12 +1907,12 @@ export default function ClientForm() {
               const saleTypeObj = allSaleTypes.find((st: any) => st.id === saleTypeId);
               if (saleTypeObj?.saleType) {
                 setValue("salesType", saleTypeObj.saleType, { shouldValidate: false, shouldDirty: false });
-                console.log('[ClientForm] ✅ Set salesType from saleTypeId in Promise.resolve:', saleTypeObj.saleType);
+                // console.log('[ClientForm] ✅ Set salesType from saleTypeId in Promise.resolve:', saleTypeObj.saleType);
               }
             }
             if (formData.leadSource) {
               setValue("leadSource", formData.leadSource, { shouldValidate: false, shouldDirty: false });
-              console.log('[ClientForm] ✅ Set leadSource immediately in Promise.resolve:', formData.leadSource);
+              // console.log('[ClientForm] ✅ Set leadSource immediately in Promise.resolve:', formData.leadSource);
             } else if (currentLeadTypeId && leadTypes.length > 0) {
               // If leadSource is empty but we have leadTypeId and leadTypes are loaded, map it now
               const leadType = leadTypes.find((lt: any) => {
@@ -1902,7 +1921,7 @@ export default function ClientForm() {
               });
               if (leadType?.leadType) {
                 setValue("leadSource", leadType.leadType, { shouldValidate: false, shouldDirty: false });
-                console.log('[ClientForm] ✅ Set leadSource from leadTypeId in Promise.resolve:', leadType.leadType);
+                // console.log('[ClientForm] ✅ Set leadSource from leadTypeId in Promise.resolve:', leadType.leadType);
               }
             }
           });
@@ -1979,7 +1998,7 @@ export default function ClientForm() {
             shouldDirty: false,
             shouldTouch: true
           });
-          console.log('[ClientList] Set leadSource from clientDataToLoad:', clientDataToLoad.leadSource);
+          // console.log('[ClientList] Set leadSource from clientDataToLoad:', clientDataToLoad.leadSource);
         }
 
         if (clientDataToLoad.totalPayment) {
@@ -2099,6 +2118,169 @@ export default function ClientForm() {
 
     return hasData(productFields);
   }, [productFields]);
+
+  const [paymentIds, setPaymentIds] = useState<{ [key: string]: number }>({});
+  const [productPaymentIds, setProductPaymentIds] = useState<
+    Record<string, number>
+  >({});
+  const productPaymentIdsRef = useRef<Record<string, number>>({});
+  useEffect(() => {
+    productPaymentIdsRef.current = productPaymentIds;
+  }, [productPaymentIds]);
+
+  const canDeletePayment = user?.role === "superadmin" || user?.role === "director" || user?.role === "manager";
+  const emptyPayment = { amount: 0, date: "", invoiceNo: "", remarks: "" };
+  const showToggleBySection: Record<string, "showInitialPayment" | "showBeforeVisaPayment" | "showAfterVisaPayment"> = {
+    initialPayment: "showInitialPayment",
+    beforeVisaPayment: "showBeforeVisaPayment",
+    afterVisaPayment: "showAfterVisaPayment",
+  };
+
+  const [deletePaymentSection, setDeletePaymentSection] = useState<"initialPayment" | "beforeVisaPayment" | "afterVisaPayment" | null>(null);
+  const [deletePaymentReason, setDeletePaymentReason] = useState("");
+
+  const [showCounsellorCannotDeletePopup, setShowCounsellorCannotDeletePopup] = useState(false);
+
+  // Product payment delete (same UX as core service delete: reason dialog for admin/manager, popup for counsellor)
+  const [deleteProductPaymentTarget, setDeleteProductPaymentTarget] = useState<{ productId: string; instanceKey: string } | null>(null);
+  const [deleteProductPaymentReason, setDeleteProductPaymentReason] = useState("");
+
+  const handleDeletePaymentClick = useCallback(
+    (sectionKey: "initialPayment" | "beforeVisaPayment" | "afterVisaPayment") => {
+      if (!canDeletePayment) {
+        setShowCounsellorCannotDeletePopup(true);
+        return;
+      }
+      setDeletePaymentSection(sectionKey);
+      setDeletePaymentReason("");
+    },
+    [canDeletePayment]
+  );
+
+  const handleDeletePaymentConfirm = useCallback(async () => {
+    if (!deletePaymentSection || !deletePaymentReason.trim()) return;
+    const sectionKey = deletePaymentSection;
+    const paymentId = paymentIds[sectionKey];
+    const hasExistingPayment = paymentId != null && paymentId > 0;
+    try {
+      if (hasExistingPayment) {
+        await clientService.deleteClientPayment(paymentId, deletePaymentReason.trim());
+      }
+      form.setValue(sectionKey as any, emptyPayment);
+      form.setValue(showToggleBySection[sectionKey], false);
+      setPaymentIds((prev) => {
+        const next = { ...prev };
+        delete next[sectionKey];
+        return next;
+      });
+      setDeletePaymentSection(null);
+      setDeletePaymentReason("");
+      toast({ title: "Payment deleted", description: "The payment has been removed." });
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || "Failed to delete payment.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  }, [deletePaymentSection, deletePaymentReason, paymentIds, form, toast]);
+
+  const handleDeletePayment = useCallback(
+    (sectionKey: "initialPayment" | "beforeVisaPayment" | "afterVisaPayment") => {
+      handleDeletePaymentClick(sectionKey);
+    },
+    [handleDeletePaymentClick]
+  );
+  const renderPaymentDeleteButton = useCallback(
+    (sectionKey: "initialPayment" | "beforeVisaPayment" | "afterVisaPayment") => (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
+        onClick={() => handleDeletePayment(sectionKey)}
+      >
+        <Trash2 className="h-4 w-4 mr-1" />
+        Delete
+      </Button>
+    ),
+    [handleDeletePayment]
+  );
+
+  // Form product id -> API product name (for product payment delete)
+  const PRODUCT_ID_TO_API_NAME: Record<string, string> = {
+    financeAndEmployment: "ALL_FINANCE_EMPLOYEMENT",
+    indianSideEmployment: "INDIAN_SIDE_EMPLOYEMENT",
+    nocLevelJob: "NOC_LEVEL_JOB_ARRANGEMENT",
+    lawyerRefuge: "LAWYER_REFUSAL_CHARGE",
+    relationshipAffidavit: "RECENTE_MARRIAGE_RELATIONSHIP_AFFIDAVIT",
+    marriageCertificate: "MARRIAGE_PHOTO_CERTIFICATE",
+    marriagePhoto: "MARRIAGE_PHOTO_FOR_COURT_MARRIAGE",
+    trvExtension: "TRV_WORK_PERMIT_EXT_STUDY_PERMIT_EXTENSION",
+    onshorePartTime: "ONSHORE_PART_TIME_EMPLOYEMENT",
+    judicialReview: "JUDICAL_REVIEW_CHARGE",
+    refusalCharges: "REFUSAL_CHARGES",
+    kidsStudyPermit: "KIDS_STUDY_PERMIT",
+    sponsorCharges: "SPONSOR_CHARGES",
+    simCard: "SIM_CARD_ACTIVATION",
+    airTicket: "AIR_TICKET",
+    insurance: "INSURANCE",
+    beaconAccount: "BEACON_ACCOUNT",
+    ieltsEnrollment: "IELTS_ENROLLMENT",
+    loan: "LOAN_DETAILS",
+    forexFees: "FOREX_FEES",
+    tuitionFee: "TUTION_FEES",
+    forexCard: "FOREX_CARD",
+    creditCard: "CREDIT_CARD",
+    canadaFund: "CANADA_FUND",
+    employmentVerificationCharges: "EMPLOYMENT_VERIFICATION_CHARGES",
+    additionalAmountStatementCharges: "ADDITIONAL_AMOUNT_STATEMENT_CHARGES",
+    otherProduct: "OTHER_NEW_SELL",
+  };
+
+  const handleDeleteProductPaymentClick = useCallback(
+    (productId: string, instanceKey: string) => {
+      if (!canDeletePayment) {
+        setShowCounsellorCannotDeletePopup(true);
+        return;
+      }
+      setDeleteProductPaymentTarget({ productId, instanceKey });
+      setDeleteProductPaymentReason("");
+    },
+    [canDeletePayment]
+  );
+
+  const handleDeleteProductPaymentConfirm = useCallback(async () => {
+    if (!deleteProductPaymentTarget || !deleteProductPaymentReason.trim()) return;
+    const { productId, instanceKey } = deleteProductPaymentTarget;
+    const allowMultiple = productId === "otherProduct" || productId === "trvExtension";
+    const productName = PRODUCT_ID_TO_API_NAME[productId];
+    let productPaymentId: number | undefined;
+    if (allowMultiple) {
+      const val = form.getValues(`productFields.${productId}.${instanceKey}` as any);
+      productPaymentId = val?.productPaymentId != null ? Number(val.productPaymentId) : undefined;
+      if (productPaymentId == null) productPaymentId = productPaymentIds[`${productName}-${instanceKey}`] ?? productPaymentIds[productName];
+    } else {
+      productPaymentId = productPaymentIds[productName];
+    }
+    try {
+      if (productPaymentId != null && productPaymentId > 0) {
+        await clientService.deleteClientProductPayment(productPaymentId, deleteProductPaymentReason.trim());
+      }
+      handleRemoveProduct(instanceKey);
+      if (productName && productPaymentId != null) {
+        setProductPaymentIds((prev) => {
+          const next = { ...prev };
+          delete next[productName];
+          delete next[`${productName}-${instanceKey}`];
+          return next;
+        });
+      }
+      setDeleteProductPaymentTarget(null);
+      setDeleteProductPaymentReason("");
+      toast({ title: "Product payment deleted", description: "The product payment has been removed." });
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || "Failed to delete product payment.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  }, [deleteProductPaymentTarget, deleteProductPaymentReason, form, productPaymentIds, toast]);
 
   // We can just display this or set it in form state. Setting in form state is better for submission.
   // Using a useEffect to keep it in sync might cause re-renders but is safe for now.
@@ -2633,9 +2815,9 @@ export default function ClientForm() {
               // ✅ Include productPaymentId for updates (upsert logic)
               if (instance.productPaymentId) {
                 payload.productPaymentId = Number(instance.productPaymentId);
-                console.log('[ClientForm] ✅ Updating TRV Extension with productPaymentId:', instance.productPaymentId, 'invoiceNo:', instance.invoiceNo);
+                // console.log('[ClientForm] ✅ Updating TRV Extension with productPaymentId:', instance.productPaymentId, 'invoiceNo:', instance.invoiceNo);
               } else {
-                console.log('[ClientForm] ➕ Creating new TRV Extension record, invoiceNo:', instance.invoiceNo);
+                // console.log('[ClientForm] ➕ Creating new TRV Extension record, invoiceNo:', instance.invoiceNo);
               }
 
               productPaymentPromises.push(
@@ -2645,7 +2827,7 @@ export default function ClientForm() {
                   const newProductPaymentId = returnedPayment?.productPaymentId || returnedPayment?.id;
                   if (newProductPaymentId) {
                     setValue(`productFields.trvExtension.${instanceKey}.productPaymentId` as any, Number(newProductPaymentId), { shouldValidate: false, shouldDirty: false });
-                    console.log('[ClientForm] ✅ Updated TRV Extension form field with productPaymentId:', newProductPaymentId, 'instanceKey:', instanceKey);
+                    // console.log('[ClientForm] ✅ Updated TRV Extension form field with productPaymentId:', newProductPaymentId, 'instanceKey:', instanceKey);
                   }
                   return res;
                 })
@@ -2675,9 +2857,9 @@ export default function ClientForm() {
           // ✅ Include productPaymentId for updates (upsert logic)
           if (productFields.trvExtension.productPaymentId) {
             payload.productPaymentId = Number(productFields.trvExtension.productPaymentId);
-            console.log('[ClientForm] ✅ Updating TRV Extension (single instance, handleSaveProduct) with productPaymentId:', productFields.trvExtension.productPaymentId, 'invoiceNo:', productFields.trvExtension.invoiceNo);
+            // console.log('[ClientForm] ✅ Updating TRV Extension (single instance, handleSaveProduct) with productPaymentId:', productFields.trvExtension.productPaymentId, 'invoiceNo:', productFields.trvExtension.invoiceNo);
           } else {
-            console.log('[ClientForm] ➕ Creating new TRV Extension record (single instance, handleSaveProduct), invoiceNo:', productFields.trvExtension.invoiceNo);
+            // console.log('[ClientForm] ➕ Creating new TRV Extension record (single instance, handleSaveProduct), invoiceNo:', productFields.trvExtension.invoiceNo);
           }
 
           productPaymentPromises.push(
@@ -2715,9 +2897,9 @@ export default function ClientForm() {
             // ✅ Include productPaymentId for updates (upsert logic)
             if (service.productPaymentId) {
               payload.productPaymentId = Number(service.productPaymentId);
-              console.log('[ClientForm] ✅ Updating OTHER_NEW_SELL (handleSaveProduct) with productPaymentId:', service.productPaymentId, 'invoiceNo:', service.invoiceNo);
+              // console.log('[ClientForm] ✅ Updating OTHER_NEW_SELL (handleSaveProduct) with productPaymentId:', service.productPaymentId, 'invoiceNo:', service.invoiceNo);
             } else {
-              console.log('[ClientForm] ➕ Creating new OTHER_NEW_SELL record (handleSaveProduct), invoiceNo:', service.invoiceNo);
+              // console.log('[ClientForm] ➕ Creating new OTHER_NEW_SELL record (handleSaveProduct), invoiceNo:', service.invoiceNo);
             }
 
             const instanceKey = service._instanceKey; // Get the instanceKey if it exists (from otherProduct)
@@ -2729,7 +2911,7 @@ export default function ClientForm() {
                 if (newProductPaymentId && instanceKey) {
                   // Update the otherProduct form field if this came from otherProduct
                   setValue(`productFields.otherProduct.${instanceKey}.productPaymentId` as any, Number(newProductPaymentId), { shouldValidate: false, shouldDirty: false });
-                  console.log('[ClientForm] ✅ Updated Other Product form field with productPaymentId:', newProductPaymentId, 'instanceKey:', instanceKey);
+                  // console.log('[ClientForm] ✅ Updated Other Product form field with productPaymentId:', newProductPaymentId, 'instanceKey:', instanceKey);
                 }
                 return res;
               })
@@ -3306,7 +3488,7 @@ export default function ClientForm() {
   const onSubmit = async (data: FormValues) => {
     // ✅ Prevent multiple submissions - early exit if already submitting
     if (isSubmitting || requestInFlightRef.current) {
-      console.log('[ClientForm] Submission already in progress, ignoring submit');
+      // console.log('[ClientForm] Submission already in progress, ignoring submit');
       return;
     }
 
@@ -3510,9 +3692,9 @@ export default function ClientForm() {
                 // ✅ Include productPaymentId for updates (upsert logic)
                 if (instance.productPaymentId) {
                   payload.productPaymentId = Number(instance.productPaymentId);
-                  console.log('[ClientForm] ✅ Updating TRV Extension (onSubmit) with productPaymentId:', instance.productPaymentId, 'invoiceNo:', instance.invoiceNo);
+                  // console.log('[ClientForm] ✅ Updating TRV Extension (onSubmit) with productPaymentId:', instance.productPaymentId, 'invoiceNo:', instance.invoiceNo);
                 } else {
-                  console.log('[ClientForm] ➕ Creating new TRV Extension record (onSubmit), invoiceNo:', instance.invoiceNo);
+                  // console.log('[ClientForm] ➕ Creating new TRV Extension record (onSubmit), invoiceNo:', instance.invoiceNo);
                 }
 
                 productPaymentPromises.push(
@@ -3522,7 +3704,7 @@ export default function ClientForm() {
                     const newProductPaymentId = returnedPayment?.productPaymentId || returnedPayment?.id;
                     if (newProductPaymentId) {
                       setValue(`productFields.trvExtension.${instanceKey}.productPaymentId` as any, Number(newProductPaymentId), { shouldValidate: false, shouldDirty: false });
-                      console.log('[ClientForm] ✅ Updated TRV Extension form field with productPaymentId:', newProductPaymentId, 'instanceKey:', instanceKey);
+                      // console.log('[ClientForm] ✅ Updated TRV Extension form field with productPaymentId:', newProductPaymentId, 'instanceKey:', instanceKey);
                     }
                     return res;
                   })
@@ -3552,9 +3734,9 @@ export default function ClientForm() {
             // ✅ Include productPaymentId for updates (upsert logic)
             if (productFields.trvExtension.productPaymentId) {
               payload.productPaymentId = Number(productFields.trvExtension.productPaymentId);
-              console.log('[ClientForm] ✅ Updating TRV Extension (single instance, onSubmit) with productPaymentId:', productFields.trvExtension.productPaymentId, 'invoiceNo:', productFields.trvExtension.invoiceNo);
+              // console.log('[ClientForm] ✅ Updating TRV Extension (single instance, onSubmit) with productPaymentId:', productFields.trvExtension.productPaymentId, 'invoiceNo:', productFields.trvExtension.invoiceNo);
             } else {
-              console.log('[ClientForm] ➕ Creating new TRV Extension record (single instance, onSubmit), invoiceNo:', productFields.trvExtension.invoiceNo);
+              // console.log('[ClientForm] ➕ Creating new TRV Extension record (single instance, onSubmit), invoiceNo:', productFields.trvExtension.invoiceNo);
             }
 
             productPaymentPromises.push(
@@ -3593,9 +3775,9 @@ export default function ClientForm() {
               // ✅ Include productPaymentId for updates (upsert logic)
               if (service.productPaymentId) {
                 payload.productPaymentId = Number(service.productPaymentId);
-                console.log('[ClientForm] ✅ Updating OTHER_NEW_SELL with productPaymentId:', service.productPaymentId, 'invoiceNo:', service.invoiceNo);
+                // console.log('[ClientForm] ✅ Updating OTHER_NEW_SELL with productPaymentId:', service.productPaymentId, 'invoiceNo:', service.invoiceNo);
               } else {
-                console.log('[ClientForm] ➕ Creating new OTHER_NEW_SELL record, invoiceNo:', service.invoiceNo);
+                // console.log('[ClientForm] ➕ Creating new OTHER_NEW_SELL record, invoiceNo:', service.invoiceNo);
               }
 
               const instanceKey = service._instanceKey; // Get the instanceKey if it exists (from otherProduct)
@@ -3821,19 +4003,20 @@ export default function ClientForm() {
 
         if (productPaymentPromises.length > 0) {
           await Promise.all(productPaymentPromises);
-          console.log("✓ Step 3: All product payments saved successfully");
+          // console.log("✓ Step 3: All product payments saved successfully");
         }
       }
 
       // 4. Final Success and Redirect
       // Invalidate cache before navigation to ensure list is fresh
-      console.log('[ClientForm] Final submission complete, invalidating cache...');
+      // console.log('[ClientForm] Final submission complete, invalidating cache...');
+      // console.log('[ClientForm] ✅ Invalidated counsellor-clients cache (final submission)');
       if (user?.role === 'counsellor') {
         queryClient.invalidateQueries({ queryKey: ['counsellor-clients'] });
-        console.log('[ClientForm] ✅ Invalidated counsellor-clients cache (final submission)');
+        // console.log('[ClientForm] ✅ Invalidated counsellor-clients cache (final submission)');
       } else {
         queryClient.invalidateQueries({ queryKey: ['clients'] });
-        console.log('[ClientForm] ✅ Invalidated clients cache (final submission)');
+        // console.log('[ClientForm] ✅ Invalidated clients cache (final submission)');
       }
 
       toast({
@@ -3953,6 +4136,7 @@ export default function ClientForm() {
                   name="initialPayment"
                   label="Initial Amount Received"
                   hasRemarks={true}
+                  rightAction={renderPaymentDeleteButton("initialPayment")}
                 />
               )}
             </div>
@@ -3970,6 +4154,7 @@ export default function ClientForm() {
                   name="beforeVisaPayment"
                   label="Before Visa Payment"
                   hasRemarks={true}
+                  rightAction={renderPaymentDeleteButton("beforeVisaPayment")}
                 />
               )}
             </div>
@@ -3987,6 +4172,7 @@ export default function ClientForm() {
                   name="afterVisaPayment"
                   label="After Visa Payment"
                   hasRemarks={true}
+                  rightAction={renderPaymentDeleteButton("afterVisaPayment")}
                 />
               )}
             </div>
@@ -4619,19 +4805,7 @@ export default function ClientForm() {
     }
 
     return allSteps;
-  }, [salesType, allSaleTypes, control, internalClientId, dynamicOptions, leadTypes, selectedProductType, productType, calculatedPending]);
-
-  const [paymentIds, setPaymentIds] = useState<{ [key: string]: number }>({});
-  const [productPaymentIds, setProductPaymentIds] = useState<
-    Record<string, number>
-  >({});
-  // Use ref to always have latest product payment IDs (avoid stale closure)
-  const productPaymentIdsRef = useRef<Record<string, number>>({});
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    productPaymentIdsRef.current = productPaymentIds;
-  }, [productPaymentIds]);
+  }, [salesType, allSaleTypes, control, internalClientId, dynamicOptions, leadTypes, selectedProductType, productType, calculatedPending, renderPaymentDeleteButton]);
 
   // Parse API error and map to form fields
   const parseApiError = (error: any): Record<string, string> => {
@@ -4902,19 +5076,19 @@ export default function ClientForm() {
             createdAt: new Date().toISOString(),
           });
         }
-        console.log(
-          `✓ Client ${isNewClient ? "Created" : "Updated"} and saved to local storage`,
-        );
+        // console.log(
+        //   `✓ Client ${isNewClient ? "Created" : "Updated"} and saved to local storage`,
+        // );
 
         // Invalidate client list cache
         if (isNewClient) {
           console.log('[ClientForm] New client created, invalidating cache...');
           if (user?.role === 'counsellor') {
             queryClient.invalidateQueries({ queryKey: ['counsellor-clients'] });
-            console.log('[ClientForm] ✅ Invalidated counsellor-clients cache');
+            // console.log('[ClientForm] ✅ Invalidated counsellor-clients cache');
           } else {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
-            console.log('[ClientForm] ✅ Invalidated clients cache');
+            // console.log('[ClientForm] ✅ Invalidated clients cache');
           }
         } else {
           // Also invalidate on update to refresh the list
@@ -4965,706 +5139,6 @@ export default function ClientForm() {
       setIsSubmitting(false);
       requestInFlightRef.current = false;
     }
-  };
-
-  const handleStepChange = async (currentStep: number, nextStep: number) => {
-    // ✅ Prevent multiple clicks - early exit if already processing
-    if (isSubmitting || loadingStep !== null || requestInFlightRef.current) {
-      console.log('[ClientForm] Request already in progress, ignoring step change');
-      return false;
-    }
-
-    if (nextStep > currentStep) {
-      // Ensure nextStep is within valid range
-      if (nextStep >= steps.length) {
-        console.warn(`[ClientForm] Attempted to navigate to invalid step ${nextStep}, max step is ${steps.length - 1}`);
-        return false;
-      }
-
-      const stepId = steps[currentStep].id;
-      const nextStepId = steps[nextStep]?.id;
-
-      // Prevent navigation to consultancy step (step 2) if it's not available
-      // This happens when isCoreProduct is false
-      if (nextStepId === "consultancy") {
-        const selectedTypeData = allSaleTypes.find((t) => t.saleType === salesType);
-        const isCoreProduct = selectedTypeData ? selectedTypeData.isCoreProduct : true;
-
-        if (!isCoreProduct) {
-          console.warn('[ClientForm] Attempted to navigate to consultancy step for non-core product');
-          toast({
-            title: "Navigation Error",
-            description: "This step is not available for the selected sales type.",
-            variant: "destructive",
-          });
-          return false;
-        }
-      }
-
-      let fieldsToValidate: any[] = [];
-
-      if (stepId === "basic") {
-        fieldsToValidate = ["name", "enrollmentDate", "passportDetails", "counsellorId"];
-      } else if (stepId === "consultancy") {
-        fieldsToValidate = ["salesType", "totalPayment"]; // salesType is now required in Step 2
-      }
-
-      if (fieldsToValidate.length > 0) {
-        const isValid = await trigger(fieldsToValidate as any);
-        if (!isValid) {
-          // Don't show toast - errors are already displayed below fields by React Hook Form
-          return false;
-        }
-
-        // --- Step 1: Basic Details (Client Creation/Update) ---
-        if (stepId === "basic") {
-          // ✅ Set loading state immediately
-          setLoadingStep(currentStep);
-          setIsSubmitting(true);
-          requestInFlightRef.current = true;
-
-          const data = form.getValues();
-          const selectedTypeData = allSaleTypes.find(
-            (t) => t.saleType === data.salesType,
-          );
-
-          try {
-            // Find leadTypeId from selected leadSource
-            const selectedLeadType = leadTypes.find(
-              (lt: any) => lt.leadType === data.leadSource
-            );
-            const leadTypeId = selectedLeadType?.id || selectedLeadType?.leadTypeId || null;
-
-            const payload: any = {
-              fullName: data.name,
-              enrollmentDate: data.enrollmentDate,
-              saleTypeId: selectedTypeData?.id,
-              counsellorId: data.counsellorId,
-              leadTypeId: leadTypeId,
-            };
-
-            if (internalClientId) {
-              payload.clientId = internalClientId;
-            }
-
-            const clientRes = await api.post("/api/clients", payload);
-            const returnedClient = clientRes.data?.data?.client;
-            const newId =
-              returnedClient?.clientId ||
-              clientRes.data?.data?.clientId ||
-              clientRes.data?.clientId;
-
-            if (newId) {
-              setInternalClientId(newId);
-              (window as any).currentClientId = newId;
-              localStorage.setItem("currentClientId", newId.toString());
-
-              // Sync local storage
-              const existingClients = JSON.parse(
-                localStorage.getItem("clients") || "[]",
-              );
-              const clientIndex = existingClients.findIndex(
-                (c: any) => c.clientId === newId || c.id === newId,
-              );
-
-              const clientData = {
-                ...data,
-                clientId: newId,
-                id: newId,
-                updatedAt: new Date().toISOString(),
-              };
-
-              if (clientIndex > -1) {
-                existingClients[clientIndex] = clientData;
-              } else {
-                existingClients.push({
-                  ...clientData,
-                  createdAt: new Date().toISOString(),
-                });
-              }
-              console.log(
-                `✓ Client ${internalClientId ? "Updated" : "Created"} and saved to local storage`,
-              );
-
-              // Invalidate client list cache to show new client immediately
-              // This ensures the list updates even if socket event is delayed
-              const isNewClient = !internalClientId;
-              if (isNewClient) {
-                console.log('[ClientForm] New client created, invalidating cache...');
-                // For counsellors: invalidate counsellor-clients
-                // For admins/managers: invalidate clients
-                if (user?.role === 'counsellor') {
-                  queryClient.invalidateQueries({ queryKey: ['counsellor-clients'] });
-                  console.log('[ClientForm] ✅ Invalidated counsellor-clients cache');
-                } else {
-                  queryClient.invalidateQueries({ queryKey: ['clients'] });
-                  console.log('[ClientForm] ✅ Invalidated clients cache');
-                }
-              }
-            }
-          } catch (error: any) {
-            console.error("Failed to process client", error);
-
-            // Parse API errors and set them on form fields
-            const apiErrors = parseApiError(error);
-
-            // Clear previous errors
-            setFieldErrors({});
-
-            // Set errors on form fields using React Hook Form's setError
-            Object.keys(apiErrors).forEach((fieldName) => {
-              setError(fieldName as any, {
-                type: "server",
-                message: apiErrors[fieldName],
-              });
-              setFieldErrors((prev) => ({
-                ...prev,
-                [fieldName]: apiErrors[fieldName],
-              }));
-            });
-
-            // Only show toast if no field-specific errors were found
-            if (Object.keys(apiErrors).length === 0) {
-              toast({
-                title: "Error",
-                description: error.response?.data?.message || error.message || "Failed to save client. Please try again.",
-                variant: "destructive",
-              });
-            }
-
-            return false; // Prevent moving to next step on error
-          } finally {
-            // ✅ Always reset loading state
-            setLoadingStep(null);
-            setIsSubmitting(false);
-            requestInFlightRef.current = false;
-          }
-        }
-        // --- Step 2: Consultancy Payment (Payment Creation/Update) ---
-        if (stepId === "consultancy") {
-          // ✅ Set loading state immediately
-          setLoadingStep(currentStep);
-          setIsSubmitting(true);
-          requestInFlightRef.current = true;
-
-          const data = form.getValues();
-          const selectedTypeData = allSaleTypes.find(
-            (t) => t.saleType === data.salesType,
-          );
-          const currentTotalPaymentVal =
-            data.totalPayment || selectedTypeData?.amount || 0;
-
-          try {
-            const paymentStages = [
-              { key: "initialPayment", stage: "INITIAL" },
-              { key: "beforeVisaPayment", stage: "BEFORE_VISA" },
-              { key: "afterVisaPayment", stage: "AFTER_VISA" },
-            ];
-
-            const promises = paymentStages
-              .filter((item) => {
-                const paymentData = (data as any)[item.key];
-                return paymentData?.amount && paymentData.amount > 0;
-              })
-              .map(async (item) => {
-                const paymentData = (data as any)[item.key];
-                const existingId = paymentIds[item.key];
-
-                // Get saleTypeId from form data
-                const formData = form.getValues();
-                const selectedTypeDataForPayment = allSaleTypes.find(
-                  (t) => t.saleType === formData.salesType,
-                );
-                const saleTypeId = selectedTypeDataForPayment?.id;
-
-                const payload: any = {
-                  clientId: internalClientId,
-                  saleTypeId: saleTypeId, // ✅ Add saleTypeId from salesType
-                  totalPayment: String(currentTotalPaymentVal),
-                  stage: item.stage,
-                  amount: String(paymentData.amount),
-                  paymentDate: paymentData.date,
-                  invoiceNo: paymentData.invoiceNo,
-                  remarks: paymentData.remarks,
-                };
-
-                if (existingId) {
-                  payload.paymentId = existingId;
-                }
-
-                const res = await api.post("/api/client-payments", payload);
-                const returnedPayment =
-                  res.data?.data?.payment || res.data?.data || res.data;
-                const newPaymentId =
-                  returnedPayment?.paymentId || returnedPayment?.id;
-
-                if (newPaymentId) {
-                  setPaymentIds((prev) => ({
-                    ...prev,
-                    [item.key]: newPaymentId,
-                  }));
-                }
-                return res;
-              });
-
-            if (promises.length > 0) {
-              await Promise.all(promises);
-            }
-          } catch (error: any) {
-            console.error("Failed to process payments", error);
-            toast({
-              title: "Error",
-              description: error.response?.data?.message || error.message || "Failed to save payments. Please try again.",
-              variant: "destructive",
-            });
-            return false; // Prevent moving to next step on error
-          } finally {
-            // ✅ Always reset loading state
-            setLoadingStep(null);
-            setIsSubmitting(false);
-            requestInFlightRef.current = false;
-          }
-        }
-
-        // --- Step 3: Product Payments ---
-        if (stepId === "product_details") {
-          const data = form.getValues();
-
-          if (!internalClientId) {
-            console.warn("No clientId, skipping Step 3");
-            return true;
-          }
-
-          const resolvedProductType = getProductType(
-            data.salesType,
-            data.selectedProductType,
-          );
-
-          if (!resolvedProductType) {
-            console.warn("Product type unresolved, skipping Step 3");
-            return true;
-          }
-
-          const productFields =
-            data[`${resolvedProductType}Fields` as keyof FormValues] as any;
-
-          if (!productFields) return true;
-
-          // Log current state for debugging
-          console.log("=== Step 3: Product Payments ===");
-          console.log("Current productPaymentIds state:", productPaymentIds);
-          console.log("Current productPaymentIdsRef.current:", productPaymentIdsRef.current);
-          console.log("Is edit mode:", isEditMode);
-          console.log("Internal client ID:", internalClientId);
-
-          // If in edit mode but no product payment IDs loaded, warn
-          if (isEditMode && Object.keys(productPaymentIdsRef.current).length === 0) {
-            console.error("⚠️ WARNING: In edit mode but no product payment IDs were loaded!");
-            console.error("This means updates will fail and new records will be created.");
-          }
-
-          const calls: Promise<any>[] = [];
-
-          const createOrUpdate = (
-            productName: string,
-            entityData: any,
-            amount = 0,
-            invoiceNo?: string,
-            remarks?: string,
-          ) => {
-            // Use ref to get latest product payment IDs (avoid stale closure)
-            const latestProductPaymentIds = productPaymentIdsRef.current;
-            const existingProductPaymentId = latestProductPaymentIds[productName];
-            console.log(`\n=== Processing ${productName} ===`);
-            console.log("Available productPaymentIds (from ref):", latestProductPaymentIds);
-            console.log("Available productPaymentIds (from state):", productPaymentIds);
-            console.log("Looking for productName:", productName);
-            console.log("Found existingProductPaymentId:", existingProductPaymentId);
-
-            const payload: any = {
-              clientId: internalClientId,
-              productName,
-              amount: String(amount),
-              invoiceNo: invoiceNo || "",
-              paymentDate:
-                entityData?.date ||
-                entityData?.feeDate || // For FOREX_FEES and TUTION_FEES
-                entityData?.extensionDate ||
-                entityData?.startDate ||
-                entityData?.openingDate ||
-                entityData?.fundingDate ||
-                entityData?.disbursementDate ||
-                entityData?.sellDate || // For OTHER_NEW_SELL
-                new Date().toISOString().split("T")[0],
-              remarks: entityData?.remarks || entityData?.remark || "",
-              entityData,
-            };
-
-            // If we have an existing product payment ID, include it for update
-            // Try both field names in case API expects different one
-            if (existingProductPaymentId) {
-              payload.productPaymentId = Number(existingProductPaymentId); // Ensure it's a number
-              payload.id = Number(existingProductPaymentId); // Some APIs use 'id' instead
-              // Try POST first (some APIs handle update via POST with ID)
-              return api.post("/api/client-product-payments", payload);
-            } else {
-              return api.post("/api/client-product-payments", payload);
-            }
-          };
-
-          // Master-only fields mapping for Step 3
-          const masterOnlyMappings = [
-            {
-              field: "financeAndEmployment",
-              productName: "ALL_FINANCE_EMPLOYEMENT",
-            },
-            {
-              field: "indianSideEmployment",
-              productName: "INDIAN_SIDE_EMPLOYEMENT",
-            },
-            { field: "nocLevelJob", productName: "NOC_LEVEL_JOB_ARRANGEMENT" },
-            { field: "lawyerRefuge", productName: "LAWYER_REFUSAL_CHARGE" },
-            {
-              field: "onshorePartTime",
-              productName: "ONSHORE_PART_TIME_EMPLOYEMENT",
-            },
-            // trvExtension is now handled separately for multiple instances
-            {
-              field: "marriagePhoto",
-              productName: "MARRIAGE_PHOTO_FOR_COURT_MARRIAGE",
-            },
-            {
-              field: "marriageCertificate",
-              productName: "MARRIAGE_PHOTO_CERTIFICATE",
-            },
-            {
-              field: "relationshipAffidavit",
-              productName: "RECENTE_MARRIAGE_RELATIONSHIP_AFFIDAVIT",
-            },
-            { field: "judicialReview", productName: "JUDICAL_REVIEW_CHARGE" },
-            { field: "sponsorCharges", productName: "SPONSOR_CHARGES" },
-          ];
-
-          masterOnlyMappings.forEach(({ field, productName }) => {
-            const fieldData = productFields[field];
-            if (fieldData?.amount > 0) {
-              calls.push(
-                createOrUpdate(
-                  productName,
-                  fieldData,
-                  fieldData.amount,
-                  fieldData.invoiceNo,
-                ),
-              );
-            }
-          });
-
-          // Other Product (from product list) - add all instances to newServices
-          if (productFields.otherProduct && typeof productFields.otherProduct === 'object') {
-            if (!productFields.newServices) {
-              productFields.newServices = [];
-            }
-            // Iterate through all otherProduct instances
-            Object.keys(productFields.otherProduct).forEach((instanceKey) => {
-              const instance = (productFields.otherProduct as any)[instanceKey];
-              if (instance && (instance.serviceName || instance.amount > 0)) {
-                productFields.newServices.push({
-                  serviceName: instance.serviceName || "",
-                  serviceInfo: instance.serviceInfo || "",
-                  amount: instance.amount || 0,
-                  date: instance.date || "",
-                  invoiceNo: instance.invoiceNo || "",
-                  remark: instance.remark || "",
-                });
-              }
-            });
-          }
-
-          // TRV Extension (from product list) - handle multiple instances
-          if (productFields.trvExtension && typeof productFields.trvExtension === 'object') {
-            // Check if it's an object with instance keys (not a single instance)
-            const hasInstanceKeys = Object.keys(productFields.trvExtension).some(key =>
-              key.includes('trvExtension-') || key.includes('-')
-            );
-
-            if (hasInstanceKeys) {
-              // Multiple instances - iterate through all
-              Object.keys(productFields.trvExtension).forEach((instanceKey) => {
-                const instance = (productFields.trvExtension as any)[instanceKey];
-                if (instance && (instance.amount > 0 || instance.type)) {
-                  const entityData: any = {
-                    type: instance.type || "",
-                    amount: Number(instance.amount || 0),
-                    extensionDate: instance.date || "", // ✅ Fixed: date → extensionDate
-                    invoiceNo: instance.invoiceNo || "",
-                    remarks: instance.remarks || "", // ✅ Fixed: remark → remarks
-                  };
-
-                  const payload: any = {
-                    clientId: internalClientId,
-                    productName: "TRV_WORK_PERMIT_EXT_STUDY_PERMIT_EXTENSION",
-                    amount: String(entityData.amount || 0),
-                    invoiceNo: String(entityData.invoiceNo || ""),
-                    paymentDate: instance.date || new Date().toISOString().split("T")[0],
-                    remarks: String(instance.remarks || ""),
-                    entityData,
-                  };
-
-                  // ✅ Add update logic: include productPaymentId if updating existing record
-                  if (instance.productPaymentId) {
-                    payload.productPaymentId = Number(instance.productPaymentId);
-                  }
-
-                  calls.push(
-                    api.post("/api/client-product-payments", payload)
-                  );
-                }
-              });
-            } else if (productFields.trvExtension.type || productFields.trvExtension.amount > 0) {
-              // Single instance (backward compatibility)
-              const entityData: any = {
-                type: productFields.trvExtension.type || "",
-                amount: Number(productFields.trvExtension.amount || 0),
-                extensionDate: productFields.trvExtension.date || "", // ✅ Fixed: date → extensionDate
-                invoiceNo: productFields.trvExtension.invoiceNo || "",
-                remarks: productFields.trvExtension.remarks || "", // ✅ Fixed: remark → remarks
-              };
-
-              const payload: any = {
-                clientId: internalClientId,
-                productName: "TRV_WORK_PERMIT_EXT_STUDY_PERMIT_EXTENSION",
-                amount: String(entityData.amount || 0),
-                invoiceNo: String(entityData.invoiceNo || ""),
-                paymentDate: productFields.trvExtension.date || new Date().toISOString().split("T")[0],
-                remarks: String(productFields.trvExtension.remarks || ""),
-                entityData,
-              };
-
-              // ✅ Add update logic: include productPaymentId if updating existing record
-              if (productFields.trvExtension.productPaymentId) {
-                payload.productPaymentId = Number(productFields.trvExtension.productPaymentId);
-              }
-
-              calls.push(
-                api.post("/api/client-product-payments", payload)
-              );
-            }
-          }
-
-          // New Services (Extra Other)
-          if (
-            productFields.newServices &&
-            Array.isArray(productFields.newServices)
-          ) {
-            productFields.newServices.forEach((service: any) => {
-              if (service.serviceName || service.amount > 0) {
-                // Ensure entityData is properly formatted for OTHER_NEW_SELL
-                const entityData: any = {
-                  serviceName: service.serviceName || "",
-                  serviceInformation: service.serviceInfo || "",
-                  amount: Number(service.amount || 0),
-                  sellDate: service.date ? (service.date.includes("T") ? service.date.split("T")[0] : service.date) : new Date().toISOString().split("T")[0],
-                  invoiceNo: service.invoiceNo || null,
-                  remarks: service.remark || service.remarks || "",
-                };
-
-                const payload: any = {
-                  clientId: internalClientId,
-                  productName: "OTHER_NEW_SELL",
-                  amount: String(service.amount || 0),
-                  invoiceNo: String(service.invoiceNo || ""),
-                  paymentDate: entityData.sellDate || new Date().toISOString().split("T")[0],
-                  remarks: String(entityData.remarks || ""),
-                  entityData,
-                };
-
-                // ✅ Add update logic: include productPaymentId if updating existing record
-                if (service.productPaymentId) {
-                  payload.productPaymentId = Number(service.productPaymentId);
-                }
-
-                calls.push(
-                  api.post("/api/client-product-payments", payload)
-                );
-              }
-            });
-          }
-
-          // SIM Card
-          if (
-            productFields.simCard &&
-            (productFields.simCard.isActivated || productFields.simCard.plan)
-          ) {
-            // Transform form data to backend field names
-            const simCardEntityData = {
-              activatedStatus: productFields.simCard.isActivated === "Yes" ? true : productFields.simCard.isActivated === "No" ? false : null,
-              simcardPlan: productFields.simCard.plan || null,
-              simCardGivingDate: productFields.simCard.date || null,
-              simActivationDate: productFields.simCard.startDate || null,
-              remarks: productFields.simCard.remarks || null,
-            };
-            calls.push(createOrUpdate("SIM_CARD_ACTIVATION", simCardEntityData));
-          }
-
-          // Air Ticket
-          if (
-            productFields.airTicket &&
-            (productFields.airTicket.amount > 0 ||
-              productFields.airTicket.isBooked)
-          ) {
-            // Transform form data to backend field names
-            const airTicketEntityData = {
-              isTicketBooked: productFields.airTicket.isBooked === "Yes" ? true : productFields.airTicket.isBooked === "No" ? false : null,
-              amount: productFields.airTicket.amount || 0,
-              airTicketNumber: productFields.airTicket.invoiceNo || null,
-              ticketDate: productFields.airTicket.date || null,
-              remarks: productFields.airTicket.remarks || null,
-            };
-            calls.push(
-              createOrUpdate(
-                "AIR_TICKET",
-                airTicketEntityData,
-                productFields.airTicket.amount || 0,
-                productFields.airTicket.invoiceNo,
-              ),
-            );
-          }
-
-          // Insurance
-          if (productFields.insurance && productFields.insurance.amount > 0) {
-            // Transform form data to backend field names
-            const insuranceEntityData = {
-              amount: productFields.insurance.amount || 0,
-              policyNumber: productFields.insurance.insuranceNo || productFields.insurance.policyNo || null,
-              insuranceDate: productFields.insurance.date || null,
-              remarks: productFields.insurance.remarks || null,
-            };
-            calls.push(
-              createOrUpdate(
-                "INSURANCE",
-                insuranceEntityData,
-                productFields.insurance.amount,
-              ),
-            );
-          }
-
-          // My Beacon / Beacon Account
-          const beaconData =
-            productFields.myBeacon || productFields.beaconAccount;
-          if (
-            beaconData &&
-            (beaconData.fundingAmount > 0 || beaconData.cadAmount > 0)
-          ) {
-            // Transform beaconAccount data: use fundingAmount in entityData (prefer fundingAmount over cadAmount)
-            const fundingAmountValue = beaconData.fundingAmount || beaconData.cadAmount || 0;
-            const beaconEntityData = {
-              openingDate: beaconData.openingDate || null,
-              fundingDate: beaconData.fundingDate || null,
-              amount: fundingAmountValue, // Backend expects "amount" field, use fundingAmount value
-              remarks: beaconData.remarks || null,
-            };
-
-            calls.push(
-              createOrUpdate(
-                "BEACON_ACCOUNT",
-                beaconEntityData,
-                fundingAmountValue,
-              ),
-            );
-          }
-
-          // Student Specifics
-          if (resolvedProductType === "student") {
-            if (
-              productFields.ieltsEnrollment &&
-              (productFields.ieltsEnrollment.amount > 0 ||
-                productFields.ieltsEnrollment.isEnrolled)
-            ) {
-              // Transform form data to backend field names
-              const ieltsEntityData = {
-                enrolledStatus: productFields.ieltsEnrollment.isEnrolled === "Yes" ? true : productFields.ieltsEnrollment.isEnrolled === "No" ? false : null,
-                amount: productFields.ieltsEnrollment.amount || 0,
-                enrollmentDate: productFields.ieltsEnrollment.date || null,
-                remarks: productFields.ieltsEnrollment.remarks || null,
-              };
-              calls.push(
-                createOrUpdate(
-                  "IELTS_ENROLLMENT",
-                  ieltsEntityData,
-                  productFields.ieltsEnrollment.amount,
-                ),
-              );
-            }
-            if (productFields.loan && productFields.loan.amount > 0) {
-              calls.push(
-                createOrUpdate(
-                  "LOAN_DETAILS",
-                  productFields.loan,
-                  productFields.loan.amount,
-                ),
-              );
-            }
-            if (productFields.forexFees && productFields.forexFees.amount > 0) {
-              // Transform forexFees data: ensure side defaults to "PI", map date to feeDate
-              const forexFeesEntityData = {
-                ...productFields.forexFees,
-                side: productFields.forexFees.side || "PI", // Default to "PI" if empty
-                feeDate: productFields.forexFees.date || productFields.forexFees.feeDate || "",
-                // Remove date from entityData, use feeDate instead
-              };
-              delete forexFeesEntityData.date; // Remove date, we use feeDate
-
-              calls.push(
-                createOrUpdate(
-                  "FOREX_FEES",
-                  forexFeesEntityData,
-                  productFields.forexFees.amount,
-                ),
-              );
-            }
-            if (productFields.tuitionFee && productFields.tuitionFee.status) {
-              // Transform tuitionFee data: map status to tutionFeesStatus (lowercase), map date to feeDate
-              // Step 1: Get the status value
-              let statusValue = productFields.tuitionFee.status || "";
-
-              // Step 2: Convert to lowercase
-              statusValue = statusValue.toLowerCase(); // "paid" or "pending" or "panding"
-
-              // Step 3: Fix typo (handle legacy "panding" value)
-              if (statusValue === "panding") {
-                statusValue = "pending";
-              }
-
-              // Step 4: Validate (ensure it's "paid" or "pending")
-              if (statusValue !== "paid" && statusValue !== "pending") {
-                console.warn(`Invalid tuition fee status: ${statusValue}, defaulting to "pending"`);
-                statusValue = "pending";
-              }
-
-              // Step 5: Create entityData with CORRECT field name
-              const tuitionFeeEntityData = {
-                ...productFields.tuitionFee,
-                tutionFeesStatus: statusValue, // ✅ Correct field name + normalized lowercase value
-                feeDate: productFields.tuitionFee.date || productFields.tuitionFee.feeDate || "",
-                // Remove status and date from entityData, use tutionFeesStatus and feeDate instead
-              };
-              delete tuitionFeeEntityData.status; // Remove status, we use tutionFeesStatus
-              delete tuitionFeeEntityData.date; // Remove date, we use feeDate
-
-              calls.push(
-                createOrUpdate("TUTION_FEES", tuitionFeeEntityData),
-              );
-            }
-          }
-
-          if (calls.length) {
-            await Promise.all(calls);
-            console.log("✓ Step 3: All product payments saved successfully");
-          }
-        }
-      }
-    }
-    return true;
   };
 
   // Show loading state while fetching client data in edit mode
@@ -5787,6 +5261,7 @@ export default function ClientForm() {
               label="Initial Amount Received"
               hasRemarks={true}
               amountPlaceholder="Enter initial amount"
+              rightAction={renderPaymentDeleteButton("initialPayment")}
             />
           )}
         </div>
@@ -5805,6 +5280,7 @@ export default function ClientForm() {
               label="Before Visa Payment"
               hasRemarks={true}
               amountPlaceholder="Enter before visa payment amount"
+              rightAction={renderPaymentDeleteButton("beforeVisaPayment")}
             />
           )}
         </div>
@@ -5823,6 +5299,7 @@ export default function ClientForm() {
               label="After Visa Payment"
               hasRemarks={true}
               amountPlaceholder="Enter after visa payment amount"
+              rightAction={renderPaymentDeleteButton("afterVisaPayment")}
             />
           )}
         </div>
@@ -5847,10 +5324,12 @@ export default function ClientForm() {
     const uniqueKey = instanceKeyParam || product.instanceKey || product.id;
     switch (product.formType) {
       case "financialEntry":
-        // Disable fields if partial payment is active AND not yet approved, OR if approval status is pending
-        // Fields are enabled when: approvalStatus === "approved" OR (not partial payment)
+        // All Finance & Employment: when approvalStatus is "pending" (or partial and not approved),
+        // disable section for counsellor; admin/manager can always edit.
+        const canEditPendingFinance = user?.role === "superadmin" || user?.role === "director" || user?.role === "manager";
         const isFinanceDisabled = product.id === "financeAndEmployment" &&
-          ((isPartialPayment && approvalStatus !== "approved") || approvalStatus === "pending");
+          ((isPartialPayment && approvalStatus !== "approved") || approvalStatus === "pending") &&
+          !canEditPendingFinance;
         return (
           <FinancialEntry
             control={control}
@@ -6514,6 +5993,18 @@ export default function ClientForm() {
               .findIndex(p => p.instanceKey === product.instanceKey) + 1;
             const showInstanceNumber = instanceCount > 1;
 
+            // Resolve productPaymentId: if saved we show Delete (API), else show Remove (just drop from list)
+            const productName = PRODUCT_ID_TO_API_NAME[product.id];
+            let productPaymentId: number | undefined;
+            if (allowMultiple) {
+              const val = form.getValues(`productFields.${product.id}.${product.instanceKey}` as any);
+              productPaymentId = val?.productPaymentId != null ? Number(val.productPaymentId) : undefined;
+              if (productPaymentId == null) productPaymentId = productPaymentIds[`${productName}-${product.instanceKey}`] ?? productPaymentIds[productName];
+            } else {
+              productPaymentId = productPaymentIds[productName];
+            }
+            const hasSavedPayment = productPaymentId != null && productPaymentId > 0;
+
             return (
               <div key={product.instanceKey} className="border rounded-lg p-4 space-y-4">
                 <div className="flex items-center justify-between">
@@ -6536,24 +6027,24 @@ export default function ClientForm() {
                           variant={isPartialPayment ? "default" : "outline"}
                           size="sm"
                           onClick={async () => {
-                            console.log("[Partial Payment] Button clicked");
+                            // console.log("[Partial Payment] Button clicked");
                             const newPartialPaymentState = !isPartialPayment;
-                            console.log("[Partial Payment] New state:", newPartialPaymentState, "Current state:", isPartialPayment);
+                            // console.log("[Partial Payment] New state:", newPartialPaymentState, "Current state:", isPartialPayment);
 
                             // If enabling partial payment, save immediately
                             if (newPartialPaymentState) {
-                              console.log("[Partial Payment] Enabling partial payment, starting save process...");
+                              // console.log("[Partial Payment] Enabling partial payment, starting save process...");
 
                               // Get current form data
                               const data = form.getValues();
                               const productFields = data.productFields as any;
                               const fieldData = productFields?.financeAndEmployment;
 
-                              console.log("[Partial Payment] Form data:", { fieldData, internalClientId });
+                              // console.log("[Partial Payment] Form data:", { fieldData, internalClientId });
 
                               // Check if amount is entered
                               if (!fieldData?.amount || fieldData.amount <= 0) {
-                                console.log("[Partial Payment] Validation failed: Amount not entered or <= 0");
+                                // console.log("[Partial Payment] Validation failed: Amount not entered or <= 0");
                                 toast({
                                   title: "Amount Required",
                                   description: "Please enter an amount before submitting for partial payment approval.",
@@ -6612,9 +6103,9 @@ export default function ClientForm() {
                                 }
 
                                 // Make API call
-                                console.log("[Partial Payment] Making API call with payload:", payload);
+                                // console.log("[Partial Payment] Making API call with payload:", payload);
                                 const res = await api.post("/api/client-product-payments", payload);
-                                console.log("[Partial Payment] API call successful, response:", res.data);
+                                // console.log("[Partial Payment] API call successful, response:", res.data);
 
                                 // Update productPaymentIds if we get a new ID back
                                 const returnedPayment = res.data?.data?.productPayment || res.data?.data || res.data;
@@ -6657,7 +6148,7 @@ export default function ClientForm() {
                               });
                             }
                           }}
-                          disabled={approvalStatus === "pending" || isSubmitting}
+                          disabled={approvalStatus === "pending" || approvalStatus === "approved" || isSubmitting}
                           className={isPartialPayment
                             ? "bg-primary text-primary-foreground hover:bg-primary/90"
                             : "text-primary hover:text-primary border-primary"
@@ -6699,15 +6190,27 @@ export default function ClientForm() {
                         Add
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemoveProduct(product.instanceKey)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <X className="w-4 h-4 mr-1" />
-                      Remove
-                    </Button>
+                    {hasSavedPayment ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteProductPaymentClick(product.id, product.instanceKey)}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveProduct(product.instanceKey)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <X className="w-4 h-4 mr-1" />
+                        Remove
+                      </Button>
+                    )}
                   </div>
                 </div>
                 <div className="pt-2 border-t">
@@ -7414,6 +6917,91 @@ export default function ClientForm() {
             </CardFooter>
           </Card>
         )}
+
+        {/* Counsellor: popup when they click Delete (cannot delete) */}
+        <Dialog open={showCounsellorCannotDeletePopup} onOpenChange={setShowCounsellorCannotDeletePopup}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Cannot delete</DialogTitle>
+              <DialogDescription>
+              Please reach out to your manager for assistance with deleting this.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button onClick={() => setShowCounsellorCannotDeletePopup(false)}>OK</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete product payment dialog: mandatory reason for admin/manager */}
+        <Dialog open={deleteProductPaymentTarget != null} onOpenChange={(open) => !open && setDeleteProductPaymentTarget(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete product payment</DialogTitle>
+              <DialogDescription>
+                Please provide a reason for deleting this product payment. This is required.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="delete-product-payment-reason">Reason (required)</Label>
+              <Textarea
+                id="delete-product-payment-reason"
+                placeholder="Enter reason for deletion..."
+                value={deleteProductPaymentReason}
+                onChange={(e) => setDeleteProductPaymentReason(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteProductPaymentTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteProductPaymentConfirm}
+                disabled={!deleteProductPaymentReason.trim()}
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete payment dialog: mandatory reason for admin/manager */}
+        <Dialog open={deletePaymentSection != null} onOpenChange={(open) => !open && setDeletePaymentSection(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete payment</DialogTitle>
+              <DialogDescription>
+                Please provide a reason for deleting this payment. Admin and manager can delete after entering the reason.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="delete-payment-reason">Reason (required)</Label>
+              <Textarea
+                id="delete-payment-reason"
+                placeholder="e.g. initial deleted because it was added without core service"
+                value={deletePaymentReason}
+                onChange={(e) => setDeletePaymentReason(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeletePaymentSection(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeletePaymentConfirm}
+                disabled={!deletePaymentReason.trim()}
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </PageWrapper>
   );
