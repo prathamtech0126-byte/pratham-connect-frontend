@@ -13,7 +13,7 @@ export function PageWrapper({ title, breadcrumbs, actions, children, className }
   return (
     <div className={cn("space-y-6 animate-in fade-in-50 duration-500", className)}>
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1.5">
+        <div className="space-y-5">
           <h1 className="text-header text-foreground">{title}</h1>
           {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
         </div>

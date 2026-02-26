@@ -12,6 +12,8 @@ interface FinancialEntryProps<TFieldValues extends FieldValues> {
   label: string;
   hasInvoice?: boolean;
   hasRemarks?: boolean;
+  /** Show Second Payment and Second Date (e.g. All Finance & Employment) */
+  showSecondPayment?: boolean;
   amountPlaceholder?: string; // Placeholder for amount field
   invoicePlaceholder?: string; // Placeholder for invoice field
   remarksPlaceholder?: string; // Placeholder for remarks field
@@ -26,6 +28,7 @@ export function FinancialEntry<T extends FieldValues>({
   label,
   hasInvoice = true,
   hasRemarks = false,
+  showSecondPayment = false,
   amountPlaceholder = "Enter amount",
   invoicePlaceholder = "Enter invoice number",
   remarksPlaceholder = "Enter remarks",
@@ -63,6 +66,24 @@ export function FinancialEntry<T extends FieldValues>({
           />
         )}
       </div>
+      {showSecondPayment && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormCurrencyInput
+            name={`${name}.anotherPaymentAmount` as Path<T>}
+            control={control}
+            label="Second Partial Payment"
+            placeholder="Enter amount"
+            disabled={disabled}
+          />
+          <FormDateInput
+            name={`${name}.anotherPaymentDate` as Path<T>}
+            control={control}
+            label="Second Partial Payment Date"
+            maxDate={new Date()}
+            disabled={disabled}
+          />
+        </div>
+      )}
       {hasRemarks && (
         <FormTextareaInput
           name={`${name}.remarks` as Path<T>}

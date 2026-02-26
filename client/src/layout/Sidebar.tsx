@@ -74,7 +74,7 @@ const sidebarItems: SidebarItem[] = [
   },
   {
     icon: Trophy,
-    label: "Counsellor Leaderboard",
+    label: "Leaderboard",
     href: "/counsellor-leaderboard",
     roles: ["superadmin", "manager"],
   },
@@ -97,6 +97,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
   const { user, logout } = useAuth();
   const { theme } = useTheme();
   const [isClientsOpen, setIsClientsOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Determine if we're in dark mode and listen for system theme changes
@@ -174,6 +175,13 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
   useEffect(() => {
     if (location.startsWith("/clients")) {
       setIsClientsOpen(true);
+    }
+  }, [location]);
+
+  // Auto-expand leaderboard if we are on a leaderboard page
+  useEffect(() => {
+    if (location === "/manager-leaderboard" || location === "/counsellor-leaderboard") {
+      setIsLeaderboardOpen(true);
     }
   }, [location]);
 
@@ -329,6 +337,88 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                     >
                       <Archive className="w-4 h-4" />
                       <span className="truncate">Archive</span>
+                    </Link>
+                  </CollapsibleContent>
+                )}
+              </Collapsible>
+            );
+          }
+
+          if (item.label === "Leaderboard") {
+            const isLeaderboardActive =
+              activeItem?.href === item.href ||
+              location === "/manager-leaderboard" ||
+              location === "/counsellor-leaderboard";
+            return (
+              <Collapsible
+                key={item.href}
+                open={isLeaderboardOpen}
+                onOpenChange={setIsLeaderboardOpen}
+                className="space-y-1"
+              >
+                <div className="flex items-center gap-2">
+                  <CollapsibleTrigger asChild>
+                    <div
+                      className={cn(
+                        "flex flex-1 items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative cursor-pointer select-none",
+                        isCollapsed ? "px-2 justify-center" : "px-3",
+                        isLeaderboardActive
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-primary/20"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      )}
+                    >
+                      <item.icon
+                        className={cn(
+                          "transition-transform group-hover:scale-110 shrink-0",
+                          isCollapsed ? "w-5 h-5" : "w-5 h-5",
+                          isLeaderboardActive
+                            ? "text-sidebar-primary-foreground"
+                            : "text-muted-foreground group-hover:text-sidebar-primary",
+                        )}
+                      />
+                      {!isCollapsed && (
+                        <>
+                          <span className="flex-1">{item.label}</span>
+                          {isLeaderboardOpen ? (
+                            <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 opacity-50 shrink-0" />
+                          )}
+                        </>
+                      )}
+                      {isLeaderboardActive && !isLeaderboardOpen && !isCollapsed && (
+                        <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white/50" />
+                      )}
+                    </div>
+                  </CollapsibleTrigger>
+                </div>
+                {!isCollapsed && (
+                  <CollapsibleContent className="pl-4 space-y-1 overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                    {user?.role === "superadmin" && (
+                      <Link
+                        href="/manager-leaderboard"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                          location === "/manager-leaderboard"
+                            ? "border-primary text-primary font-medium bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                        )}
+                      >
+                        <Crown className="w-4 h-4" />
+                        <span className="truncate">Manager Leaderboard</span>
+                      </Link>
+                    )}
+                    <Link
+                      href="/counsellor-leaderboard"
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                        location === "/counsellor-leaderboard"
+                          ? "border-primary text-primary font-medium bg-primary/5"
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                      )}
+                    >
+                      <Trophy className="w-4 h-4" />
+                      <span className="truncate">Counsellor Leaderboard</span>
                     </Link>
                   </CollapsibleContent>
                 )}

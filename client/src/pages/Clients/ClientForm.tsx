@@ -47,6 +47,9 @@ const financialEntrySchema = z.object({
   date: z.string().optional(),
   invoiceNo: z.string().optional(),
   remarks: z.string().optional(),
+  // All Finance & Employment: second payment fields
+  anotherPaymentAmount: z.number().min(0).optional(),
+  anotherPaymentDate: z.string().optional(),
 });
 
 const insuranceSchema = z.object({
@@ -1051,6 +1054,8 @@ export default function ClientForm() {
             date: pp.paymentDate || entity.paymentDate || "",
             invoiceNo: pp.invoiceNo || entity.invoiceNo || "",
             remarks: pp.remarks || entity.remarks || "",
+            anotherPaymentAmount: entity.anotherPaymentAmount != null ? Number(entity.anotherPaymentAmount) : 0,
+            anotherPaymentDate: entity.anotherPaymentDate || "",
           };
 
           // For financeAndEmployment, also load partialPayment and approvalStatus
@@ -1131,7 +1136,7 @@ export default function ClientForm() {
       // Initialize unified productFields with all fields (combines spouse, visitor, and student)
       productFields: {
         // Common Finance & Employment Fields
-        financeAndEmployment: { amount: 0, date: "", invoiceNo: "", remarks: "" },
+        financeAndEmployment: { amount: 0, date: "", invoiceNo: "", remarks: "", anotherPaymentAmount: 0, anotherPaymentDate: "" },
         indianSideEmployment: { amount: 0, date: "", invoiceNo: "", remarks: "" },
 
         // Spouse-Specific Finance Fields
@@ -2735,6 +2740,8 @@ export default function ClientForm() {
               invoiceNo: fieldData.invoiceNo || "",
               remarks: fieldData.remarks || "",
               partialPayment: isPartialPayment,
+              anotherPaymentAmount: fieldData.anotherPaymentAmount != null ? String(fieldData.anotherPaymentAmount) : undefined,
+              anotherPaymentDate: fieldData.anotherPaymentDate || undefined,
             };
           } else {
             // For financialEntry products, ensure proper entityData structure
@@ -3612,6 +3619,8 @@ export default function ClientForm() {
                 invoiceNo: fieldData.invoiceNo || "",
                 remarks: fieldData.remarks || "",
                 partialPayment: isPartialPayment,
+                anotherPaymentAmount: fieldData.anotherPaymentAmount != null ? String(fieldData.anotherPaymentAmount) : undefined,
+                anotherPaymentDate: fieldData.anotherPaymentDate || undefined,
               };
             } else {
               // For financialEntry products, ensure proper entityData structure
@@ -4212,6 +4221,8 @@ export default function ClientForm() {
                   control={control}
                   name="productFields.financeAndEmployment"
                   label="All Finance & Employment"
+                  showSecondPayment={approvalStatus === "approved"}
+                  hasRemarks
                 />
 
                 {/* Indian Side Employment (Common) */}
@@ -5336,6 +5347,7 @@ export default function ClientForm() {
             name={`productFields.${product.id}` as any}
             label={product.name}
             hasRemarks={true}
+            showSecondPayment={product.id === "financeAndEmployment" && approvalStatus === "approved"}
             disabled={isFinanceDisabled}
           />
         );
@@ -6027,9 +6039,79 @@ export default function ClientForm() {
                           variant={isPartialPayment ? "default" : "outline"}
                           size="sm"
                           onClick={async () => {
-                            // console.log("[Partial Payment] Button clicked");
+                            const data = form.getValues();
+                            const productFields = data.productFields as any;
+                            const fieldData = productFields?.financeAndEmployment;
+
+                            // When rejected: same button resubmits (no separate Resubmit button)
+                            if (approvalStatus === "rejected") {
+                              if (!fieldData?.amount || fieldData.amount <= 0) {
+                                toast({
+                                  title: "Amount Required",
+                                  description: "Please enter an amount before resubmitting.",
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              if (!internalClientId) {
+                                toast({
+                                  title: "Error",
+                                  description: "Please create the client first.",
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              setIsSubmitting(true);
+                              try {
+                                const clientId = internalClientId || (window as any).currentClientId;
+                                const entityData = {
+                                  amount: fieldData.amount,
+                                  paymentDate: fieldData.date || fieldData.paymentDate || new Date().toISOString().split("T")[0],
+                                  invoiceNo: fieldData.invoiceNo || "",
+                                  remarks: fieldData.remarks || "",
+                                  partialPayment: true,
+                                  anotherPaymentAmount: fieldData.anotherPaymentAmount != null ? String(fieldData.anotherPaymentAmount) : undefined,
+                                  anotherPaymentDate: fieldData.anotherPaymentDate || undefined,
+                                };
+                                const existingProductPaymentId = productPaymentIdsRef.current["ALL_FINANCE_EMPLOYEMENT"];
+                                const payload: any = {
+                                  clientId: Number(clientId),
+                                  productName: "ALL_FINANCE_EMPLOYEMENT",
+                                  amount: null,
+                                  paymentDate: null,
+                                  invoiceNo: null,
+                                  remarks: null,
+                                  entityData,
+                                };
+                                if (existingProductPaymentId) {
+                                  payload.productPaymentId = Number(existingProductPaymentId);
+                                  payload.id = Number(existingProductPaymentId);
+                                }
+                                const res = await api.post("/api/client-product-payments", payload);
+                                const returnedPayment = res.data?.data?.productPayment || res.data?.data || res.data;
+                                const newProductPaymentId = returnedPayment?.productPaymentId || returnedPayment?.id;
+                                if (newProductPaymentId) {
+                                  setProductPaymentIds((prev) => ({ ...prev, "ALL_FINANCE_EMPLOYEMENT": newProductPaymentId }));
+                                }
+                                setApprovalStatus("pending");
+                                toast({
+                                  title: "Resubmitted",
+                                  description: "Your request has been sent again to admin/manager for approval.",
+                                });
+                              } catch (error: any) {
+                                console.error("Failed to resubmit partial payment:", error);
+                                toast({
+                                  title: "Error",
+                                  description: error.response?.data?.message || error.message || "Failed to resubmit. Please try again.",
+                                  variant: "destructive",
+                                });
+                              } finally {
+                                setIsSubmitting(false);
+                              }
+                              return;
+                            }
+
                             const newPartialPaymentState = !isPartialPayment;
-                            // console.log("[Partial Payment] New state:", newPartialPaymentState, "Current state:", isPartialPayment);
 
                             // If enabling partial payment, save immediately
                             if (newPartialPaymentState) {
@@ -6073,13 +6155,15 @@ export default function ClientForm() {
                                 const clientId = internalClientId || (window as any).currentClientId;
 
                                 // Prepare entityData with partialPayment flag
-                                // For ALL_FINANCE_EMPLOYEMENT, entityData should have: amount, paymentDate, invoiceNo, remarks, partialPayment
+                                // For ALL_FINANCE_EMPLOYEMENT, entityData should have: amount, paymentDate, invoiceNo, remarks, partialPayment, anotherPaymentAmount, anotherPaymentDate
                                 const entityData = {
                                   amount: fieldData.amount,
                                   paymentDate: fieldData.date || fieldData.paymentDate || new Date().toISOString().split("T")[0],
                                   invoiceNo: fieldData.invoiceNo || "",
                                   remarks: fieldData.remarks || "",
                                   partialPayment: true,
+                                  anotherPaymentAmount: fieldData.anotherPaymentAmount != null ? String(fieldData.anotherPaymentAmount) : undefined,
+                                  anotherPaymentDate: fieldData.anotherPaymentDate || undefined,
                                 };
 
                                 // Check for existing product payment ID
@@ -6248,6 +6332,8 @@ export default function ClientForm() {
               control={control}
               name="productFields.financeAndEmployment"
               label="All Finance & Employment"
+              showSecondPayment={approvalStatus === "approved"}
+              hasRemarks
             />
 
             {/* Indian Side Employment (Common) */}

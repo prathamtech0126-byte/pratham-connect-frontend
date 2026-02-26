@@ -67,6 +67,8 @@ interface ActivityLogItem {
   performerId?: number | null;
   performerEmail?: string | null;
   productLabel?: string | null;
+  entityType?: string | null;
+  entityId?: number | null;
 }
 
 // Format activity text: Rupee instead of Dollar, null → Not set, backend product names → friendly names
@@ -91,6 +93,7 @@ const mapActionToType = (action: string): ActivityLogItem["type"] => {
       return "logout";
     case "CREATE":
       return "create";
+    case "DELETE":
     case "PAYMENT_DELETED":
     case "PRODUCT_DELETED":
       return "deleted";
@@ -163,13 +166,37 @@ const extractChanges = (oldValue: any, newValue: any): ChangeDetail[] => {
           newValue: formatChangeVal(newValItem, key),
         });
       });
-    } else if (oldValue !== newValue) {
-      // If not objects, just show the change
-      changes.push({
-        field: 'Value',
-        oldValue: oldValue !== null && oldValue !== undefined ? String(oldValue) : null,
-        newValue: newValue !== null && newValue !== undefined ? String(newValue) : null,
+    } else if (old && typeof old === 'object' && !Array.isArray(old) && (newVal == null || newVal === '')) {
+      // Deleted entity: only oldValue is set (e.g. user/client delete). Show each field so fullName etc. are visible, not [object Object]
+      const formatDeletedVal = (val: any, k: string): string | null => {
+        if (val === null || val === undefined) return null;
+        if (typeof val === 'object') return null;
+        if (k === 'fullName' || k === 'name') return String(val).trim() || null;
+        return String(val).trim() || null;
+      };
+      const displayOrder = ['fullName', 'name', 'email', 'role', 'designation', 'empId', 'managerId', 'officePhone', 'personalPhone', 'isSupervisor'];
+      const restKeys = Object.keys(old).filter(k => !displayOrder.includes(k));
+      const keysOrdered = [...displayOrder.filter(k => k in old), ...restKeys.sort()];
+      keysOrdered.forEach(key => {
+        const val = old[key];
+        const formatted = formatDeletedVal(val, key);
+        if (formatted != null || (key in old)) {
+          const fieldName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim();
+          changes.push({
+            field: fieldName,
+            oldValue: formatted ?? (key in old ? '—' : null),
+            newValue: null,
+          });
+        }
       });
+    } else if (oldValue !== newValue) {
+      // Primitives only – never stringify objects (would show [object Object])
+      const safeStr = (v: any) => (v == null ? null : typeof v === 'object' ? null : String(v));
+      const ov = safeStr(oldValue);
+      const nv = safeStr(newValue);
+      if (ov != null || nv != null) {
+        changes.push({ field: 'Value', oldValue: ov, newValue: nv });
+      }
     }
   } catch (error) {
     console.error('Error extracting changes:', error);
@@ -269,6 +296,8 @@ const transformActivityLog = (log: any): ActivityLogItem => {
     performerId: log.performerId ?? log.performedBy ?? null,
     performerEmail: log.performerEmail ?? null,
     productLabel: log.productLabel ?? null,
+    entityType: log.entityType ?? null,
+    entityId: log.entityId != null ? log.entityId : null,
   };
 };
 
@@ -557,7 +586,7 @@ export default function Activity() {
                           />
                         </PaginationItem>
                         {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                          let pageNum;
+                          let pageNum: number;
                           if (pagination.totalPages <= 5) {
                             pageNum = i + 1;
                           } else if (pagination.page <= 3) {
@@ -613,16 +642,22 @@ export default function Activity() {
                 </DialogHeader>
 
                 <div className="py-4">
-                  {(selectedActivity?.action === "PAYMENT_DELETED" || selectedActivity?.action === "PRODUCT_DELETED") && (
+                  {(selectedActivity?.action === "DELETE" || selectedActivity?.action === "PAYMENT_DELETED" || selectedActivity?.action === "PRODUCT_DELETED") && (
                     <div className="mb-6 p-4 bg-muted/30 rounded-lg space-y-2 border border-muted">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Delete details</p>
                       {selectedActivity.description && (
                         <p className="text-sm">
-                          <span className="text-muted-foreground">Reason: </span>
+                          <span className="text-muted-foreground">Description: </span>
                           <span className="font-medium text-foreground">{selectedActivity.description}</span>
                         </p>
                       )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                        {selectedActivity.entityType && (
+                          <p><span className="text-muted-foreground">Entity type:</span> <span className="font-medium capitalize">{String(selectedActivity.entityType).replace(/_/g, " ")}</span></p>
+                        )}
+                        {selectedActivity.entityId != null && (
+                          <p><span className="text-muted-foreground">Entity ID:</span> <span className="font-medium">{selectedActivity.entityId}</span></p>
+                        )}
                         {selectedActivity.performerId != null && (
                           <p><span className="text-muted-foreground">Performer ID:</span> <span className="font-medium">{selectedActivity.performerId}</span></p>
                         )}
@@ -736,14 +771,18 @@ export default function Activity() {
                         </div>
                       );
                     }
-                    return (
-                      <div className="text-center py-8 text-muted-foreground bg-muted/10 rounded-lg border border-dashed">
-                        <p>No detailed changes recorded for this activity.</p>
-                        {selectedActivity?.description && (
-                          <p className="text-sm mt-2">{selectedActivity.description}</p>
-                        )}
-                      </div>
-                    );
+                    const isDeleteAction = ["DELETE", "PAYMENT_DELETED", "PRODUCT_DELETED"].includes(selectedActivity?.action ?? "");
+                    if (!isDeleteAction) {
+                      return (
+                        <div className="text-center py-8 text-muted-foreground bg-muted/10 rounded-lg border border-dashed">
+                          <p>No detailed changes recorded for this activity.</p>
+                          {selectedActivity?.description && (
+                            <p className="text-sm mt-2">{selectedActivity.description}</p>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
                   })()}
                 </div>
               </DialogContent>

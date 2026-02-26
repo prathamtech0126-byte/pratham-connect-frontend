@@ -1,16 +1,45 @@
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { clientService } from "@/services/clientService";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
-import { User, Calendar, CreditCard, ClipboardList, Info, ChevronDown, ChevronUp } from "lucide-react";
+import { User, Calendar, CreditCard, ClipboardList, Info, ChevronDown, ChevronUp, Edit } from "lucide-react";
 import { getLatestStageFromPayments } from "@/utils/stageUtils";
 import { useState, useEffect } from "react";
 import { useSocket } from "@/context/socket-context";
 import { useToast } from "@/hooks/use-toast";
+
+/** Parse date-only (YYYY-MM-DD), ISO string, or Date as local calendar date so display is correct in all timezones. */
+function parseDateOnly(val: string | Date | null | undefined): Date | null {
+  if (val == null || val === "") return null;
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return null;
+    // Use UTC date parts so "2026-02-23" stored as UTC midnight shows as 23 Feb everywhere
+    const y = val.getUTCFullYear();
+    const mo = val.getUTCMonth();
+    const d = val.getUTCDate();
+    return new Date(y, mo, d);
+  }
+  const str = typeof val === "string" ? val : String(val);
+  const datePart = str.slice(0, 10);
+  const m = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    const y = parseInt(m[1], 10);
+    const mo = parseInt(m[2], 10) - 1;
+    const d = parseInt(m[3], 10);
+    return new Date(y, mo, d);
+  }
+  return null;
+}
+
+function formatDateLocal(val: string | null | undefined): string {
+  const d = parseDateOnly(val);
+  return d ? format(d, "dd MMM yyyy") : "N/A";
+}
 
 // Helper function to render product entity details
 const renderProductDetails = (product: any) => {
@@ -30,7 +59,7 @@ const renderProductDetails = (product: any) => {
         {product.paymentDate && (
           <div className="flex justify-between">
             <span className="text-gray-500">Payment Date:</span>
-            <span className="font-semibold">{format(new Date(product.paymentDate), "dd MMM yyyy")}</span>
+            <span className="font-semibold">{formatDateLocal(product.paymentDate)}</span>
           </div>
         )}
         {product.invoiceNo && (
@@ -75,13 +104,13 @@ const renderProductDetails = (product: any) => {
           {entity.simCardGivingDate && (
             <div className="flex justify-between">
               <span className="text-gray-500">Giving Date:</span>
-              <span className="font-semibold">{format(new Date(entity.simCardGivingDate), "dd MMM yyyy")}</span>
+              <span className="font-semibold">{formatDateLocal(entity.simCardGivingDate)}</span>
             </div>
           )}
           {entity.simActivationDate && (
             <div className="flex justify-between">
               <span className="text-gray-500">Activation Date:</span>
-              <span className="font-semibold">{format(new Date(entity.simActivationDate), "dd MMM yyyy")}</span>
+              <span className="font-semibold">{formatDateLocal(entity.simActivationDate)}</span>
             </div>
           )}
           {entity.remarks && (
@@ -119,7 +148,7 @@ const renderProductDetails = (product: any) => {
           {entity.ticketDate && (
             <div className="flex justify-between">
               <span className="text-gray-500">Ticket Date:</span>
-              <span className="font-semibold">{format(new Date(entity.ticketDate), "dd MMM yyyy")}</span>
+              <span className="font-semibold">{formatDateLocal(entity.ticketDate)}</span>
             </div>
           )}
           {entity.remarks && (
@@ -149,7 +178,7 @@ const renderProductDetails = (product: any) => {
           {entity.insuranceDate && (
             <div className="flex justify-between">
               <span className="text-gray-500">Insurance Date:</span>
-              <span className="font-semibold">{format(new Date(entity.insuranceDate), "dd MMM yyyy")}</span>
+              <span className="font-semibold">{formatDateLocal(entity.insuranceDate)}</span>
             </div>
           )}
           {entity.remarks && (
@@ -167,13 +196,13 @@ const renderProductDetails = (product: any) => {
           {entity.openingDate && (
             <div className="flex justify-between">
               <span className="text-gray-500">Opening Date:</span>
-              <span className="font-semibold">{format(new Date(entity.openingDate), "dd MMM yyyy")}</span>
+              <span className="font-semibold">{formatDateLocal(entity.openingDate)}</span>
             </div>
           )}
           {entity.fundingDate && (
             <div className="flex justify-between">
               <span className="text-gray-500">Funding Date:</span>
-              <span className="font-semibold">{format(new Date(entity.fundingDate), "dd MMM yyyy")}</span>
+              <span className="font-semibold">{formatDateLocal(entity.fundingDate)}</span>
             </div>
           )}
           {entity.amount && (
@@ -203,7 +232,7 @@ const renderProductDetails = (product: any) => {
           {entity.feeDate && (
             <div className="flex justify-between">
               <span className="text-gray-500">Fee Date:</span>
-              <span className="font-semibold">{format(new Date(entity.feeDate), "dd MMM yyyy")}</span>
+              <span className="font-semibold">{formatDateLocal(entity.feeDate)}</span>
             </div>
           )}
           {entity.amount && (
@@ -233,8 +262,8 @@ const renderProductDetails = (product: any) => {
           {entity.feeDate && (
             <div className="flex justify-between">
               <span className="text-gray-500">Fee Date:</span>
-              <span className="font-semibold">{format(new Date(entity.feeDate), "dd MMM yyyy")}</span>
-            </div>
+<span className="font-semibold">{formatDateLocal(entity.feeDate)}</span>
+          </div>
           )}
           {entity.remarks && (
             <div className="flex flex-col mt-2">
@@ -269,7 +298,7 @@ const renderProductDetails = (product: any) => {
           {entity.sellDate && (
             <div className="flex justify-between">
               <span className="text-gray-500">Sell Date:</span>
-              <span className="font-semibold">{format(new Date(entity.sellDate), "dd MMM yyyy")}</span>
+              <span className="font-semibold">{formatDateLocal(entity.sellDate)}</span>
             </div>
           )}
           {entity.invoiceNo && (
@@ -287,6 +316,73 @@ const renderProductDetails = (product: any) => {
         </div>
       );
 
+    case 'ALL_FINANCE_EMPLOYEMENT':
+    case 'ALL_FINANCE_EMPLOYMENT':
+      return (
+        <div className="space-y-2 text-sm">
+          {entity.financeId && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Finance Id:</span>
+              <span className="font-semibold">{entity.financeId}</span>
+            </div>
+          )}
+          {entity.amount && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Amount:</span>
+              <span className="font-semibold">₹{Number(entity.amount).toLocaleString()}</span>
+            </div>
+          )}
+          {entity.paymentDate && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Payment Date:</span>
+              <span className="font-semibold">{formatDateLocal(entity.paymentDate)}</span>
+            </div>
+          )}
+          {entity.invoiceNo && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Invoice No:</span>
+              <span className="font-semibold">{entity.invoiceNo}</span>
+            </div>
+          )}
+          {entity.partialPayment !== undefined && entity.partialPayment !== null && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Partial Payment:</span>
+              <span className="font-semibold">{entity.partialPayment ? 'Yes' : 'No'}</span>
+            </div>
+          )}
+          {entity.approvalStatus && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Approval Status:</span>
+              <span className="font-semibold capitalize">{entity.approvalStatus}</span>
+            </div>
+          )}
+          {entity.anotherPaymentAmount !== undefined && entity.anotherPaymentAmount !== null && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Another Payment Amount:</span>
+              <span className="font-semibold">₹{Number(entity.anotherPaymentAmount).toLocaleString()}</span>
+            </div>
+          )}
+          {entity.anotherPaymentDate && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Another Payment Date:</span>
+              <span className="font-semibold">{formatDateLocal(entity.anotherPaymentDate)}</span>
+            </div>
+          )}
+          {entity.remarks && (
+            <div className="flex flex-col mt-1">
+              <span className="text-gray-500 mb-1">Remarks:</span>
+              <span className="text-sm">{entity.remarks}</span>
+            </div>
+          )}
+          {entity.approver?.name && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Approver:</span>
+              <span className="font-semibold">{entity.approver.name}</span>
+            </div>
+          )}
+        </div>
+      );
+
     default:
       // Generic fallback - show all entity fields
       return (
@@ -296,11 +392,13 @@ const renderProductDetails = (product: any) => {
             const displayKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
             const displayValue = value instanceof Date
               ? format(value, "dd MMM yyyy")
-              : typeof value === 'boolean'
-                ? value ? 'Yes' : 'No'
-                : typeof value === 'number' && key.toLowerCase().includes('amount')
-                  ? `₹${Number(value).toLocaleString()}`
-                  : String(value);
+              : typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value.trim())
+                ? formatDateLocal(value)
+                : typeof value === 'boolean'
+                  ? value ? 'Yes' : 'No'
+                  : typeof value === 'number' && key.toLowerCase().includes('amount')
+                    ? `₹${Number(value).toLocaleString()}`
+                    : String(value);
 
             return (
               <div key={key} className="flex justify-between">
@@ -316,6 +414,7 @@ const renderProductDetails = (product: any) => {
 
 export default function ClientView() {
   const [, params] = useRoute("/clients/:id/view");
+  const [, setLocation] = useLocation();
   const clientId = params?.id ? parseInt(params.id) : null;
   const [expandedProducts, setExpandedProducts] = useState<Set<number>>(new Set());
   const { socket, isConnected } = useSocket();
@@ -490,6 +589,15 @@ export default function ClientView() {
     <PageWrapper
       title={clientFullName}
       breadcrumbs={[{ label: "Clients", href: "/clients" }, { label: clientFullName }]}
+
+      actions={
+        params?.id ? (
+          <Button variant="outline" size="sm" onClick={() => setLocation(`/clients/${params.id}/edit`)} className="gap-1.5">
+            <Edit className="h-4 w-4" />
+            Edit
+          </Button>
+        ) : undefined
+      }
     >
       <div className="space-y-8">
         {/* Header Section */}
@@ -503,7 +611,7 @@ export default function ClientView() {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">{clientFullName}</h2>
                   <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="outline" className="bg-white">{clientSaleType}</Badge>
+                    {/* <Badge variant="outline" className="bg-white">{clientSaleType}</Badge> */}
                     <Badge className={clientArchived ? "bg-gray-100 text-gray-600" : "bg-emerald-100 text-emerald-700"}>
                       {clientArchived ? "Archived" : "Active"}
                     </Badge>
@@ -513,7 +621,7 @@ export default function ClientView() {
               <div className="grid grid-cols-2 gap-8">
                 <div>
                   <p className="text-sm text-gray-500">Enrollment Date</p>
-                  <p className="font-semibold">{clientEnrollmentDate ? format(new Date(clientEnrollmentDate), "dd MMM yyyy") : "N/A"}</p>
+                  <p className="font-semibold">{formatDateLocal(clientEnrollmentDate)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Current Stage</p>
@@ -578,12 +686,12 @@ export default function ClientView() {
                   client.payments.map((payment: any, idx: number) => (
                     <div key={idx} className="flex justify-between items-center p-4 rounded-xl border border-gray-100 bg-white shadow-sm">
                       <div>
-                        <p className="font-bold text-[#1A2B3B]">{payment.invoiceNo || "Initial Payment"}</p>
-                        <p className="text-xs text-gray-400 font-medium">{payment.paymentDate ? format(new Date(payment.paymentDate), "dd MMM yyyy") : "N/A"}</p>
+                        <p className="font-bold text-[#1A2B3B]">{payment.invoiceNo || "Invoice not added yet"}</p>
+                        <p className="text-xs text-gray-400 font-medium">{formatDateLocal(payment.paymentDate)}</p>
                       </div>
                       <div className="text-right flex flex-col items-end gap-1">
                         <p className="font-black text-lg text-[#1A2B3B]">₹{Number(payment.amount).toLocaleString()}</p>
-                        <Badge variant="outline" className="text-[9px] font-black uppercase tracking-tighter px-2 h-5 rounded-md border-gray-200 text-gray-500 bg-gray-50">
+                        <Badge variant="outline" className="text-[12px] font-black uppercase tracking-tighter px-2 h-7 rounded-md border-gray-200 text-gray-500 bg-gray-50">
                           {payment.stage?.replace(/_/g, ' ')}
                         </Badge>
                       </div>

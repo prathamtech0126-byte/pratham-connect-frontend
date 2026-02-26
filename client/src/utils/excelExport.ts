@@ -19,7 +19,7 @@ interface ClientWithDetails extends Client {
  * Now includes invoiceNo and remarks for each product
  */
 const extractProductData = (productPayments: any[] = []) => {
-  const productMap: Record<string, { amount: string | number; date: string; invoiceNo: string; remarks: string; serviceName?: string }> = {};
+  const productMap: Record<string, any> = {};
 
   if (!productPayments || productPayments.length === 0) {
     return productMap;
@@ -68,7 +68,11 @@ const extractProductData = (productPayments: any[] = []) => {
       switch (productName) {
         case 'ALL_FINANCE_EMPLOYEMENT':
         case 'ALL_FINANCE_EMPLOYMENT': // alternate spelling
-          productMap['financeAndEmployment'] = { amount, date, invoiceNo, remarks };
+          productMap['financeAndEmployment'] = {
+            amount, date, invoiceNo, remarks,
+            anotherPaymentAmount: product.anotherPaymentAmount != null ? Number(product.anotherPaymentAmount) : null,
+            anotherPaymentDate: product.anotherPaymentDate ?? ''
+          };
           break;
         case 'INDIAN_SIDE_EMPLOYEMENT':
         case 'INDIAN_SIDE_EMPLOYMENT': // alternate spelling
@@ -93,7 +97,8 @@ const extractProductData = (productPayments: any[] = []) => {
           productMap['nocArrangement'] = { amount, date, invoiceNo, remarks };
           break;
         case 'TRV_WORK_PERMIT_EXT_STUDY_PERMIT_EXTENSION':
-          productMap['trvExtension'] = { amount, date, invoiceNo, remarks };
+          if (!productMap['trvExtensions']) productMap['trvExtensions'] = [];
+          productMap['trvExtensions'].push({ type: '', amount, date, invoiceNo, remarks });
           break;
         case 'MARRIAGE_PHOTO_FOR_COURT_MARRIAGE':
           productMap['marriagePhoto'] = { amount, date, invoiceNo, remarks };
@@ -135,29 +140,35 @@ const extractProductData = (productPayments: any[] = []) => {
           amount: entity.amount != null ? Number(entity.amount) : 0,
           date: entity.paymentDate ?? entity.payment_date ?? '',
           invoiceNo: invoiceNo || entity.invoiceNo || entity.invoice_no || '',
-          remarks: remarks || entity.remarks || ''
+          remarks: remarks || entity.remarks || '',
+          anotherPaymentAmount: entity.anotherPaymentAmount != null ? Number(entity.anotherPaymentAmount) : null,
+          anotherPaymentDate: entity.anotherPaymentDate ?? entity.another_payment_date ?? ''
         };
         return;
       }
-      // TRV with entity (entityType: visaextension_id) – amount/extensionDate in entity
+      // TRV with entity (entityType: visaextension_id) – amount/extensionDate in entity (multiple allowed)
       if (productName === 'TRV_WORK_PERMIT_EXT_STUDY_PERMIT_EXTENSION') {
-        productMap['trvExtension'] = {
+        if (!productMap['trvExtensions']) productMap['trvExtensions'] = [];
+        productMap['trvExtensions'].push({
+          type: entity.type ?? entity.extensionType ?? '',
           amount: entity.amount != null ? Number(entity.amount) : 0,
-          date: entity.extensionDate ?? entity.extension_date ?? '',
+          date: entity.date ?? entity.extensionDate ?? entity.extension_date ?? '',
           invoiceNo: invoiceNo || entity.invoiceNo || entity.invoice_no || '',
           remarks: remarks || entity.remarks || ''
-        };
+        });
         return;
       }
-      // OTHER_NEW_SELL with entity (entityType: newSell_id) – serviceName, amount, sellDate in entity
+      // OTHER_NEW_SELL with entity (entityType: newSell_id) – serviceName, amount, sellDate in entity (multiple allowed)
       if (productName === 'OTHER_NEW_SELL') {
-        productMap['otherProduct'] = {
+        if (!productMap['otherProducts']) productMap['otherProducts'] = [];
+        productMap['otherProducts'].push({
+          serviceName: entity.serviceName ?? entity.service_name ?? '',
+          serviceInfo: entity.serviceInformation ?? entity.serviceInfo ?? entity.service_information ?? '',
           amount: entity.amount != null ? Number(entity.amount) : 0,
           date: entity.sellDate ?? entity.sell_date ?? '',
           invoiceNo: invoiceNo || entity.invoiceNo || entity.invoice_no || '',
-          remarks: remarks || entity.remarks || '',
-          serviceName: entity.serviceName ?? entity.service_name ?? ''
-        };
+          remarks: remarks || entity.remarks || ''
+        });
         return;
       }
 
@@ -256,6 +267,17 @@ export const exportClientsToExcel = (
   if (!XLSX || !XLSX.utils || !XLSX.write) {
     throw new Error("Excel export library not loaded");
   }
+
+  // First pass: find max number of TRV and OTHER_NEW_SELL entries across all clients
+  // so we can generate the right number of numbered columns
+  let maxTrvCount = 1;
+  let maxOtherProductCount = 1;
+  clients.forEach(client => {
+    const pp = client.productPayments || client.rawClient?.productPayments || (client as any).productPayments || [];
+    const data = extractProductData(pp);
+    if (data.trvExtensions?.length > maxTrvCount) maxTrvCount = data.trvExtensions.length;
+    if (data.otherProducts?.length > maxOtherProductCount) maxOtherProductCount = data.otherProducts.length;
+  });
 
   // Prepare flat client data matching original Excel structure
   const flatClientData = clients.map((client, index) => {
@@ -402,6 +424,10 @@ export const exportClientsToExcel = (
       "Finance And Employment Date of Payment": productData.financeAndEmployment?.date || "",
       "Finance And Employment Invoice No": productData.financeAndEmployment?.invoiceNo || "",
       "Finance And Employment Remarks": productData.financeAndEmployment?.remarks || "",
+      "Finance And Employment 2nd Payment Amount": productData.financeAndEmployment?.anotherPaymentAmount != null
+        ? `₹${Number(productData.financeAndEmployment.anotherPaymentAmount).toLocaleString()}`
+        : "",
+      "Finance And Employment 2nd Payment Date": productData.financeAndEmployment?.anotherPaymentDate || "",
 
       // India Side Employment
       "India Side Employment": productData.indianSideEmployment?.amount
@@ -457,13 +483,20 @@ export const exportClientsToExcel = (
       "Employment NOC Invoice No": productData.nocArrangement?.invoiceNo || "",
       "Employment NOC Remarks": productData.nocArrangement?.remarks || "",
 
-      // TRV/ Work Permit Ext. / Study Permit Extension
-      "TRV/ Work Permit Ext. / Study Permit Extension": productData.trvExtension?.amount
-        ? `₹${Number(productData.trvExtension.amount).toLocaleString()}`
-        : "",
-      "TRV Date of Payment": productData.trvExtension?.date || "",
-      "TRV Invoice No": productData.trvExtension?.invoiceNo || "",
-      "TRV Remarks": productData.trvExtension?.remarks || "",
+      // TRV/ Work Permit Ext. / Study Permit Extension (multiple entries)
+      ...(() => {
+        const cols: Record<string, string> = {};
+        for (let i = 0; i < maxTrvCount; i++) {
+          const entry = productData.trvExtensions?.[i];
+          const n = maxTrvCount === 1 ? "" : ` ${i + 1}`;
+          cols[`TRV/ Work Permit Ext. / Study Permit Extension${n}`] = entry?.amount ? `₹${Number(entry.amount).toLocaleString()}` : "";
+          cols[`TRV Type${n}`] = entry?.type || "";
+          cols[`TRV Date of Payment${n}`] = entry?.date || "";
+          cols[`TRV Invoice No${n}`] = entry?.invoiceNo || "";
+          cols[`TRV Remarks${n}`] = entry?.remarks || "";
+        }
+        return cols;
+      })(),
 
       // Marriage photo's for Court Marriage
       "Marriage photo's for Court Marriage": productData.marriagePhoto?.amount
@@ -560,12 +593,21 @@ export const exportClientsToExcel = (
       "Additional Amount Statement Invoice No": productData.additionalAmountStatementCharges?.invoiceNo || "",
       "Additional Amount Statement Remarks": productData.additionalAmountStatementCharges?.remarks || "",
 
-      // Other Product (OTHER_NEW_SELL – entity-based)
-      "Other Product Service Name": (productData.otherProduct as any)?.serviceName ?? "",
-      "Other Product Amount": productData.otherProduct?.amount != null ? `₹${Number(productData.otherProduct.amount).toLocaleString()}` : "",
-      "Other Product Date": productData.otherProduct?.date || "",
-      "Other Product Invoice No": productData.otherProduct?.invoiceNo || "",
-      "Other Product Remarks": productData.otherProduct?.remarks || "",
+      // Other Product (OTHER_NEW_SELL – entity-based, multiple entries)
+      ...(() => {
+        const cols: Record<string, string> = {};
+        for (let i = 0; i < maxOtherProductCount; i++) {
+          const entry = productData.otherProducts?.[i];
+          const n = maxOtherProductCount === 1 ? "" : ` ${i + 1}`;
+          cols[`Other Product Service Name${n}`] = entry?.serviceName ?? "";
+          cols[`Other Product Service Info${n}`] = entry?.serviceInfo ?? "";
+          cols[`Other Product Amount${n}`] = entry?.amount != null ? `₹${Number(entry.amount).toLocaleString()}` : "";
+          cols[`Other Product Date${n}`] = entry?.date || "";
+          cols[`Other Product Invoice No${n}`] = entry?.invoiceNo || "";
+          cols[`Other Product Remarks${n}`] = entry?.remarks || "";
+        }
+        return cols;
+      })(),
 
       // RAG
       "RAG": "",
@@ -611,6 +653,8 @@ export const exportClientsToExcel = (
     { wch: 30 },  // Finance And Employment Date of Payment
     { wch: 25 },  // Finance And Employment Invoice No
     { wch: 30 },  // Finance And Employment Remarks
+    { wch: 35 },  // Finance And Employment 2nd Payment Amount
+    { wch: 32 },  // Finance And Employment 2nd Payment Date
 
     // India Side Employment
     { wch: 25 },  // India Side Employment

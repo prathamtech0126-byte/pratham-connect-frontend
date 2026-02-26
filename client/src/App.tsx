@@ -31,6 +31,9 @@ const Messages = lazy(() => import("@/pages/Messages"));
 const CalendarDemo = lazy(() => import("@/pages/CalendarDemo"));
 const ChangePassword = lazy(() => import("@/pages/ChangePassword"));
 const CounsellorLeaderboard = lazy(() => import("@/pages/CounsellorLeaderboard/CounsellorLeaderboard"));
+const ManagerLeaderboard = lazy(() => import("@/pages/ManagerLeaderboard/ManagerLeaderboard"));
+const Reports = lazy(() => import("@/pages/Reports"));
+const CounsellorReportPage = lazy(() => import("@/pages/Reports/CounsellorReportPage"));
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -105,6 +108,13 @@ function Router() {
           {params => <ProtectedRoute component={Activity} />}
         </Route>
 
+        {/* <Route path="/reports">
+          {params => <ProtectedRoute component={Reports} />}
+        </Route>
+        <Route path="/reports/counsellor/:id">
+          {params => <ProtectedRoute component={CounsellorReportPage} params={params} />}
+        </Route> */}
+
         <Route path="/messages">
           {params => <ProtectedRoute component={Messages} />}
         </Route>
@@ -139,6 +149,9 @@ function Router() {
 
         <Route path="/team">
           {params => <ProtectedRoute component={TeamList} />}
+        </Route>
+        <Route path="/manager-leaderboard">
+          {params => <ProtectedRoute component={ManagerLeaderboard} />}
         </Route>
         <Route path="/counsellor-leaderboard">
           {params => <ProtectedRoute component={CounsellorLeaderboard} />}

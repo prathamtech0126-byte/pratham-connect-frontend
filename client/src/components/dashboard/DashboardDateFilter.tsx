@@ -193,7 +193,7 @@ export function DashboardDateFilter({
           <div className="p-4 space-y-4 bg-card rounded-lg shadow-lg border border-border">
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-primary">After</label>
+                <label className="text-sm font-medium text-primary">From</label>
                 <div className="relative">
                     <DateInput
                         value={startDate}
@@ -205,7 +205,7 @@ export function DashboardDateFilter({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Before</label>
+                <label className="text-sm font-medium text-foreground">To</label>
                 <div className="relative">
                     <DateInput
                         value={endDate}

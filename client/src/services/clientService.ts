@@ -70,6 +70,59 @@ export interface Client {
   };
 }
 
+// Reports API types (GET /api/reports)
+export interface CounsellorPerformanceRow {
+  counsellor_id: number;
+  full_name: string;
+  email: string;
+  total_enrollments: number;
+  core_sale_revenue: number;
+  core_product_revenue: number;
+  other_product_revenue: number;
+  total_revenue: number;
+  average_revenue_per_client: number;
+  archived_count: number;
+}
+
+export interface ManagerAchievedByCounsellor {
+  counsellor_id: number;
+  full_name: string;
+  email: string;
+  core_sale_achieved_clients: number;
+  core_sale_achieved_revenue: number;
+  core_product_achieved_clients: number;
+  core_product_achieved_revenue: number;
+  other_product_achieved_clients: number;
+  other_product_achieved_revenue: number;
+}
+
+export interface ManagerDataRow {
+  manager_id: number;
+  manager_name: string;
+  target_id: number;
+  target_start_date: string;
+  target_end_date: string;
+  target_core_sale_clients: number;
+  target_core_sale_revenue: string;
+  target_core_product_clients: number;
+  target_core_product_revenue: string;
+  target_other_product_clients: number;
+  target_other_product_revenue: string;
+  achieved: {
+    coreSale: { clients: number; revenue: number };
+    coreProduct: { clients: number; revenue: number };
+    otherProduct: { clients: number; revenue: number };
+  };
+  achieved_by_counsellor: ManagerAchievedByCounsellor[];
+}
+
+export interface ReportsResponse {
+  filter_start_date: string;
+  filter_end_date: string;
+  counsellor_performance: CounsellorPerformanceRow[];
+  manager_data: ManagerDataRow[];
+}
+
 // Mock Data
 let clients: Client[] = [
   {
@@ -696,6 +749,135 @@ export const clientService = {
     }
   },
 
+  getManagers: async (): Promise<any[]> => {
+    try {
+      const res = await api.get("/api/users/managers");
+      return res.data.data || [];
+    } catch (err: any) {
+      if (err.response?.status === 404) return [];
+      console.error("Failed to fetch managers", err);
+      return [];
+    }
+  },
+
+  // Manager targets: GET /api/manager-targets (no params) or ?managerId=19&start_date=2026-02-01&end_date=2026-02-19
+  // Without filter: returns all/default data + filter_start_date, filter_end_date from backend
+  // With filter: returns filtered data
+  getManagerTargets: async (
+    startDate?: string,
+    endDate?: string,
+    managerId?: number
+  ): Promise<{ data: any[]; filter_start_date?: string; filter_end_date?: string; count?: number }> => {
+    try {
+      const params = new URLSearchParams();
+      if (managerId != null) params.set("managerId", String(managerId));
+      if (startDate) params.set("start_date", startDate);
+      if (endDate) params.set("end_date", endDate);
+      const qs = params.toString();
+      const url = qs ? `/api/manager-targets?${qs}` : "/api/manager-targets";
+      const res = await api.get(url);
+      const body = res.data;
+      if (body && typeof body === "object" && Array.isArray(body.data)) {
+        return {
+          data: body.data,
+          filter_start_date: body.filter_start_date,
+          filter_end_date: body.filter_end_date,
+          count: body.count,
+        };
+      }
+      return { data: Array.isArray(body) ? body : [] };
+    } catch (err: any) {
+      if (err.response?.status === 404) return { data: [] };
+      console.error("Failed to fetch manager targets", err);
+      throw err;
+    }
+  },
+
+  // POST /api/manager-targets (create single – manager_id)
+  setManagerTarget: async (
+    managerId: number,
+    payload: {
+      start_date: string;
+      end_date: string;
+      core_sales?: number;
+      core_sale_revenue?: string;
+      core_product?: number;
+      core_product_revenue?: string;
+      other_product?: number;
+      other_product_revenue?: string;
+      no_of_clients?: number;
+      revenue?: string;
+    }
+  ): Promise<any> => {
+    try {
+      const res = await api.post("/api/manager-targets", { manager_id: managerId, ...payload });
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      console.error("Failed to set manager target", err);
+      throw err;
+    }
+  },
+
+  // POST /api/manager-targets (create for multiple managers – manager_ids, dates in YYYY-MM-DD)
+  setManagerTargetsBulk: async (payload: {
+    manager_ids: number[];
+    start_date: string; // YYYY-MM-DD
+    end_date: string;   // YYYY-MM-DD
+    core_sale_target_clients?: number;
+    core_sale_target_revenue?: string;
+    core_product_target_clients?: number;
+    core_product_target_revenue?: string;
+    other_product_target_clients?: number;
+    other_product_target_revenue?: string;
+    overall?: string;
+  }): Promise<any> => {
+    try {
+      const res = await api.post("/api/manager-targets", payload);
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      console.error("Failed to set manager targets (bulk)", err);
+      throw err;
+    }
+  },
+
+  // PUT /api/manager-targets/:id (update)
+  updateManagerTarget: async (
+    id: number,
+    payload: {
+      manager_ids?: number[];
+      manager_id?: number;
+      start_date: string;
+      end_date: string;
+      core_sales?: number;
+      core_sale_revenue?: string;
+      core_product?: number;
+      core_product_revenue?: string;
+      other_product?: number;
+      other_product_revenue?: string;
+      no_of_clients?: number;
+      revenue?: string;
+    }
+  ): Promise<any> => {
+    try {
+      const res = await api.put(`/api/manager-targets/${id}`, payload);
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      console.error("Failed to update manager target", err);
+      throw err;
+    }
+  },
+
+  // DELETE /api/manager-targets/:id
+  deleteManagerTarget: async (id: number): Promise<any> => {
+    try {
+      const res = await api.delete(`/api/manager-targets/${id}`);
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      console.error("Failed to delete manager target", err);
+      throw err;
+    }
+  },
+
   // Get all clients for admin (with optional search)
   getAllClients: async (search?: string): Promise<any[]> => {
     try {
@@ -826,6 +1008,29 @@ export const clientService = {
       console.error(`Failed to fetch leaderboard for ${month}/${year}`, err);
       throw err;
     }
+  },
+
+  // Reports API: GET /api/reports?filter=today|weekly|monthly|yearly
+  //            or GET /api/reports?filter=custom&afterDate=YYYY-MM-DD&beforeDate=YYYY-MM-DD
+  getReports: async (params: {
+    filter: "today" | "weekly" | "monthly" | "yearly" | "custom";
+    afterDate?: string;
+    beforeDate?: string;
+  }): Promise<ReportsResponse> => {
+    const { filter, afterDate, beforeDate } = params;
+    const queryParams: Record<string, string> = { filter };
+    if (filter === "custom" && afterDate && beforeDate) {
+      queryParams.afterDate = afterDate;
+      queryParams.beforeDate = beforeDate;
+    }
+    const res = await api.get("/api/reports", { params: queryParams });
+    const data = res.data?.data ?? res.data;
+    return {
+      filter_start_date: data?.filter_start_date ?? afterDate ?? "",
+      filter_end_date: data?.filter_end_date ?? beforeDate ?? "",
+      counsellor_performance: Array.isArray(data?.counsellor_performance) ? data.counsellor_performance : [],
+      manager_data: Array.isArray(data?.manager_data) ? data.manager_data : [],
+    };
   },
 
   setTarget: async (counsellorId: number, target: number, month: number, year: number): Promise<any> => {

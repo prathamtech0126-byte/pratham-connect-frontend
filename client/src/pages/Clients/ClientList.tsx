@@ -12,16 +12,14 @@ import { Plus, Download, X, Filter, ChevronRight, User, Loader2 } from "lucide-r
 import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { exportClientsToPDF } from "@/utils/pdfExport";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { FileSpreadsheet, FileText } from "lucide-react";
+import { FileSpreadsheet } from "lucide-react";
 import { exportClientsToExcel } from "@/utils/excelExport";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,6 +36,8 @@ import {
 import { getLatestStageFromPayments } from "@/utils/stageUtils";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+
+const CLIENTS_PAGE_EXPANDED_KEY = "clients-page-expanded-counsellor";
 
 // Helper to get initials
 const getInitials = (name: string) => {
@@ -133,6 +133,19 @@ export default function ClientList() {
   const [saleTypeMap, setSaleTypeMap] = useState<Record<number, string>>({});
   // State to store all sale types from API (for filter dropdown)
   const [allSaleTypes, setAllSaleTypes] = useState<any[]>([]);
+
+  // Persist which user (counsellor) accordion is expanded so it stays open when returning from view/edit
+  const [expandedCounsellorIds, setExpandedCounsellorIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem(CLIENTS_PAGE_EXPANDED_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch {}
+    return [];
+  });
 
   // Determine which API to use based on user role
   const isCounsellor = user?.role === 'counsellor';
@@ -968,7 +981,7 @@ export default function ClientList() {
         salesType = saleTypeMap[client.saleTypeId];
       }
       if (!salesType) {
-        salesType = "N/A";
+        salesType = "Only Products";
       }
       const status = client.status || (client.archived ? "Archived" : "Active") || "Active";
       const productManager = client.productManager || client.product_manager || "N/A";
@@ -1107,7 +1120,19 @@ export default function ClientList() {
   // Product managers still extracted from clients (no separate API endpoint)
   const uniqueProductManagers = Array.from(new Set(transformedClients.map(c => c.productManager).filter(Boolean) || [])).sort();
 
-  const columns = [
+  const persistExpanded = (next: string[]) => {
+    try {
+      sessionStorage.setItem(CLIENTS_PAGE_EXPANDED_KEY, JSON.stringify(next));
+    } catch {}
+  };
+
+  // When navigating to view/edit, save full expanded state (counsellor + year + month) so it stays on return
+  const navigateToClient = (clientId: string, mode: "view" | "edit", counsellorId: string | null) => {
+    persistExpanded(expandedCounsellorIds);
+    setLocation(`/clients/${clientId}/${mode}`);
+  };
+
+  const getColumns = (counsellorId: string | null) => [
     { header: "Sr No", cell: (_: Client, index: number) => <span className="text-slate-400 font-mono text-xs">{String(index + 1).padStart(2, '0')}</span>, className: "w-[60px]" },
     { header: "Name", accessorKey: "name", className: "font-semibold text-slate-900 " },
     { header: "Sales Type", cell: (s: Client) => <Badge variant="outline" className="font-normal whitespace-nowrap bg-slate-50 text-slate-600 border-slate-200">{s.salesType}</Badge> },
@@ -1148,8 +1173,8 @@ export default function ClientList() {
     // Removed Status column as per user request
     { header: "Actions", cell: (s: Client) => (
       <TableActions
-        onView={() => setLocation(`/clients/${s.id}/view`)}
-        onEdit={() => setLocation(`/clients/${s.id}/edit`)}
+        onView={() => navigateToClient(s.id, "view", counsellorId)}
+        onEdit={() => navigateToClient(s.id, "edit", counsellorId)}
         onDelete={() => {
           setClientToDelete(s);
           setShowDeleteConfirm(true);
@@ -1158,6 +1183,8 @@ export default function ClientList() {
       />
     )}
   ];
+
+  const columns = getColumns(null);
 
   // // Helper function to collect all clients (for PDF export - simpler version)
   // const getAllDisplayedClients = (): Client[] => {
@@ -1235,34 +1262,6 @@ export default function ClientList() {
   //   return uniqueClients;
   // };
 
-  const handleExportPDF = async () => {
-    // Get all displayed clients with full details (including productPayments)
-    const allClients = getAllDisplayedClientsWithDetails();
-
-    if (!allClients || allClients.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "No Data to Export",
-        description: "No clients found. Please check your filters or add clients.",
-      });
-      return;
-    }
-
-    try {
-      await exportClientsToPDF(allClients);
-      toast({
-        title: "PDF Exported",
-        description: "Client details PDF has been downloaded successfully.",
-      });
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      toast({
-        variant: "destructive",
-        title: "Export Failed",
-        description: "Failed to generate PDF. Please try again.",
-      });
-    }
-  };
 
   // Helper function to extract ALL clients from nested structure (for admin/manager)
   const extractAllClientsFromNestedStructure = (data: any): any[] => {
@@ -1331,23 +1330,13 @@ export default function ClientList() {
         allClients.push(...clientsWithDetails);
       }
     } else {
-      // For admin/manager view: extract ALL clients from nested structure (not just displayed/filtered)
-      // This ensures we export ALL clients, not just the ones in expanded accordions
+      // For admin/manager view: extract clients from nested structure and apply active filters
       const extractedClients = extractAllClientsFromNestedStructure(clients);
 
       extractedClients.forEach((client: any) => {
-        // Debug: Log client data to verify productPayments are present
-        if (client.productPayments && client.productPayments.length > 0) {
-          const ieltsProducts = client.productPayments.filter((p: any) => p.productName === 'IELTS_ENROLLMENT');
-          if (ieltsProducts.length > 0) {
-            console.log('[ClientList Export] Client', client.fullName || client.name, 'has IELTS productPayments:', ieltsProducts);
-          }
-        }
-
-        // Extract salesType: first try from payments array, then saleType object, then use mapping with saleTypeId, fallback to N/A
+        // Extract salesType
         let salesType = client.saleType?.saleType || client.salesType || client.sales_type;
 
-        // Check payments array for saleType
         if (!salesType && client.payments && Array.isArray(client.payments) && client.payments.length > 0) {
           const paymentWithSaleType = client.payments.find((p: any) => p.saleType?.saleType);
           if (paymentWithSaleType?.saleType?.saleType) {
@@ -1362,7 +1351,7 @@ export default function ClientList() {
           salesType = "Only Products";
         }
 
-        // Calculate total received from all payments
+        // Calculate totals
         const totalReceived = client.payments && Array.isArray(client.payments) && client.payments.length > 0
           ? client.payments.reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0)
           : Number(client.payments?.[0]?.amount || 0);
@@ -1375,7 +1364,6 @@ export default function ClientList() {
           ? counsellorObj.name
           : (typeof client.counsellor === 'string' ? client.counsellor : client.counsellorName || "N/A");
 
-        // Ensure all fields are properly extracted from backend response
         const clientData: Client & { payments?: any[], productPayments?: any[], rawClient?: any, leadType?: any } = {
           id: String(client.clientId || client.id || ""),
           name: client.fullName || client.name || "N/A",
@@ -1388,16 +1376,19 @@ export default function ClientList() {
           amountReceived: totalReceived,
           amountPending: totalPending,
           stage: (getLatestStageFromPayments(client.payments, client.stage, client.visaSubmitted) || "N/A") as any,
-          // Preserve all payment and product payment data
           payments: Array.isArray(client.payments) ? client.payments : (client.payments ? [client.payments] : []),
           productPayments: Array.isArray(client.productPayments) ? client.productPayments : (client.productPayments ? [client.productPayments] : []),
           rawClient: client,
-          // @ts-ignore - Keep saleType object for Excel export (not part of Client type)
+          // @ts-ignore
           saleType: client.saleType || { saleTypeId: client.saleTypeId, saleType: salesType },
-          // @ts-ignore - Keep leadType for potential future use
+          // @ts-ignore
           leadType: client.leadType,
         };
-        allClients.push(clientData);
+
+        // Only include clients that match the currently active search/filters
+        if (matchesFilters(clientData, counsellorName)) {
+          allClients.push(clientData);
+        }
       });
     }
 
@@ -1512,11 +1503,6 @@ export default function ClientList() {
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 Export as Excel
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleExportPDF}>
-                <FileText className="w-4 h-4 mr-2" />
-                Export as PDF
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button onClick={() => setLocation("/clients/new")} className="shadow-md shadow-primary/20">
@@ -1599,7 +1585,16 @@ export default function ClientList() {
         {/* Grouped Client List */}
         {/* <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden"> */}
         <div className="">
-          <Accordion type="multiple" className="w-full">
+          <Accordion
+            type="multiple"
+            className="w-full"
+            value={expandedCounsellorIds.filter((v) => !v.includes("-"))}
+            onValueChange={(value) => {
+              const next = [...value, ...expandedCounsellorIds.filter((v) => v.includes("-"))];
+              setExpandedCounsellorIds(next);
+              persistExpanded(next);
+            }}
+          >
             {isCounsellor ? (
               // For counsellors: Show direct year/month grouping from filteredClients
               (() => {
@@ -1691,7 +1686,17 @@ export default function ClientList() {
                     </AccordionTrigger>
                     <AccordionContent className="pb-0">
                       <div className="border-t border-border/50">
-                        <Accordion type="multiple" className="w-full">
+                        <Accordion
+                          type="multiple"
+                          className="w-full"
+                          value={expandedCounsellorIds.filter((v) => v.startsWith(`${year}-`))}
+                          onValueChange={(monthValues) => {
+                            const rest = expandedCounsellorIds.filter((v) => v !== year && !v.startsWith(`${year}-`));
+                            const next = [...rest, year, ...monthValues];
+                            setExpandedCounsellorIds(next);
+                            persistExpanded(next);
+                          }}
+                        >
                           {Object.keys(yearMonthGrouped[year]).map(month => (
                             <AccordionItem value={`${year}-${month}`} key={month} className="border-b last:border-b-0 border-border/50">
                               <AccordionTrigger className="px-4 py-2 hover:bg-muted/30 hover:no-underline text-sm font-medium text-muted-foreground">
@@ -1856,7 +1861,17 @@ export default function ClientList() {
                               No client data found for this counsellor.
                             </div>
                           ) : (
-                            <Accordion type="multiple" className="w-full space-y-2">
+                            <Accordion
+                              type="multiple"
+                              className="w-full space-y-2"
+                              value={expandedCounsellorIds.filter((v) => v.startsWith(`${counsellorId}-`) && v.split("-").length === 2)}
+                              onValueChange={(value) => {
+                                const rest = expandedCounsellorIds.filter((v) => !v.startsWith(`${counsellorId}-`) || v.split("-").length !== 2);
+                                const next = [...rest, ...value];
+                                setExpandedCounsellorIds(next);
+                                persistExpanded(next);
+                              }}
+                            >
                               {Object.keys(counsellorClientsData)
                                 .sort((a, b) => Number(b) - Number(a))
                                 .map(year => {
@@ -1870,7 +1885,18 @@ export default function ClientList() {
                                       </AccordionTrigger>
                                       <AccordionContent className="pb-0">
                                         <div className="border-t border-border/50">
-                                          <Accordion type="multiple" className="w-full">
+                                          <Accordion
+                                            type="multiple"
+                                            className="w-full"
+                                            value={expandedCounsellorIds.filter((v) => v.startsWith(`${counsellorId}-${year}-`))}
+                                            onValueChange={(value) => {
+                                              const prefix = `${counsellorId}-${year}-`;
+                                              const rest = expandedCounsellorIds.filter((v) => !v.startsWith(prefix));
+                                              const next = [...rest, ...value];
+                                              setExpandedCounsellorIds(next);
+                                              persistExpanded(next);
+                                            }}
+                                          >
                                             {Object.keys(yearData)
                                               .sort((a, b) => {
                                                 // Sort months chronologically
@@ -1975,8 +2001,8 @@ export default function ClientList() {
                                                               stage: (getLatestStageFromPayments(client.payments, client.stage, client.visaSubmitted) || "N/A") as any
                                                             };
                                                           })}
-                                                        columns={columns}
-                                                        onRowClick={(s) => setLocation(`/clients/${s.id}/view`)}
+                                                        columns={getColumns(counsellorId)}
+                                                        onRowClick={(s) => navigateToClient(s.id, "view", counsellorId)}
                                                       />
                                                     </AccordionContent>
                                                   </AccordionItem>

@@ -43,6 +43,38 @@ const getInitials = (name: string) => {
   return name.split(' ').map((n: string) => n[0]).join('').toUpperCase();
 };
 
+// Helper to parse DD-MM-YYYY enrollment dates (same logic as ClientList.tsx)
+const parseEnrollmentDate = (dateString: string): Date | null => {
+  if (!dateString || dateString.trim() === '') {
+    return null;
+  }
+
+  // Try to parse DD-MM-YYYY format (e.g., "19-01-2026")
+  const ddMMyyyyPattern = /^(\d{2})-(\d{2})-(\d{4})$/;
+  const match = dateString.match(ddMMyyyyPattern);
+
+  if (match) {
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1; // Month is 0-indexed in Date
+    const year = parseInt(match[3], 10);
+
+    const date = new Date(year, month, day);
+
+    // Validate the date is correct (handles invalid dates like 32-01-2026)
+    if (date.getFullYear() === year && date.getMonth() === month && date.getDate() === day) {
+      return date;
+    }
+  }
+
+  // Fallback to standard Date parsing (for other formats like YYYY-MM-DD)
+  const date = new Date(dateString);
+  if (!isNaN(date.getTime())) {
+    return date;
+  }
+
+  return null;
+};
+
 // Helper to get role badge info
 const getRoleBadge = (role: string | undefined) => {
   if (!role) return null;
@@ -76,6 +108,8 @@ const getRoleBadge = (role: string | undefined) => {
   return null;
 };
 
+const ARCHIVE_PAGE_EXPANDED_KEY = "archive-page-expanded-ids";
+
 export default function ClientArchive() {
   const { user } = useAuth();
   const { socket, isConnected } = useSocket();
@@ -86,6 +120,19 @@ export default function ClientArchive() {
   const [salesTypeFilter, setSalesTypeFilter] = useState("all");
   const [counsellorFilter, setCounsellorFilter] = useState("all");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("all");
+
+  // Persist which accordions are expanded so they stay open when returning from view/edit
+  const [expandedIds, setExpandedIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem(ARCHIVE_PAGE_EXPANDED_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch {}
+    return [];
+  });
 
   const [saleTypeMap, setSaleTypeMap] = useState<Record<number, string>>({});
   const [counsellorsList, setCounsellorsList] = useState<any[]>([]);
@@ -367,11 +414,20 @@ export default function ClientArchive() {
         client.counsellor_name || "";
 
       let salesType = client.salesType || client.saleType?.saleType || client.sales_type;
+
+      // Check payments array for saleType
+      if (!salesType && client.payments && Array.isArray(client.payments) && client.payments.length > 0) {
+        const paymentWithSaleType = client.payments.find((p: any) => p.saleType?.saleType);
+        if (paymentWithSaleType?.saleType?.saleType) {
+          salesType = paymentWithSaleType.saleType.saleType;
+        }
+      }
+
       if (!salesType && client.saleTypeId && saleTypeMap[client.saleTypeId]) {
         salesType = saleTypeMap[client.saleTypeId];
       }
       if (!salesType) {
-        salesType = "N/A";
+        salesType = "Only Products";
       }
 
       const totalPayment = client.totalPayment || client.payments?.[0]?.totalPayment || 0;
@@ -417,11 +473,20 @@ export default function ClientArchive() {
       const enrollmentDate = client.enrollmentDate || client.enrollment_date || client.date || "";
 
       let salesType = client.saleType?.saleType || client.salesType || client.sales_type;
+
+      // Check payments array for saleType
+      if (!salesType && client.payments && Array.isArray(client.payments) && client.payments.length > 0) {
+        const paymentWithSaleType = client.payments.find((p: any) => p.saleType?.saleType);
+        if (paymentWithSaleType?.saleType?.saleType) {
+          salesType = paymentWithSaleType.saleType.saleType;
+        }
+      }
+
       if (!salesType && client.saleTypeId && saleTypeMap[client.saleTypeId]) {
         salesType = saleTypeMap[client.saleTypeId];
       }
       if (!salesType) {
-        salesType = "N/A";
+        salesType = "Only Products";
       }
 
       const totalPayment = Number(client.payments?.[0]?.totalPayment || client.totalPayment || 0) || 0;
@@ -495,26 +560,48 @@ export default function ClientArchive() {
 
   const filteredClients = transformedClients.filter((client) => matchesFilters(client));
 
-  // Group clients by year/month for counsellor view
+  // Group clients by year/month for counsellor view (same logic as ClientList.tsx)
   const groupedByYearMonth = useMemo(() => {
-    if (!isCounsellor) return {};
+    if (!isCounsellor) return { yearMonthGrouped: {}, invalidDateClients: [] };
 
-    const grouped: Record<string, Record<string, Client[]>> = {};
+    const yearMonthGrouped: Record<string, Record<string, Client[]>> = {};
+    const invalidDateClients: Client[] = [];
+
     filteredClients.forEach(client => {
-      const date = new Date(client.enrollmentDate);
+      // Validate enrollmentDate before parsing
+      if (!client.enrollmentDate || client.enrollmentDate.trim() === '') {
+        invalidDateClients.push(client);
+        return;
+      }
+
+      // Parse date using helper function (handles DD-MM-YYYY format)
+      const date = parseEnrollmentDate(client.enrollmentDate);
+
+      // Check if date is valid
+      if (!date || isNaN(date.getTime())) {
+        invalidDateClients.push(client);
+        return;
+      }
+
       const year = date.getFullYear().toString();
       const month = date.toLocaleString('default', { month: 'long' });
 
-      if (!grouped[year]) {
-        grouped[year] = {};
+      // Validate year and month are valid
+      if (year === 'NaN' || month === 'Invalid Date' || !year || !month) {
+        invalidDateClients.push(client);
+        return;
       }
-      if (!grouped[year][month]) {
-        grouped[year][month] = [];
+
+      if (!yearMonthGrouped[year]) {
+        yearMonthGrouped[year] = {};
       }
-      grouped[year][month].push(client);
+      if (!yearMonthGrouped[year][month]) {
+        yearMonthGrouped[year][month] = [];
+      }
+      yearMonthGrouped[year][month].push(client);
     });
 
-    return grouped;
+    return { yearMonthGrouped, invalidDateClients };
   }, [filteredClients, isCounsellor]);
 
   const counsellors = useMemo(() => {
@@ -544,17 +631,79 @@ export default function ClientArchive() {
   }, [transformedClients]);
 
   const getAllDisplayedClientsWithDetails = () => {
-    return filteredClients.map((client) => {
-      const originalClient = (Array.isArray(clients) ? clients : []).find((c: any) =>
-        String(c.id || c.clientId) === String(client.id)
-      );
-      return {
-        ...client,
-        payments: originalClient?.payments || [],
-        productPayments: originalClient?.productPayments || [],
-        rawClient: originalClient,
-      } as Client & { payments?: any[], productPayments?: any[], rawClient?: any };
+    // Counsellor view: filteredClients is already built from the array with filters applied
+    if (isCounsellor) {
+      return filteredClients.map((client) => {
+        const originalClient = (Array.isArray(clients) ? clients : []).find((c: any) =>
+          String(c.id || c.clientId) === String(client.id)
+        );
+        return {
+          ...client,
+          payments: originalClient?.payments || [],
+          productPayments: originalClient?.productPayments || [],
+          rawClient: originalClient,
+        } as Client & { payments?: any[], productPayments?: any[], rawClient?: any };
+      });
+    }
+
+    // Admin/Manager view: iterate nested structure (counsellor → year → month → clients)
+    // and apply the same active filters so only visible clients are exported
+    const result: Array<Client & { payments?: any[], productPayments?: any[], rawClient?: any }> = [];
+
+    if (!clients || typeof clients !== 'object' || Array.isArray(clients)) {
+      return result;
+    }
+
+    Object.values(clients).forEach((counsellorData: any) => {
+      const counsellorClientsData = counsellorData?.clients || {};
+
+      Object.values(counsellorClientsData).forEach((yearData: any) => {
+        if (!yearData || typeof yearData !== 'object') return;
+
+        Object.values(yearData).forEach((monthData: any) => {
+          if (!monthData?.clients || !Array.isArray(monthData.clients)) return;
+
+          monthData.clients.forEach((rawClient: any) => {
+            // Build a normalized client object (same as transformClientData) for filter matching
+            const transformed = transformClientData(rawClient);
+            if (!transformed) return;
+
+            // Apply active search + filters (same logic as the rendered table)
+            const clientName = (transformed.name || "").toLowerCase();
+            const searchLower = search.toLowerCase();
+            const matchesSearch = searchLower === "" || clientName.includes(searchLower);
+
+            const clientSalesType = transformed.salesType || "";
+            const matchesSalesType = salesTypeFilter === "all" || clientSalesType === salesTypeFilter;
+
+            const counsellorName = (
+              (typeof rawClient.counsellor === 'object' ? rawClient.counsellor?.name : rawClient.counsellor) ||
+              rawClient.counsellorName || ""
+            ).toLowerCase();
+            const matchesCounsellor = counsellorFilter === "all" ||
+              counsellorName === counsellorFilter.toLowerCase();
+
+            let matchesPaymentStatus = true;
+            if (paymentStatusFilter === "fully_paid") {
+              matchesPaymentStatus = (transformed.amountPending || 0) === 0;
+            } else if (paymentStatusFilter === "has_pending") {
+              matchesPaymentStatus = (transformed.amountPending || 0) > 0;
+            }
+
+            if (matchesSearch && matchesSalesType && matchesCounsellor && matchesPaymentStatus) {
+              result.push({
+                ...transformed,
+                payments: Array.isArray(rawClient.payments) ? rawClient.payments : [],
+                productPayments: Array.isArray(rawClient.productPayments) ? rawClient.productPayments : [],
+                rawClient,
+              } as Client & { payments?: any[], productPayments?: any[], rawClient?: any });
+            }
+          });
+        });
+      });
     });
+
+    return result;
   };
 
   const handleExportExcel = () => {
@@ -613,6 +762,12 @@ export default function ClientArchive() {
     setSalesTypeFilter("all");
     setCounsellorFilter("all");
     setPaymentStatusFilter("all");
+  };
+
+  const persistExpanded = (next: string[]) => {
+    try {
+      sessionStorage.setItem(ARCHIVE_PAGE_EXPANDED_KEY, JSON.stringify(next));
+    } catch {}
   };
 
   const handleUnarchive = async () => {
@@ -893,13 +1048,28 @@ export default function ClientArchive() {
         {/* Grouped Client List */}
         {/* <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden"> */}
         <div className="">
-          <Accordion type="multiple" className="w-full">
+          <Accordion
+            type="multiple"
+            className="w-full"
+            value={expandedIds.filter(v => !v.includes('-') || v === 'invalid-dates')}
+            onValueChange={(topValues) => {
+              // Keep all sub-level values (year, month), replace only top-level (year for counsellor, counsellorId for admin)
+              const rest = expandedIds.filter(v => v.includes('-') && v !== 'invalid-dates');
+              const updated = [...topValues, ...rest];
+              setExpandedIds(updated);
+              persistExpanded(updated);
+            }}
+          >
             {isCounsellor ? (
-              // For counsellors: Show direct year/month grouping
+              // For counsellors: Show direct year/month grouping (same logic as ClientList.tsx)
               (() => {
-                const years = Object.keys(groupedByYearMonth).sort((a, b) => Number(b) - Number(a));
+                const { yearMonthGrouped, invalidDateClients } = groupedByYearMonth;
+                const years = Object.keys(yearMonthGrouped).sort((a, b) => Number(b) - Number(a));
 
-                if (years.length === 0) {
+                const hasInvalidDates = invalidDateClients.length > 0;
+                const hasValidClients = years.length > 0;
+
+                if (!hasValidClients && !hasInvalidDates) {
                   return (
                     <div className="text-center py-12 text-muted-foreground text-sm italic">
                       No archived clients found.
@@ -907,52 +1077,91 @@ export default function ClientArchive() {
                   );
                 }
 
-                return years.map(year => (
-                  <AccordionItem value={year} key={year} className="border border-border/50 rounded-lg bg-card overflow-hidden shadow-sm mb-2">
-                    <AccordionTrigger className="px-4 py-3 hover:bg-muted/30 hover:no-underline">
-                      <span className="font-semibold text-base text-foreground/80">{year}</span>
-                    </AccordionTrigger>
-                    <AccordionContent className="pb-0">
-                      <div className="border-t border-border/50">
-                        <Accordion type="multiple" className="w-full">
-                          {Object.keys(groupedByYearMonth[year]).map(month => (
-                            <AccordionItem value={`${year}-${month}`} key={month} className="border-b last:border-b-0 border-border/50">
-                              <AccordionTrigger className="px-4 py-2 hover:bg-muted/30 hover:no-underline text-sm font-medium text-muted-foreground">
-                                <div className="flex items-center gap-2">
-                                  <span>{month}</span>
-                                  <Badge variant="outline" className="text-xs h-5 px-1.5 font-normal">
-                                    {groupedByYearMonth[year][month].length}
-                                  </Badge>
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent className="p-0">
-                                {groupedByYearMonth[year][month] && groupedByYearMonth[year][month].length > 0 ? (
-                                  <DataTable
-                                    data={groupedByYearMonth[year][month]}
-                                    columns={columns}
-                                    onRowClick={(s) => {
-                                      try {
-                                        if (s && s.id) {
-                                          setLocation(`/clients/${s.id}/view`);
-                                        }
-                                      } catch (error) {
-                                        console.error("Error navigating to client view:", error);
-                                      }
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="p-4 text-center text-muted-foreground text-sm">
-                                    No clients to display
-                                  </div>
-                                )}
-                              </AccordionContent>
-                            </AccordionItem>
-                          ))}
-                        </Accordion>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ));
+                return (
+                  <>
+                    {/* Show invalid date clients separately */}
+                    {hasInvalidDates && (
+                      <AccordionItem value="invalid-dates" key="invalid-dates" className="border border-amber-200 rounded-lg bg-amber-50 overflow-hidden shadow-sm mb-2">
+                        <AccordionTrigger className="px-4 py-3 hover:bg-amber-100/50 hover:no-underline">
+                          <span className="font-semibold text-base text-amber-800">
+                            Invalid Date ({invalidDateClients.length})
+                          </span>
+                        </AccordionTrigger>
+                        <AccordionContent className="p-0">
+                          <div className="border-t border-amber-200 p-4 bg-white">
+                            <p className="text-sm text-amber-700 mb-3">
+                              These clients have invalid or missing enrollment dates. Please update their enrollment dates.
+                            </p>
+                            <DataTable
+                              data={invalidDateClients}
+                              columns={columns}
+                              onRowClick={(s) => setLocation(`/clients/${s.id}/view`)}
+                            />
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )}
+
+                    {/* Show valid clients grouped by year/month */}
+                    {years.map(year => (
+                      <AccordionItem value={year} key={year} className="border border-border/50 rounded-lg bg-card overflow-hidden shadow-sm mb-2">
+                        <AccordionTrigger className="px-4 py-3 hover:bg-muted/30 hover:no-underline">
+                          <span className="font-semibold text-base text-foreground/80">{year}</span>
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-0">
+                          <div className="border-t border-border/50">
+                            <Accordion
+                              type="multiple"
+                              className="w-full"
+                              value={expandedIds.filter(v => v.startsWith(`${year}-`))}
+                              onValueChange={(monthValues) => {
+                                const rest = expandedIds.filter(v => !v.startsWith(`${year}-`));
+                                const updated = [...rest, ...monthValues];
+                                setExpandedIds(updated);
+                                persistExpanded(updated);
+                              }}
+                            >
+                              {Object.keys(yearMonthGrouped[year]).map(month => (
+                                <AccordionItem value={`${year}-${month}`} key={month} className="border-b last:border-b-0 border-border/50">
+                                  <AccordionTrigger className="px-4 py-2 hover:bg-muted/30 hover:no-underline text-sm font-medium text-muted-foreground">
+                                    <div className="flex items-center gap-2">
+                                      <span>{month}</span>
+                                      <Badge variant="outline" className="text-xs h-5 px-1.5 font-normal">
+                                        {yearMonthGrouped[year][month].length}
+                                      </Badge>
+                                    </div>
+                                  </AccordionTrigger>
+                                  <AccordionContent className="p-0">
+                                    {yearMonthGrouped[year][month] && yearMonthGrouped[year][month].length > 0 ? (
+                                      <DataTable
+                                        data={yearMonthGrouped[year][month]}
+                                        columns={columns}
+                                        onRowClick={(s) => {
+                                          try {
+                                            if (s && s.id) {
+                                              persistExpanded(expandedIds);
+                                              setLocation(`/clients/${s.id}/view`);
+                                            }
+                                          } catch (error) {
+                                            console.error("Error navigating to client view:", error);
+                                          }
+                                        }}
+                                      />
+                                    ) : (
+                                      <div className="p-4 text-center text-muted-foreground text-sm">
+                                        No clients to display
+                                      </div>
+                                    )}
+                                  </AccordionContent>
+                                </AccordionItem>
+                              ))}
+                            </Accordion>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </>
+                );
               })()
             ) : (
               // For admin/manager: Show counsellor -> year -> month grouping
@@ -1066,7 +1275,17 @@ export default function ClientArchive() {
                               No archived client data found for this counsellor.
                             </div>
                           ) : (
-                            <Accordion type="multiple" className="w-full space-y-2">
+                            <Accordion
+                              type="multiple"
+                              className="w-full space-y-2"
+                              value={expandedIds.filter(v => v.startsWith(`${counsellorId}-`) && v.split('-').length === 2)}
+                              onValueChange={(yearValues) => {
+                                const rest = expandedIds.filter(v => !v.startsWith(`${counsellorId}-`) || v.split('-').length !== 2);
+                                const updated = [...rest, ...yearValues];
+                                setExpandedIds(updated);
+                                persistExpanded(updated);
+                              }}
+                            >
                               {Object.keys(counsellorClientsData)
                                 .sort((a, b) => Number(b) - Number(a))
                                 .map(year => {
@@ -1080,7 +1299,18 @@ export default function ClientArchive() {
                                       </AccordionTrigger>
                                       <AccordionContent className="pb-0">
                                         <div className="border-t border-border/50">
-                                          <Accordion type="multiple" className="w-full">
+                                          <Accordion
+                                            type="multiple"
+                                            className="w-full"
+                                            value={expandedIds.filter(v => v.startsWith(`${counsellorId}-${year}-`))}
+                                            onValueChange={(monthValues) => {
+                                              const prefix = `${counsellorId}-${year}-`;
+                                              const rest = expandedIds.filter(v => !v.startsWith(prefix));
+                                              const updated = [...rest, ...monthValues];
+                                              setExpandedIds(updated);
+                                              persistExpanded(updated);
+                                            }}
+                                          >
                                             {Object.keys(yearData)
                                               .sort((a, b) => {
                                                 // Sort months chronologically
@@ -1160,6 +1390,7 @@ export default function ClientArchive() {
                                                           onRowClick={(s) => {
                                                             try {
                                                               if (s && s.id) {
+                                                                persistExpanded(expandedIds);
                                                                 setLocation(`/clients/${s.id}/view`);
                                                               }
                                                             } catch (error) {

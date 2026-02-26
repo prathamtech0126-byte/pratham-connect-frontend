@@ -773,7 +773,7 @@ export default function Messages() {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                               <div>
                                 <span className="text-muted-foreground">Amount:</span>
-                                <p className="font-semibold text-foreground">${approval.amount || "N/A"}</p>
+                                <p className="font-semibold text-foreground">₹{approval.amount || "N/A"}</p>
                               </div>
                               <div>
                                 <span className="text-muted-foreground">Payment Date:</span>

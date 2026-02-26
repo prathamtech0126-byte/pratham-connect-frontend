@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
 import { useLocation } from "wouter";
+import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
 export type UserRole = 'superadmin' | 'manager' | 'counsellor' | 'director';
@@ -62,6 +63,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [, setLocation] = useLocation();
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const consecutiveFailuresRef = useRef(0); // Track consecutive auth failures
+  const queryClient = useQueryClient();
+
+  // Clears all cached client data from React Query, sessionStorage and localStorage on logout
+  const clearAllBrowserData = () => {
+    // Clear entire React Query cache (all fetched client/payment/counsellor data)
+    queryClient.clear();
+
+    // Clear sessionStorage (accordion states, notification flags, etc.)
+    sessionStorage.clear();
+
+    // Clear any leftover client data stored by ClientForm
+    localStorage.removeItem('currentClientId');
+    localStorage.removeItem('clients');
+  };
 
   // Function to refresh the access token
   // Returns: { success: boolean, isAuthError: boolean }
@@ -241,6 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Only logout after multiple consecutive auth failures
         if (consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES) {
           console.log("[Auth] Multiple auth failures, logging out user");
+          clearAllBrowserData();
           setUser(null);
           setInMemoryToken(null);
           setCsrfToken(null);
@@ -311,7 +327,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       // Silent fail for UI
     } finally {
-      // Clear local state, memory token and cookies
+      // Clear all cached client data from React Query, sessionStorage and localStorage
+      clearAllBrowserData();
+      // Clear auth state, memory token and cookies
       setUser(null);
       setInMemoryToken(null);
       setCsrfToken(null);

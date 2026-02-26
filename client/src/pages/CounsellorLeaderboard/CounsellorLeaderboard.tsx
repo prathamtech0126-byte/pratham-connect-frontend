@@ -183,13 +183,13 @@ export default function CounsellorLeaderboard() {
     };
   }, [summaryFromApi, transformedLeaderboardData]);
 
-  // Generate month options (current month and next 11 months)
+  // Generate month options: all 12 months of the current year (Jan - Dec)
   const monthOptions = useMemo(() => {
     const options = [];
-    const now = new Date();
-    for (let i = 0; i < 12; i++) {
-      const date = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const currentYear = new Date().getFullYear();
+    for (let m = 1; m <= 12; m++) {
+      const value = `${currentYear}-${String(m).padStart(2, '0')}`;
+      const date = new Date(currentYear, m - 1, 1);
       const label = format(date, 'MMMM yyyy');
       options.push({ value, label });
     }
