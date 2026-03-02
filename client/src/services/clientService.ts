@@ -70,6 +70,74 @@ export interface Client {
   };
 }
 
+// Counsellor Report API types (GET /api/reports/counsellor/:id)
+export interface CounsellorReportPerformance {
+  total_enrollments: number;
+  total_revenue: number;
+  core_sale_revenue: number;
+  core_product_revenue: number;
+  other_product_revenue: number;
+  average_revenue_per_client: number;
+  archived_count: number;
+}
+
+export interface CounsellorReportMonthlyComparison {
+  current_month: { revenue: number; start_date: string; end_date: string };
+  last_month: { revenue: number; start_date: string; end_date: string };
+  growth_percentage: number;
+  target: number;
+  achieved: number;
+  target_achieved_percentage: number;
+  rank: number;
+  total_counsellors: number;
+}
+
+export interface CounsellorReportProduct {
+  product_name: string;
+  display_name: string;
+  total_sold: number;
+  revenue?: number;
+  total_collected?: number;
+}
+
+export interface CounsellorReportProductAnalytics {
+  core_sale: { total_sales: number; revenue: number; average_ticket_size: number };
+  core_product: {
+    product_name: string;
+    display_name: string;
+    total_sold: number;
+    revenue: number;
+    attachment_rate: number;
+  };
+  other_products: {
+    company_revenue: {
+      products: CounsellorReportProduct[];
+      total_sold: number;
+      total_revenue: number;
+    };
+    third_party: {
+      products: CounsellorReportProduct[];
+      total_sold: number;
+      total_collected: number;
+    };
+  };
+}
+
+export interface CounsellorReportResponse {
+  counsellor: {
+    id: number;
+    full_name: string;
+    email: string;
+    designation: string;
+    manager_id: number;
+    manager_name: string;
+  };
+  filter: { start_date: string; end_date: string };
+  performance: CounsellorReportPerformance;
+  monthly_comparison: CounsellorReportMonthlyComparison;
+  product_analytics: CounsellorReportProductAnalytics;
+}
+
 // Reports API types (GET /api/reports)
 export interface CounsellorPerformanceRow {
   counsellor_id: number;
@@ -735,6 +803,16 @@ export const clientService = {
     }
   },
 
+  getLeaderboardCounsellors: async (): Promise<any[]> => {
+    try {
+      const res = await api.get("/api/leaderboard/counsellors");
+      return res.data.data ?? res.data ?? [];
+    } catch (err) {
+      console.error("Failed to fetch leaderboard counsellors", err);
+      return [];
+    }
+  },
+
   getCounsellors: async (search?: string): Promise<any[]> => {
     try {
       let url = "/api/users/counsellors";
@@ -1033,6 +1111,23 @@ export const clientService = {
     };
   },
 
+  // Dedicated counsellor report: GET /api/reports/counsellor/:id (or "me")
+  getCounsellorReport: async (params: {
+    id: number | "me";
+    filter: "today" | "weekly" | "monthly" | "yearly" | "custom";
+    startDate?: string;
+    endDate?: string;
+  }): Promise<CounsellorReportResponse> => {
+    const { id, filter, startDate, endDate } = params;
+    const queryParams: Record<string, string> = { filter };
+    if (filter === "custom" && startDate && endDate) {
+      queryParams.startDate = startDate;
+      queryParams.endDate = endDate;
+    }
+    const res = await api.get(`/api/reports/counsellor/${id}`, { params: queryParams });
+    return res.data?.data ?? res.data;
+  },
+
   setTarget: async (counsellorId: number, target: number, month: number, year: number): Promise<any> => {
     try {
       const res = await api.post("/api/leaderboard/target", {
@@ -1044,6 +1139,16 @@ export const clientService = {
       return res.data.data || res.data;
     } catch (err: any) {
       console.error(`Failed to set target for counsellor ${counsellorId}`, err);
+      throw err;
+    }
+  },
+
+  deleteTarget: async (targetId: string | number): Promise<any> => {
+    try {
+      const res = await api.delete(`/api/leaderboard/target/${targetId}`);
+      return res.data.data || res.data;
+    } catch (err: any) {
+      console.error(`Failed to delete target ${targetId}`, err);
       throw err;
     }
   },

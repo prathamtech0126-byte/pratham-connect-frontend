@@ -108,12 +108,12 @@ function Router() {
           {params => <ProtectedRoute component={Activity} />}
         </Route>
 
-        {/* <Route path="/reports">
+        <Route path="/reports">
           {params => <ProtectedRoute component={Reports} />}
         </Route>
         <Route path="/reports/counsellor/:id">
           {params => <ProtectedRoute component={CounsellorReportPage} params={params} />}
-        </Route> */}
+        </Route>
 
         <Route path="/messages">
           {params => <ProtectedRoute component={Messages} />}

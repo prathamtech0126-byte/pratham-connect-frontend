@@ -65,7 +65,7 @@ const sidebarItems: SidebarItem[] = [
     label: "Messages",
     href: "/messages",
   },
-  // { icon: PieChart, label: "Reports", href: "/reports" },
+  { icon: PieChart, label: "Reports", href: "/reports" },
   {
     icon: Users,
     label: "Team",

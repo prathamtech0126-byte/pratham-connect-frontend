@@ -2,6 +2,7 @@ import { PageWrapper } from "@/layout/PageWrapper";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +63,14 @@ export default function CounsellorLeaderboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const requestInFlightRef = useRef(false);
 
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; targetId: string; counsellorName: string }>({
+    open: false,
+    targetId: "",
+    counsellorName: "",
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Parse month and year from selectedMonth (format: "2026-01")
   const [month, year] = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number);
@@ -76,10 +85,10 @@ export default function CounsellorLeaderboard() {
     enabled: !!user && !!month && !!year,
   });
 
-  // Fetch counsellors (for dropdown in Set Target dialog)
+  // Fetch counsellors for Set Target dialog via leaderboard counsellors API
   const { data: counsellorsData, isLoading: isLoadingCounsellors } = useQuery({
-    queryKey: ['counsellors'],
-    queryFn: () => clientService.getCounsellors()
+    queryKey: ['leaderboard-counsellors'],
+    queryFn: () => clientService.getLeaderboardCounsellors(),
   });
 
   // WebSocket listener for leaderboard updates
@@ -138,7 +147,9 @@ export default function CounsellorLeaderboard() {
   const transformedLeaderboardData: CounsellorData[] = useMemo(() => {
     if (!listFromApi || !Array.isArray(listFromApi)) return [];
 
-    return listFromApi.map((item: any) => {
+    return listFromApi
+    .filter((item: any) => item.targetId != null && item.targetId !== '' && item.targetId !== 0 && Number(item.target) > 0)
+    .map((item: any) => {
       // API returns flat structure: counsellorId, fullName, email, enrollments (string), revenue, target, targetId
       const counsellorId = item.counsellorId;
       const targetValue = Number(item.target) || 0;
@@ -292,14 +303,24 @@ export default function CounsellorLeaderboard() {
     }
   };
 
-  const handleDeleteTarget = async (targetId: string) => {
-    // Note: Backend doesn't have delete endpoint, so this might need to be implemented
-    // For now, we can set target to 0 or remove from UI only
-    toast({
-      title: "Delete Target",
-      description: "Delete functionality not yet implemented. Set target to 0 to remove.",
-      variant: "destructive"
-    });
+  const handleDeleteTarget = (targetId: string, counsellorName: string) => {
+    setDeleteConfirm({ open: true, targetId, counsellorName });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm.targetId || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await clientService.deleteTarget(deleteConfirm.targetId);
+      toast({ title: "Target Deleted", description: `Target for ${deleteConfirm.counsellorName} has been deleted.` });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard', month, year] });
+      setDeleteConfirm({ open: false, targetId: "", counsellorName: "" });
+    } catch (error: any) {
+      const msg = error.response?.data?.message || error.message || "Failed to delete target";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const getRankIcon = (index: number) => {
@@ -378,11 +399,13 @@ export default function CounsellorLeaderboard() {
                   <Select
                     value={targetForm.counsellorId}
                     onValueChange={(value) => {
-                      const counsellor = counsellorsData?.find((c: any) => String(c.id || c.userId) === value);
+                      const counsellor = counsellorsData?.find(
+                        (c: any) => String(c.id ?? c.userId ?? c.counsellorId) === value
+                      );
                       setTargetForm({
                         ...targetForm,
                         counsellorId: value,
-                        counsellorName: counsellor?.name || counsellor?.fullName || ''
+                        counsellorName: counsellor?.name ?? counsellor?.fullName ?? counsellor?.full_name ?? '',
                       });
                     }}
                     disabled={!!editingTarget}
@@ -391,11 +414,24 @@ export default function CounsellorLeaderboard() {
                       <SelectValue placeholder="Select counsellor" />
                     </SelectTrigger>
                     <SelectContent>
-                      {counsellorsData?.map((counsellor: any) => (
-                        <SelectItem key={counsellor.id || counsellor.userId} value={String(counsellor.id || counsellor.userId)}>
-                          {counsellor.name || counsellor.fullName}
-                        </SelectItem>
-                      ))}
+                      {counsellorsData?.map((counsellor: any) => {
+                        const cId = counsellor.id ?? counsellor.userId ?? counsellor.counsellorId;
+                        const cName = counsellor.name ?? counsellor.fullName ?? counsellor.full_name ?? "Unknown";
+                        const alreadyTargeted = transformedLeaderboardData.some(
+                          (c) => c.id === cId || c.id === Number(cId)
+                        );
+                        return (
+                          <SelectItem
+                            key={cId}
+                            value={String(cId)}
+                            disabled={alreadyTargeted}
+                            className={alreadyTargeted ? "opacity-40 cursor-not-allowed" : ""}
+                          >
+                            {cName}
+                            {alreadyTargeted && " (target set)"}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -503,7 +539,7 @@ export default function CounsellorLeaderboard() {
             <div className="space-y-4">
               {transformedLeaderboardData.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No counsellors found
+                  No targets set for this month. Use <span className="font-medium text-foreground">Set Target</span> to add counsellors to the leaderboard.
                 </div>
               ) : (
                 transformedLeaderboardData.map((counsellor: CounsellorData, index: number) => (
@@ -591,7 +627,7 @@ export default function CounsellorLeaderboard() {
                             size="icon"
                             className="h-9 w-9"
                             onClick={() => {
-                              if (counsellor.targetId) handleDeleteTarget(String(counsellor.targetId));
+                              if (counsellor.targetId) handleDeleteTarget(String(counsellor.targetId), counsellor.name);
                             }}
                           >
                             <Trash2 className="w-4 h-4 text-destructive" />
@@ -625,6 +661,40 @@ export default function CounsellorLeaderboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog
+        open={deleteConfirm.open}
+        onOpenChange={(open) => !isDeleting && setDeleteConfirm((prev) => ({ ...prev, open }))}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Target</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the target for{" "}
+              <span className="font-semibold text-foreground">{deleteConfirm.counsellorName}</span>?
+              This will remove them from the leaderboard. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageWrapper>
   );
 }

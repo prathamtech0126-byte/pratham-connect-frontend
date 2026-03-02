@@ -5,7 +5,7 @@ import { useAuth } from "@/context/auth-context";
 import { useLocation } from "wouter";
 import { clientService, type ReportsResponse, type CounsellorPerformanceRow, type ManagerDataRow } from "@/services/clientService";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import {
   BarChart,
@@ -92,6 +92,13 @@ export default function Reports() {
   const isAdmin = user?.role === "superadmin" || user?.role === "director";
   const isManager = user?.role === "manager";
   const isCounsellor = user?.role === "counsellor";
+
+  // Counsellors should always see their own dedicated report page
+  useEffect(() => {
+    if (isCounsellor) {
+      setLocation("/reports/counsellor/me");
+    }
+  }, [isCounsellor, setLocation]);
 
   // Apply period presets when tab changes (except Custom)
   const handlePeriodChange = (tab: string) => {
@@ -314,9 +321,9 @@ function IntelligenceDashboard({
   const top5Ids = new Set(top5.map((c) => c.counsellor_id));
   const rest = counsellorList.filter((c) => !top5Ids.has(c.counsellor_id));
   const bottomCounsellors = [...rest].sort((a, b) => {
-    const aZero = a.total_revenue === 0 ? 1 : 0;
-    const bZero = b.total_revenue === 0 ? 1 : 0;
-    if (aZero !== bZero) return aZero - bZero; // non-zero first (0 last)
+    const aZero = a.total_revenue === 0 ? 0 : 1;
+    const bZero = b.total_revenue === 0 ? 0 : 1;
+    if (aZero !== bZero) return aZero - bZero; // zero revenue first
     return a.total_revenue - b.total_revenue;  // then ascending by revenue
   });
 
