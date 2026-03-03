@@ -136,7 +136,8 @@ export default function TeamList() {
       emp_id: "",
       company_phone_no: "",
       personal_phone_no: "",
-      designation: ""
+      designation: "",
+      isSupervisor: false
     });
     setErrors({});
     setEditingId(null);
@@ -633,7 +634,7 @@ export default function TeamList() {
                       <TableCell className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
                           <AvatarFallback className="bg-muted text-xs">
-                            {member.name.split(' ').map(n => n[0]).join('')}
+                            {member.name.split(' ').map((n: any) => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
