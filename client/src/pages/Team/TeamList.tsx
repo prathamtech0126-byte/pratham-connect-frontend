@@ -20,6 +20,7 @@ export default function TeamList() {
 
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchTeamMembers = async () => {
     try {
@@ -352,11 +353,9 @@ export default function TeamList() {
       fetchTeamMembers();
     } catch (error: any) {
       const message = error.response?.data?.message || "Failed to delete team member";
-      toast({
-        title: "Delete Failed",
-        description: message,
-        variant: "destructive",
-      });
+      setDeleteId(null);
+      setMemberToDelete(null);
+      setDeleteError(message);
     }
   };
 
@@ -686,6 +685,7 @@ export default function TeamList() {
         </CardContent>
       </Card>
 
+      {/* Delete confirmation dialog */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -699,6 +699,25 @@ export default function TeamList() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteMember} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete error dialog */}
+      <AlertDialog open={!!deleteError} onOpenChange={(open) => !open && setDeleteError(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive flex items-center gap-2">
+              Delete Failed
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base text-foreground">
+              {deleteError}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setDeleteError(null)}>
+              OK
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
