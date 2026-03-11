@@ -1417,17 +1417,22 @@ export default function Dashboard() {
           />
 
           {(stats as any)?.revenue && (
-            <StatCard
-              title="Revenue"
-              value={`₹ ${Number((stats as any)?.revenue?.amount ?? 0).toLocaleString()}`}
-              icon={IndianRupee}
-              trend={(stats as any)?.revenue?.change !== undefined ? {
-                value: (stats as any)?.revenue?.change ?? 0,
-                isPositive: (stats as any)?.revenue?.changeType === "increase" || (stats as any)?.revenue?.changeType === "no-change"
-              } : undefined}
-              description="total revenue"
-              className="shadow-card hover:shadow-lg transition-shadow border-none"
-            />
+            <Link
+              href={isCounsellor ? "/reports/counsellor/me" : "/reports"}
+              className="block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+            >
+              <StatCard
+                title="Revenue"
+                value={`₹ ${Number((stats as any)?.revenue?.amount ?? 0).toLocaleString()}`}
+                icon={IndianRupee}
+                trend={(stats as any)?.revenue?.change !== undefined ? {
+                  value: (stats as any)?.revenue?.change ?? 0,
+                  isPositive: (stats as any)?.revenue?.changeType === "increase" || (stats as any)?.revenue?.changeType === "no-change"
+                } : undefined}
+                description="total revenue"
+                className="shadow-card hover:shadow-lg transition-shadow border-none cursor-pointer"
+              />
+            </Link>
           )}
         </div>
       )}
@@ -1586,22 +1591,21 @@ export default function Dashboard() {
                   {leaderboardForDisplay.map((counselor: any, index: number) => {
                     // Highlight if the logged-in user is this counsellor (regardless of role)
                     const isHighlighted = counselor.isCurrentUser;
-
-                    // Debug: Log highlighting status for current user
-                    if (counselor.isCurrentUser) {
-                      console.log('[Dashboard Leaderboard] Rendering highlighted:', counselor.name, 'isCurrentUser:', counselor.isCurrentUser, 'isHighlighted:', isHighlighted);
-                    }
+                    const counsellorId = (counselor as any).counsellorId;
+                    const reportHref = counsellorId != null ? `/reports/counsellor/${counsellorId}` : null;
 
                     return (
-                      <div
-                        key={(counselor as any).counsellorId || index}
-                        className={`flex items-center p-3 rounded-lg transition-all ${isHighlighted
+                      <Link
+                        key={counsellorId ?? index}
+                        href={reportHref ?? "#"}
+                        className={`block flex items-center p-3 rounded-lg transition-all cursor-pointer ${isHighlighted
                             ? "bg-primary/10 border-2 border-primary/30 shadow-md ring-2 ring-primary/20"
                             : "hover:bg-muted/50"
-                          }`}
+                          } ${!reportHref ? "pointer-events-none" : ""}`}
+                        onClick={reportHref ? undefined : (e: React.MouseEvent) => e.preventDefault()}
                       >
-                        <div className="flex items-center flex-1">
-                          <div className="relative mr-3">
+                        <div className="flex items-center flex-1 min-w-0">
+                          <div className="relative mr-3 flex-shrink-0">
                             <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground font-semibold text-sm border-2 border-background shadow-sm">
                               {counselor.avatar}
                             </div>
@@ -1616,19 +1620,19 @@ export default function Dashboard() {
                             </div>
                           </div>
 
-                          <div>
-                            <p className={`text-sm font-semibold ${isHighlighted ? "text-primary" : "text-foreground"}`}>
+                          <div className="min-w-0">
+                            <p className={`text-sm font-semibold truncate ${isHighlighted ? "text-primary" : "text-foreground"}`}>
                               {counselor.name} {isHighlighted && "(You)"}
                             </p>
                             <p className="text-xs text-muted-foreground">Target: {counselor.target}</p>
                           </div>
                         </div>
 
-                        <div className="text-right">
+                        <div className="text-right flex-shrink-0">
                           <div className="text-sm font-bold text-foreground">{counselor.achieved}</div>
                           <p className="text-xs text-muted-foreground">enrolled</p>
                         </div>
-                      </div>
+                      </Link>
                     )
                   })}
                 </div>

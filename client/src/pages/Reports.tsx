@@ -25,7 +25,7 @@ import {
   FileBarChart,
 } from "lucide-react";
 import { DateInput } from "@/components/ui/date-input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -82,23 +82,40 @@ export default function Reports() {
   const startYMD = toYMD(filterStart);
   const endYMD = toYMD(filterEnd);
   const apiFilter = PERIOD_TO_FILTER[periodTab];
-  const canFetch = !isCustom || appliedCustomRange !== null;
+
+  // When Custom is open but not yet applied, keep showing previous period's data (don't hide report)
+  const [lastNonCustomFilter, setLastNonCustomFilter] = useState<"today" | "weekly" | "monthly" | "yearly">("monthly");
+  const [lastNonCustomStart, setLastNonCustomStart] = useState<string>(() => toYMD(startOfMonth(new Date())));
+  const [lastNonCustomEnd, setLastNonCustomEnd] = useState<string>(() => toYMD(endOfMonth(new Date())));
+  const effectiveFilter = isCustom && appliedCustomRange ? "custom" : isCustom ? lastNonCustomFilter : apiFilter;
+  const effectiveStart = isCustom && appliedCustomRange ? startYMD : isCustom ? lastNonCustomStart : startYMD;
+  const effectiveEnd = isCustom && appliedCustomRange ? endYMD : isCustom ? lastNonCustomEnd : endYMD;
+  const canFetch = true;
+
+  // Keep "last non-custom" in sync when user is on a preset tab
+  useEffect(() => {
+    if (periodTab !== "Custom" && apiFilter !== "custom") {
+      setLastNonCustomFilter(apiFilter);
+      setLastNonCustomStart(startYMD);
+      setLastNonCustomEnd(endYMD);
+    }
+  }, [periodTab, apiFilter, startYMD, endYMD]);
 
   // Sale type filter for Intelligence Dashboard (admin): when set, main report is filtered by sale type
   const [dashboardSaleTypeId, setDashboardSaleTypeId] = useState<number | null>(null);
 
   const { data: report, isLoading, error } = useQuery({
-    queryKey: ["reports", apiFilter, isCustom ? startYMD : null, isCustom ? endYMD : null, dashboardSaleTypeId],
+    queryKey: ["reports", effectiveFilter, effectiveFilter === "custom" ? effectiveStart : null, effectiveFilter === "custom" ? effectiveEnd : null, dashboardSaleTypeId],
     queryFn: () =>
       clientService.getReports({
-        filter: apiFilter,
-        ...(isCustom && startYMD && endYMD
-          ? { afterDate: startYMD, beforeDate: endYMD }
+        filter: effectiveFilter as "today" | "weekly" | "monthly" | "yearly" | "custom",
+        ...(effectiveFilter === "custom" && effectiveStart && effectiveEnd
+          ? { afterDate: effectiveStart, beforeDate: effectiveEnd }
           : {}),
         ...(dashboardSaleTypeId != null && dashboardSaleTypeId > 0 ? { saleTypeId: dashboardSaleTypeId } : {}),
       }),
     staleTime: 1000 * 60 * 2,
-    enabled: canFetch,
+    enabled: canFetch && (effectiveFilter !== "custom" || !!(effectiveStart && effectiveEnd)),
   });
 
   const isAdmin = user?.role === "superadmin" || user?.role === "director";
@@ -215,13 +232,12 @@ export default function Reports() {
             ))}
           </div>
           <Popover open={customOpen} onOpenChange={setCustomOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-2 rounded-xl border-border/60 sm:w-auto"
+            <PopoverAnchor asChild>
+              <div
+                role="presentation"
+                className="inline-flex h-9 w-full cursor-default items-center justify-center gap-2 rounded-xl border border-border/60 bg-background px-3 py-2 text-sm font-semibold shadow-sm sm:w-auto"
               >
-                <CalendarIcon className="h-4 w-4 shrink-0" />
+                <CalendarIcon className="h-4 w-4 shrink-0" aria-hidden />
                 <span className="truncate">
                   {isCustom && appliedCustomRange
                     ? `${format(appliedCustomRange[0], "d MMM yyyy")} – ${format(appliedCustomRange[1], "d MMM yyyy")}`
@@ -229,8 +245,8 @@ export default function Reports() {
                       ? `${format(dateRange[0], "d MMM yyyy")} – ${format(dateRange[1], "d MMM yyyy")}`
                       : "Select dates"}
                 </span>
-              </Button>
-            </PopoverTrigger>
+              </div>
+            </PopoverAnchor>
             <PopoverContent align="end" className="w-[min(90vw,320px)] rounded-xl p-4 shadow-lg">
               <div className="space-y-4">
                 <div className="space-y-2">
