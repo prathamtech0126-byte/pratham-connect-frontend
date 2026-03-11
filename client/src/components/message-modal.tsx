@@ -73,13 +73,13 @@ export const MessageModal: React.FC<MessageModalProps> = ({
   };
 
   return (
-    <div className={cn("fixed inset-0 z-[9999] flex items-center justify-center", getBackgroundOverlay())}>
+    <div className={cn("fixed inset-0 z-[9999] flex items-center justify-center p-4", getBackgroundOverlay())}>
       <div className={cn(
-        "relative w-full max-w-lg mx-4 rounded-lg shadow-2xl border-2",
+        "relative flex flex-col w-full max-w-lg max-h-[70vh] rounded-lg shadow-2xl border-2 overflow-hidden",
         getPriorityStyle()
       )}>
         {/* Header */}
-        <div className="p-6 border-b border-current/20">
+        <div className="flex-shrink-0 p-6 border-b border-current/20">
           <div className="flex items-center gap-3 mb-2">
             {getTypeIcon()}
             <h2 className="text-xl font-bold">
@@ -93,15 +93,15 @@ export const MessageModal: React.FC<MessageModalProps> = ({
           </p> */}
         </div>
 
-        {/* Message Content */}
-        <div className="p-6">
+        {/* Message Content — scrollable when long */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-6">
           <p className="whitespace-pre-wrap leading-relaxed">
             {message.message}
           </p>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end p-6 border-t border-current/20 bg-white/50 dark:bg-black/20">
+        <div className="flex-shrink-0 flex items-center justify-end p-6 border-t border-current/20 bg-white/50 dark:bg-black/20">
           <Button
             onClick={() => handleAcknowledge('button')}
             disabled={isAcknowledged}
