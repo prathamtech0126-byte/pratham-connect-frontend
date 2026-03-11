@@ -6,7 +6,7 @@ import { clientService, Client } from "@/services/clientService";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Archive, ArrowLeft, Filter, Download } from "lucide-react";
+import { Archive, ArrowLeft, Filter, Download, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useMemo, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -110,6 +110,22 @@ const getRoleBadge = (role: string | undefined) => {
 
 const ARCHIVE_PAGE_EXPANDED_KEY = "archive-page-expanded-ids";
 
+// Redirect counsellor to their own archive page (same logic as All Clients – counsellor sees only their data)
+function CounsellorArchiveRedirect({ id, role }: { id: number; role: string }) {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation(`/clients/archive/counsellor/${id}?role=${encodeURIComponent(role)}`);
+  }, [id, role, setLocation]);
+  return (
+    <PageWrapper title="Archived Clients" breadcrumbs={[{ label: "Clients", href: "/clients" }, { label: "Archive" }]}>
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <p className="ml-2 text-muted-foreground">Loading...</p>
+      </div>
+    </PageWrapper>
+  );
+}
+
 export default function ClientArchive() {
   const { user } = useAuth();
   const { socket, isConnected } = useSocket();
@@ -136,6 +152,7 @@ export default function ClientArchive() {
 
   const [saleTypeMap, setSaleTypeMap] = useState<Record<number, string>>({});
   const [counsellorsList, setCounsellorsList] = useState<any[]>([]);
+  const [usersDetailsList, setUsersDetailsList] = useState<any[]>([]);
 
   // State for unarchive functionality
   const [clientToUnarchive, setClientToUnarchive] = useState<Client | null>(null);
@@ -146,12 +163,22 @@ export default function ClientArchive() {
   const isCounsellor = user?.role === 'counsellor';
   const isManager = user?.role === 'manager';
   const isSupervisor = isManager && user?.isSupervisor === true;
+  const canSeeAllUsers = isSupervisor || user?.role === 'superadmin' || (user as any)?.role === 'admin' || user?.role === 'director' || user?.role === 'manager';
+
+  const counsellorId = useMemo(() => {
+    if (!isCounsellor || !user) return null;
+    const id = user.id ?? (user as any).userId ?? (user as any).user_id;
+    const num = typeof id === "number" ? id : parseInt(String(id), 10);
+    return Number.isNaN(num) ? null : num;
+  }, [isCounsellor, user]);
 
   const { data: clientsRaw, isLoading, error } = useQuery({
-    queryKey: ['archived-clients'],
-    queryFn: clientService.getArchivedClients,
+    queryKey: ['archived-clients', isCounsellor ? counsellorId : null, user?.role],
+    queryFn: isCounsellor && counsellorId != null
+      ? () => clientService.getArchivedClientsByCounsellor(counsellorId, user?.role || "counsellor")
+      : clientService.getArchivedClients,
     staleTime: 1000 * 60 * 5,
-    enabled: !!user,
+    enabled: !!user && isCounsellor && counsellorId != null,
   });
 
   useEffect(() => {
@@ -183,6 +210,22 @@ export default function ClientArchive() {
       loadCounsellors();
     }
   }, [isCounsellor]);
+
+  // GET /api/users/users/details for admin and manager (same as All Clients page)
+  const isAdminOrManager =
+    user?.role === "superadmin" || (user as any)?.role === "admin" || user?.role === "director" || user?.role === "manager";
+  useEffect(() => {
+    if (isAdminOrManager) {
+      clientService.getUsersDetails().then((data) => setUsersDetailsList(data || [])).catch(() => setUsersDetailsList([]));
+    } else {
+      setUsersDetailsList([]);
+    }
+  }, [isAdminOrManager]);
+
+  // Counsellor: redirect to own archive page (same logic as All Clients – no user list)
+  if (isCounsellor && user && counsellorId != null && !Number.isNaN(counsellorId)) {
+    return <CounsellorArchiveRedirect id={counsellorId} role={user?.role || "counsellor"} />;
+  }
 
   // WebSocket listeners for archived clients
   useEffect(() => {
@@ -909,6 +952,89 @@ export default function ClientArchive() {
     },
   ];
 
+  // Admin/Manager: show same user list as All Clients; click user → that user's archive list
+  if (!isCounsellor) {
+    const userId = user?.id ?? (user as any)?.userId ?? (user as any)?.user_id;
+    const userNum = typeof userId === "number" ? userId : parseInt(String(userId), 10);
+    const hasValidUserNum = !Number.isNaN(userNum) && userNum > 0;
+    const listToShow =
+      canSeeAllUsers || !hasValidUserNum
+        ? usersDetailsList
+        : usersDetailsList.filter((u: any) => u.managerId === userNum || u.id === userNum);
+
+    return (
+      <PageWrapper
+        title="Archived Clients"
+        breadcrumbs={[{ label: "Clients", href: "/clients" }, { label: "Archive" }]}
+      >
+        <div className="space-y-6">
+          <p className="text-muted-foreground text-sm">
+            {canSeeAllUsers
+              ? "Select a user to view their archived clients."
+              : "Select a user from your team to view their archived clients."}
+          </p>
+          <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <div className="divide-y divide-border/50">
+              {usersDetailsList.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  Loading users...
+                </div>
+              ) : listToShow.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  No users to show.
+                </div>
+              ) : (
+                listToShow.map((u: any) => {
+                  const uId = u.id ?? u.userId ?? u.user_id;
+                  const uRole = u.role || u.userRole || u.roleName || "counsellor";
+                  const uName = u.fullName || u.name || u.full_name || `User #${uId}`;
+                  const roleBadge = getRoleBadge(uRole);
+                  const managerName = u.manager?.fullName || u.manager?.name || "";
+                  const path = `/clients/archive/counsellor/${uId}?role=${encodeURIComponent(String(uRole))}`;
+                  return (
+                    <div
+                      key={String(uId)}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setLocation(path)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setLocation(path);
+                        }
+                      }}
+                      className="flex items-center gap-3 px-6 py-4 hover:bg-muted/30 transition-colors cursor-pointer"
+                    >
+                      <Avatar className="h-10 w-10 border border-border">
+                        <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold">
+                          {getInitials(uName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-semibold text-foreground">{uName}</span>
+                        {roleBadge && (
+                          <Badge variant="outline" className={`ml-2 font-medium ${roleBadge.className}`}>
+                            {roleBadge.label}
+                          </Badge>
+                        )}
+                        {u.designation && (
+                          <span className="ml-2 text-xs text-muted-foreground">({u.designation})</span>
+                        )}
+                        {managerName && (
+                          <p className="text-xs text-muted-foreground mt-0.5">Manager: {managerName}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </PageWrapper>
+    );
+  }
+
   if (isLoading) {
     return (
       <PageWrapper title="Archived Clients" breadcrumbs={[{ label: "Clients", href: "/clients" }, { label: "Archive" }]}>
@@ -1197,229 +1323,67 @@ export default function ClientArchive() {
                   );
                 }
 
-                return counsellorEntries.map(([counsellorId, counsellorData]: [string, any]) => {
-                  const counsellorInfo = counsellorData?.counsellor || {};
-                  const counsellorName = counsellorInfo.name || counsellorInfo.fullName || "Unassigned";
-
-                  // Try to get role from counsellorInfo first
-                  let counsellorRole = counsellorInfo.role
-                    || counsellorInfo.userRole
-                    || counsellorInfo.user_role
-                    || counsellorInfo.roleName
-                    || counsellorInfo.role_name;
-
-                  // If role not found in counsellorInfo, try to match from counsellorsList
-                  if (!counsellorRole && counsellorsList.length > 0) {
-                    const matchedCounsellor = counsellorsList.find((c: any) => {
-                      const cId = c.id || c.userId || c.user_id;
-                      const cName = (c.name || c.fullName || c.full_name || '').toLowerCase();
-                      const counsellorIdNum = Number(counsellorId);
-                      const counsellorIdStr = String(counsellorId);
-                      const counsellorNameLower = counsellorName.toLowerCase();
-
-                      // Match by ID (as number or string) or name
-                      return (
-                        (cId && (Number(cId) === counsellorIdNum || String(cId) === counsellorIdStr)) ||
-                        (cName && cName === counsellorNameLower)
-                      );
-                    });
-
-                    if (matchedCounsellor) {
-                      counsellorRole = matchedCounsellor.role
-                        || matchedCounsellor.userRole
-                        || matchedCounsellor.user_role
-                        || matchedCounsellor.roleName
-                        || matchedCounsellor.role_name;
-                    }
-                  }
-
-                  const roleBadge = getRoleBadge(counsellorRole);
-                  const counsellorClientsData = counsellorData?.clients || {};
-
-                  // Calculate total client count across all years/months
-                  let totalClientCount = 0;
-                  Object.values(counsellorClientsData).forEach((yearData: any) => {
-                    if (yearData && typeof yearData === 'object') {
-                      Object.values(yearData).forEach((monthData: any) => {
-                        if (monthData && monthData.clients && Array.isArray(monthData.clients)) {
-                          totalClientCount += monthData.clients.length;
+                return (
+                  <div className="divide-y divide-border/50 rounded-xl border border-border/50 bg-card overflow-hidden">
+                    {counsellorEntries.map(([counsellorId, counsellorData]: [string, any]) => {
+                      const counsellorInfo = counsellorData?.counsellor || {};
+                      const counsellorName = counsellorInfo.name || counsellorInfo.fullName || "Unassigned";
+                      let counsellorRole = counsellorInfo.role || counsellorInfo.userRole || counsellorInfo.roleName;
+                      if (!counsellorRole && counsellorsList.length > 0) {
+                        const matched = counsellorsList.find((c: any) => {
+                          const cId = c.id ?? c.userId ?? c.user_id;
+                          const cName = (c.name || c.fullName || '').toLowerCase();
+                          return (cId && (Number(cId) === Number(counsellorId) || String(cId) === counsellorId)) ||
+                            (cName === counsellorName.toLowerCase());
+                        });
+                        if (matched) counsellorRole = matched.role || matched.userRole || matched.roleName;
+                      }
+                      const roleBadge = getRoleBadge(counsellorRole);
+                      const counsellorClientsData = counsellorData?.clients || {};
+                      let totalClientCount = 0;
+                      Object.values(counsellorClientsData).forEach((yearData: any) => {
+                        if (yearData && typeof yearData === 'object') {
+                          Object.values(yearData).forEach((monthData: any) => {
+                            if (monthData?.clients && Array.isArray(monthData.clients)) {
+                              totalClientCount += monthData.clients.length;
+                            }
+                          });
                         }
                       });
-                    }
-                  });
 
-                  return (
-                    <AccordionItem value={counsellorId} key={counsellorId} className="border-b border-border/50 last:border-b-0">
-                      <AccordionTrigger className="px-6 py-4 hover:bg-muted/30 hover:no-underline">
-                        <div className="flex items-center gap-3 w-full">
-                          <Avatar className="h-8 w-8 border border-border">
-                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                      return (
+                        <div
+                          key={counsellorId}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setLocation(`/clients/archive/counsellor/${counsellorId}`)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setLocation(`/clients/archive/counsellor/${counsellorId}`);
+                            }
+                          }}
+                          className="flex items-center gap-3 px-6 py-4 hover:bg-muted/30 transition-colors cursor-pointer"
+                        >
+                          <Avatar className="h-10 w-10 border border-border">
+                            <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold">
                               {getInitials(counsellorName)}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="font-semibold text-lg text-foreground">{counsellorName}</span>
-                          <Badge variant="secondary">
-                            {totalClientCount} Clients
-                          </Badge>
-                          {roleBadge && (
-                            <Badge variant="outline" className={`font-medium ${roleBadge.className}`}>
-                              {roleBadge.label}
-                            </Badge>
-                          )}
+                          <div className="flex-1 min-w-0">
+                            <span className="font-semibold text-foreground">{counsellorName}</span>
+                            {roleBadge && (
+                              <Badge variant="outline" className={`ml-2 font-medium ${roleBadge.className}`}>
+                                {roleBadge.label}
+                              </Badge>
+                            )}
+                          </div>
+                          <Badge variant="secondary">{totalClientCount} Archived</Badge>
                         </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="px-0 pb-0 bg-muted/10">
-                        <div className="pl-4 pr-4 pb-4 pt-2">
-                          {Object.keys(counsellorClientsData).length === 0 ? (
-                            <div className="text-center py-6 text-muted-foreground text-sm italic">
-                              No archived client data found for this counsellor.
-                            </div>
-                          ) : (
-                            <Accordion
-                              type="multiple"
-                              className="w-full space-y-2"
-                              value={expandedIds.filter(v => v.startsWith(`${counsellorId}-`) && v.split('-').length === 2)}
-                              onValueChange={(yearValues) => {
-                                const rest = expandedIds.filter(v => !v.startsWith(`${counsellorId}-`) || v.split('-').length !== 2);
-                                const updated = [...rest, ...yearValues];
-                                setExpandedIds(updated);
-                                persistExpanded(updated);
-                              }}
-                            >
-                              {Object.keys(counsellorClientsData)
-                                .sort((a, b) => Number(b) - Number(a))
-                                .map(year => {
-                                  const yearData = counsellorClientsData[year];
-                                  if (!yearData || typeof yearData !== 'object') return null;
-
-                                  return (
-                                    <AccordionItem value={`${counsellorId}-${year}`} key={year} className="border border-border/50 rounded-lg bg-card overflow-hidden shadow-sm">
-                                      <AccordionTrigger className="px-4 py-3 hover:bg-muted/30 hover:no-underline">
-                                        <span className="font-semibold text-base text-foreground/80">{year}</span>
-                                      </AccordionTrigger>
-                                      <AccordionContent className="pb-0">
-                                        <div className="border-t border-border/50">
-                                          <Accordion
-                                            type="multiple"
-                                            className="w-full"
-                                            value={expandedIds.filter(v => v.startsWith(`${counsellorId}-${year}-`))}
-                                            onValueChange={(monthValues) => {
-                                              const prefix = `${counsellorId}-${year}-`;
-                                              const rest = expandedIds.filter(v => !v.startsWith(prefix));
-                                              const updated = [...rest, ...monthValues];
-                                              setExpandedIds(updated);
-                                              persistExpanded(updated);
-                                            }}
-                                          >
-                                            {Object.keys(yearData)
-                                              .sort((a, b) => {
-                                                // Sort months chronologically
-                                                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                                                const monthA = months.indexOf(a);
-                                                const monthB = months.indexOf(b);
-                                                return monthB - monthA;
-                                              })
-                                              .map(month => {
-                                                const monthData = yearData[month];
-                                                if (!monthData || !monthData.clients || !Array.isArray(monthData.clients)) return null;
-
-                                                // Transform and filter clients
-                                                const monthClients = monthData.clients
-                                                  .map((client: any) => {
-                                                    try {
-                                                      return transformClientData(client);
-                                                    } catch (error) {
-                                                      console.error("Error transforming client:", error, client);
-                                                      return null;
-                                                    }
-                                                  })
-                                                  .filter((client: any): client is any => {
-                                                    // Remove null/undefined clients from transformation errors
-                                                    if (!client || !client.id) return false;
-
-                                                    // Apply filters - use transformed field names
-                                                    const clientName = (client.name || "").toLowerCase();
-                                                    const searchLower = search.toLowerCase();
-                                                    const matchesSearch = searchLower === "" || clientName.includes(searchLower);
-
-                                                    // After transformation, salesType is already set
-                                                    const clientSalesType = client.salesType || "";
-                                                    const matchesSalesType = salesTypeFilter === "all" || clientSalesType === salesTypeFilter;
-
-                                                    // amountPending is already calculated in transformClientData
-                                                    let matchesPaymentStatus = true;
-                                                    if (paymentStatusFilter === "fully_paid") {
-                                                      matchesPaymentStatus = (client.amountPending || 0) === 0;
-                                                    } else if (paymentStatusFilter === "has_pending") {
-                                                      matchesPaymentStatus = (client.amountPending || 0) > 0;
-                                                    }
-
-                                                    return matchesSearch && matchesSalesType && matchesPaymentStatus;
-                                                  });
-
-                                                if (monthClients.length === 0) return null;
-
-                                                // Validate monthClients data structure
-                                                const validClients = monthClients.filter((client: any) => {
-                                                  return client &&
-                                                         typeof client === 'object' &&
-                                                         client.id &&
-                                                         client.name;
-                                                });
-
-                                                if (validClients.length === 0) {
-                                                  console.warn(`[ClientArchive] No valid clients for ${month} ${year}`, monthClients);
-                                                  return null;
-                                                }
-
-                                                return (
-                                                  <AccordionItem value={`${counsellorId}-${year}-${month}`} key={month} className="border-b last:border-b-0 border-border/50">
-                                                    <AccordionTrigger className="px-4 py-2 hover:bg-muted/30 hover:no-underline text-sm font-medium text-muted-foreground">
-                                                      <div className="flex items-center gap-2">
-                                                        <span>{month}</span>
-                                                        <Badge variant="outline" className="text-xs h-5 px-1.5 font-normal">
-                                                          {validClients.length}
-                                                        </Badge>
-                                                      </div>
-                                                    </AccordionTrigger>
-                                                    <AccordionContent className="p-0">
-                                                      {validClients.length > 0 ? (
-                                                        <DataTable
-                                                          data={validClients}
-                                                          columns={columns}
-                                                          onRowClick={(s) => {
-                                                            try {
-                                                              if (s && s.id) {
-                                                                persistExpanded(expandedIds);
-                                                                setLocation(`/clients/${s.id}/view`);
-                                                              }
-                                                            } catch (error) {
-                                                              console.error("Error navigating to client view:", error);
-                                                            }
-                                                          }}
-                                                        />
-                                                      ) : (
-                                                        <div className="p-4 text-center text-muted-foreground text-sm">
-                                                          No clients to display
-                                                        </div>
-                                                      )}
-                                                    </AccordionContent>
-                                                  </AccordionItem>
-                                                );
-                                              })}
-                                          </Accordion>
-                                        </div>
-                                      </AccordionContent>
-                                    </AccordionItem>
-                                  );
-                                })}
-                            </Accordion>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  );
-                });
+                      );
+                    })}
+                  </div>
+                );
               })()
             )}
           </Accordion>

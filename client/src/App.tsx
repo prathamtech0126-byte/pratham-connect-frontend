@@ -18,6 +18,7 @@ import { Loader2 } from "lucide-react";
 const NotFound = lazy(() => import("@/pages/not-found"));
 const Dashboard = lazy(() => import("@/pages/Dashboard/Dashboard"));
 const ClientList = lazy(() => import("@/pages/Clients/ClientList"));
+const CounsellorClientsPage = lazy(() => import("@/pages/Clients/CounsellorClientsPage"));
 const ClientForm = lazy(() => import("@/pages/Clients/ClientForm"));
 const ClientDetails = lazy(() => import("@/pages/Clients/ClientDetails"));
 const ClientView = lazy(() => import("@/pages/Clients/ClientView"));
@@ -34,6 +35,13 @@ const CounsellorLeaderboard = lazy(() => import("@/pages/CounsellorLeaderboard/C
 const ManagerLeaderboard = lazy(() => import("@/pages/ManagerLeaderboard/ManagerLeaderboard"));
 const Reports = lazy(() => import("@/pages/Reports"));
 const CounsellorReportPage = lazy(() => import("@/pages/Reports/CounsellorReportPage"));
+// const LeadList = lazy(() => import("@/pages/Leads/LeadList"));
+// const LeadDetail = lazy(() => import("@/pages/Leads/LeadDetail"));
+// const LeadKanban = lazy(() => import("@/pages/Leads/LeadKanban"));
+// const LeadAutomation = lazy(() => import("@/pages/Leads/LeadAutomation"));
+// const LeadAutomationConfigure = lazy(() => import("@/pages/Leads/LeadAutomationConfigure"));
+// const LeadImport = lazy(() => import("@/pages/Leads/LeadImport"));
+// const LeadReports = lazy(() => import("@/pages/Leads/LeadReports"));
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
@@ -131,8 +139,14 @@ function Router() {
         <Route path="/clients">
           {params => <ProtectedRoute component={ClientList} />}
         </Route>
+        <Route path="/clients/counsellor/:counsellorId">
+          {params => <ProtectedRoute component={CounsellorClientsPage} params={params} />}
+        </Route>
         <Route path="/clients/archive">
           {params => <ProtectedRoute component={ClientArchive} />}
+        </Route>
+        <Route path="/clients/archive/counsellor/:counsellorId">
+          {params => <ProtectedRoute component={CounsellorClientsPage} params={params} />}
         </Route>
         <Route path="/clients/new">
           {params => <ProtectedRoute component={ClientForm} />}
@@ -146,6 +160,28 @@ function Router() {
         <Route path="/clients/:id/view">
           {params => <ProtectedRoute component={ClientView} params={params} />}
         </Route>
+
+        {/* <Route path="/leads/kanban">
+          {() => <ProtectedRoute component={LeadKanban} />}
+        </Route>
+        <Route path="/leads/automation/configure/:id">
+          {(params) => <ProtectedRoute component={LeadAutomationConfigure} params={params} />}
+        </Route>
+        <Route path="/leads/automation">
+          {() => <ProtectedRoute component={LeadAutomation} />}
+        </Route>
+        <Route path="/leads/import">
+          {() => <ProtectedRoute component={LeadImport} />}
+        </Route>
+        <Route path="/leads/reports">
+          {() => <ProtectedRoute component={LeadReports} />}
+        </Route>
+        <Route path="/leads/:id">
+          {(params) => <ProtectedRoute component={LeadDetail} params={params} />}
+        </Route>
+        <Route path="/leads">
+          {() => <ProtectedRoute component={LeadList} />}
+        </Route> */}
 
         <Route path="/team">
           {params => <ProtectedRoute component={TeamList} />}

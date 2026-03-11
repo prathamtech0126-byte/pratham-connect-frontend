@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const PERIOD_TABS = ["Today", "Weekly", "Monthly", "Yearly", "Custom"] as const;
@@ -67,23 +68,34 @@ export default function Reports() {
   });
   const [periodTab, setPeriodTab] = useState<PeriodTab>("Monthly");
   const [customOpen, setCustomOpen] = useState(false);
+  // Custom range is only applied when user clicks Apply (not when they just open the dropdown)
+  const [appliedCustomRange, setAppliedCustomRange] = useState<[Date, Date] | null>(null);
 
-  const filterStart = dateRange[0] ?? startOfMonth(new Date());
-  const filterEnd = dateRange[1] ?? endOfMonth(new Date());
+  const isCustom = periodTab === "Custom";
+  // For non-custom tabs use dateRange; for custom use appliedCustomRange (set on Apply)
+  const filterStart = isCustom && appliedCustomRange
+    ? appliedCustomRange[0]
+    : dateRange[0] ?? startOfMonth(new Date());
+  const filterEnd = isCustom && appliedCustomRange
+    ? appliedCustomRange[1]
+    : dateRange[1] ?? endOfMonth(new Date());
   const startYMD = toYMD(filterStart);
   const endYMD = toYMD(filterEnd);
   const apiFilter = PERIOD_TO_FILTER[periodTab];
-  const isCustom = periodTab === "Custom";
-  const canFetch = !isCustom || (!!startYMD && !!endYMD);
+  const canFetch = !isCustom || appliedCustomRange !== null;
+
+  // Sale type filter for Intelligence Dashboard (admin): when set, main report is filtered by sale type
+  const [dashboardSaleTypeId, setDashboardSaleTypeId] = useState<number | null>(null);
 
   const { data: report, isLoading, error } = useQuery({
-    queryKey: ["reports", apiFilter, isCustom ? startYMD : null, isCustom ? endYMD : null],
+    queryKey: ["reports", apiFilter, isCustom ? startYMD : null, isCustom ? endYMD : null, dashboardSaleTypeId],
     queryFn: () =>
       clientService.getReports({
         filter: apiFilter,
         ...(isCustom && startYMD && endYMD
           ? { afterDate: startYMD, beforeDate: endYMD }
           : {}),
+        ...(dashboardSaleTypeId != null && dashboardSaleTypeId > 0 ? { saleTypeId: dashboardSaleTypeId } : {}),
       }),
     staleTime: 1000 * 60 * 2,
     enabled: canFetch,
@@ -100,13 +112,25 @@ export default function Reports() {
     }
   }, [isCounsellor, setLocation]);
 
+  // Load sale types for admin and manager (Intelligence Dashboard sale type filter)
+  const [dashboardSaleTypes, setDashboardSaleTypes] = useState<Array<{ id: number; sale_type: string }>>([]);
+  useEffect(() => {
+    if (!isAdmin && !isManager) return;
+    let cancelled = false;
+    clientService.getSaleTypes().then((types: Array<{ id: number; sale_type: string }>) => {
+      if (!cancelled) setDashboardSaleTypes(types);
+    }).catch((err: unknown) => console.error("Failed to load sale types", err));
+    return () => { cancelled = true; };
+  }, [isAdmin, isManager]);
+
   // Apply period presets when tab changes (except Custom)
   const handlePeriodChange = (tab: string) => {
     setPeriodTab(tab as PeriodTab);
     if (tab === "Custom") {
       setCustomOpen(true);
-      return;
+      return; // Don't fetch until user clicks Apply
     }
+    setAppliedCustomRange(null);
     const now = new Date();
     let start: Date;
     let end: Date;
@@ -199,9 +223,11 @@ export default function Reports() {
               >
                 <CalendarIcon className="h-4 w-4 shrink-0" />
                 <span className="truncate">
-                  {dateRange[0] && dateRange[1]
-                    ? `${format(dateRange[0], "d MMM yyyy")} – ${format(dateRange[1], "d MMM yyyy")}`
-                    : "Select dates"}
+                  {isCustom && appliedCustomRange
+                    ? `${format(appliedCustomRange[0], "d MMM yyyy")} – ${format(appliedCustomRange[1], "d MMM yyyy")}`
+                    : dateRange[0] && dateRange[1]
+                      ? `${format(dateRange[0], "d MMM yyyy")} – ${format(dateRange[1], "d MMM yyyy")}`
+                      : "Select dates"}
                 </span>
               </Button>
             </PopoverTrigger>
@@ -225,7 +251,13 @@ export default function Reports() {
                 </div>
                 <Button
                   size="sm"
-                  onClick={() => setCustomOpen(false)}
+                  onClick={() => {
+                    if (dateRange[0] && dateRange[1]) {
+                      setAppliedCustomRange([dateRange[0], dateRange[1]]);
+                      setCustomOpen(false);
+                    }
+                  }}
+                  disabled={!dateRange[0] || !dateRange[1]}
                   className="w-full rounded-lg"
                 >
                   Apply
@@ -237,9 +269,15 @@ export default function Reports() {
       }
     >
       <div className="space-y-6 md:space-y-8">
-        {/* —— ADMIN: Intelligence Dashboard —— */}
-        {isAdmin && hasReport && (
-          <IntelligenceDashboard report={report} counsellorList={counsellorList} />
+        {/* —— ADMIN / MANAGER: Intelligence Dashboard (with sale type filter) —— */}
+        {(isAdmin || isManager) && hasReport && (
+          <IntelligenceDashboard
+            report={report}
+            counsellorList={counsellorList}
+            saleTypes={dashboardSaleTypes}
+            saleTypeId={dashboardSaleTypeId}
+            onSaleTypeChange={setDashboardSaleTypeId}
+          />
         )}
 
         {/* —— MANAGER: Target vs Achieved —— */}
@@ -292,6 +330,7 @@ function getTeamCounsellorsFromManager(managerData: ManagerDataRow[]): Counsello
         other_product_revenue: c.other_product_achieved_revenue,
         total_revenue: totalRev,
         average_revenue_per_client: clients > 0 ? totalRev / clients : 0,
+        pending_amount: c.pending_amount ?? 0,
         archived_count: 0,
       });
     }
@@ -306,15 +345,29 @@ function formatCurrency(n: number): string {
 function IntelligenceDashboard({
   report,
   counsellorList,
+  saleTypes,
+  saleTypeId,
+  onSaleTypeChange,
 }: {
   report: ReportsResponse;
   counsellorList: CounsellorPerformanceRow[];
+  saleTypes: Array<{ id: number; sale_type: string }>;
+  saleTypeId: number | null;
+  onSaleTypeChange: (id: number | null) => void;
 }) {
   const totalRevenue = counsellorList.reduce((s, c) => s + c.total_revenue, 0);
   const otherProductRevenue = counsellorList.reduce(
     (s, c) => s + c.other_product_revenue,
     0
   );
+  const totalSaleTypeCount = counsellorList.reduce(
+    (s, c) => s + (c.sale_type_count ?? 0),
+    0
+  );
+  const selectedSaleTypeName =
+    saleTypeId != null
+      ? saleTypes.find((st) => st.id === saleTypeId)?.sale_type ?? "Selected"
+      : "All sale types";
   const sorted = [...counsellorList].sort((a, b) => b.total_revenue - a.total_revenue);
   const top5 = sorted.slice(0, 5);
   // Only bottom counsellors: exclude top 5, then sort so lowest revenue first; put ₹0 at the end (revenue first, then zeros)
@@ -348,16 +401,37 @@ function IntelligenceDashboard({
 
   return (
     <Card className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
-      <CardHeader className="border-b border-border/40 bg-muted/20 pb-4">
-        <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight sm:text-xl">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <FileBarChart className="h-5 w-5" />
-          </span>
-          Intelligence Dashboard (Admin)
-        </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          {report.filter_start_date} → {report.filter_end_date}
-        </CardDescription>
+      <CardHeader className="flex flex-col gap-3 border-b border-border/40 bg-muted/20 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-tight sm:text-xl">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <FileBarChart className="h-5 w-5" />
+            </span>
+            Intelligence Dashboard (Admin)
+          </CardTitle>
+          <CardDescription className="text-muted-foreground">
+            {report.filter_start_date} → {report.filter_end_date}
+          </CardDescription>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Sale type</span>
+          <Select
+            value={saleTypeId != null ? String(saleTypeId) : "all"}
+            onValueChange={(v) => onSaleTypeChange(v === "all" ? null : Number(v))}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="All sale types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All sale types</SelectItem>
+              {saleTypes.map((st) => (
+                <SelectItem key={st.id} value={String(st.id)}>
+                  {st.sale_type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6 p-4 sm:p-6">
         <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -374,8 +448,9 @@ function IntelligenceDashboard({
             </p>
           </div>
           <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/20 p-4 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Top 5 Counsellors</p>
-            <p className="mt-1 text-sm font-medium text-foreground">See list below</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Sale Type Count</p>
+            <p className="mt-1 text-xl font-bold tabular-nums text-foreground sm:text-2xl">{totalSaleTypeCount}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{selectedSaleTypeName}</p>
           </div>
           <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/20 p-4 shadow-sm">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Bottom Counsellors</p>
@@ -595,10 +670,12 @@ function CounsellorPerformanceSection({
                 {!isSingleCounsellor && <TableHead className="w-14 font-semibold">Rank</TableHead>}
                 <TableHead className="min-w-[140px] font-semibold">Counsellor</TableHead>
                 <TableHead className="text-right font-semibold whitespace-nowrap">Enrollments</TableHead>
+                <TableHead className="text-right font-semibold whitespace-nowrap">Sale Type Count</TableHead>
                 <TableHead className="text-right font-semibold whitespace-nowrap">Core Sale Rev</TableHead>
                 <TableHead className="text-right font-semibold whitespace-nowrap">Core Product Rev</TableHead>
                 <TableHead className="text-right font-semibold whitespace-nowrap">Other Rev</TableHead>
                 <TableHead className="text-right font-semibold whitespace-nowrap">Total Revenue</TableHead>
+                <TableHead className="text-right font-semibold whitespace-nowrap">Pending Amount</TableHead>
                 <TableHead className="text-right font-semibold whitespace-nowrap">Avg/Client</TableHead>
                 <TableHead className="text-right font-semibold whitespace-nowrap">Archived</TableHead>
               </TableRow>
@@ -625,10 +702,12 @@ function CounsellorPerformanceSection({
                     </div>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{c.total_enrollments}</TableCell>
+                  <TableCell className="text-right tabular-nums">{c.sale_type_count}</TableCell>
                   <TableCell className="text-right text-sm tabular-nums">{formatCurrency(c.core_sale_revenue)}</TableCell>
                   <TableCell className="text-right text-sm tabular-nums">{formatCurrency(c.core_product_revenue)}</TableCell>
                   <TableCell className="text-right text-sm tabular-nums">{formatCurrency(c.other_product_revenue)}</TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">{formatCurrency(c.total_revenue)}</TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">{formatCurrency(Number(c.pending_amount) || 0)}</TableCell>
                   <TableCell className="text-right text-sm tabular-nums">{formatCurrency(c.average_revenue_per_client)}</TableCell>
                   <TableCell className="text-right tabular-nums">{c.archived_count}</TableCell>
                 </TableRow>

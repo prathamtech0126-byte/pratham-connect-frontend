@@ -78,6 +78,7 @@ export interface CounsellorReportPerformance {
   core_product_revenue: number;
   other_product_revenue: number;
   average_revenue_per_client: number;
+  pending_amount: number;
   archived_count: number;
 }
 
@@ -149,7 +150,9 @@ export interface CounsellorPerformanceRow {
   other_product_revenue: number;
   total_revenue: number;
   average_revenue_per_client: number;
+  pending_amount: number;
   archived_count: number;
+  sale_type_count?: number;
 }
 
 export interface ManagerAchievedByCounsellor {
@@ -162,6 +165,7 @@ export interface ManagerAchievedByCounsellor {
   core_product_achieved_revenue: number;
   other_product_achieved_clients: number;
   other_product_achieved_revenue: number;
+  pending_amount?: number;
 }
 
 export interface ManagerDataRow {
@@ -593,6 +597,28 @@ export const clientService = {
     }
   },
 
+  /**
+   * Get archived clients for a user. Uses POST with body { id, role } (id and role from the route).
+   * POST /api/clients/archived-clients  Body: { id: number, role: string }
+   */
+  getArchivedClientsByCounsellor: async (userId: number, role: string): Promise<any> => {
+    try {
+      const res = await api.post("/api/clients/archived-clients", { id: userId, role });
+      let data = res.data;
+      if (data && typeof data === "object" && "data" in data) data = data.data;
+      if (data && typeof data === "object" && !Array.isArray(data) && data.data) data = data.data;
+      if (Array.isArray(data)) return data;
+      if (data && typeof data === "object" && data.clients && Array.isArray(data.clients)) return data.clients;
+      return [];
+    } catch (err: any) {
+      console.error(`❌ [getArchivedClientsByCounsellor] Failed for user ${userId} (${role})`, err);
+      if (err.response?.status === 404) {
+        console.error("❌ Backend Error: API endpoint POST /api/clients/archived-clients does not exist (404).");
+      }
+      return [];
+    }
+  },
+
   getCounsellorClients: async (): Promise<Client[]> => {
     try {
       const res = await api.get("/api/clients/counsellor-clients");
@@ -815,14 +841,35 @@ export const clientService = {
 
   getCounsellors: async (search?: string): Promise<any[]> => {
     try {
+      const trimmed = search?.trim();
       let url = "/api/users/counsellors";
-      if (search && search.length >= 3) {
-        url += `?search=${encodeURIComponent(search)}`;
+      if (trimmed && trimmed.length >= 3) {
+        url += `?search=${encodeURIComponent(trimmed)}`;
       }
       const res = await api.get(url);
-      return res.data.data || [];
+      const data = res.data;
+      if (Array.isArray(data?.data)) return data.data;
+      if (Array.isArray(data)) return data;
+      return [];
     } catch (err) {
       console.error("Failed to fetch counsellors", err);
+      return [];
+    }
+  },
+
+  /**
+   * GET /api/users/users/details
+   * Returns all users (counsellors, managers, admin) with id, fullName, email, role, managerId, designation, isSupervisor, manager.
+   * Used for admin/supervisor manager "all clients" page to show user list and open each user's internal page on click.
+   */
+  getUsersDetails: async (): Promise<any[]> => {
+    try {
+      const res = await api.get("/api/users/users/details");
+      const body = res.data;
+      if (body && typeof body === "object" && Array.isArray(body.data)) return body.data;
+      return [];
+    } catch (err) {
+      console.error("Failed to fetch users details", err);
       return [];
     }
   },
@@ -959,28 +1006,42 @@ export const clientService = {
   // Get all clients for admin (with optional search)
   getAllClients: async (search?: string): Promise<any[]> => {
     try {
+      const trimmed = search?.trim();
       let url = "/api/clients/admin/all-clients";
-      if (search && search.length >= 3) {
-        url += `?search=${encodeURIComponent(search)}`;
+      if (trimmed && trimmed.length >= 3) {
+        url += `?search=${encodeURIComponent(trimmed)}`;
       }
       const res = await api.get(url);
-      return res.data.data || res.data || [];
+      const data = res.data;
+      if (Array.isArray(data?.data)) return data.data;
+      if (Array.isArray(data)) return data;
+      return [];
     } catch (err) {
       console.error("Failed to fetch all clients", err);
       return [];
     }
   },
 
-  // Transfer client to another counsellor
-  transferClient: async (clientId: number, counsellorId: number): Promise<any> => {
+  // Transfer one or multiple clients to another counsellor
+  // Single: { clientId, counsellorId }, Multiple: { clientIds, counsellorId }
+  transferClient: async (
+    clientIdOrIds: number | number[],
+    counsellorId: number
+  ): Promise<any> => {
     try {
-      const res = await api.put("/api/clients/admin/transfer-client", {
-        clientId,
-        counsellorId
-      });
+      const body =
+        Array.isArray(clientIdOrIds) && clientIdOrIds.length > 0
+          ? { clientIds: clientIdOrIds, counsellorId }
+          : Array.isArray(clientIdOrIds) && clientIdOrIds.length === 0
+            ? undefined
+            : { clientId: clientIdOrIds as number, counsellorId };
+      if (!body) {
+        throw new Error("At least one client is required");
+      }
+      const res = await api.put("/api/clients/admin/transfer-client", body);
       return res.data.data || res.data;
     } catch (err: any) {
-      console.error("Failed to transfer client", err);
+      console.error("Failed to transfer client(s)", err);
       throw err;
     }
   },
@@ -1030,6 +1091,44 @@ export const clientService = {
         console.error(`❌ Backend Error: API endpoint /api/clients/${counsellorId} does not exist (404).`);
       }
       return {};
+    }
+  },
+
+  /**
+   * Get clients for a user (counsellor/manager/admin) with date filter and optional search.
+   * POST /api/clients/counsellor-clients/filtered?filter=monthly&search=...&startDate=...&endDate=...
+   * Body: { id: number, role: string } — the clicked user's id and role
+   * filter: today | weekly | monthly | yearly | custom (custom requires startDate & endDate, YYYY-MM-DD)
+   */
+  getCounsellorClientsFiltered: async (
+    userId: number,
+    role: string,
+    params: {
+      filter: "today" | "weekly" | "monthly" | "yearly" | "custom";
+      search?: string;
+      startDate?: string; // YYYY-MM-DD for custom
+      endDate?: string;   // YYYY-MM-DD for custom
+    }
+  ): Promise<Client[]> => {
+    try {
+      const searchParams = new URLSearchParams();
+      searchParams.set("filter", params.filter);
+      if (params.search?.trim()) searchParams.set("search", params.search.trim());
+      if (params.filter === "custom") {
+        if (params.startDate) searchParams.set("startDate", params.startDate);
+        if (params.endDate) searchParams.set("endDate", params.endDate);
+      }
+      const url = `/api/clients/counsellor-clients/filtered?${searchParams.toString()}`;
+      const body = { id: userId, role };
+      const res = await api.post(url, body);
+      let data = res.data;
+      if (data && typeof data === "object" && "data" in data) data = data.data;
+      if (Array.isArray(data)) return data;
+      if (data && typeof data === "object" && data.clients && Array.isArray(data.clients)) return data.clients;
+      return [];
+    } catch (err: any) {
+      console.error(`Failed to fetch filtered clients for user ${userId} (${role})`, err);
+      throw err;
     }
   },
 
@@ -1088,18 +1187,22 @@ export const clientService = {
     }
   },
 
-  // Reports API: GET /api/reports?filter=today|weekly|monthly|yearly
-  //            or GET /api/reports?filter=custom&afterDate=YYYY-MM-DD&beforeDate=YYYY-MM-DD
+  // Reports API: GET /api/reports?filter=today|weekly|monthly|yearly[&saleTypeId=1]
+  //            or GET /api/reports?filter=custom&afterDate=YYYY-MM-DD&beforeDate=YYYY-MM-DD[&saleTypeId=1]
   getReports: async (params: {
     filter: "today" | "weekly" | "monthly" | "yearly" | "custom";
     afterDate?: string;
     beforeDate?: string;
+    saleTypeId?: number | null;
   }): Promise<ReportsResponse> => {
-    const { filter, afterDate, beforeDate } = params;
+    const { filter, afterDate, beforeDate, saleTypeId } = params;
     const queryParams: Record<string, string> = { filter };
     if (filter === "custom" && afterDate && beforeDate) {
       queryParams.afterDate = afterDate;
       queryParams.beforeDate = beforeDate;
+    }
+    if (saleTypeId != null && saleTypeId > 0) {
+      queryParams.saleTypeId = String(saleTypeId);
     }
     const res = await api.get("/api/reports", { params: queryParams });
     const data = res.data?.data ?? res.data;
@@ -1111,18 +1214,39 @@ export const clientService = {
     };
   },
 
+  getSaleTypes: async (): Promise<Array<{ id: number; sale_type: string }>> => {
+    try {
+      const res = await api.get("/api/sale-types");
+      const data = res.data?.data ?? res.data ?? [];
+      if (!Array.isArray(data)) return [];
+      return data
+        .map((st: any) => ({
+          id: st.id ?? st.saleTypeId ?? st.sale_type_id,
+          sale_type: st.sale_type ?? st.saleType ?? st.name ?? "",
+        }))
+        .filter((st: { id: number; sale_type: string }) => st.id && st.sale_type);
+    } catch (err) {
+      console.error("Failed to fetch sale types", err);
+      return [];
+    }
+  },
+
   // Dedicated counsellor report: GET /api/reports/counsellor/:id (or "me")
   getCounsellorReport: async (params: {
     id: number | "me";
     filter: "today" | "weekly" | "monthly" | "yearly" | "custom";
     startDate?: string;
     endDate?: string;
+    saleTypeId?: number | null;
   }): Promise<CounsellorReportResponse> => {
-    const { id, filter, startDate, endDate } = params;
+    const { id, filter, startDate, endDate, saleTypeId } = params;
     const queryParams: Record<string, string> = { filter };
     if (filter === "custom" && startDate && endDate) {
       queryParams.startDate = startDate;
       queryParams.endDate = endDate;
+    }
+    if (saleTypeId != null && saleTypeId > 0) {
+      queryParams.saleTypeId = String(saleTypeId);
     }
     const res = await api.get(`/api/reports/counsellor/${id}`, { params: queryParams });
     return res.data?.data ?? res.data;

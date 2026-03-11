@@ -8,7 +8,7 @@ import api from "@/lib/api";
 import { useSocket } from "@/context/socket-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Download, X, Filter, ChevronRight, User, Loader2 } from "lucide-react";
+import { Plus, Download, X, Filter, ChevronRight, User, Loader2, ExternalLink } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -38,6 +38,22 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
 const CLIENTS_PAGE_EXPANDED_KEY = "clients-page-expanded-counsellor";
+
+// Redirect counsellor to their own client page (same pattern as admin clicking a user)
+function CounsellorRedirect({ id, role }: { id: string | number; role: string }) {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation(`/clients/counsellor/${id}?role=${encodeURIComponent(role)}`);
+  }, [id, role, setLocation]);
+  return (
+    <PageWrapper title="Clients" breadcrumbs={[{ label: "Clients" }]}>
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <p className="ml-2 text-muted-foreground">Loading...</p>
+      </div>
+    </PageWrapper>
+  );
+}
 
 // Helper to get initials
 const getInitials = (name: string) => {
@@ -151,15 +167,18 @@ export default function ClientList() {
   const isCounsellor = user?.role === 'counsellor';
   const isManager = user?.role === 'manager';
   const isSupervisor = isManager && user?.isSupervisor === true;
+  // Admin/superadmin/director and manager see full user list (manager can then open any user's clients)
+  const canSeeAllUsers = isSupervisor || user?.role === 'superadmin' || (user as any)?.role === 'admin' || user?.role === 'director' || user?.role === 'manager';
   // Supervisor managers see all clients (like admin), non-supervisor managers see only their team
   const queryKey = isCounsellor ? ['counsellor-clients'] : ['clients'];
   const queryFn = isCounsellor ? clientService.getCounsellorClients : clientService.getClients;
 
+  // Admin/Manager: do NOT fetch all clients here. Only when they click a counsellor do we open that counsellor's client page (filtered API).
   const { data: clientsRaw, isLoading, error } = useQuery({
     queryKey: queryKey,
     queryFn: queryFn,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-    enabled: !!user, // Only fetch when user is loaded
+    enabled: !!user && isCounsellor, // Only fetch clients for counsellor view; admin/manager use counsellor list only
   });
 
   // Process data based on user role
@@ -221,21 +240,121 @@ export default function ClientList() {
   // }, [clients, error]);
 
   const [counsellorsList, setCounsellorsList] = useState<any[]>([]);
+  const [usersDetailsList, setUsersDetailsList] = useState<any[]>([]);
+
+  // GET /api/users/users/details for admin and manager (so manager sees user list on All Clients)
+  const isAdminOrManager =
+    user?.role === "superadmin" || (user as any)?.role === "admin" || user?.role === "director" || user?.role === "manager";
+  useEffect(() => {
+    if (isAdminOrManager) {
+      clientService.getUsersDetails().then((data) => setUsersDetailsList(data || [])).catch(() => setUsersDetailsList([]));
+    } else {
+      setUsersDetailsList([]);
+    }
+  }, [isAdminOrManager]);
 
   useEffect(() => {
-    // Only load counsellors list for admin/manager/director (not for counsellors)
-    // Supervisor managers see all counsellors, non-supervisor managers see only their assigned counsellors
-    if (!isCounsellor) {
-    const loadCounsellors = async () => {
-      const data = await clientService.getCounsellors();
-      // TODO: Backend should filter counsellors for non-supervisor managers
-      // For now, frontend receives all counsellors (backend should handle filtering)
-      // If manager is not supervisor, backend should return only assigned counsellors
-      setCounsellorsList(data);
-    };
-    loadCounsellors();
+    if (isCounsellor) {
+      clientService.getCounsellors().then(setCounsellorsList).catch(() => setCounsellorsList([]));
     }
-  }, [isCounsellor, isSupervisor]);
+  }, [isCounsellor]);
+
+  // Counsellor: redirect to own clients page (same logic as Archive – no user list, only their data)
+  if (isCounsellor && user) {
+    const counsellorId = user?.id ?? (user as any)?.userId ?? (user as any)?.user_id;
+    if (counsellorId != null && String(counsellorId).trim() !== "") {
+      return <CounsellorRedirect id={counsellorId} role={user.role || "counsellor"} />;
+    }
+  }
+
+  // Admin / Manager: show user list from GET /api/users/users/details; click a user to open their clients page.
+  if (!isCounsellor) {
+    const userId = user?.id ?? (user as any)?.userId ?? (user as any)?.user_id;
+    const userNum = typeof userId === "number" ? userId : parseInt(String(userId), 10);
+    const hasValidUserNum = !Number.isNaN(userNum) && userNum > 0;
+    const listToShow = canSeeAllUsers || !hasValidUserNum
+      ? usersDetailsList
+      : usersDetailsList.filter((u: any) => u.managerId === userNum || u.id === userNum);
+    return (
+      <PageWrapper
+        title="Clients"
+        breadcrumbs={[{ label: "Clients" }]}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setLocation("/clients/new")} className="shadow-md shadow-primary/20">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Client
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+          <p className="text-muted-foreground text-sm">
+            {canSeeAllUsers
+              ? "Select a user to view their clients. No client data is loaded until you open a user."
+              : "Select a user from your team to view their clients."}
+          </p>
+          <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <div className="divide-y divide-border/50">
+              {usersDetailsList.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  Loading users...
+                </div>
+              ) : listToShow.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  No users to show.
+                </div>
+              ) : (
+                listToShow.map((u: any) => {
+                  const uId = u.id ?? u.userId ?? u.user_id;
+                  const uRole = u.role || u.userRole || u.roleName || "counsellor";
+                  const uName = u.fullName || u.name || u.full_name || `User #${uId}`;
+                  const roleBadge = getRoleBadge(uRole);
+                  const managerName = u.manager?.fullName || u.manager?.name || "";
+                  const pathWithRole = `/clients/counsellor/${uId}?role=${encodeURIComponent(String(uRole))}`;
+                  return (
+                    <div
+                      key={String(uId)}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setLocation(pathWithRole)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setLocation(pathWithRole);
+                        }
+                      }}
+                      className="flex items-center gap-3 px-6 py-4 hover:bg-muted/30 transition-colors cursor-pointer"
+                    >
+                      <Avatar className="h-10 w-10 border border-border">
+                        <AvatarFallback className="bg-primary/10 text-primary text-sm font-bold">
+                          {getInitials(uName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-semibold text-foreground">{uName}</span>
+                        {roleBadge && (
+                          <Badge variant="outline" className={`ml-2 font-medium ${roleBadge.className}`}>
+                            {roleBadge.label}
+                          </Badge>
+                        )}
+                        {u.designation && (
+                          <span className="ml-2 text-xs text-muted-foreground">({u.designation})</span>
+                        )}
+                        {managerName && (
+                          <p className="text-xs text-muted-foreground mt-0.5">Manager: {managerName}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </PageWrapper>
+    );
+  }
 
   // Fetch sale types to create mapping and store full list for filters
   useEffect(() => {
@@ -1129,6 +1248,11 @@ export default function ClientList() {
   // When navigating to view/edit, save full expanded state (counsellor + year + month) so it stays on return
   const navigateToClient = (clientId: string, mode: "view" | "edit", counsellorId: string | null) => {
     persistExpanded(expandedCounsellorIds);
+    // Counsellor view: clear any counsellor return path so back goes to /clients, not counsellor page
+    if (isCounsellor) {
+      sessionStorage.removeItem("client_list_return_path");
+      sessionStorage.removeItem("client_list_return_counsellor_name");
+    }
     setLocation(`/clients/${clientId}/${mode}`);
   };
 
@@ -1671,7 +1795,7 @@ export default function ClientList() {
                             <DataTable
                               data={invalidDateClients}
                               columns={columns}
-                              onRowClick={(s) => setLocation(`/clients/${s.id}/view`)}
+                              onRowClick={(s) => navigateToClient(s.id, "view", null)}
                             />
                           </div>
                         </AccordionContent>
@@ -1711,7 +1835,7 @@ export default function ClientList() {
                                 <DataTable
                                   data={yearMonthGrouped[year][month]}
                                   columns={columns}
-                                  onRowClick={(s) => setLocation(`/clients/${s.id}/view`)}
+                                  onRowClick={(s) => navigateToClient(s.id, "view", null)}
                                 />
                               </AccordionContent>
                             </AccordionItem>
@@ -1837,7 +1961,7 @@ export default function ClientList() {
                   return (
                     <AccordionItem value={counsellorId} key={counsellorId} className="border-b border-border/50 last:border-b-0">
                       <AccordionTrigger className="px-6 py-4 hover:bg-muted/30 hover:no-underline">
-                        <div className="flex items-center gap-3 w-full">
+                        <div className="flex items-center gap-3 w-full flex-wrap">
                           <Avatar className="h-8 w-8 border border-border">
                             <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
                               {getInitials(counsellorName)}
@@ -1852,6 +1976,18 @@ export default function ClientList() {
                               {roleBadge.label}
                             </Badge>
                           )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="ml-auto shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLocation(`/clients/counsellor/${counsellorId}`);
+                            }}
+                          >
+                            <ExternalLink className="w-4 h-4 mr-1.5" />
+                            View clients
+                          </Button>
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="px-0 pb-0 bg-muted/10">

@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
-export type UserRole = 'superadmin' | 'manager' | 'counsellor' | 'director';
+export type UserRole = 'superadmin' | 'manager' | 'counsellor' | 'director' | 'telecaller';
 
 interface User {
   id: string;
@@ -52,7 +52,14 @@ const MOCK_USERS: Record<UserRole, User> = {
     name: 'Director',
     role: 'director',
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-  }
+  },
+  telecaller: {
+    id: '6',
+    username: 'telecaller',
+    name: 'Rahul Telecaller',
+    role: 'telecaller',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+  },
 };
 
 import { setInMemoryToken, setCsrfToken } from '@/lib/api';

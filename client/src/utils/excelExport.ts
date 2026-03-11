@@ -294,8 +294,15 @@ export const exportClientsToExcel = (
     const productData = extractProductData(productPayments);
     const paymentData = extractPaymentData(payments);
 
-    // Get name from multiple sources (backend uses fullName) - needed for debug logging
-    const clientName = client.name || client.rawClient?.fullName || "N/A";
+    // Get name from multiple sources (backend may use fullName, full_name, or name)
+    const clientName =
+      (client as any).fullName ??
+      (client as any).full_name ??
+      client.name ??
+      client.rawClient?.fullName ??
+      client.rawClient?.full_name ??
+      client.rawClient?.name ??
+      "N/A";
 
     // Debug: Log IELTS products for troubleshooting
     console.log(`[Excel Export] Processing client: ${clientName}`, {
@@ -329,10 +336,11 @@ export const exportClientsToExcel = (
       ieltsEnrollment: productData.ieltsEnrollment
     });
 
-    // Get saleType from multiple possible sources
-    const saleType = client.saleType ||
-                    client.rawClient?.saleType ||
-                    (client as any).saleType;
+    // Get saleType from multiple possible sources (object with saleType/sale_type string or isCoreProduct)
+    const saleType =
+      client.saleType ||
+      client.rawClient?.saleType ||
+      (client as any).saleType;
     const isCoreProduct = saleType?.isCoreProduct ?? true;
 
     // Handle counsellor - can be object or string, check multiple sources
@@ -352,12 +360,22 @@ export const exportClientsToExcel = (
     // Calculate TOTAL CAD (sum of all amounts or use beacon amount)
     const totalCad = productData.beaconAccount?.amount || 0;
 
-    // Get salesType from multiple possible sources
-    const salesTypeValue = client.salesType ||
-                          (client.saleType?.saleType) ||
-                          (client.rawClient?.saleType?.saleType) ||
-                          (client.rawClient?.salesType) ||
-                          "N/A";
+    // Get salesType string from multiple possible sources (top-level, nested object, snake_case, payments)
+    const saleTypeObj = saleType || client.rawClient?.saleType || (client as any).saleType;
+    const salesTypeValue =
+      (typeof (client as any).salesType === "string" ? (client as any).salesType : null) ??
+      (typeof (client as any).saleType === "string" ? (client as any).saleType : null) ??
+      (typeof (client as any).sale_type === "string" ? (client as any).sale_type : null) ??
+      (client as any).sales_type ??
+      saleTypeObj?.saleType ??
+      saleTypeObj?.sale_type ??
+      (client.rawClient?.saleType && typeof client.rawClient.saleType === "string" ? client.rawClient.saleType : null) ??
+      (client.rawClient?.saleType?.saleType) ??
+      (client.rawClient?.saleType?.sale_type) ??
+      (client.rawClient?.salesType && typeof client.rawClient.salesType === "string" ? client.rawClient.salesType : null) ??
+      (payments?.[0]?.saleType && typeof payments[0].saleType === "string" ? payments[0].saleType : null) ??
+      (payments?.[0]?.saleType?.saleType) ??
+      "N/A";
 
     // Get enrollment date from multiple sources
     const enrollmentDate = client.enrollmentDate || client.rawClient?.enrollmentDate || "N/A";
@@ -398,40 +416,40 @@ export const exportClientsToExcel = (
       "Lead Type": leadTypeValue,
       "Counsellor Name": counsellorName,
       "Sale Type": salesTypeValue,
-      "Total Payment": `₹${totalPaymentValue.toLocaleString()}`,
-      "Amount Received": `₹${amountReceivedValue.toLocaleString()}`,
-      "Amount Pending": `₹${amountPendingValue.toLocaleString()}`,
+      "Total Payment": `${totalPaymentValue.toLocaleString()}`,
+      "Amount Received": `${amountReceivedValue.toLocaleString()}`,
+      "Amount Pending": `${amountPendingValue.toLocaleString()}`,
       "Core Sales": isCoreProduct ? "Yes" : "No",
 
       // Consultancy Payments (Initial, Before Visa, After Visa)
-      "Initial Payment Amount": paymentData.initial?.amount ? `₹${Number(paymentData.initial.amount).toLocaleString()}` : "",
+      "Initial Payment Amount": paymentData.initial?.amount ? `${Number(paymentData.initial.amount).toLocaleString()}` : "",
       "Initial Payment Date": paymentData.initial?.date || "",
       "Initial Payment Invoice No": paymentData.initial?.invoiceNo || "",
       "Initial Payment Remarks": paymentData.initial?.remarks || "",
-      "Before Visa Payment Amount": paymentData.beforeVisa?.amount ? `₹${Number(paymentData.beforeVisa.amount).toLocaleString()}` : "",
+      "Before Visa Payment Amount": paymentData.beforeVisa?.amount ? `${Number(paymentData.beforeVisa.amount).toLocaleString()}` : "",
       "Before Visa Payment Date": paymentData.beforeVisa?.date || "",
       "Before Visa Payment Invoice No": paymentData.beforeVisa?.invoiceNo || "",
       "Before Visa Payment Remarks": paymentData.beforeVisa?.remarks || "",
-      "After Visa Payment Amount": paymentData.afterVisa?.amount ? `₹${Number(paymentData.afterVisa.amount).toLocaleString()}` : "",
+      "After Visa Payment Amount": paymentData.afterVisa?.amount ? `${Number(paymentData.afterVisa.amount).toLocaleString()}` : "",
       "After Visa Payment Date": paymentData.afterVisa?.date || "",
       "After Visa Payment Invoice No": paymentData.afterVisa?.invoiceNo || "",
       "After Visa Payment Remarks": paymentData.afterVisa?.remarks || "",
 
       // Product Payments - Finance And Employment
       "Finance And Employment Payment": productData.financeAndEmployment?.amount
-        ? `₹${Number(productData.financeAndEmployment.amount).toLocaleString()}`
+        ? `${Number(productData.financeAndEmployment.amount).toLocaleString()}`
         : "",
       "Finance And Employment Date of Payment": productData.financeAndEmployment?.date || "",
       "Finance And Employment Invoice No": productData.financeAndEmployment?.invoiceNo || "",
       "Finance And Employment Remarks": productData.financeAndEmployment?.remarks || "",
       "Finance And Employment 2nd Payment Amount": productData.financeAndEmployment?.anotherPaymentAmount != null
-        ? `₹${Number(productData.financeAndEmployment.anotherPaymentAmount).toLocaleString()}`
+        ? `${Number(productData.financeAndEmployment.anotherPaymentAmount).toLocaleString()}`
         : "",
       "Finance And Employment 2nd Payment Date": productData.financeAndEmployment?.anotherPaymentDate || "",
 
       // India Side Employment
       "India Side Employment": productData.indianSideEmployment?.amount
-        ? `₹${Number(productData.indianSideEmployment.amount).toLocaleString()}`
+        ? `${Number(productData.indianSideEmployment.amount).toLocaleString()}`
         : "",
       "India Side Employment Date of Payment": productData.indianSideEmployment?.date || "",
       "India Side Employment Invoice No": productData.indianSideEmployment?.invoiceNo || "",
@@ -439,7 +457,7 @@ export const exportClientsToExcel = (
 
       // IELTS Enrollment
       "IELTS Enrollment Amount": productData.ieltsEnrollment?.amount
-        ? `₹${Number(productData.ieltsEnrollment.amount).toLocaleString()}`
+        ? `${Number(productData.ieltsEnrollment.amount).toLocaleString()}`
         : "",
       "Date of Enrollment/ Payment": productData.ieltsEnrollment?.date || "",
       "IELTS Enrollment Invoice No": productData.ieltsEnrollment?.invoiceNo || "",
@@ -447,7 +465,7 @@ export const exportClientsToExcel = (
 
       // Loan Details
       "Loan Amount": productData.loan?.amount
-        ? `₹${Number(productData.loan.amount).toLocaleString()}`
+        ? `${Number(productData.loan.amount).toLocaleString()}`
         : "",
       "Loan Disbursement Date": productData.loan?.date || "",
       "Loan Invoice No": productData.loan?.invoiceNo || "",
@@ -461,7 +479,7 @@ export const exportClientsToExcel = (
 
       // Lawyer Charges - Refusal Cases
       "Lawyer Charges - Refusal Cases": productData.lawyerRefusal?.amount
-        ? `₹${Number(productData.lawyerRefusal.amount).toLocaleString()}`
+        ? `${Number(productData.lawyerRefusal.amount).toLocaleString()}`
         : "",
       "Lawyer Charges Date of Payment": productData.lawyerRefusal?.date || "",
       "Lawyer Charges Invoice No": productData.lawyerRefusal?.invoiceNo || "",
@@ -469,7 +487,7 @@ export const exportClientsToExcel = (
 
       // Part-time Employment
       "Part-time Employment Amount": productData.partTimeEmployment?.amount
-        ? `₹${Number(productData.partTimeEmployment.amount).toLocaleString()}`
+        ? `${Number(productData.partTimeEmployment.amount).toLocaleString()}`
         : "",
       "Part-time Employment Date of Payment": productData.partTimeEmployment?.date || "",
       "Part-time Employment Invoice No": productData.partTimeEmployment?.invoiceNo || "",
@@ -477,7 +495,7 @@ export const exportClientsToExcel = (
 
       // Employment NOC Arrangement
       "Employment NOC Arrangement": productData.nocArrangement?.amount
-        ? `₹${Number(productData.nocArrangement.amount).toLocaleString()}`
+        ? `${Number(productData.nocArrangement.amount).toLocaleString()}`
         : "",
       "Employment NOC Date of Payment": productData.nocArrangement?.date || "",
       "Employment NOC Invoice No": productData.nocArrangement?.invoiceNo || "",
@@ -489,7 +507,7 @@ export const exportClientsToExcel = (
         for (let i = 0; i < maxTrvCount; i++) {
           const entry = productData.trvExtensions?.[i];
           const n = maxTrvCount === 1 ? "" : ` ${i + 1}`;
-          cols[`TRV/ Work Permit Ext. / Study Permit Extension${n}`] = entry?.amount ? `₹${Number(entry.amount).toLocaleString()}` : "";
+          cols[`TRV/ Work Permit Ext. / Study Permit Extension${n}`] = entry?.amount ? `${Number(entry.amount).toLocaleString()}` : "";
           cols[`TRV Type${n}`] = entry?.type || "";
           cols[`TRV Date of Payment${n}`] = entry?.date || "";
           cols[`TRV Invoice No${n}`] = entry?.invoiceNo || "";
@@ -500,7 +518,7 @@ export const exportClientsToExcel = (
 
       // Marriage photo's for Court Marriage
       "Marriage photo's for Court Marriage": productData.marriagePhoto?.amount
-        ? `₹${Number(productData.marriagePhoto.amount).toLocaleString()}`
+        ? `${Number(productData.marriagePhoto.amount).toLocaleString()}`
         : "",
       "Marriage Photo Date of Payment": productData.marriagePhoto?.date || "",
       "Marriage Photo Invoice No": productData.marriagePhoto?.invoiceNo || "",
@@ -508,7 +526,7 @@ export const exportClientsToExcel = (
 
       // Common Law Marriage Cert+ Photos
       "Common Law Marriage Cert+ Photos": productData.marriageCert?.amount
-        ? `₹${Number(productData.marriageCert.amount).toLocaleString()}`
+        ? `${Number(productData.marriageCert.amount).toLocaleString()}`
         : "",
       "Common Law Marriage Cert Date": productData.marriageCert?.date || "",
       "Common Law Marriage Cert Invoice No": productData.marriageCert?.invoiceNo || "",
@@ -516,7 +534,7 @@ export const exportClientsToExcel = (
 
       // Insurance
       "Insurance Amount": productData.insurance?.amount
-        ? `₹${Number(productData.insurance.amount).toLocaleString()}`
+        ? `${Number(productData.insurance.amount).toLocaleString()}`
         : "",
       "Insurance Date": productData.insurance?.date || "",
       "Insurance Invoice No": productData.insurance?.invoiceNo || "",
@@ -524,7 +542,7 @@ export const exportClientsToExcel = (
 
       // Air Ticket
       "Air Ticket": productData.airTicket?.amount
-        ? `₹${Number(productData.airTicket.amount).toLocaleString()}`
+        ? `${Number(productData.airTicket.amount).toLocaleString()}`
         : "",
       "Air Ticket Date": productData.airTicket?.date || "",
       "Air Ticket Invoice No": productData.airTicket?.invoiceNo || "",
@@ -532,7 +550,7 @@ export const exportClientsToExcel = (
 
       // Relationship Affidavit - Lawyer Charges
       "Relationship Affidavit - Lawyer Charges": productData.relationshipAffidavit?.amount
-        ? `₹${Number(productData.relationshipAffidavit.amount).toLocaleString()}`
+        ? `${Number(productData.relationshipAffidavit.amount).toLocaleString()}`
         : "",
       "Payment Date": productData.relationshipAffidavit?.date || "",
       "Relationship Affidavit Invoice No": productData.relationshipAffidavit?.invoiceNo || "",
@@ -557,38 +575,38 @@ export const exportClientsToExcel = (
 
       // Judicial review charges
       "Judicial review charges": productData.judicialReview?.amount
-        ? `₹${Number(productData.judicialReview.amount).toLocaleString()}`
+        ? `${Number(productData.judicialReview.amount).toLocaleString()}`
         : "",
       "Judicial review charges Payment Date": productData.judicialReview?.date || "",
       "Judicial review charges Invoice No": productData.judicialReview?.invoiceNo || "",
       "Judicial review charges Remarks": productData.judicialReview?.remarks || "",
 
       // Refusal Charges
-      "Refusal Charges Amount": productData.refusalCharges?.amount != null ? `₹${Number(productData.refusalCharges.amount).toLocaleString()}` : "",
+      "Refusal Charges Amount": productData.refusalCharges?.amount != null ? `${Number(productData.refusalCharges.amount).toLocaleString()}` : "",
       "Refusal Charges Date": productData.refusalCharges?.date || "",
       "Refusal Charges Invoice No": productData.refusalCharges?.invoiceNo || "",
       "Refusal Charges Remarks": productData.refusalCharges?.remarks || "",
 
       // Kids Study Permit
-      "Kids Study Permit Amount": productData.kidsStudyPermit?.amount != null ? `₹${Number(productData.kidsStudyPermit.amount).toLocaleString()}` : "",
+      "Kids Study Permit Amount": productData.kidsStudyPermit?.amount != null ? `${Number(productData.kidsStudyPermit.amount).toLocaleString()}` : "",
       "Kids Study Permit Date": productData.kidsStudyPermit?.date || "",
       "Kids Study Permit Invoice No": productData.kidsStudyPermit?.invoiceNo || "",
       "Kids Study Permit Remarks": productData.kidsStudyPermit?.remarks || "",
 
       // Canada Fund
-      "Canada Fund Amount": productData.canadaFund?.amount != null ? `₹${Number(productData.canadaFund.amount).toLocaleString()}` : "",
+      "Canada Fund Amount": productData.canadaFund?.amount != null ? `${Number(productData.canadaFund.amount).toLocaleString()}` : "",
       "Canada Fund Date": productData.canadaFund?.date || "",
       "Canada Fund Invoice No": productData.canadaFund?.invoiceNo || "",
       "Canada Fund Remarks": productData.canadaFund?.remarks || "",
 
       // Employment Verification Charges
-      "Employment Verification Charges": productData.employmentVerificationCharges?.amount != null ? `₹${Number(productData.employmentVerificationCharges.amount).toLocaleString()}` : "",
+      "Employment Verification Charges": productData.employmentVerificationCharges?.amount != null ? `${Number(productData.employmentVerificationCharges.amount).toLocaleString()}` : "",
       "Employment Verification Charges Payment Date": productData.employmentVerificationCharges?.date || "",
       "Employment Verification Charges Invoice No": productData.employmentVerificationCharges?.invoiceNo || "",
       "Employment Verification Charges Remarks": productData.employmentVerificationCharges?.remarks || "",
 
       // Additional Amount Statement Charges
-      "Additional Amount Statement Charges": productData.additionalAmountStatementCharges?.amount != null ? `₹${Number(productData.additionalAmountStatementCharges.amount).toLocaleString()}` : "",
+      "Additional Amount Statement Charges": productData.additionalAmountStatementCharges?.amount != null ? `${Number(productData.additionalAmountStatementCharges.amount).toLocaleString()}` : "",
       "Additional Amount Statement Date": productData.additionalAmountStatementCharges?.date || "",
       "Additional Amount Statement Invoice No": productData.additionalAmountStatementCharges?.invoiceNo || "",
       "Additional Amount Statement Remarks": productData.additionalAmountStatementCharges?.remarks || "",
@@ -601,7 +619,7 @@ export const exportClientsToExcel = (
           const n = maxOtherProductCount === 1 ? "" : ` ${i + 1}`;
           cols[`Other Product Service Name${n}`] = entry?.serviceName ?? "";
           cols[`Other Product Service Info${n}`] = entry?.serviceInfo ?? "";
-          cols[`Other Product Amount${n}`] = entry?.amount != null ? `₹${Number(entry.amount).toLocaleString()}` : "";
+          cols[`Other Product Amount${n}`] = entry?.amount != null ? `${Number(entry.amount).toLocaleString()}` : "";
           cols[`Other Product Date${n}`] = entry?.date || "";
           cols[`Other Product Invoice No${n}`] = entry?.invoiceNo || "";
           cols[`Other Product Remarks${n}`] = entry?.remarks || "";

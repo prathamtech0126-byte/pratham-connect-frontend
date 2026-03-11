@@ -1,6 +1,6 @@
 import { PageWrapper } from "@/layout/PageWrapper";
 import { StatCard } from "@/components/cards/StatCard";
-import { Users, DollarSign, Clock, CreditCard, TrendingUp, UserPlus, ShieldAlert, Activity, ArrowUpRight, ArrowRight, Target, Trophy, Medal, Calendar, CheckCircle2, XCircle, Loader2, IndianRupee } from "lucide-react";
+import { Users, DollarSign, Clock, CreditCard, TrendingUp, UserPlus, ShieldAlert, Activity, ArrowUpRight, ArrowRight, Target, Trophy, Medal, Calendar, CheckCircle2, XCircle, Loader2, IndianRupee, PhoneCall, Tag, Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Area, AreaChart, CartesianGrid } from "recharts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,8 +14,26 @@ import { ActivityLog } from "@/components/activity-log/ActivityLog";
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { DUMMY_LEADS, DUMMY_ASSIGNEE_OPTIONS, LEAD_VISA_CATEGORIES, LEAD_SOURCES, type DummyLead } from "@/data/dummyLeads";
+import { getTargetForUser, getAchievedForUser, DUMMY_TELECALLER_TARGETS } from "@/data/telecallerTargets";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const chartData = [
   { name: "Jan", total: 12000 },
@@ -49,6 +67,7 @@ const counselorRevenue = [
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const isCounsellor = user?.role === "counsellor";
   const [, setLocation] = useLocation();
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
@@ -56,6 +75,17 @@ export default function Dashboard() {
   const [selectedBranch, setSelectedBranch] = useState("all");
   const [timeFilter, setTimeFilter] = useState("monthly");
   const [customDateRange, setCustomDateRange] = useState<[Date | null, Date | null]>([null, null]);
+  // Telecaller: transfer lead modal + admin set target
+  const [transferLead, setTransferLead] = useState<DummyLead | null>(null);
+  const [transferToId, setTransferToId] = useState("");
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [selectedTelecallerId, setSelectedTelecallerId] = useState("");
+  const [monthlyTarget, setMonthlyTarget] = useState("");
+  // Telecaller dashboard filters
+  const [tcStatusFilter, setTcStatusFilter] = useState<string>("");
+  const [tcVisaFilter, setTcVisaFilter] = useState<string>("");
+  const [tcSourceFilter, setTcSourceFilter] = useState<string>("");
+  const [tcFollowUpFilter, setTcFollowUpFilter] = useState<string>("");
 
   const maxY = Math.max(
     ...(chartData ?? []).map((d: any) => Number(d.total || d.value || 0)),
@@ -107,7 +137,7 @@ export default function Dashboard() {
     },
     retry: 1,
     staleTime: 1000 * 60 * 2, // Cache for 2 minutes
-    enabled: timeFilter !== 'custom' || (!!customDateRange[0] && !!customDateRange[1]),
+    enabled: !!user && user.role !== 'telecaller' && (timeFilter !== 'custom' || (!!customDateRange[0] && !!customDateRange[1])),
   });
 
   // Label for monthly chart: "Jan - Feb (Today 2 Feb 2026)". For custom: "1 Jan 2026 - 5 Feb 2026"
@@ -127,73 +157,24 @@ export default function Dashboard() {
     return undefined;
   }, [timeFilter, customDateRange]);
 
-  // Use correct service based on user role
-  const isCounsellor = user?.role === 'counsellor';
+  // All roles (admin, manager, counsellor) use POST filtered API; no GET /api/clients/counsellor-clients
+  const userId = user?.id ?? (user as any)?.userId ?? (user as any)?.user_id;
+  const userNum = typeof userId === "number" ? userId : parseInt(String(userId), 10);
+  const hasUserForFiltered = !!user?.role && !Number.isNaN(userNum) && userNum > 0 && user.role !== "telecaller";
+
   const { data: recentClientsRaw } = useQuery({
-    queryKey: isCounsellor ? ['recent-clients-counsellor'] : ['recent-clients'],
-    queryFn: isCounsellor ? clientService.getCounsellorClients : clientService.getClients
+    queryKey: ["recent-clients", "filtered", userNum, user?.role, "monthly"],
+    queryFn: () =>
+      clientService.getCounsellorClientsFiltered(userNum, user!.role!, { filter: "monthly" }),
+    staleTime: 1000 * 60 * 2,
+    enabled: hasUserForFiltered,
   });
 
-  // Transform data to array format for Dashboard display
-  const recentClients = useMemo(() => {
-    if (!recentClientsRaw) return undefined;
-
-    // Counsellor view: already an array
-    if (isCounsellor) {
-      return Array.isArray(recentClientsRaw) ? recentClientsRaw : [];
-    }
-
-    // Admin view: need to extract clients from counsellor-first structure
-    // Structure: { "3": { counsellor: {...}, clients: { "2026": { "Jan": { clients: [...], total: 4 } } } } }
-    if (recentClientsRaw && typeof recentClientsRaw === 'object' && !Array.isArray(recentClientsRaw)) {
-      const allClients: Client[] = [];
-
-      Object.values(recentClientsRaw).forEach((counsellorData: any) => {
-        if (counsellorData?.clients && typeof counsellorData.clients === 'object') {
-          // Iterate through years
-          Object.values(counsellorData.clients).forEach((yearData: any) => {
-            if (yearData && typeof yearData === 'object') {
-              // Iterate through months
-              Object.values(yearData).forEach((monthData: any) => {
-                if (monthData?.clients && Array.isArray(monthData.clients)) {
-                  // Transform each client to match Client interface
-                  monthData.clients.forEach((client: any) => {
-                    const transformedClient: Client = {
-                      id: String(client.clientId || ""),
-                      name: client.fullName || "",
-                      enrollmentDate: client.enrollmentDate || "",
-                      counsellor: counsellorData.counsellor?.name || counsellorData.counsellor?.fullName || "",
-                      productManager: client.productManager || "N/A",
-                      salesType: client.saleType?.saleType || "N/A",
-                      status: (client.archived ? "Archived" : "Active") as 'Active' | 'Completed' | 'Pending' | 'Dropped',
-                      totalPayment: Number(client.payments?.[0]?.totalPayment || 0),
-                      amountReceived: client.payments && Array.isArray(client.payments) && client.payments.length > 0
-                        ? client.payments.reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0)
-                        : Number(client.payments?.[0]?.amount || 0),
-                      amountPending: (() => {
-                        const total = Number(client.payments?.[0]?.totalPayment || 0);
-                        const received = client.payments && Array.isArray(client.payments) && client.payments.length > 0
-                          ? client.payments.reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0)
-                          : Number(client.payments?.[0]?.amount || 0);
-                        return total - received;
-                      })(),
-                      stage: client.stage || "N/A"
-                    };
-                    allClients.push(transformedClient);
-                  });
-                }
-              });
-            }
-          });
-        }
-      });
-
-      return allClients;
-    }
-
-    // Fallback: if it's already an array, return as-is
-    return Array.isArray(recentClientsRaw) ? recentClientsRaw : [];
-  }, [recentClientsRaw, isCounsellor]);
+  // Filtered API returns Client[]; use as-is
+  const recentClients = useMemo(
+    () => (recentClientsRaw && Array.isArray(recentClientsRaw) ? recentClientsRaw : undefined),
+    [recentClientsRaw]
+  );
 
   const { data: activities } = useQuery({
     queryKey: ['dashboard-activities'],
@@ -750,8 +731,8 @@ export default function Dashboard() {
     );
   }
 
-  // Show loading state
-  if (isLoading && !stats) {
+  // Show loading state (skip for telecaller - they don't use stats)
+  if (user?.role !== 'telecaller' && isLoading && !stats) {
     return (
       <PageWrapper title="Dashboard" breadcrumbs={[{ label: "Dashboard" }]}>
         <div className="space-y-4">
@@ -760,6 +741,457 @@ export default function Dashboard() {
           ))}
         </div>
       </PageWrapper>
+    );
+  }
+
+  // Telecaller view: full dashboard per system requirements
+  if (user?.role === 'telecaller') {
+    const displayName = userProfile?.fullname || user?.name || 'Telecaller';
+    const assignedLeads = DUMMY_LEADS.filter((l) => l.assignedToId === user.id);
+    const target = getTargetForUser(user.id);
+
+    // Overview stats (for cards)
+    const totalAssigned = assignedLeads.length;
+    const uncontactedCount = assignedLeads.filter((l) => l.stage === "New" && !l.lastFollowupAt).length;
+    const contactedCount = assignedLeads.filter((l) => l.lastFollowupAt && l.stage !== "Converted").length;
+    const followUpCount = assignedLeads.filter((l) => l.stage === "Contacted" || (l.lastFollowupAt && l.stage === "Qualified")).length;
+    const interestedCount = assignedLeads.filter((l) => l.stage === "Qualified" && !l.transferredAt).length;
+    const transferredCount = DUMMY_LEADS.filter((l) => l.transferredByTelecallerId === user.id).length;
+    const convertedCount = DUMMY_LEADS.filter((l) => l.stage === "Converted" && (l.transferredByTelecallerId === user.id || l.assignedToId === user.id)).length;
+
+    // Lead category overview (by visa category)
+    const categoryCounts = LEAD_VISA_CATEGORIES.map((cat) => ({
+      name: cat,
+      count: assignedLeads.filter((l) => (l.visaCategory || "Other Immigration Services") === cat).length,
+    }));
+
+    // Lead source overview (by actual source in assigned leads)
+    const sourceCountsByExact = assignedLeads.reduce<Record<string, number>>((acc, l) => {
+      const s = l.source || "Other";
+      acc[s] = (acc[s] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Date range for date filter
+    const getTelecallerDateRange = (): { start: Date; end: Date } | null => {
+      const now = new Date();
+      const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      if (timeFilter === 'today') {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        return { start, end: endOfToday };
+      }
+      if (timeFilter === 'weekly') {
+        const day = now.getDay();
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+        startOfWeek.setHours(0, 0, 0, 0);
+        return { start: startOfWeek, end: endOfToday };
+      }
+      if (timeFilter === 'monthly') {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        return { start, end: endOfToday };
+      }
+      if (timeFilter === 'yearly') {
+        const start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+        return { start, end: endOfToday };
+      }
+      if (timeFilter === 'custom' && customDateRange[0] && customDateRange[1]) {
+        const start = new Date(customDateRange[0]);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(customDateRange[1]);
+        end.setHours(23, 59, 59, 999);
+        return { start, end };
+      }
+      return null;
+    };
+    const dateRange = getTelecallerDateRange();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    let filteredAssignedLeads = assignedLeads;
+    if (dateRange) {
+      filteredAssignedLeads = filteredAssignedLeads.filter((l) => {
+        const d = l.lastFollowupAt ? new Date(l.lastFollowupAt) : new Date(l.createdAt);
+        return d >= dateRange.start && d <= dateRange.end;
+      });
+    }
+    if (tcStatusFilter) {
+      if (tcStatusFilter === "new") filteredAssignedLeads = filteredAssignedLeads.filter((l) => l.stage === "New");
+      else if (tcStatusFilter === "contacted") filteredAssignedLeads = filteredAssignedLeads.filter((l) => l.stage === "Contacted");
+      else if (tcStatusFilter === "qualified") filteredAssignedLeads = filteredAssignedLeads.filter((l) => l.stage === "Qualified");
+      else if (tcStatusFilter === "converted") filteredAssignedLeads = filteredAssignedLeads.filter((l) => l.stage === "Converted");
+    }
+    if (tcVisaFilter) filteredAssignedLeads = filteredAssignedLeads.filter((l) => (l.visaCategory || "") === tcVisaFilter);
+    if (tcSourceFilter) filteredAssignedLeads = filteredAssignedLeads.filter((l) => (l.source || "") === tcSourceFilter);
+    if (tcFollowUpFilter === "today") {
+      filteredAssignedLeads = filteredAssignedLeads.filter((l) => {
+        if (!l.lastFollowupAt) return false;
+        const d = new Date(l.lastFollowupAt);
+        return d >= todayStart && d <= todayEnd;
+      });
+    }
+    const achieved = getAchievedForUser(user.id);
+    const remaining = target && achieved ? Math.max(0, target.monthlyEnrollmentTarget - achieved.monthlyEnrollmentAchieved) : 0;
+    const progressPercentage = target && target.monthlyEnrollmentTarget > 0 && achieved
+      ? (achieved.monthlyEnrollmentAchieved / target.monthlyEnrollmentTarget) * 100
+      : 0;
+    const counsellorOptions = DUMMY_ASSIGNEE_OPTIONS.filter((u) => u.role === 'counsellor');
+
+    const handleTransferSubmit = async () => {
+      if (!transferLead || !transferToId) return;
+      setIsTransferring(true);
+      try {
+        await new Promise((r) => setTimeout(r, 500));
+        const to = counsellorOptions.find((c) => c.id === transferToId);
+        toast({ title: "Lead transferred", description: `${transferLead.name} transferred to ${to?.name ?? 'Counsellor'}.` });
+        setTransferLead(null);
+        setTransferToId('');
+      } finally {
+        setIsTransferring(false);
+      }
+    };
+
+    return (
+      <div className="space-y-8 pb-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              Welcome back, <span className="font-semibold text-primary">{displayName}</span>. Here&apos;s what&apos;s happening.
+            </p>
+          </div>
+          <div className="flex items-center">
+            <DashboardDateFilter
+              date={customDateRange}
+              onDateChange={setCustomDateRange}
+              activeTab={timeFilter === 'today' ? 'Today' : timeFilter === 'weekly' ? 'Weekly' : timeFilter === 'monthly' ? 'Monthly' : timeFilter === 'yearly' ? 'Yearly' : timeFilter === 'custom' ? 'Custom' : 'Monthly'}
+              onTabChange={(tab) => setTimeFilter(tab === 'Today' ? 'today' : tab === 'Custom' ? 'custom' : tab.toLowerCase())}
+              align="end"
+            />
+          </div>
+        </div>
+
+        {/* Your Target card */}
+        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
+          <div className="h-full">
+            <Card className="h-full border-none shadow-card bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl overflow-hidden relative flex flex-col justify-center">
+              <div className="absolute top-4 right-4 opacity-10">
+                <Target className="w-24 h-24 text-primary" />
+              </div>
+              <CardHeader>
+                <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <div className="p-2 bg-background/50 backdrop-blur-sm rounded-lg shadow-sm">
+                    <Target className="w-5 h-5 text-primary" />
+                  </div>
+                  Your Target
+                </CardTitle>
+                <CardDescription>Monthly enrollment goal</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {target && achieved ? (
+                  <div className="space-y-6">
+                    <div className="flex items-end justify-between relative z-10">
+                      <div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-5xl font-bold text-foreground tracking-tight">{achieved.monthlyEnrollmentAchieved}</span>
+                          <span className="text-muted-foreground font-medium text-lg">/ {target.monthlyEnrollmentTarget} achieved</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-medium text-muted-foreground block mb-1">Remaining</span>
+                        <div className="text-3xl font-bold text-primary tabular-nums">{remaining}</div>
+                      </div>
+                    </div>
+                    <div className="space-y-2 relative z-10">
+                      <Progress value={progressPercentage} className="h-3 bg-background/50" />
+                      <p className="text-xs text-muted-foreground text-right font-medium">{progressPercentage.toFixed(0)}% completed</p>
+                    </div>
+                    <div className="bg-background/40 rounded-xl p-4 text-sm text-foreground backdrop-blur-md border border-border/50 shadow-sm relative z-10">
+                      <div className="flex items-start gap-3">
+                        <div className="p-1.5 bg-primary/10 rounded-full mt-0.5">
+                          <Trophy className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-foreground">Keep it up! 🚀</p>
+                          <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
+                            You need <span className="font-bold text-primary">{remaining}</span> more enrollments to hit your monthly target.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No target set yet. Ask your manager to set your monthly enrollment goal.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Overview Section – quick statistics */}
+        <section>
+          <h2 className="text-lg font-semibold text-foreground mb-3">Lead overview</h2>
+          <p className="text-sm text-muted-foreground mb-4">Quick statistics of your leads</p>
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+            <Card className="border-border/60 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Leads Assigned</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-foreground">{totalAssigned}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/60 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Uncontacted</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-foreground">{uncontactedCount}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/60 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Contacted</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-foreground">{contactedCount}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/60 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Follow-up Leads</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-foreground">{followUpCount}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/60 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Interested</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-foreground">{interestedCount}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/60 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Transferred to Counsellor</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-foreground">{transferredCount}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border/60 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Converted to Client</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-foreground">{convertedCount}</p>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        {/* Lead Category Overview */}
+        <section>
+          <h2 className="text-lg font-semibold text-foreground mb-3">Lead category overview</h2>
+          <p className="text-sm text-muted-foreground mb-4">Leads by visa category – prioritize calls based on business focus</p>
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+            {categoryCounts.map(({ name, count }) => (
+              <Card key={name} className="border-border/60 shadow-sm">
+                <CardContent className="pt-4">
+                  <p className="text-sm font-medium text-muted-foreground truncate" title={name}>{name}</p>
+                  <p className="text-2xl font-bold text-foreground mt-1">{count}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        {/* Lead Source Overview */}
+        <section>
+          <h2 className="text-lg font-semibold text-foreground mb-3">Lead source overview</h2>
+          <p className="text-sm text-muted-foreground mb-4">Where your leads came from</p>
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {Object.entries(sourceCountsByExact).map(([name, count]) => (
+              <Card key={name} className="border-border/60 shadow-sm">
+                <CardContent className="pt-4">
+                  <p className="text-sm font-medium text-muted-foreground truncate" title={name}>{name}</p>
+                  <p className="text-2xl font-bold text-foreground mt-1">{count}</p>
+                </CardContent>
+              </Card>
+            ))}
+            {Object.keys(sourceCountsByExact).length === 0 && (
+              <p className="text-sm text-muted-foreground col-span-full">No leads yet</p>
+            )}
+          </div>
+        </section>
+
+        {/* Telecaller Lead List + Filters */}
+        <section>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Lead list</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">Your assigned leads – follow up, categorize, and transfer interested leads to counsellors.</p>
+            </div>
+            <Link href="/leads">
+              <Button variant="outline" size="sm" className="gap-1">
+                View all leads
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+
+          {/* Lead filters */}
+          <Card className="border-border/60 shadow-sm p-4 mb-4">
+            <p className="text-sm font-medium text-muted-foreground mb-3">Filters</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Select value={tcStatusFilter || "__all__"} onValueChange={(v) => setTcStatusFilter(v === "__all__" ? "" : v)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Lead status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All statuses</SelectItem>
+                  <SelectItem value="new">Uncontacted</SelectItem>
+                  <SelectItem value="contacted">Contacted</SelectItem>
+                  <SelectItem value="qualified">Interested / Qualified</SelectItem>
+                  <SelectItem value="converted">Converted</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={tcVisaFilter || "__all__"} onValueChange={(v) => setTcVisaFilter(v === "__all__" ? "" : v)}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Visa category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All categories</SelectItem>
+                  {LEAD_VISA_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={tcSourceFilter || "__all__"} onValueChange={(v) => setTcSourceFilter(v === "__all__" ? "" : v)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Lead source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All sources</SelectItem>
+                  {LEAD_SOURCES.map((src) => (
+                    <SelectItem key={src} value={src}>{src}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={tcFollowUpFilter || "__all__"} onValueChange={(v) => setTcFollowUpFilter(v === "__all__" ? "" : v)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Follow-up date" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Any</SelectItem>
+                  <SelectItem value="today">Today&apos;s follow-ups</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="ghost" size="sm" onClick={() => { setTcStatusFilter(""); setTcVisaFilter(""); setTcSourceFilter(""); setTcFollowUpFilter(""); }}>
+                Clear filters
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">Date range uses the filter above (Today / Weekly / Monthly / Yearly / Custom).</p>
+          </Card>
+
+          <Card className="border-border/60 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/60 bg-muted/50">
+                    <th className="text-left font-semibold p-3">Lead name</th>
+                    <th className="text-left font-semibold p-3">Phone</th>
+                    <th className="text-left font-semibold p-3">Lead source</th>
+                    <th className="text-left font-semibold p-3">Visa category</th>
+                    <th className="text-left font-semibold p-3">Lead status</th>
+                    <th className="text-left font-semibold p-3">Date received</th>
+                    <th className="text-left font-semibold p-3">Last activity</th>
+                    <th className="text-right font-semibold p-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAssignedLeads.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-6 text-center text-muted-foreground">
+                        {assignedLeads.length === 0 ? "No leads assigned to you yet." : "No leads match the current filters."}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAssignedLeads.map((lead) => (
+                      <tr key={lead.id} className="border-b border-border/40 hover:bg-muted/20 transition-colors">
+                        <td className="p-3 font-medium">
+                          <Link href={`/leads/${lead.id}`} className="hover:underline">{lead.name}</Link>
+                        </td>
+                        <td className="p-3 text-muted-foreground">{lead.phone}</td>
+                        <td className="p-3 text-muted-foreground">{lead.source || "—"}</td>
+                        <td className="p-3 text-muted-foreground">{lead.visaCategory || "—"}</td>
+                        <td className="p-3">
+                          <Badge variant="secondary" className="capitalize text-xs">{lead.stage}</Badge>
+                        </td>
+                        <td className="p-3 text-muted-foreground">{format(new Date(lead.createdAt), "dd MMM yyyy")}</td>
+                        <td className="p-3 text-muted-foreground">
+                          {lead.lastFollowupAt ? format(new Date(lead.lastFollowupAt), "dd MMM yyyy") : "—"}
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button variant="ghost" size="sm" className="h-8" asChild>
+                              <Link href={`/leads/${lead.id}`}>Follow up</Link>
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-8" onClick={() => { setTransferLead(lead); setTransferToId(''); }}>
+                              Transfer
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </section>
+
+        <Dialog open={!!transferLead} onOpenChange={(open) => !open && setTransferLead(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Transfer lead to counsellor</DialogTitle>
+            </DialogHeader>
+            {transferLead && (
+              <p className="text-sm text-muted-foreground -mt-2">
+                Transfer <strong>{transferLead.name}</strong> to a counsellor for follow-up.
+              </p>
+            )}
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Select counsellor</Label>
+                <Select value={transferToId} onValueChange={setTransferToId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose counsellor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {counsellorOptions.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setTransferLead(null)}>Cancel</Button>
+              <Button onClick={handleTransferSubmit} disabled={!transferToId || isTransferring}>
+                {isTransferring ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Transfer
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     );
   }
 

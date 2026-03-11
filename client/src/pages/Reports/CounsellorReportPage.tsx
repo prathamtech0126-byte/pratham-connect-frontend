@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useAuth } from "@/context/auth-context";
 import { PageWrapper } from "@/layout/PageWrapper";
@@ -41,6 +41,7 @@ import {
   Minus,
   ChevronDown,
   CalendarIcon,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +50,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const MONTHS = [
@@ -153,6 +155,17 @@ export default function CounsellorReportPage() {
   const [pendingRange,      setPendingRange]      = useState<[Date | null, Date | null]>([null, null]);
   const [customPopoverOpen, setCustomPopoverOpen] = useState(false);
 
+  // ── Sale type filter (counsellor + admin/manager) ──────────────────────────
+  const [saleTypeId, setSaleTypeId] = useState<number | null>(null);
+  const [saleTypes, setSaleTypes] = useState<Array<{ id: number; sale_type: string }>>([]);
+  useEffect(() => {
+    let cancelled = false;
+    clientService.getSaleTypes().then((list) => {
+      if (!cancelled) setSaleTypes(list);
+    }).catch((err) => console.error("Failed to load sale types", err));
+    return () => { cancelled = true; };
+  }, []);
+
   const adminFilterStart = useMemo(() => {
     if (adminTab === "Today")   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
     if (adminTab === "Weekly")  return startOfWeek(now, { weekStartsOn: 1 });
@@ -206,6 +219,7 @@ export default function CounsellorReportPage() {
       isCounsellor ? selectedMonth : adminTab,
       isCounsellor ? selectedYear  : (isCustomAdmin ? adminStartDate : null),
       isCustomAdmin ? adminEndDate : null,
+      saleTypeId,
     ],
     queryFn: () =>
       clientService.getCounsellorReport({
@@ -213,6 +227,7 @@ export default function CounsellorReportPage() {
         filter: queryFilter,
         startDate: queryStartDate,
         endDate: queryEndDate,
+        saleTypeId: saleTypeId ?? undefined,
       }),
     staleTime: 1000 * 60 * 2,
     enabled: canFetch && (counsellorId === "me" || !isNaN(counsellorId as number)),
@@ -320,17 +335,54 @@ export default function CounsellorReportPage() {
             <span className="text-sm text-muted-foreground">
               {counsellorStartDate} → {counsellorEndDate}
             </span>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Sale type</span>
+              <Select
+                value={saleTypeId != null ? String(saleTypeId) : "all"}
+                onValueChange={(v) => setSaleTypeId(v === "all" ? null : Number(v))}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All sale types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All sale types</SelectItem>
+                  {saleTypes.map((st) => (
+                    <SelectItem key={st.id} value={String(st.id)}>{st.sale_type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
 
         {/* ── ADMIN / MANAGER: Today / Weekly / Monthly / Yearly / Custom ─────── */}
         {!isCounsellor && (
           <Card className="border-border/60 rounded-xl">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Period</CardTitle>
-              <CardDescription>
-                {format(adminFilterStart, "dd MMM yyyy")} → {format(adminFilterEnd, "dd MMM yyyy")}
-              </CardDescription>
+            <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold">Period</CardTitle>
+                <CardDescription>
+                  {format(adminFilterStart, "dd MMM yyyy")} → {format(adminFilterEnd, "dd MMM yyyy")}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Sale type</span>
+                <Select
+                  value={saleTypeId != null ? String(saleTypeId) : "all"}
+                  onValueChange={(v) => setSaleTypeId(v === "all" ? null : Number(v))}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="All sale types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All sale types</SelectItem>
+                    {saleTypes.map((st) => (
+                      <SelectItem key={st.id} value={String(st.id)}>{st.sale_type}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded-lg w-fit">
@@ -418,10 +470,11 @@ export default function CounsellorReportPage() {
               <StatCard icon={<Package />}     label="Core Sale Rev"      value={formatCurrency(perf?.core_sale_revenue ?? 0)}      color="violet"  />
               <StatCard icon={<ShoppingBag />} label="Core Product Rev"   value={formatCurrency(perf?.core_product_revenue ?? 0)}   color="amber"   />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard icon={<ShoppingBag />} label="Other Product Rev"  value={formatCurrency(perf?.other_product_revenue ?? 0)}  color="teal"    />
               <StatCard icon={<IndianRupee />} label="Avg Rev / Client"   value={formatCurrency(perf?.average_revenue_per_client ?? 0)} color="rose" />
               <StatCard icon={<Users />}       label="Archived Clients"   value={String(perf?.archived_count ?? 0)}                 color="slate"   />
+              <StatCard icon={<Clock />} label="Pending Amount"   value={formatCurrency(Number(perf?.pending_amount) || 0)}   color="red"   />
             </div>
 
             {/* Monthly Comparison */}
@@ -458,8 +511,8 @@ export default function CounsellorReportPage() {
                       <div className="flex items-center gap-2">
                         <Trophy className="h-5 w-5 text-amber-500" />
                         <span className="text-lg font-bold">
-                          #{mc.rank}
-                          <span className="text-sm font-normal text-muted-foreground"> / {mc.total_counsellors}</span>
+                          {mc.rank}
+                          {/* <span className="text-sm font-normal text-muted-foreground"> / {mc.total_counsellors}</span> */}
                         </span>
                       </div>
                     </div>
@@ -647,7 +700,7 @@ function StatCard({
   icon: React.ReactNode;
   label: string;
   value: string;
-  color: "primary" | "blue" | "violet" | "amber" | "teal" | "rose" | "slate";
+  color: "primary" | "blue" | "violet" | "amber" | "teal" | "rose" | "slate" | "red";
 }) {
   const colorMap: Record<string, string> = {
     primary: "bg-primary/10 text-primary",
@@ -657,6 +710,7 @@ function StatCard({
     teal:    "bg-teal-100 text-teal-600",
     rose:    "bg-rose-100 text-rose-600",
     slate:   "bg-slate-100 text-slate-600",
+    red:     "bg-red-100 text-red-600",
   };
   return (
     <Card className="border-border/50 rounded-xl overflow-hidden">

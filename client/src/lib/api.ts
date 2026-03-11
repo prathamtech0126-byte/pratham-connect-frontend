@@ -1,4 +1,5 @@
 import axios, { InternalAxiosRequestConfig } from "axios";
+import { toast } from "@/hooks/use-toast";
 
 // IMPORTANT: Use relative URLs when running on localhost (dev/preview) to leverage Vite proxy
 // Only use full URL when actually deployed to a production server
@@ -115,6 +116,37 @@ api.interceptors.request.use(
   },
 );
 
+// Show toast for network/internet errors (debounce so we don't flood)
+let lastNetworkErrorToast = 0;
+const NETWORK_ERROR_TOAST_COOLDOWN_MS = 5000;
+
+function isNetworkError(error: any): boolean {
+  const code = error?.code;
+  const hasResponse = error?.response != null;
+  return (
+    code === "ERR_NETWORK" ||
+    code === "ECONNABORTED" ||
+    code === "ETIMEDOUT" ||
+    code === "ECONNREFUSED" ||
+    (!hasResponse && code !== undefined)
+  );
+}
+
+function showNetworkErrorToast(error: any) {
+  const now = Date.now();
+  if (now - lastNetworkErrorToast < NETWORK_ERROR_TOAST_COOLDOWN_MS) return;
+  lastNetworkErrorToast = now;
+  const msg =
+    error?.code === "ETIMEDOUT" || error?.code === "ECONNABORTED"
+      ? "Request timed out. Please check your connection and try again."
+      : "Network error. Please check your internet connection and try again.";
+  toast({
+    variant: "destructive",
+    title: "Connection problem",
+    description: msg,
+  });
+}
+
 // Response interceptor to handle token refresh
 api.interceptors.response.use(
   (res) => {
@@ -125,17 +157,11 @@ api.interceptors.response.use(
     return res;
   },
   async (error) => {
-    // console.error("[API] Response error:", {
-    //   message: error.message,
-    //   code: error.code,
-    //   status: error.response?.status,
-    //   url: error.config?.url,
-    //   baseURL: error.config?.baseURL,
-    //   fullURL: error.config ? `${error.config.baseURL || ""}${error.config.url || ""}` : "unknown",
-    //   responseData: error.response?.data,
-    // });
-
     const originalRequest = error.config;
+
+    if (isNetworkError(error)) {
+      showNetworkErrorToast(error);
+    }
 
     if (
       error.response?.status === 401 &&

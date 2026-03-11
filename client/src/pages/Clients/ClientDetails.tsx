@@ -6,13 +6,31 @@ import { SectionTabs } from "@/components/tabs/SectionTabs";
 import { InfoCard } from "@/components/cards/InfoCard";
 import { PaymentCard } from "@/components/cards/PaymentCard";
 import { Button } from "@/components/ui/button";
-import { Edit, FileText, Download } from "lucide-react";
+import { Edit, FileText, Download, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from "react";
+
+const RETURN_PATH_KEY = "client_list_return_path";
+const RETURN_COUNSELLOR_NAME_KEY = "client_list_return_counsellor_name";
 
 export default function ClientDetails() {
   const [, params] = useRoute("/clients/:id");
   const [, setLocation] = useLocation();
   const id = params?.id;
+  const [returnPath, setReturnPath] = useState<string | null>(null);
+  const [returnCounsellorName, setReturnCounsellorName] = useState<string>("");
+
+  useEffect(() => {
+    const path = sessionStorage.getItem(RETURN_PATH_KEY);
+    const name = sessionStorage.getItem(RETURN_COUNSELLOR_NAME_KEY) || "";
+    if (path && path.startsWith("/clients/counsellor/")) {
+      setReturnPath(path);
+      setReturnCounsellorName(name);
+    } else {
+      setReturnPath(null);
+      setReturnCounsellorName("");
+    }
+  }, []);
 
   const { data: client, isLoading } = useQuery({
     queryKey: ['client', id],
@@ -196,18 +214,29 @@ export default function ClientDetails() {
     </div>
   );
 
+  // When a particular client is open: Home > Clients > Client name (counsellor name only on list page)
+  const detailsBreadcrumbs = [
+    { label: "Clients", href: "/clients" },
+    { label: client.name },
+  ];
+
   return (
     <PageWrapper
       title={`Client: ${client.name}`}
-      breadcrumbs={[
-        { label: "Clients", href: "/clients" },
-        { label: client.name }
-      ]}
+      breadcrumbs={detailsBreadcrumbs}
       actions={
-        <Button onClick={() => setLocation(`/clients/${id}/edit`)}>
-          <Edit className="w-4 h-4 mr-2" />
-          Edit Client
-        </Button>
+        <div className="flex items-center gap-2">
+          {returnPath && (
+            <Button variant="outline" onClick={() => setLocation(returnPath)}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to counsellor clients
+            </Button>
+          )}
+          <Button onClick={() => setLocation(`/clients/${id}/edit`)}>
+            <Edit className="w-4 h-4 mr-2" />
+            Edit Client
+          </Button>
+        </div>
       }
     >
       <SectionTabs

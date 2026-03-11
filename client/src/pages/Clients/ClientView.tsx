@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
-import { User, Calendar, CreditCard, ClipboardList, Info, ChevronDown, ChevronUp, Edit } from "lucide-react";
+import { User, Calendar, CreditCard, ClipboardList, Info, ChevronDown, ChevronUp, Edit, ArrowLeft } from "lucide-react";
 import { getLatestStageFromPayments } from "@/utils/stageUtils";
 import { useState, useEffect } from "react";
 import { useSocket } from "@/context/socket-context";
@@ -412,12 +412,29 @@ const renderProductDetails = (product: any) => {
   }
 };
 
+const RETURN_PATH_KEY = "client_list_return_path";
+const RETURN_COUNSELLOR_NAME_KEY = "client_list_return_counsellor_name";
+
 export default function ClientView() {
   const [, params] = useRoute("/clients/:id/view");
   const [, setLocation] = useLocation();
   const clientId = params?.id ? parseInt(params.id) : null;
   const [expandedProducts, setExpandedProducts] = useState<Set<number>>(new Set());
+  const [returnPath, setReturnPath] = useState<string | null>(null);
+  const [returnCounsellorName, setReturnCounsellorName] = useState<string>("");
   const { socket, isConnected } = useSocket();
+
+  useEffect(() => {
+    const path = sessionStorage.getItem(RETURN_PATH_KEY);
+    const name = sessionStorage.getItem(RETURN_COUNSELLOR_NAME_KEY) || "";
+    if (path && path.startsWith("/clients/counsellor/")) {
+      setReturnPath(path);
+      setReturnCounsellorName(name);
+    } else {
+      setReturnPath(null);
+      setReturnCounsellorName("");
+    }
+  }, []);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -538,8 +555,9 @@ export default function ClientView() {
   };
 
   if (isLoading) {
+    const loadingBreadcrumbs = [{ label: "Clients", href: "/clients" }, { label: "Loading..." }];
     return (
-      <PageWrapper title="Client Details" breadcrumbs={[{ label: "Clients", href: "/clients" }, { label: "Loading..." }]}>
+      <PageWrapper title="Client Details" breadcrumbs={loadingBreadcrumbs}>
         <div className="space-y-6">
           <Skeleton className="h-40 w-full rounded-xl" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -552,8 +570,9 @@ export default function ClientView() {
   }
 
   if (!client) {
+    const errorBreadcrumbs = [{ label: "Clients", href: "/clients" }, { label: "Error" }];
     return (
-      <PageWrapper title="Client Not Found" breadcrumbs={[{ label: "Clients", href: "/clients" }, { label: "Error" }]}>
+      <PageWrapper title="Client Not Found" breadcrumbs={errorBreadcrumbs}>
         <div className="text-center py-20">
           <h2 className="text-2xl font-bold text-gray-900">Client Not Found</h2>
           <p className="text-gray-500 mt-2">The client details you are looking for could not be retrieved.</p>
@@ -585,18 +604,31 @@ export default function ClientView() {
   };
   const clientSaleType = getClientSaleType();
 
+  // When a particular client is open: Home > Clients > Client name
+  const mainBreadcrumbs = [
+    { label: "Clients", href: "/clients" },
+    { label: clientFullName },
+  ];
+
   return (
     <PageWrapper
       title={clientFullName}
-      breadcrumbs={[{ label: "Clients", href: "/clients" }, { label: clientFullName }]}
-
+      breadcrumbs={mainBreadcrumbs}
       actions={
-        params?.id ? (
-          <Button variant="outline" size="sm" onClick={() => setLocation(`/clients/${params.id}/edit`)} className="gap-1.5">
-            <Edit className="h-4 w-4" />
-            Edit
-          </Button>
-        ) : undefined
+        <div className="flex items-center gap-2">
+          {returnPath && (
+            <Button variant="outline" size="sm" onClick={() => setLocation(returnPath)} className="gap-1.5">
+              <ArrowLeft className="h-4 w-4" />
+              Back to counsellor clients
+            </Button>
+          )}
+          {params?.id && (
+            <Button variant="outline" size="sm" onClick={() => setLocation(`/clients/${params.id}/edit`)} className="gap-1.5">
+              <Edit className="h-4 w-4" />
+              Edit
+            </Button>
+          )}
+        </div>
       }
     >
       <div className="space-y-8">

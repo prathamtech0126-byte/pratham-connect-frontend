@@ -27,8 +27,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect, useRef } from "react";
-import { Trash2, Plus, Pencil, ArrowRight, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Trash2, Plus, Pencil, ArrowRight, Loader2, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import api from "@/lib/api";
 import { clientService } from "@/services/clientService";
 
@@ -63,14 +64,13 @@ export default function AdditionalInfo() {
 
   // Client and counsellor data from API
   const [clients, setClients] = useState<any[]>([]);
-  const [counsellors, setCounsellors] = useState<any[]>([]);
+  const [allCounsellors, setAllCounsellors] = useState<any[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [isLoadingCounsellors, setIsLoadingCounsellors] = useState(false);
   const [isTransferring, setIsTransferring] = useState(false);
 
-  // Transfer state
-  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
-  const [selectedClient, setSelectedClient] = useState<any | null>(null);
+  // Transfer state: multiple clients can be selected
+  const [selectedClients, setSelectedClients] = useState<Array<{ id: number; client: any }>>([]);
   const [selectedCounsellorId, setSelectedCounsellorId] = useState<number | null>(null);
   const [selectedCounsellor, setSelectedCounsellor] = useState<any | null>(null);
   const [clientSearchInput, setClientSearchInput] = useState("");
@@ -97,14 +97,15 @@ export default function AdditionalInfo() {
     };
   }, []);
 
-  // Fetch clients from API when search input changes (3+ chars)
+  // Fetch clients from API when search input changes (3+ chars, trimmed)
   useEffect(() => {
+    const term = clientSearchInput.trim();
     const fetchClients = async () => {
-      if (clientSearchInput.length >= 3) {
+      if (term.length >= 3) {
         setIsLoadingClients(true);
         try {
-          const data = await clientService.getAllClients(clientSearchInput);
-          setClients(data || []);
+          const data = await clientService.getAllClients(term);
+          setClients(Array.isArray(data) ? data : []);
         } catch (err) {
           console.error("Failed to fetch clients", err);
           setClients([]);
@@ -116,85 +117,88 @@ export default function AdditionalInfo() {
       }
     };
 
-    const debounceTimer = setTimeout(() => {
-      fetchClients();
-    }, 300); // Debounce API calls
-
+    const debounceTimer = setTimeout(() => fetchClients(), 300);
     return () => clearTimeout(debounceTimer);
   }, [clientSearchInput]);
 
-  // Fetch counsellors from API when search input changes (3+ chars)
+  // Load all counsellors once (Transfer To uses frontend-only search)
   useEffect(() => {
-    const fetchCounsellors = async () => {
-      if (counsellorSearchInput.length >= 3) {
-        setIsLoadingCounsellors(true);
-        try {
-          const data = await clientService.getCounsellors(counsellorSearchInput);
-          setCounsellors(data || []);
-        } catch (err) {
-          console.error("Failed to fetch counsellors", err);
-          setCounsellors([]);
-        } finally {
-          setIsLoadingCounsellors(false);
-        }
-      } else {
-        setCounsellors([]);
-      }
+    let cancelled = false;
+    setIsLoadingCounsellors(true);
+    clientService
+      .getCounsellors()
+      .then((data) => {
+        if (!cancelled) setAllCounsellors(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        if (!cancelled) setAllCounsellors([]);
+        console.error("Failed to fetch counsellors", err);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingCounsellors(false);
+      });
+    return () => {
+      cancelled = true;
     };
+  }, []);
 
-    const debounceTimer = setTimeout(() => {
-      fetchCounsellors();
-    }, 300); // Debounce API calls
-
-    return () => clearTimeout(debounceTimer);
-  }, [counsellorSearchInput]);
+  // Transfer To: filter counsellors on the frontend by search text (no backend search)
+  const filteredCounsellors = useMemo(() => {
+    const term = counsellorSearchInput.trim().toLowerCase();
+    if (term.length < 3) return [];
+    return allCounsellors.filter((c) => {
+      const name = (c.fullName || c.name || c.fullname || "").toLowerCase();
+      return name.includes(term);
+    });
+  }, [allCounsellors, counsellorSearchInput]);
 
   const handleTransferClient = async () => {
-    if (!selectedClientId || !selectedCounsellorId) {
+    if (selectedClients.length === 0 || !selectedCounsellorId || !selectedCounsellor) {
       toast({
         title: "Error",
-        description: "Please select both a client and a counsellor",
+        description: "Please select at least one client and a counsellor",
         variant: "destructive",
       });
       return;
     }
 
-    if (!selectedClient || !selectedCounsellor) {
-      toast({
-        title: "Error",
-        description: "Please select both a client and a counsellor",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if client is already assigned to this counsellor
-    const currentCounsellorId = selectedClient.counsellorId || selectedClient.counsellor?.id || selectedClient.counsellorId;
-    if (currentCounsellorId === selectedCounsellorId) {
-      toast({
-        title: "Error",
-        description: "Client is already assigned to this counsellor",
-        variant: "destructive",
-      });
-      return;
+    // Single client: check if already assigned to this counsellor
+    if (selectedClients.length === 1) {
+      const client = selectedClients[0].client;
+      const currentCounsellorId = client.counsellorId || client.counsellor?.id || client.counsellorId;
+      if (currentCounsellorId === selectedCounsellorId) {
+        toast({
+          title: "Error",
+          description: "Client is already assigned to this counsellor",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     try {
       setIsTransferring(true);
-      const result = await clientService.transferClient(selectedClientId, selectedCounsellorId);
+      const ids = selectedClients.map((c) => c.id);
+      const payload = ids.length === 1 ? ids[0] : ids;
+      await clientService.transferClient(payload, selectedCounsellorId);
 
-      const oldCounsellorName = selectedClient.counsellor?.name || selectedClient.counsellor?.fullName || selectedClient.counsellorName || "Unknown";
       const newCounsellorName = selectedCounsellor.fullName || selectedCounsellor.name || selectedCounsellor.fullname || "Unknown";
-      const clientName = selectedClient.name || selectedClient.fullName || selectedClient.fullname || "Unknown";
 
-      toast({
-        title: "Success",
-        description: `${clientName} transferred from ${oldCounsellorName} to ${newCounsellorName}`,
-      });
+      const title = "Success";
+      const description =
+        selectedClients.length === 1
+          ? (() => {
+              const c = selectedClients[0].client;
+              const clientName = c.name || c.fullName || c.fullname || "Unknown";
+              const oldCounsellorName = c.counsellor?.name || c.counsellor?.fullName || c.counsellorName || "Unknown";
+              return `${clientName} transferred from ${oldCounsellorName} to ${newCounsellorName}`;
+            })()
+          : `${selectedClients.length} clients transferred to ${newCounsellorName}`;
+
+      toast({ title, description });
 
       // Reset form
-      setSelectedClientId(null);
-      setSelectedClient(null);
+      setSelectedClients([]);
       setSelectedCounsellorId(null);
       setSelectedCounsellor(null);
       setClientSearchInput("");
@@ -202,10 +206,10 @@ export default function AdditionalInfo() {
       setShowClientList(false);
       setShowCounsellorList(false);
     } catch (err: any) {
-      console.error("Failed to transfer client", err);
+      console.error("Failed to transfer client(s)", err);
       toast({
         title: "Error",
-        description: err.response?.data?.message || err.message || "Failed to transfer client",
+        description: err.response?.data?.message || err.message || "Failed to transfer client(s)",
         variant: "destructive",
       });
     } finally {
@@ -766,29 +770,55 @@ export default function AdditionalInfo() {
         <CardContent className="space-y-6">
           {/* Transfer Form */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            {/* Client Search */}
-            <div className="space-y-2 relative" ref={clientDropdownRef}>
-              <Label>Select Client</Label>
-              <Input
-                data-testid="input-client-search"
-                placeholder="Search client (3+ chars)"
-                value={clientSearchInput}
-                onChange={(e) => {
-                  setClientSearchInput(e.target.value);
-                  setShowClientList(true);
-                  if (e.target.value.length < 3) {
-                    setSelectedClientId(null);
-                    setSelectedClient(null);
-                  }
-                }}
-                onFocus={() => {
-                  if (clientSearchInput.length >= 3) {
+            {/* Client Search - multi-select with checkboxes; selected shown as chips with cancel */}
+            <div className="space-y-2 relative w-full min-w-0" ref={clientDropdownRef}>
+              <Label>Select Client(s)</Label>
+              <div
+                className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 min-h-[2.5rem] text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+                onClick={() => document.getElementById("client-search-input")?.focus()}
+              >
+                {selectedClients.map(({ id, client }) => {
+                  const name = client.name || client.fullName || client.fullname || "Unknown";
+                  return (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium"
+                    >
+                      {name}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedClients((prev) => prev.filter((c) => c.id !== id));
+                        }}
+                        className="rounded p-0.5 hover:bg-muted-foreground/20"
+                        aria-label={`Remove ${name}`}
+                        data-testid={`client-remove-${id}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  );
+                })}
+                <input
+                  id="client-search-input"
+                  data-testid="input-client-search"
+                  placeholder={selectedClients.length === 0 ? "Search client (3+ chars)" : "Add more..."}
+                  value={clientSearchInput}
+                  onChange={(e) => {
+                    setClientSearchInput(e.target.value);
                     setShowClientList(true);
-                  }
-                }}
-              />
-              {showClientList && clientSearchInput.length >= 3 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
+                  }}
+                  onFocus={() => {
+                    if (clientSearchInput.trim().length >= 3) {
+                      setShowClientList(true);
+                    }
+                  }}
+                  className="flex-1 min-w-[120px] border-0 bg-transparent p-0 outline-none placeholder:text-muted-foreground"
+                />
+              </div>
+              {showClientList && clientSearchInput.trim().length >= 3 && (
+                <div className="absolute bottom-full left-0 right-0 z-[100] mb-1.5 w-full min-w-[12rem] max-h-56 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
                   {isLoadingClients ? (
                     <div className="px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -798,20 +828,34 @@ export default function AdditionalInfo() {
                     clients.map((client) => {
                       const clientId = client.clientId || client.id;
                       const clientName = client.name || client.fullName || client.fullname || "Unknown";
-                      const counsellorName = client.counsellor?.name || client.counsellor?.fullName || client.counsellorName || "No Counsellor";
+                      const counsellorName = client.counsellor?.name || client.counsellor?.fullName || client.counsellorName;
+                      const isSelected = selectedClients.some((c) => c.id === clientId);
                       return (
                         <div
                           key={clientId}
-                          className="px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 cursor-pointer border-b text-sm"
+                          className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer border-b border-border/40 last:border-0 hover:bg-accent"
                           onClick={() => {
-                            setSelectedClientId(clientId);
-                            setSelectedClient(client);
-                            setClientSearchInput(`${clientName} (${counsellorName})`);
-                            setShowClientList(false);
+                            setSelectedClients((prev) =>
+                              isSelected
+                                ? prev.filter((c) => c.id !== clientId)
+                                : [...prev.filter((c) => c.id !== clientId), { id: clientId, client }]
+                            );
                           }}
                           data-testid={`client-option-${clientId}`}
                         >
-                          {clientName} ({counsellorName})
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => {
+                              setSelectedClients((prev) =>
+                                isSelected
+                                  ? prev.filter((c) => c.id !== clientId)
+                                  : [...prev.filter((c) => c.id !== clientId), { id: clientId, client }]
+                              );
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            aria-hidden
+                          />
+                          {clientName} {counsellorName ? `(${counsellorName})` : ""}
                         </div>
                       );
                     })
@@ -829,7 +873,7 @@ export default function AdditionalInfo() {
             </div>
 
             {/* Counsellor Search */}
-            <div className="space-y-2 relative" ref={counsellorDropdownRef}>
+            <div className="space-y-2 relative w-full min-w-0" ref={counsellorDropdownRef}>
               <Label>Transfer To</Label>
               <Input
                 data-testid="input-counsellor-search"
@@ -838,32 +882,32 @@ export default function AdditionalInfo() {
                 onChange={(e) => {
                   setCounsellorSearchInput(e.target.value);
                   setShowCounsellorList(true);
-                  if (e.target.value.length < 3) {
+                  if (e.target.value.trim().length < 3) {
                     setSelectedCounsellorId(null);
                     setSelectedCounsellor(null);
                   }
                 }}
                 onFocus={() => {
-                  if (counsellorSearchInput.length >= 3) {
+                  if (counsellorSearchInput.trim().length >= 3) {
                     setShowCounsellorList(true);
                   }
                 }}
               />
-              {showCounsellorList && counsellorSearchInput.length >= 3 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border rounded-md shadow-lg z-50 max-h-48 overflow-y-auto">
+              {showCounsellorList && counsellorSearchInput.trim().length >= 3 && (
+                <div className="absolute bottom-full left-0 right-0 z-[100] mb-1.5 w-full min-w-[12rem] max-h-56 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md">
                   {isLoadingCounsellors ? (
                     <div className="px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
                       Loading counsellors...
                     </div>
-                  ) : counsellors.length > 0 ? (
-                    counsellors.map((counsellor) => {
+                  ) : filteredCounsellors.length > 0 ? (
+                    filteredCounsellors.map((counsellor) => {
                       const counsellorId = counsellor.counsellorId || counsellor.id || counsellor.userId;
                       const counsellorName = counsellor.fullName || counsellor.name || counsellor.fullname || "Unknown";
                       return (
                         <div
                           key={counsellorId}
-                          className="px-3 py-2 hover:bg-slate-100 dark:hover:bg-gray-700 cursor-pointer border-b text-sm"
+                          className="px-3 py-2 text-sm cursor-pointer border-b border-border/40 last:border-0 hover:bg-accent"
                           onClick={() => {
                             setSelectedCounsellorId(counsellorId);
                             setSelectedCounsellor(counsellor);
@@ -888,7 +932,7 @@ export default function AdditionalInfo() {
             <Button
               onClick={handleTransferClient}
               data-testid="button-transfer"
-              disabled={isTransferring || !selectedClientId || !selectedCounsellorId}
+              disabled={isTransferring || selectedClients.length === 0 || !selectedCounsellorId}
             >
               {isTransferring && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Transfer
