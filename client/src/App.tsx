@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -209,7 +209,33 @@ function Router() {
 import { ThemeProvider } from "@/components/theme-provider"
 import { FaviconUpdater } from "@/components/favicon-updater"
 
+/** In production: fetch deployed version and reload if newer so users don't stay on cached old build. */
+function useVersionCheck() {
+  useEffect(() => {
+    if (import.meta.env.DEV) return;
+    const currentVersion = (import.meta as any).env?.VITE_APP_VERSION;
+    if (!currentVersion) return;
+
+    const check = () => {
+      fetch("/version.json", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { version?: string } | null) => {
+          if (data?.version && data.version !== currentVersion) {
+            window.location.reload();
+          }
+        })
+        .catch(() => {});
+    };
+
+    check();
+    const onFocus = () => check();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+}
+
 function App() {
+  useVersionCheck();
   return (
     <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <FaviconUpdater />

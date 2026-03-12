@@ -84,10 +84,36 @@
 // });
 
 
+/// <reference path="./vite-env.d.ts" />
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import fs from "fs";
+
+/** Build-time version for cache busting: new deploy = new version, so clients reload. */
+function versionPlugin() {
+  const version = process.env.VITE_APP_VERSION || new Date().toISOString();
+  let outDir: string = path.resolve(process.cwd(), "dist");
+
+  return {
+    name: "version-file",
+    config() {
+      return {
+        define: {
+          "import.meta.env.VITE_APP_VERSION": JSON.stringify(version),
+        },
+      };
+    },
+    configResolved(config: { root: string; build: { outDir: string } }) {
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
+    writeBundle() {
+      const file = path.join(outDir, "version.json");
+      fs.writeFileSync(file, JSON.stringify({ version }));
+    },
+  };
+}
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -101,6 +127,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
+      versionPlugin(),
     ],
 
     resolve: {
