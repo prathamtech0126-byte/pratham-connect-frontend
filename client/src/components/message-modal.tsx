@@ -75,7 +75,7 @@ export const MessageModal: React.FC<MessageModalProps> = ({
   return (
     <div className={cn("fixed inset-0 z-[9999] flex items-center justify-center p-4", getBackgroundOverlay())}>
       <div className={cn(
-        "relative flex flex-col w-full max-w-lg max-h-[70vh] rounded-lg shadow-2xl border-2 overflow-hidden",
+        "relative flex flex-col w-full max-w-lg max-h-[50vh] rounded-lg shadow-2xl border-2 overflow-hidden",
         getPriorityStyle()
       )}>
         {/* Header */}

@@ -182,6 +182,9 @@ export default function TeamList() {
       newErrors.managerId = "Manager assignment is required";
     }
 
+    if(newMember.role === "Telecaller" && !newMember.managerId) {
+      newErrors.managerId = "Manager assignment is required";
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -202,7 +205,7 @@ export default function TeamList() {
           ...newMember,
           email: newMember.email.toLowerCase().trim(),
           role: newMember.role.toLowerCase(),
-          managerId: newMember.role.toLowerCase() === "counsellor" ? Number(newMember.managerId) : undefined,
+          managerId: (newMember.role.toLowerCase() === "counsellor" || newMember.role.toLowerCase() === "telecaller") ? Number(newMember.managerId) : undefined,
           isSupervisor: newMember.role.toLowerCase() === "manager" ? newMember.isSupervisor : undefined
         };
 
@@ -221,7 +224,7 @@ export default function TeamList() {
           ...newMember,
           email: newMember.email.toLowerCase().trim(),
           role: newMember.role.toLowerCase(),
-          managerId: newMember.role.toLowerCase() === "counsellor" ? Number(newMember.managerId) : undefined,
+          managerId: (newMember.role.toLowerCase() === "counsellor" || newMember.role.toLowerCase() === "telecaller") ? Number(newMember.managerId) : undefined,
           isSupervisor: newMember.role.toLowerCase() === "manager" ? newMember.isSupervisor : false
         };
 
@@ -529,7 +532,7 @@ export default function TeamList() {
                   </div>
                 )}
 
-                {newMember.role === "Counsellor" && (
+                {(newMember.role === "Counsellor" || newMember.role === "Telecaller") && (
                   <div className="space-y-2">
                     <Label htmlFor="assignedTo" className={errors.managerId ? "text-destructive" : ""}>Assign to Manager *</Label>
                     <Select

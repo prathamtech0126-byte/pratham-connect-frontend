@@ -27,8 +27,9 @@ import {
   DUMMY_ASSIGNEE_OPTIONS,
   type DummyLead,
 } from "@/data/dummyLeads";
+import { AddLead } from "@/components/add-lead";
 import { format } from "date-fns";
-import { Eye, UserPlus, Download, Search } from "lucide-react";
+import { Eye, UserPlus, Download, Search, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Pagination,
@@ -84,13 +85,20 @@ export default function LeadList() {
   const [assignModalLead, setAssignModalLead] = useState<DummyLead | null>(null);
   const [assigneeId, setAssigneeId] = useState<string>("");
   const [page, setPage] = useState(1);
+  const [leads, setLeads] = useState<DummyLead[]>(DUMMY_LEADS);
+  const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
 
   if (!user || !canAccessLeads(user.role)) {
     return <Redirect to="/" />;
   }
 
+  const handleLeadAdded = (lead: DummyLead) => {
+    setLeads((prev) => [lead, ...prev]);
+    toast({ title: "Lead added", description: `${lead.name} has been added successfully.` });
+  };
+
   const filteredLeads = useMemo(() => {
-    let list = [...DUMMY_LEADS];
+    let list = [...leads];
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -195,12 +203,18 @@ export default function LeadList() {
       )}
     </div>
   );
+  const addLeadButton = (
+    <Button variant="outline" size="sm" className="shadow-md shadow-primary/20" onClick={() => setIsAddLeadOpen(true)}>
+      <Plus className="h-4 w-4" />
+      Add Lead
+    </Button>
+  );
 
   return (
     <PageWrapper
       title="Leads"
       breadcrumbs={[{ label: "Leads", href: "/leads" }]}
-      actions={actions}
+      actions={<div className="flex gap-3">{addLeadButton} {actions}</div>}
     >
       <div className="space-y-4">
         {/* Filters */}
@@ -312,6 +326,13 @@ export default function LeadList() {
           Showing {paginatedLeads.length} of {filteredLeads.length} leads
         </p>
       </div>
+
+      {/* Add Lead modal */}
+      <AddLead
+        open={isAddLeadOpen}
+        onOpenChange={setIsAddLeadOpen}
+        onLeadAdded={handleLeadAdded}
+      />
 
       {/* Assign modal */}
       <Dialog open={!!assignModalLead} onOpenChange={(open) => !open && setAssignModalLead(null)}>

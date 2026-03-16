@@ -1586,40 +1586,33 @@ export default function Dashboard() {
                 No leaderboard data available
               </div>
             ) : (
+              <>
               <div className="max-h-[500px] overflow-y-auto p-6">
                 <div className="space-y-4">
                   {leaderboardForDisplay.map((counselor: any, index: number) => {
                     // Highlight if the logged-in user is this counsellor (regardless of role)
                     const isHighlighted = counselor.isCurrentUser;
                     const counsellorId = (counselor as any).counsellorId;
-                    const reportHref = counsellorId != null ? `/reports/counsellor/${counsellorId}` : null;
+                    // Only admin/manager can open individual counsellor report; counsellor dashboard is display-only
+                    const canOpenReport = canViewFinancials && counsellorId != null;
+                    const reportHref = canOpenReport ? `/reports/counsellor/${counsellorId}` : null;
 
-                    return (
-                      <Link
-                        key={counsellorId ?? index}
-                        href={reportHref ?? "#"}
-                        className={`block flex items-center p-3 rounded-lg transition-all cursor-pointer ${isHighlighted
-                            ? "bg-primary/10 border-2 border-primary/30 shadow-md ring-2 ring-primary/20"
-                            : "hover:bg-muted/50"
-                          } ${!reportHref ? "pointer-events-none" : ""}`}
-                        onClick={reportHref ? undefined : (e: React.MouseEvent) => e.preventDefault()}
-                      >
+                    const rowContent = (
+                      <>
                         <div className="flex items-center flex-1 min-w-0">
                           <div className="relative mr-3 flex-shrink-0">
                             <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground font-semibold text-sm border-2 border-background shadow-sm">
                               {counselor.avatar}
                             </div>
-                            {/* Rank Badge Overlay */}
                             <div className={`
                               absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-background shadow-sm
                               ${index === 0 ? "bg-yellow-400 text-yellow-900" :
                                 index === 1 ? "bg-slate-300 text-slate-900" :
                                   index === 2 ? "bg-orange-300 text-orange-900" : "bg-muted text-muted-foreground"}
-                          `}>
+                            `}>
                               {index === 0 ? <Medal className="w-3 h-3" /> : index + 1}
                             </div>
                           </div>
-
                           <div className="min-w-0">
                             <p className={`text-sm font-semibold truncate ${isHighlighted ? "text-primary" : "text-foreground"}`}>
                               {counselor.name} {isHighlighted && "(You)"}
@@ -1627,16 +1620,59 @@ export default function Dashboard() {
                             <p className="text-xs text-muted-foreground">Target: {counselor.target}</p>
                           </div>
                         </div>
-
                         <div className="text-right flex-shrink-0">
                           <div className="text-sm font-bold text-foreground">{counselor.achieved}</div>
                           <p className="text-xs text-muted-foreground">enrolled</p>
                         </div>
-                      </Link>
-                    )
+                      </>
+                    );
+
+                    if (canOpenReport) {
+                      return (
+                        <Link
+                          key={counsellorId ?? index}
+                          href={reportHref!}
+                          className={`block flex items-center p-3 rounded-lg transition-all cursor-pointer ${isHighlighted
+                              ? "bg-primary/10 border-2 border-primary/30 shadow-md ring-2 ring-primary/20"
+                              : "hover:bg-muted/50"
+                            }`}
+                        >
+                          {rowContent}
+                        </Link>
+                      );
+                    }
+                    return (
+                      <div
+                        key={counsellorId ?? index}
+                        className={`flex items-center p-3 rounded-lg transition-all ${isHighlighted
+                            ? "bg-primary/10 border-2 border-primary/30 shadow-md ring-2 ring-primary/20"
+                            : ""
+                          }`}
+                      >
+                        {rowContent}
+                      </div>
+                    );
                   })}
                 </div>
               </div>
+              {/* Total target = total achieved (all counsellors) — visible to admin, manager, counsellor */}
+              {(() => {
+                const totalTarget = leaderboardForDisplay.reduce((s: number, c: any) => s + (Number(c.target) || 0), 0);
+                const totalAchieved = leaderboardForDisplay.reduce((s: number, c: any) => s + (Number(c.achieved) || 0), 0);
+                return (
+                  <div className="flex items-center justify-between gap-4 px-6 py-4 border-t bg-muted/30 rounded-b-xl">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total target</p>
+                      <p className="text-lg font-bold text-foreground">{totalTarget}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Total achieved (enrolled)</p>
+                      <p className="text-lg font-bold text-foreground">{totalAchieved}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+              </>
             )}
           </CardContent>
         </Card>

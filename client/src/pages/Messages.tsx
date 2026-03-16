@@ -860,12 +860,12 @@ export default function Messages() {
         </Tabs>
       </div>
 
-      {/* Message Detail Dialog */}
+      {/* Message Detail Dialog - responsive: max height + scrollable body */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="flex flex-col max-h-[90vh] w-[calc(100vw-2rem)] sm:w-full sm:max-w-[600px] p-4 sm:p-6 gap-0 overflow-hidden">
           {selectedMessage && (
             <>
-              <DialogHeader>
+              <DialogHeader className="flex-shrink-0 pb-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Badge
                     variant="outline"
@@ -877,12 +877,12 @@ export default function Messages() {
                     </span>
                   </Badge>
                 </div>
-                <DialogTitle className="text-xl">
+                <DialogTitle className="text-lg sm:text-xl pr-8">
                   {selectedMessage.title || "New Message"}
                 </DialogTitle>
-                <DialogDescription className="flex items-center gap-4 pt-2">
+                <DialogDescription className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-2 text-xs sm:text-sm">
                   <span className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
+                    <Avatar className="h-5 w-5 sm:h-6 sm:w-6">
                       <AvatarImage src={getSenderInfo(selectedMessage).avatar || undefined} alt={getSenderInfo(selectedMessage).name} />
                       <AvatarFallback className="text-xs">
                         {getSenderInfo(selectedMessage).name
@@ -897,51 +897,54 @@ export default function Messages() {
                     <span className="text-muted-foreground">•</span>
                     <span>{getSenderInfo(selectedMessage).role}</span>
                   </span>
-                  <span className="text-muted-foreground">•</span>
-                  <span className="flex items-center gap-1 text-sm">
-                    <Clock className="w-3 h-3" />
+                  <span className="text-muted-foreground hidden sm:inline">•</span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3 flex-shrink-0" />
                     {format(new Date(selectedMessage.createdAt), "MMM d, yyyy 'at' h:mm a")}
                   </span>
                 </DialogDescription>
               </DialogHeader>
-              <div className="py-4">
-                <p className="text-foreground leading-relaxed whitespace-pre-wrap">
-                  {selectedMessage.message}
-                </p>
-              </div>
+
+              {/* Scrollable body: message + acknowledgment section */}
+              <div className="flex-1 min-h-0 overflow-y-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+                <div className="py-2">
+                  <p className="text-foreground leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
+                    {selectedMessage.message}
+                  </p>
+                </div>
 
               {/* Acknowledgment Status - Show for admins */}
               {isAdmin && (
                 <div className="border-t pt-4 mt-4">
-                  <h4 className="font-semibold mb-3 text-foreground">Acknowledgment Status</h4>
+                  <h4 className="font-semibold mb-3 text-foreground text-sm sm:text-base">Acknowledgment Status</h4>
                   {isLoadingAckStatus ? (
                     <div className="flex items-center justify-center py-4">
                       <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                     </div>
                   ) : ackStatus ? (
                     <>
-                      <div className="grid grid-cols-3 gap-4 mb-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
                         <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                           <div className="text-sm text-muted-foreground">Total Recipients</div>
-                          <div className="text-2xl font-bold">{ackStatus.totalRecipients}</div>
+                          <div className="text-xl sm:text-2xl font-bold">{ackStatus.totalRecipients}</div>
                         </div>
                         <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
                           <div className="text-sm text-muted-foreground">Acknowledged</div>
-                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                          <div className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400">
                             {ackStatus.acknowledgedCount}
                           </div>
                         </div>
                         <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg">
                           <div className="text-sm text-muted-foreground">Pending</div>
-                          <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                          <div className="text-xl sm:text-2xl font-bold text-orange-600 dark:text-orange-400">
                             {ackStatus.pendingCount}
                           </div>
                         </div>
                       </div>
                       {ackStatus.acknowledgments && ackStatus.acknowledgments.length > 0 && (
                         <div>
-                          <h5 className="font-medium mb-3 text-foreground">Acknowledged By:</h5>
-                          <div className="space-y-2 max-h-60 overflow-y-auto">
+                          <h5 className="font-medium mb-3 text-foreground text-sm sm:text-base">Acknowledged By:</h5>
+                          <div className="space-y-2 max-h-48 sm:max-h-60 overflow-y-auto">
                             {ackStatus.acknowledgments.map((ack) => (
                               <div
                                 key={ack.id}
@@ -1019,8 +1022,10 @@ export default function Messages() {
                   )}
                 </div>
               )}
+              </div>
+              {/* End scrollable body */}
 
-              <DialogFooter>
+              <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4">
                 <Button variant="outline" onClick={() => {
                   setIsDialogOpen(false);
                   setAckStatus(null);
