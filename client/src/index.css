@@ -214,3 +214,35 @@
     @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
   }
 }
+
+/* Dashboard: seamless horizontal marquee (two identical halves → translate -50%) */
+@keyframes crm-target-marquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.crm-target-marquee {
+  overflow: hidden;
+  border-radius: var(--radius-lg, 0.75rem);
+  padding: 0.625rem 1rem;
+}
+
+.crm-target-marquee-track {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: max-content;
+  animation: crm-target-marquee 45s linear infinite;
+  will-change: transform;
+}
+
+.crm-target-marquee-segment {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding-right: 4rem;
+  white-space: nowrap;
+}

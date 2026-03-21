@@ -183,6 +183,10 @@ function Router() {
           {() => <ProtectedRoute component={LeadList} />}
         </Route> */}
 
+        <Route path="/overall-report">
+          {params => <ProtectedRoute component={OverallReport} />}
+        </Route>
+
         <Route path="/team">
           {params => <ProtectedRoute component={TeamList} />}
         </Route>
@@ -208,6 +212,7 @@ function Router() {
 
 import { ThemeProvider } from "@/components/theme-provider"
 import { FaviconUpdater } from "@/components/favicon-updater"
+import OverallReport from "./pages/OverallReport";
 
 /** In production: fetch deployed version and reload if newer so users don't stay on cached old build. */
 function useVersionCheck() {

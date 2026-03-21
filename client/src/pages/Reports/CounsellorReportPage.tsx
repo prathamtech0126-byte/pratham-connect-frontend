@@ -42,6 +42,7 @@ import {
   ChevronDown,
   CalendarIcon,
   Clock,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -102,6 +103,17 @@ function formatCurrency(value: number): string {
     maximumFractionDigits: 0,
     minimumFractionDigits: 0,
   }).format(value);
+}
+
+function formatCategoryLabel(name: string): string {
+  if (!name) return "";
+  return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+}
+
+function parseAmount(raw: string | number): number {
+  if (typeof raw === "number") return raw;
+  const n = Number.parseFloat(String(raw).replace(/,/g, ""));
+  return Number.isFinite(n) ? n : 0;
 }
 
 function GrowthBadge({ pct }: { pct: number }) {
@@ -258,6 +270,7 @@ export default function CounsellorReportPage() {
   const perf = report?.performance;
   const mc   = report?.monthly_comparison;
   const pa   = report?.product_analytics;
+  const saleTypeCategoryCounts = report?.sale_type_category_counts ?? [];
 
   return (
     <PageWrapper
@@ -476,6 +489,52 @@ export default function CounsellorReportPage() {
               <StatCard icon={<Users />}       label="Archived Clients"   value={String(perf?.archived_count ?? 0)}                 color="slate"   />
               <StatCard icon={<Clock />} label="Pending Amount"   value={formatCurrency(Number(perf?.pending_amount) || 0)}   color="red"   />
             </div>
+
+            {/* Sale type categories (count + amount per category) */}
+            {saleTypeCategoryCounts.length > 0 && (
+              <Card className="border-border/60 rounded-xl overflow-hidden">
+                <CardHeader className="border-b border-border/40 pb-4">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                    <Layers className="h-5 w-5 text-primary" />
+                    Sale type categories
+                  </CardTitle>
+                  <CardDescription>
+                    Enrollments and revenue by category for this period
+                    {saleTypeId != null ? " (filtered sale type)" : ""}.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-5">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {saleTypeCategoryCounts.map((row) => (
+                      <Card key={row.category_id} className="border-border/60 rounded-lg">
+                        <CardContent className="p-4 space-y-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-semibold text-foreground">
+                              {formatCategoryLabel(row.category_name)}
+                            </p>
+                            <Badge variant="secondary" className="text-xs">
+                              ID: {row.category_id}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="rounded-md bg-muted/40 p-3">
+                              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Count</p>
+                              <p className="mt-1 text-xl font-bold tabular-nums">{row.count}</p>
+                            </div>
+                            <div className="rounded-md bg-muted/40 p-3">
+                              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Amount</p>
+                              <p className="mt-1 text-base font-bold tabular-nums">
+                                {formatCurrency(parseAmount(row.amount))}
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Monthly Comparison */}
             {mc && (

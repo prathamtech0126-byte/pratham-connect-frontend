@@ -1,6 +1,6 @@
 import { PageWrapper } from "@/layout/PageWrapper";
 import { StatCard } from "@/components/cards/StatCard";
-import { Users, DollarSign, Clock, CreditCard, TrendingUp, UserPlus, ShieldAlert, Activity, ArrowUpRight, ArrowRight, Target, Trophy, Medal, Calendar, CheckCircle2, XCircle, Loader2, IndianRupee, PhoneCall, Tag, Send } from "lucide-react";
+import { Users, DollarSign, Clock, CreditCard, TrendingUp, UserPlus, ShieldAlert, Activity, ArrowUpRight, ArrowRight, Target, Trophy, Medal, Calendar, CheckCircle2, XCircle, Loader2, IndianRupee, PhoneCall, Tag, Send, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Area, AreaChart, CartesianGrid } from "recharts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,7 +11,7 @@ import { useAuth } from "@/context/auth-context";
 import { useSocket } from "@/context/socket-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ActivityLog } from "@/components/activity-log/ActivityLog";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useLocation, Link } from "wouter";
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import confetti from "canvas-confetti";
 import {
   Dialog,
   DialogContent,
@@ -64,10 +65,20 @@ const counselorRevenue = [
   { name: "Rahul Verma", revenue: 320000, clients: 2, avatar: "R" },
 ];
 
+function hasAchievedTarget(data: { achieved?: number; target?: number; targetStatus?: string }): boolean {
+  const status = String(data.targetStatus ?? "").toLowerCase();
+  if (status === "achieved" || status === "completed" || status === "success") return true;
+  const target = Number(data.target) || 0;
+  if (target <= 0) return false;
+  return Number(data.achieved) >= target;
+}
+
 
 export default function Dashboard() {
   const { user } = useAuth();
   const isCounsellor = user?.role === "counsellor";
+  /** Full-screen canvas so confetti renders above layout/sidebar (default confetti can sit behind). */
+  const confettiCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [, setLocation] = useLocation();
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
@@ -381,7 +392,8 @@ export default function Dashboard() {
         target: target,
         avatar: avatar,
         isCurrentUser: isCurrentUser,
-        counsellorId: counsellorId
+        counsellorId: counsellorId,
+        targetStatus: item.targetStatus,
       };
     }).sort((a: any, b: any) => {
       // Sort by achieved (descending), then by name
@@ -428,10 +440,116 @@ export default function Dashboard() {
     return counselorTargets;
   }, [transformedLeaderboardData]);
 
+  /** Achievement messages for marquee — from API leaderboard rows only. */
+  const achieverMarqueeLine = useMemo(() => {
+    if (transformedLeaderboardData.length === 0) return "";
+    const messages = transformedLeaderboardData
+      .filter((c: any) => hasAchievedTarget(c))
+      .map((c: any) => `${String(c.name).trim()} has achieved their target`)
+      .filter(Boolean);
+    if (messages.length === 0) return "";
+    const joined = messages.join("   ·   ");
+    // Repeat so short lists still fill the bar and the loop looks smooth
+    return [joined, joined, joined].join("   ·   ");
+  }, [transformedLeaderboardData]);
+
   const remainingTarget = currentUserTarget ? Math.max(0, currentUserTarget.target - currentUserTarget.achieved) : 0;
   const progressPercentage = currentUserTarget && currentUserTarget.target > 0
     ? (currentUserTarget.achieved / currentUserTarget.target) * 100
     : 0;
+
+  // Counsellor celebration: once per login/session when target is achieved; dedicated full-screen canvas so it layers above the app chrome.
+  useEffect(() => {
+    if (!isCounsellor || isLoadingLeaderboard || !currentUserTarget || !hasAchievedTarget(currentUserTarget)) return;
+
+    const userId = String(user?.id ?? "");
+    if (!userId) return;
+
+    const key = `crm-login-confetti-shown-${userId}`;
+    if (sessionStorage.getItem(key) === "1") return;
+
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    let retryTimeoutId: number | undefined;
+    let cancelled = false;
+
+    const start = () => {
+      const canvas = confettiCanvasRef.current;
+      if (!canvas || cancelled) return false;
+
+      sessionStorage.setItem(key, "1");
+
+      const myConfetti = confetti.create(canvas, {
+        resize: true,
+        useWorker: true,
+      });
+
+      const durationMs = 10000;
+      const endAt = Date.now() + durationMs;
+
+      intervalId = setInterval(() => {
+        if (cancelled) return;
+        const remaining = endAt - Date.now();
+        if (remaining <= 0) {
+          if (intervalId) clearInterval(intervalId);
+          return;
+        }
+
+        const particleCount = Math.max(12, 55 * (remaining / durationMs));
+        myConfetti({
+          particleCount,
+          spread: 85,
+          startVelocity: 42,
+          ticks: 220,
+          gravity: 0.95,
+          scalar: 1.15,
+          origin: { x: 0.5, y: 0.18 },
+        });
+        myConfetti({
+          particleCount: Math.floor(particleCount * 0.65),
+          spread: 100,
+          startVelocity: 38,
+          angle: 60,
+          ticks: 200,
+          gravity: 0.95,
+          scalar: 1.1,
+          origin: { x: 0.15, y: 0.22 },
+        });
+        myConfetti({
+          particleCount: Math.floor(particleCount * 0.65),
+          spread: 100,
+          startVelocity: 38,
+          angle: 120,
+          ticks: 200,
+          gravity: 0.95,
+          scalar: 1.1,
+          origin: { x: 0.85, y: 0.22 },
+        });
+      }, 280);
+
+      return true;
+    };
+
+    const kickoff = () => {
+      if (cancelled) return;
+      if (start()) return;
+      retryTimeoutId = window.setTimeout(() => {
+        if (!cancelled) start();
+      }, 50);
+    };
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(kickoff);
+    });
+
+    return () => {
+      cancelled = true;
+      if (retryTimeoutId) clearTimeout(retryTimeoutId);
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isCounsellor, isLoadingLeaderboard, currentUserTarget, user?.id]);
+
+  // Other Product breakdown expand/collapse (admin/manager)
+  const [showAllOtherProductBreakdown, setShowAllOtherProductBreakdown] = useState(false);
 
   // Transform teamPerformance data for counsellor chart
   const teamPerformanceData = useMemo(() => {
@@ -905,19 +1023,52 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="space-y-2 relative z-10">
-                      <Progress value={progressPercentage} className="h-3 bg-background/50" />
+                      <Progress value={Math.min(progressPercentage, 100)} className="h-3 bg-background/50" />
                       <p className="text-xs text-muted-foreground text-right font-medium">{progressPercentage.toFixed(0)}% completed</p>
                     </div>
-                    <div className="bg-background/40 rounded-xl p-4 text-sm text-foreground backdrop-blur-md border border-border/50 shadow-sm relative z-10">
+                    <div
+                      className={`rounded-xl p-4 text-sm text-foreground backdrop-blur-md border shadow-sm relative z-10 ${
+                        target.monthlyEnrollmentTarget > 0 &&
+                        achieved.monthlyEnrollmentAchieved >= target.monthlyEnrollmentTarget
+                          ? "bg-emerald-500/10 border-emerald-500/30"
+                          : "bg-background/40 border-border/50"
+                      }`}
+                    >
                       <div className="flex items-start gap-3">
-                        <div className="p-1.5 bg-primary/10 rounded-full mt-0.5">
-                          <Trophy className="w-4 h-4 text-primary" />
+                        <div
+                          className={`p-1.5 rounded-full mt-0.5 ${
+                            target.monthlyEnrollmentTarget > 0 &&
+                            achieved.monthlyEnrollmentAchieved >= target.monthlyEnrollmentTarget
+                              ? "bg-emerald-500/15"
+                              : "bg-primary/10"
+                          }`}
+                        >
+                          <Trophy
+                            className={`w-4 h-4 ${
+                              target.monthlyEnrollmentTarget > 0 &&
+                              achieved.monthlyEnrollmentAchieved >= target.monthlyEnrollmentTarget
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-primary"
+                            }`}
+                          />
                         </div>
                         <div>
-                          <p className="font-bold text-foreground">Keep it up! 🚀</p>
-                          <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
-                            You need <span className="font-bold text-primary">{remaining}</span> more enrollments to hit your monthly target.
-                          </p>
+                          {target.monthlyEnrollmentTarget > 0 &&
+                          achieved.monthlyEnrollmentAchieved >= target.monthlyEnrollmentTarget ? (
+                            <>
+                              <p className="font-bold text-foreground">Congratulations! 🎉</p>
+                              <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
+                                You&apos;ve achieved your monthly enrollment target. Outstanding work!
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="font-bold text-foreground">Keep it up! 🚀</p>
+                              <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
+                                You need <span className="font-bold text-primary">{remaining}</span> more enrollments to hit your monthly target.
+                              </p>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1196,7 +1347,14 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8 pb-8">
+    <div className="relative space-y-8 pb-8">
+      {isCounsellor ? (
+        <canvas
+          ref={confettiCanvasRef}
+          className="pointer-events-none fixed inset-0 z-[99999] h-[100dvh] w-full max-w-none"
+          aria-hidden
+        />
+      ) : null}
       {/* Header Section */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
@@ -1216,6 +1374,25 @@ export default function Dashboard() {
           />
         </div>
       </div>
+
+      {(user?.role === "superadmin" ||
+        user?.role === "director" ||
+        user?.role === "manager" ||
+        user?.role === "counsellor") &&
+      achieverMarqueeLine ? (
+        <div className="crm-target-marquee w-full border border-primary/20 bg-muted/30">
+          <div
+            className="crm-target-marquee-track text-sm font-medium text-foreground"
+            role="region"
+            aria-label="Counsellors who achieved their enrollment target"
+          >
+            <span className="crm-target-marquee-segment">{achieverMarqueeLine}</span>
+            <span className="crm-target-marquee-segment" aria-hidden>
+              {achieverMarqueeLine}
+            </span>
+          </div>
+        </div>
+      ) : null}
 
       {/* Target & Stats Section */}
       {!canViewFinancials ? (
@@ -1261,22 +1438,49 @@ export default function Dashboard() {
                     </div>
 
                     <div className="space-y-2 relative z-10">
-                      <Progress value={progressPercentage} className="h-3 bg-background/50" />
+                      <Progress value={Math.min(progressPercentage, 100)} className="h-3 bg-background/50" />
                       <p className="text-xs text-muted-foreground text-right font-medium">
                         {progressPercentage.toFixed(0)}% completed
                       </p>
                     </div>
 
-                    <div className="bg-background/40 rounded-xl p-4 text-sm text-foreground backdrop-blur-md border border-border/50 shadow-sm relative z-10">
+                    <div
+                      className={`rounded-xl p-4 text-sm text-foreground backdrop-blur-md border shadow-sm relative z-10 ${
+                        hasAchievedTarget(currentUserTarget)
+                          ? "bg-emerald-500/10 border-emerald-500/30"
+                          : "bg-background/40 border-border/50"
+                      }`}
+                    >
                       <div className="flex items-start gap-3">
-                        <div className="p-1.5 bg-primary/10 rounded-full mt-0.5">
-                          <Trophy className="w-4 h-4 text-primary" />
+                        <div
+                          className={`p-1.5 rounded-full mt-0.5 ${
+                            hasAchievedTarget(currentUserTarget) ? "bg-emerald-500/15" : "bg-primary/10"
+                          }`}
+                        >
+                          <Trophy
+                            className={`w-4 h-4 ${
+                              hasAchievedTarget(currentUserTarget)
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-primary"
+                            }`}
+                          />
                         </div>
                         <div>
-                          <p className="font-bold text-foreground">Keep it up! 🚀</p>
-                          <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
-                            You need <span className="font-bold text-primary">{remainingTarget}</span> more enrollments to hit your monthly target.
-                          </p>
+                          {hasAchievedTarget(currentUserTarget) ? (
+                            <>
+                              <p className="font-bold text-foreground">Congratulations! 🎉</p>
+                              <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
+                                You&apos;ve achieved your monthly enrollment target. Outstanding work!
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="font-bold text-foreground">Keep it up! 🚀</p>
+                              <p className="text-muted-foreground text-xs mt-1 leading-relaxed">
+                                You need <span className="font-bold text-primary">{remainingTarget}</span> more enrollments to hit your monthly target.
+                              </p>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1307,36 +1511,39 @@ export default function Dashboard() {
             <StatCard
               title="Core Sale"
               value={Number((stats as any)?.coreSale?.number ?? 0)}
+              secondaryValue={(stats as any)?.coreSale?.amount ? `₹${Number((stats as any)?.coreSale?.amount).toLocaleString()}` : undefined}
               icon={CreditCard}
               trend={(stats as any)?.coreSale?.change !== undefined ? {
                 value: (stats as any)?.coreSale?.change ?? 0,
                 isPositive: (stats as any)?.coreSale?.changeType === "increase" || (stats as any)?.coreSale?.changeType === "no-change"
               } : undefined}
-              description={(stats as any)?.coreSale?.amount ? `₹${Number((stats as any)?.coreSale?.amount).toLocaleString()}` : "core sales"}
+              description="core sales"
               className="shadow-card hover:shadow-lg transition-shadow border-none h-full"
             />
 
             <StatCard
               title="Core Product"
               value={Number((stats as any)?.coreProduct?.number ?? 0)}
+              secondaryValue={(stats as any)?.coreProduct?.amount ? `₹${Number((stats as any)?.coreProduct?.amount).toLocaleString()}` : undefined}
               icon={Target}
               trend={(stats as any)?.coreProduct?.change !== undefined ? {
                 value: (stats as any)?.coreProduct?.change ?? 0,
                 isPositive: (stats as any)?.coreProduct?.changeType === "increase" || (stats as any)?.coreProduct?.changeType === "no-change"
               } : undefined}
-              description={(stats as any)?.coreProduct?.amount ? `₹${Number((stats as any)?.coreProduct?.amount).toLocaleString()}` : "core products"}
+              description="core products"
               className="shadow-card hover:shadow-lg transition-shadow border-none h-full"
             />
 
             <StatCard
               title="Other Product"
               value={Number((stats as any)?.otherProduct?.number ?? 0)}
+              secondaryValue={(stats as any)?.otherProduct?.amount ? `₹${Number((stats as any)?.otherProduct?.amount).toLocaleString()}` : undefined}
               icon={TrendingUp}
               trend={(stats as any)?.otherProduct?.change !== undefined ? {
                 value: (stats as any)?.otherProduct?.change ?? 0,
                 isPositive: (stats as any)?.otherProduct?.changeType === "increase" || (stats as any)?.otherProduct?.changeType === "no-change"
               } : undefined}
-              description={(stats as any)?.otherProduct?.amount ? `₹${Number((stats as any)?.otherProduct?.amount).toLocaleString()}` : "other products"}
+              description="other products"
               className="shadow-card hover:shadow-lg transition-shadow border-none h-full"
             />
 
@@ -1355,7 +1562,7 @@ export default function Dashboard() {
         </div>
       ) : (
         /* Admin/Manager View: 6 stats in a grid */
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid items-start gap-6 md:grid-cols-2 lg:grid-cols-3">
           <StatCard
             title="Total Clients"
             value={getAdjustedValue((stats as any)?.totalClients?.count ?? 0)}
@@ -1371,36 +1578,88 @@ export default function Dashboard() {
           <StatCard
             title="Core Sale"
             value={Number((stats as any)?.coreSale?.number ?? 0)}
+            secondaryValue={(stats as any)?.coreSale?.amount ? `₹ ${Number((stats as any)?.coreSale?.amount).toLocaleString()}` : undefined}
             icon={CreditCard}
             trend={(stats as any)?.coreSale?.change !== undefined ? {
               value: (stats as any)?.coreSale?.change ?? 0,
               isPositive: (stats as any)?.coreSale?.changeType === "increase" || (stats as any)?.coreSale?.changeType === "no-change"
             } : undefined}
-            description={(stats as any)?.coreSale?.amount ? `₹ ${Number((stats as any)?.coreSale?.amount).toLocaleString()}` : "core sales"}
+            extra={canViewFinancials && Array.isArray((stats as any)?.saleTypeCategoryCounts) && (stats as any).saleTypeCategoryCounts.length > 0 ? (
+              <div className="space-y-1">
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  {(stats as any).saleTypeCategoryCounts.map((r: any) => (
+                    <div key={r.categoryId ?? r.categoryName} className="text-[12px] text-foreground">
+                      <span className="capitalize">{r.categoryName ?? "—"}</span>
+                      <span className="text-muted-foreground">:</span>{" "}
+                      <span className="font-semibold tabular-nums">{Number(r.count ?? 0)}</span>
+                    </div>
+                  ))} 
+                </div>
+              </div>
+            ) : null}
             className="shadow-card hover:shadow-lg transition-shadow border-none"
           />
 
           <StatCard
             title="Core Product"
             value={Number((stats as any)?.coreProduct?.number ?? 0)}
+            secondaryValue={(stats as any)?.coreProduct?.amount ? `₹ ${Number((stats as any)?.coreProduct?.amount).toLocaleString()}` : undefined}
             icon={Target}
             trend={(stats as any)?.coreProduct?.change !== undefined ? {
               value: (stats as any)?.coreProduct?.change ?? 0,
               isPositive: (stats as any)?.coreProduct?.changeType === "increase" || (stats as any)?.coreProduct?.changeType === "no-change"
             } : undefined}
-            description={(stats as any)?.coreProduct?.amount ? `₹ ${Number((stats as any)?.coreProduct?.amount).toLocaleString()}` : "core products"}
+            description="core products"
             className="shadow-card hover:shadow-lg transition-shadow border-none"
           />
 
           <StatCard
             title="Other Product"
             value={Number((stats as any)?.otherProduct?.number ?? 0)}
+            secondaryValue={(stats as any)?.otherProduct?.amount ? `₹ ${Number((stats as any)?.otherProduct?.amount).toLocaleString()}` : undefined}
             icon={TrendingUp}
             trend={(stats as any)?.otherProduct?.change !== undefined ? {
               value: (stats as any)?.otherProduct?.change ?? 0,
               isPositive: (stats as any)?.otherProduct?.changeType === "increase" || (stats as any)?.otherProduct?.changeType === "no-change"
             } : undefined}
-            description={(stats as any)?.otherProduct?.amount ? `₹ ${Number((stats as any)?.otherProduct?.amount).toLocaleString()}` : "other products"}
+            extra={canViewFinancials && Array.isArray((stats as any)?.otherProductBreakdown) && (stats as any).otherProductBreakdown.length > 0 ? (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">other products</p>
+                  {((stats as any).otherProductBreakdown as any[]).length > 5 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setShowAllOtherProductBreakdown((v) => !v)}
+                      title={showAllOtherProductBreakdown ? "Hide" : "Show all"}
+                    >
+                      {showAllOtherProductBreakdown ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </Button>
+                  ) : null}
+                </div>
+                {showAllOtherProductBreakdown ? (
+                  <>
+                    <p className="text-[11px] text-muted-foreground">Breakdown</p>
+                    <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                      {((stats as any).otherProductBreakdown as any[]).map((r: any) => (
+                        <div key={r.key ?? r.name} className="flex items-center justify-between gap-2 text-[12px]">
+                          <span className="text-foreground truncate">
+                            {String(r.name ?? "—").replace(/_/g, " ")}
+                          </span>
+                          <span className="text-muted-foreground whitespace-nowrap tabular-nums">
+                            {Number(r.count ?? 0)} • ₹ {Number(r.amount ?? 0).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">other products</div>
+            )}
             className="shadow-card hover:shadow-lg transition-shadow border-none"
           />
 
@@ -1412,7 +1671,6 @@ export default function Dashboard() {
               value: (stats as any)?.totalPendingAmount?.change ?? 0,
               isPositive: (stats as any)?.totalPendingAmount?.changeType === "increase" || (stats as any)?.totalPendingAmount?.changeType === "no-change"
             } : undefined}
-            description="total outstanding"
             className="shadow-card hover:shadow-lg transition-shadow border-l-4 border-l-yellow-500"
           />
 
@@ -1428,8 +1686,7 @@ export default function Dashboard() {
                 trend={(stats as any)?.revenue?.change !== undefined ? {
                   value: (stats as any)?.revenue?.change ?? 0,
                   isPositive: (stats as any)?.revenue?.changeType === "increase" || (stats as any)?.revenue?.changeType === "no-change"
-                } : undefined}
-                description="total revenue"
+                } : undefined}  
                 className="shadow-card hover:shadow-lg transition-shadow border-none cursor-pointer"
               />
             </Link>
@@ -1677,6 +1934,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+
 
       {/* Bottom Section */}
       {/* <div className="grid grid-cols-1">

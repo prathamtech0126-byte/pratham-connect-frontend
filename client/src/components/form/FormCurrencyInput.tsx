@@ -27,8 +27,11 @@ export function FormCurrencyInput<T extends FieldValues>({
       name={name}
       control={control}
       render={({ field: { onChange, value, ...field }, fieldState: { error } }) => {
-        // Convert 0 or undefined/null to empty string to show placeholder
-        const displayValue = (value === 0 || value === null || value === undefined) ? "" : value;
+        // Only treat null/undefined as empty — show 0 so users can enter and see zero total/amount
+        const displayValue =
+          value === null || value === undefined || (typeof value === "number" && Number.isNaN(value))
+            ? ""
+            : value;
 
         return (
           <div className={cn("space-y-2", className)}>

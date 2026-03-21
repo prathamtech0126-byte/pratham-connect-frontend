@@ -25,6 +25,7 @@ import {
   LayoutGrid,
   Zap,
   BarChart3,
+  FileBarChart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -107,6 +108,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
   const [isClientsOpen, setIsClientsOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isReportsOpen, setIsReportsOpen] = useState(false);
 
   // Determine if we're in dark mode and listen for system theme changes
   useEffect(() => {
@@ -120,7 +122,6 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
         setIsDarkMode(window.matchMedia("(prefers-color-scheme: dark)").matches);
       }
     };
-
     updateDarkMode();
 
     // Listen for system theme changes if theme is "system"
@@ -134,6 +135,14 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
       };
     }
   }, [theme]);
+
+  
+  useEffect(() => {
+    if (location.startsWith("/reports") || location.startsWith("/overall-report")) {
+      setIsReportsOpen(true);
+    }
+  }, [location]);
+
 
   // Select logo based on theme
   const currentLogo = isDarkMode ? darkLogoUrl : lightLogoUrl;
@@ -163,6 +172,11 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
     (best, item) => {
       // If exact match, return this item (highest priority)
       if (location === item.href) return item;
+
+      // Treat /overall-report as part of Reports menu for active state
+      if (item.label === "Reports" && location.startsWith("/overall-report")) {
+        return item;
+      }
 
       // Check if it's a prefix match
       if (location.startsWith(item.href)) {
@@ -353,7 +367,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
               </Collapsible>
             );
           }
-
+          // Leaderboard Dropdown sidebar
           if (item.label === "Leaderboard") {
             const isLeaderboardActive =
               activeItem?.href === item.href ||
@@ -430,6 +444,83 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       <Trophy className="w-4 h-4" />
                       <span className="truncate">Counsellor Leaderboard</span>
                     </Link>
+                  </CollapsibleContent>
+                )}
+              </Collapsible>
+            );
+          }
+          // Reports Dropdown sidebar
+          if (item.label === "Reports") {
+            const isReportsActive =
+              location.startsWith("/reports") || location.startsWith("/overall-report");
+          
+            return (
+              <Collapsible
+                key="reports"
+                open={isReportsOpen}
+                onOpenChange={setIsReportsOpen}
+                className="space-y-1"
+              >
+                <div className="flex items-center gap-2">
+                  <CollapsibleTrigger asChild>
+                    <div
+                      className={cn(
+                        "flex flex-1 items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative cursor-pointer",
+                        isCollapsed ? "px-2 justify-center" : "px-3",
+                        isReportsActive
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent"
+                      )}
+                    >
+                      <PieChart className="w-5 h-5 shrink-0" />
+          
+                      {!isCollapsed && (
+                        <>
+                          <span className="flex-1">Reports</span>
+                          {isReportsOpen ? (
+                            <ChevronDown className="w-4 h-4 opacity-50" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 opacity-50" />
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </CollapsibleTrigger>
+                </div>
+          
+                {!isCollapsed && (
+                  <CollapsibleContent className="pl-4 space-y-1">
+                    
+                    {/* Individual Reports */}
+                    <Link
+                      href="/reports"
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
+                        location === "/reports" || location.startsWith("/reports/counsellor/")
+                          ? "border-primary text-primary bg-primary/5"
+                          : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
+                      )}
+                    >
+                      <FileText className="w-4 h-4" />
+                      Counsellor Reports
+                    </Link>
+          
+                    {/* Overall Reports (restricted) */}
+                    {user && ["superadmin", "manager"].includes(user.role) && (
+                      <Link
+                        href="/overall-report"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
+                          location === "/overall-report"
+                            ? "border-primary text-primary bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
+                        )}
+                      >
+                        <FileBarChart className="w-4 h-4" />
+                        Sales Reports
+                      </Link>
+                    )}
+          
                   </CollapsibleContent>
                 )}
               </Collapsible>

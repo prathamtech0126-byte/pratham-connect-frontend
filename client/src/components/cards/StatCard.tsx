@@ -1,10 +1,12 @@
-import { LucideIcon, IndianRupee } from "lucide-react";
+import type React from "react";
+import { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface StatCardProps {
   title: string;
   value: string | number;
+  secondaryValue?: string | number;
   icon: LucideIcon;
   trend?: {
     value: number;
@@ -12,9 +14,10 @@ interface StatCardProps {
   };
   className?: string;
   description?: string;
+  extra?: React.ReactNode;
 }
 
-export function StatCard({ title, value, icon: Icon, trend, className, description }: StatCardProps) {
+export function StatCard({ title, value, secondaryValue, icon: Icon, trend, className, description, extra }: StatCardProps) {
   return (
     <Card className={cn("overflow-hidden border-none shadow-sm hover:shadow-md transition-shadow bg-card", className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-3">
@@ -33,12 +36,20 @@ export function StatCard({ title, value, icon: Icon, trend, className, descripti
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold tracking-tight text-foreground">{value}</div>
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="text-2xl font-bold tracking-tight text-foreground">{value}</div>
+          {secondaryValue !== undefined && secondaryValue !== null && secondaryValue !== "" ? (
+            <div className="text-sm font-semibold text-muted-foreground tabular-nums whitespace-nowrap">
+              {secondaryValue}
+            </div>
+          ) : null}
+        </div>
         {description && (
           <p className="text-xs text-muted-foreground mt-1">
             {description}
           </p>
         )}
+        {extra ? <div className="mt-2">{extra}</div> : null}
       </CardContent>
     </Card>
   );

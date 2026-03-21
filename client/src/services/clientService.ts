@@ -101,6 +101,23 @@ export interface CounsellorReportProduct {
   total_collected?: number;
 }
 
+/** Breakdown of enrollments/revenue by sale-type category (e.g. student, visitor, spouse). */
+export interface CounsellorReportSaleTypeCategoryCount {
+  category_id: number;
+  category_name: string;
+  count: number;
+  amount: string | number;
+  // For sale-dashboard: breakdown inside the category (visitor/student/spouse ...).
+  sale_types?: SaleTypeBreakdown[];
+}
+
+export interface SaleTypeBreakdown {
+  sale_type_id: number;
+  sale_type_name: string;
+  count: number;
+  amount: string | number;
+}
+
 export interface CounsellorReportProductAnalytics {
   core_sale: { total_sales: number; revenue: number; average_ticket_size: number };
   core_product: {
@@ -137,6 +154,8 @@ export interface CounsellorReportResponse {
   performance: CounsellorReportPerformance;
   monthly_comparison: CounsellorReportMonthlyComparison;
   product_analytics: CounsellorReportProductAnalytics;
+  /** Present when API returns category breakdown for the selected period / sale type. */
+  sale_type_category_counts?: CounsellorReportSaleTypeCategoryCount[];
 }
 
 // Reports API types (GET /api/reports)
@@ -193,6 +212,63 @@ export interface ReportsResponse {
   filter_end_date: string;
   counsellor_performance: CounsellorPerformanceRow[];
   manager_data: ManagerDataRow[];
+}
+
+export interface SaleDashboardCards {
+  core_sale: { count: number; amount: number };
+  core_product: { count: number; amount: number };
+  other_product: { count: number; amount: number };
+  overall_revenue: number;
+  current_month_revenue: number;
+  previous_month_revenue: number;
+  previous_to_previous_month_revenue: number;
+}
+
+export interface SaleDashboardChartPoint {
+  name: string;
+  core_sale: number;
+  core_product: number;
+  other_product: number;
+  overall_revenue: number;
+}
+
+export interface SaleDashboardOtherProductBreakdown {
+  key: string;
+  name: string;
+  count: number;
+  amount: string | number;
+}
+
+export interface SaleDashboardResponse {
+  filter: {
+    type: "today" | "weekly" | "monthly" | "yearly" | "custom";
+    start_date: string;
+    end_date: string;
+  };
+  cards: SaleDashboardCards;
+  sale_type_category_counts: CounsellorReportSaleTypeCategoryCount[];
+  other_product_breakdown?: SaleDashboardOtherProductBreakdown[];
+  charts: {
+    line: SaleDashboardChartPoint[];
+    bar: SaleDashboardChartPoint[];
+  };
+}
+
+export interface SaleGraphReportPoint {
+  label: string;
+  current: { count: number; amount: number };
+  previous: { count: number; amount: number };
+  previous2: { count: number; amount: number };
+}
+
+export interface SaleGraphReportResponse {
+  filter: {
+    type: "today" | "weekly" | "monthly" | "yearly" | "custom";
+    start_date: string;
+    end_date: string;
+  };
+  metric: "client" | "core_sale" | "core_product" | "other_product" | "overall_revenue";
+  series: SaleGraphReportPoint[];
 }
 
 // Mock Data
@@ -1214,6 +1290,130 @@ export const clientService = {
     };
   },
 
+  // Sale dashboard API: GET /api/reports/sale-dashboard?filter=today|weekly|monthly|yearly|custom
+  getSaleDashboard: async (params: {
+    filter: "today" | "weekly" | "monthly" | "yearly" | "custom";
+    startDate?: string;
+    endDate?: string;
+  }): Promise<SaleDashboardResponse> => {
+    const { filter, startDate, endDate } = params;
+    const queryParams: Record<string, string> = { filter };
+    if (filter === "custom" && startDate && endDate) {
+      queryParams.startDate = startDate;
+      queryParams.endDate = endDate;
+      // Some backends expect afterDate/beforeDate naming (same semantics as Dashboard page).
+      // Here: beforeDate = start, afterDate = end.
+      queryParams.beforeDate = startDate;
+      queryParams.afterDate = endDate;
+    }
+    const res = await api.get("/api/reports/sale-dashboard", { params: queryParams });
+    const data = res.data?.data ?? res.data ?? {};
+    return {
+      filter: {
+        type: data?.filter?.type ?? filter,
+        start_date: data?.filter?.start_date ?? startDate ?? "",
+        end_date: data?.filter?.end_date ?? endDate ?? "",
+      },
+      cards: {
+        core_sale: {
+          count: Number(data?.cards?.core_sale?.count ?? 0),
+          amount: Number(data?.cards?.core_sale?.amount ?? 0),
+        },
+        core_product: {
+          count: Number(data?.cards?.core_product?.count ?? 0),
+          amount: Number(data?.cards?.core_product?.amount ?? 0),
+        },
+        other_product: {
+          count: Number(data?.cards?.other_product?.count ?? 0),
+          amount: Number(data?.cards?.other_product?.amount ?? 0),
+        },
+        overall_revenue: Number(data?.cards?.overall_revenue ?? 0),
+        current_month_revenue: Number(data?.cards?.current_month_revenue ?? 0),
+        previous_month_revenue: Number(data?.cards?.previous_month_revenue ?? 0),
+        previous_to_previous_month_revenue: Number(data?.cards?.previous_to_previous_month_revenue ?? 0),
+      },
+      sale_type_category_counts: Array.isArray(data?.sale_type_category_counts)
+        ? data.sale_type_category_counts.map((row: any) => ({
+            category_id: Number(row?.category_id ?? 0),
+            category_name: String(row?.category_name ?? ""),
+            count: Number(row?.count ?? 0),
+            amount: row?.amount ?? 0,
+            sale_types: (() => {
+              const saleTypesRaw =
+                row?.sale_types ??
+                row?.saleTypes ??
+                row?.sale_types_breakdown ??
+                row?.saleTypeCategories;
+
+              const saleTypesArray: any[] = Array.isArray(saleTypesRaw)
+                ? saleTypesRaw
+                : saleTypesRaw && typeof saleTypesRaw === "object"
+                  ? Object.values(saleTypesRaw)
+                  : [];
+
+              return saleTypesArray.map((st: any) => ({
+                sale_type_id: Number(st?.sale_type_id ?? st?.saleTypeId ?? 0),
+                sale_type_name: String(st?.sale_type_name ?? st?.saleTypeName ?? ""),
+                count: Number(st?.count ?? 0),
+                amount: st?.amount ?? 0,
+              }));
+            })(),
+          }))
+        : [],
+      other_product_breakdown: Array.isArray(data?.other_product_breakdown)
+        ? data.other_product_breakdown.map((row: any) => ({
+            key: String(row?.key ?? ""),
+            name: String(row?.name ?? ""),
+            count: Number(row?.count ?? 0),
+            amount: row?.amount ?? 0,
+          }))
+        : [],
+      charts: {
+        line: Array.isArray(data?.charts?.line) ? data.charts.line : [],
+        bar: Array.isArray(data?.charts?.bar) ? data.charts.bar : [],
+      },
+    };
+  },
+
+  getSaleGraphReport: async (params: {
+    metric: "client" | "core_sale" | "core_product" | "other_product" | "overall_revenue";
+    managerId?: number;
+  }): Promise<SaleGraphReportResponse> => {
+    const { metric, managerId } = params;
+    const queryParams: Record<string, string> = { metric };
+    if (metric === "client" && managerId && managerId > 0) {
+      queryParams.managerId = String(managerId);
+    }
+
+    const res = await api.get("/api/reports/sale-graph-report", { params: queryParams });
+    const data = res.data?.data ?? res.data ?? {};
+    const series = Array.isArray(data?.series) ? data.series : [];
+
+    return {
+      filter: {
+        type: data?.filter?.type ?? "monthly",
+        start_date: data?.filter?.start_date ?? "",
+        end_date: data?.filter?.end_date ?? "",
+      },
+      metric: data?.metric ?? metric,
+      series: series.map((row: any) => ({
+        label: String(row?.label ?? ""),
+        current: {
+          count: Number(row?.current?.count ?? 0),
+          amount: Number(row?.current?.amount ?? 0),
+        },
+        previous: {
+          count: Number(row?.previous?.count ?? 0),
+          amount: Number(row?.previous?.amount ?? 0),
+        },
+        previous2: {
+          count: Number(row?.previous2?.count ?? 0),
+          amount: Number(row?.previous2?.amount ?? 0),
+        },
+      })),
+    };
+  },
+
   getSaleTypes: async (): Promise<Array<{ id: number; sale_type: string }>> => {
     try {
       const res = await api.get("/api/sale-types");
@@ -1229,6 +1429,38 @@ export const clientService = {
       console.error("Failed to fetch sale types", err);
       return [];
     }
+  },
+
+  /** Visa Category (sale-type-categories) CRUD */
+  getSaleTypeCategories: async (): Promise<Array<{ id: number; name: string; description?: string }>> => {
+    try {
+      const res = await api.get("/api/sale-type-categories");
+      const data = res.data?.data ?? res.data ?? [];
+      if (!Array.isArray(data)) return [];
+      return data.map((c: any) => ({
+        id: c.id ?? c.categoryId,
+        name: c.name ?? "",
+        description: c.description ?? "",
+      }));
+    } catch (err) {
+      console.error("Failed to fetch sale-type-categories", err);
+      return [];
+    }
+  },
+  createSaleTypeCategory: async (body: { name: string; description?: string }): Promise<any> => {
+    const res = await api.post("/api/sale-type-categories", body);
+    return res.data?.data ?? res.data;
+  },
+  getSaleTypeCategory: async (id: number): Promise<any> => {
+    const res = await api.get(`/api/sale-type-categories/${id}`);
+    return res.data?.data ?? res.data;
+  },
+  updateSaleTypeCategory: async (id: number, body: { name: string; description?: string }): Promise<any> => {
+    const res = await api.put(`/api/sale-type-categories/${id}`, body);
+    return res.data?.data ?? res.data;
+  },
+  deleteSaleTypeCategory: async (id: number): Promise<void> => {
+    await api.delete(`/api/sale-type-categories/${id}`);
   },
 
   // Dedicated counsellor report: GET /api/reports/counsellor/:id (or "me")

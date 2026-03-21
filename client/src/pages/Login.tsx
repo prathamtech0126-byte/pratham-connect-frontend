@@ -184,7 +184,7 @@ export default function Login() {
                         errorMessage = errorData.error;
                     }
 
-                    msg = `Server Error (500): ${errorMessage}. Please check backend logs.`;
+                    msg = `Server Error (500): ${errorMessage}. We’re having trouble connecting to the server. Please try again in a moment.`;
                     console.error("[Login] 500 Error Full Response:", {
                         status: error.response.status,
                         data: errorData,

@@ -62,6 +62,22 @@ export default function AdditionalInfo() {
     leadType?: string;
   }>({});
 
+  // Visa Category (sale-type-categories) state
+  const [visaCategories, setVisaCategories] = useState<any[]>([]);
+  const [isLoadingVisaCategories, setIsLoadingVisaCategories] = useState(false);
+  const [isSavingVisaCategory, setIsSavingVisaCategory] = useState(false);
+  const [isVisaCategoryDialogOpen, setIsVisaCategoryDialogOpen] = useState(false);
+  const [visaCategoryMode, setVisaCategoryMode] = useState<"add" | "edit">("add");
+  const [editingVisaCategoryId, setEditingVisaCategoryId] = useState<number | null>(null);
+  const [visaCategoryFormData, setVisaCategoryFormData] = useState({
+    name: "",
+    description: "",
+  });
+  const [visaCategoryFieldErrors, setVisaCategoryFieldErrors] = useState<{
+    name?: string;
+    description?: string;
+  }>({});
+
   // Client and counsellor data from API
   const [clients, setClients] = useState<any[]>([]);
   const [allCounsellors, setAllCounsellors] = useState<any[]>([]);
@@ -224,12 +240,14 @@ export default function AdditionalInfo() {
   const [formData, setFormData] = useState({
     saleType: "",
     amount: "",
+    categoryId: "",
     isCoreProduct: "No",
   });
 
   const [fieldErrors, setFieldErrors] = useState<{
     saleType?: string;
     amount?: string;
+    categoryId?: string;
     isCoreProduct?: string;
   }>({});
 
@@ -249,9 +267,23 @@ export default function AdditionalInfo() {
     }
   };
 
+  const fetchVisaCategories = async () => {
+    try {
+      setIsLoadingVisaCategories(true);
+      const data = await clientService.getSaleTypeCategories();
+      setVisaCategories(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to fetch visa categories", err);
+      setVisaCategories([]);
+    } finally {
+      setIsLoadingVisaCategories(false);
+    }
+  };
+
   useEffect(() => {
     fetchSaleTypes();
     fetchLeadTypes();
+    fetchVisaCategories();
   }, []);
 
   // Lead Types functions
@@ -369,12 +401,83 @@ export default function AdditionalInfo() {
     }
   };
 
+  // Visa Category (sale-type-categories) handlers
+  const openAddVisaCategoryDialog = () => {
+    setVisaCategoryMode("add");
+    setEditingVisaCategoryId(null);
+    setVisaCategoryFormData({ name: "", description: "" });
+    setVisaCategoryFieldErrors({});
+    setIsVisaCategoryDialogOpen(true);
+  };
+
+  const openEditVisaCategoryDialog = (item: any) => {
+    setVisaCategoryMode("edit");
+    const id = item.id ?? item.categoryId;
+    setEditingVisaCategoryId(id);
+    setVisaCategoryFormData({
+      name: item.name ?? "",
+      description: item.description ?? "",
+    });
+    setVisaCategoryFieldErrors({});
+    setIsVisaCategoryDialogOpen(true);
+  };
+
+  const handleSaveVisaCategory = async () => {
+    setVisaCategoryFieldErrors({});
+    if (!visaCategoryFormData.name.trim()) {
+      setVisaCategoryFieldErrors({ name: "Name is required" });
+      return;
+    }
+    try {
+      setIsSavingVisaCategory(true);
+      const payload = {
+        name: visaCategoryFormData.name.trim(),
+        description: visaCategoryFormData.description.trim() || undefined,
+      };
+      if (visaCategoryMode === "edit" && editingVisaCategoryId !== null) {
+        await clientService.updateSaleTypeCategory(editingVisaCategoryId, payload);
+        toast({ title: "Updated", description: "Visa category updated successfully" });
+      } else {
+        await clientService.createSaleTypeCategory(payload);
+        toast({ title: "Added", description: "Visa category added successfully" });
+      }
+      setIsVisaCategoryDialogOpen(false);
+      setEditingVisaCategoryId(null);
+      setVisaCategoryFormData({ name: "", description: "" });
+      fetchVisaCategories();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || "Save failed";
+      if (msg.toLowerCase().includes("name") || msg.toLowerCase().includes("already exists")) {
+        setVisaCategoryFieldErrors({ name: msg });
+      } else {
+        setVisaCategoryFieldErrors({ name: msg });
+      }
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setIsSavingVisaCategory(false);
+    }
+  };
+
+  const handleDeleteVisaCategory = async (id: number) => {
+    try {
+      await clientService.deleteSaleTypeCategory(id);
+      setVisaCategories((prev) => prev.filter((x) => (x.id ?? x.categoryId) !== id));
+      toast({ title: "Deleted", description: "Visa category removed" });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.response?.data?.message || "Delete failed",
+        variant: "destructive",
+      });
+    }
+  };
+
   /* ---------- Dialog Actions ---------- */
 
   const openAddDialog = () => {
     setMode("add");
     setEditingId(null);
-    setFormData({ saleType: "", amount: "", isCoreProduct: "No" });
+    setFormData({ saleType: "", amount: "", categoryId: "", isCoreProduct: "No" });
     setFieldErrors({});
     setIsDialogOpen(true);
   };
@@ -384,9 +487,16 @@ export default function AdditionalInfo() {
     // Only use 'id' as requested
     const id = item.id;
     setEditingId(id);
+    const byCategoryName = (() => {
+      const name = (item.categoryName ?? item.category?.name ?? "").toString().trim().toLowerCase();
+      if (!name) return "";
+      const match = visaCategories.find((c: any) => (c?.name ?? "").toString().trim().toLowerCase() === name);
+      return match?.id != null ? String(match.id) : "";
+    })();
     setFormData({
       saleType: item.saleType || "",
       amount: item.amount?.toString() || "",
+      categoryId: (item.categoryId ?? item.category?.id ?? item.category?.categoryId ?? byCategoryName ?? "").toString(),
       isCoreProduct: item.isCoreProduct === true || item.isCoreProduct === "true" ? "Yes" : "No",
     });
     setFieldErrors({});
@@ -401,12 +511,17 @@ export default function AdditionalInfo() {
       setFieldErrors({ saleType: "Sale type is required" });
       return;
     }
+    if (!formData.categoryId) {
+      setFieldErrors({ categoryId: "Category is required" });
+      return;
+    }
 
     try {
       setIsSaving(true);
       const payload = {
         saleType: formData.saleType,
         amount: formData.amount ? Number(formData.amount) : null,
+        categoryId: Number(formData.categoryId),
         isCoreProduct: formData.isCoreProduct === "Yes",
       };
 
@@ -419,7 +534,7 @@ export default function AdditionalInfo() {
           });
           setIsDialogOpen(false);
           setEditingId(null);
-          setFormData({ saleType: "", amount: "", isCoreProduct: "No" });
+          setFormData({ saleType: "", amount: "", categoryId: "", isCoreProduct: "No" });
           setFieldErrors({});
           fetchSaleTypes();
           return;
@@ -433,7 +548,7 @@ export default function AdditionalInfo() {
           });
           setIsDialogOpen(false);
           setEditingId(null);
-          setFormData({ saleType: "", amount: "", isCoreProduct: "No" });
+          setFormData({ saleType: "", amount: "", categoryId: "", isCoreProduct: "No" });
           setFieldErrors({});
           fetchSaleTypes();
           return;
@@ -447,6 +562,8 @@ export default function AdditionalInfo() {
           errorMessage.toLowerCase().includes("already exists") ||
           errorMessage.toLowerCase().includes("duplicate")) {
         setFieldErrors({ saleType: errorMessage });
+      } else if (errorMessage.toLowerCase().includes("category")) {
+        setFieldErrors({ categoryId: errorMessage });
       } else if (errorMessage.toLowerCase().includes("amount")) {
         setFieldErrors({ amount: errorMessage });
       } else if (errorMessage.toLowerCase().includes("core product")) {
@@ -503,6 +620,7 @@ export default function AdditionalInfo() {
             <TableHeader>
               <TableRow>
                 <TableHead>Sale Type</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead>Is Core Product</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -512,7 +630,7 @@ export default function AdditionalInfo() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center">
+                  <TableCell colSpan={5} className="text-center">
                     <Loader2 className="animate-spin mx-auto" />
                   </TableCell>
                 </TableRow>
@@ -520,6 +638,15 @@ export default function AdditionalInfo() {
                 saleTypes.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{item.saleType}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {(() => {
+                        if (item.categoryName) return item.categoryName;
+                        const cid = item.categoryId ?? item.category?.id ?? item.category?.categoryId;
+                        if (cid == null) return "—";
+                        const match = visaCategories.find((c: any) => Number(c.id) === Number(cid));
+                        return match?.name ?? `#${cid}`;
+                      })()}
+                    </TableCell>
                     <TableCell>{item.isCoreProduct ? "Yes" : "No"}</TableCell>
                     <TableCell>
                       {item.amount ? `₹${item.amount}` : "N/A"}
@@ -581,6 +708,40 @@ export default function AdditionalInfo() {
               />
               {fieldErrors.saleType && (
                 <p className="text-sm text-destructive mt-1">{fieldErrors.saleType}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={formData.categoryId}
+                onValueChange={(v) => {
+                  setFormData({ ...formData, categoryId: v });
+                  if (fieldErrors.categoryId) {
+                    setFieldErrors({ ...fieldErrors, categoryId: undefined });
+                  }
+                }}
+                disabled={isLoadingVisaCategories}
+              >
+                <SelectTrigger className={fieldErrors.categoryId ? "border-destructive" : ""}>
+                  <SelectValue placeholder={isLoadingVisaCategories ? "Loading categories..." : "Select category"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {visaCategories.length === 0 ? (
+                    <div className="p-2 text-sm text-center text-muted-foreground">
+                      No categories found
+                    </div>
+                  ) : (
+                    visaCategories.map((c: any) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              {fieldErrors.categoryId && (
+                <p className="text-sm text-destructive mt-1">{fieldErrors.categoryId}</p>
               )}
             </div>
 
@@ -753,6 +914,134 @@ export default function AdditionalInfo() {
             <Button onClick={handleSaveLeadType} disabled={isSavingLeadType}>
               {isSavingLeadType && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {leadTypeMode === "edit" ? "Update Lead Type" : "Add"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Visa Category Section (sale-type-categories API) */}
+      <Card className="mt-6">
+        <CardHeader className="flex flex-row justify-between items-center">
+          <div>
+            <CardTitle>Visa Category</CardTitle>
+            <CardDescription>Manage visa categories (e.g. Student, Spouse, Visitor)</CardDescription>
+          </div>
+          <Button size="sm" onClick={openAddVisaCategoryDialog}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Visa Category
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoadingVisaCategories ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center">
+                    <Loader2 className="animate-spin mx-auto" />
+                  </TableCell>
+                </TableRow>
+              ) : visaCategories.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                    No visa categories found. Click &quot;Add Visa Category&quot; to create one.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                visaCategories.map((item) => {
+                  const itemId = item.id ?? item.categoryId;
+                  return (
+                    <TableRow key={itemId}>
+                      <TableCell>{item.name}</TableCell>
+                      <TableCell className="text-muted-foreground max-w-[200px] truncate" title={item.description}>
+                        {item.description || "—"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditVisaCategoryDialog(item)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive"
+                          onClick={() => handleDeleteVisaCategory(itemId)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Visa Category Dialog */}
+      <Dialog open={isVisaCategoryDialogOpen} onOpenChange={setIsVisaCategoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {visaCategoryMode === "edit" ? "Update Visa Category" : "Add Visa Category"}
+            </DialogTitle>
+            <DialogDescription>
+              {visaCategoryMode === "edit"
+                ? "Update name and description"
+                : "Create a new visa category (e.g. Student visa / study)"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="visaCategoryName">Name</Label>
+              <Input
+                id="visaCategoryName"
+                placeholder="e.g. student"
+                value={visaCategoryFormData.name}
+                onChange={(e) => {
+                  setVisaCategoryFormData({ ...visaCategoryFormData, name: e.target.value });
+                  if (visaCategoryFieldErrors.name) setVisaCategoryFieldErrors({ ...visaCategoryFieldErrors, name: undefined });
+                }}
+                className={visaCategoryFieldErrors.name ? "border-destructive" : ""}
+              />
+              {visaCategoryFieldErrors.name && (
+                <p className="text-sm text-destructive mt-1">{visaCategoryFieldErrors.name}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="visaCategoryDesc">Description</Label>
+              <Input
+                id="visaCategoryDesc"
+                placeholder="e.g. Student visa / study"
+                value={visaCategoryFormData.description}
+                onChange={(e) => {
+                  setVisaCategoryFormData({ ...visaCategoryFormData, description: e.target.value });
+                  if (visaCategoryFieldErrors.description) setVisaCategoryFieldErrors({ ...visaCategoryFieldErrors, description: undefined });
+                }}
+                className={visaCategoryFieldErrors.description ? "border-destructive" : ""}
+              />
+              {visaCategoryFieldErrors.description && (
+                <p className="text-sm text-destructive mt-1">{visaCategoryFieldErrors.description}</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsVisaCategoryDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveVisaCategory} disabled={isSavingVisaCategory}>
+              {isSavingVisaCategory && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {visaCategoryMode === "edit" ? "Update Visa Category" : "Add"}
             </Button>
           </DialogFooter>
         </DialogContent>
