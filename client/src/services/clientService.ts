@@ -1378,11 +1378,24 @@ export const clientService = {
   getSaleGraphReport: async (params: {
     metric: "client" | "core_sale" | "core_product" | "other_product" | "overall_revenue";
     managerId?: number;
+    /** Same period as sale-dashboard (Overall Report filter). Backend should scope the series to this range. */
+    filter?: "today" | "weekly" | "monthly" | "yearly" | "custom";
+    startDate?: string;
+    endDate?: string;
   }): Promise<SaleGraphReportResponse> => {
-    const { metric, managerId } = params;
+    const { metric, managerId, filter, startDate, endDate } = params;
     const queryParams: Record<string, string> = { metric };
     if (metric === "client" && managerId && managerId > 0) {
       queryParams.managerId = String(managerId);
+    }
+    if (filter) {
+      queryParams.filter = filter;
+      if (filter === "custom" && startDate && endDate) {
+        queryParams.startDate = startDate;
+        queryParams.endDate = endDate;
+        queryParams.beforeDate = startDate;
+        queryParams.afterDate = endDate;
+      }
     }
 
     const res = await api.get("/api/reports/sale-graph-report", { params: queryParams });

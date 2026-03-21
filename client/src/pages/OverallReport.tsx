@@ -174,10 +174,19 @@ export default function OverallReport() {
   const revenueLabels = getRevenueCardLabels(periodTab);
 
   const { data: graphData } = useQuery({
-    queryKey: ["sale-graph-report", trendSeries],
+    queryKey: [
+      "sale-graph-report",
+      trendSeries,
+      apiFilter,
+      apiFilter === "custom" ? startDate : null,
+      apiFilter === "custom" ? endDate : null,
+    ],
     queryFn: async () => {
       const resp = await clientService.getSaleGraphReport({
         metric: trendSeries,
+        filter: apiFilter,
+        startDate: apiFilter === "custom" ? startDate : undefined,
+        endDate: apiFilter === "custom" ? endDate : undefined,
       });
 
       const useCount = trendSeries === "client";
@@ -524,7 +533,9 @@ export default function OverallReport() {
                     <div className="h-8 w-1 rounded-full bg-primary shrink-0 mt-0.5" aria-hidden />
                     <div>
                     <CardTitle className="text-sm font-semibold">Trends</CardTitle>
-                    <CardDescription className="text-xs">Three-month line chart — pick a metric below</CardDescription>
+                    <CardDescription className="text-xs">
+                      {`Same period as the filter (${format(filterStart, "dd MMM")}–${format(filterEnd, "dd MMM yyyy")}). Pick a metric in the dropdown.`}
+                    </CardDescription>
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
                         <span className="h-2.5 w-2.5 rounded-full bg-[#6366f1]" />
