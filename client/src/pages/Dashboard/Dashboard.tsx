@@ -1826,7 +1826,7 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setLocation("/counsellor-leaderboard")}
-                  className="text-left transition-colors hover:text-primary hover:underline"
+                  className="text-left cursor-pointer transition-colors hover:text-primary"
                 >
                   {canViewFinancials ? "Performance Leaderboard" : "Counselor Leaderboard"}
                 </button>
@@ -1889,9 +1889,14 @@ export default function Dashboard() {
                             <p className={`text-sm font-semibold truncate ${isHighlighted ? "text-primary" : "text-foreground"}`}>
                               {counselor.name} {isHighlighted && "(You)"}
                             </p>
-                            <p className="text-xs text-muted-foreground">Target: {counselor.target}</p>
-                            <div className="mt-2 max-w-[220px]">
-                              <Progress value={rowProgress} className="h-2 bg-muted" />
+                            <div className="mt-1 space-y-1.5">
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="text-muted-foreground">Target: {counselor.target}</span>
+                                <span className={`font-semibold shrink-0 ${rowProgress >= 100 ? "text-green-600" : "text-muted-foreground"}`}>
+                                  {rowProgress.toFixed(1)}%
+                                </span>
+                              </div>
+                              <Progress value={rowProgress} className="h-2" />
                             </div>
                           </div>
                         </div>
