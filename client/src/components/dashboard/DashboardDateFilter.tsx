@@ -67,6 +67,8 @@ interface DashboardDateFilterProps {
   className?: string;
   placeholder?: string;
   align?: "center" | "start" | "end";
+  showCustom?: boolean;
+  showYearly?: boolean;
 }
 
 export function DashboardDateFilter({
@@ -77,6 +79,8 @@ export function DashboardDateFilter({
   className,
   placeholder = "Filter",
   align = "end",
+  showCustom = true,
+  showYearly = true,
 }: DashboardDateFilterProps) {
   const [internalTab, setInternalTab] = React.useState<string>("Custom");
   const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
@@ -160,7 +164,9 @@ export function DashboardDateFilter({
 
   return (
     <div className={cn("flex items-center bg-muted/50 p-1 rounded-lg border border-border/50", className)}>
-      {(["Today", "Weekly", "Monthly", "Yearly"] as const).map((tab) => (
+      {(["Today", "Weekly", "Monthly", "Yearly"] as const)
+        .filter((tab) => (showYearly ? true : tab !== "Yearly"))
+        .map((tab) => (
         <button
           key={tab}
           onClick={() => handleTabClick(tab)}
@@ -175,69 +181,71 @@ export function DashboardDateFilter({
         </button>
       ))}
 
-      <Popover open={isOpen} onOpenChange={_setIsOpen}>
-        <PopoverTrigger asChild>
-          <button
-            onClick={handleCustomClick}
-            className={cn(
-              "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
-              activeTab === "Custom"
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            )}
-          >
-            {getCustomButtonText()} <CalendarIcon className={cn("h-3.5 w-3.5", activeTab === "Custom" ? "text-primary-foreground" : "text-muted-foreground")} />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80 p-0" align={align}>
-          <div className="p-4 space-y-4 bg-card rounded-lg shadow-lg border border-border">
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-primary">From</label>
-                <div className="relative">
-                    <DateInput
-                        value={startDate}
-                        onChange={setStartDate}
-                        placeholder="Select start date"
-                        className="border-primary ring-1 ring-primary bg-background text-foreground placeholder:text-muted-foreground"
-                    />
+      {showCustom && (
+        <Popover open={isOpen} onOpenChange={_setIsOpen}>
+          <PopoverTrigger asChild>
+            <button
+              onClick={handleCustomClick}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-2",
+                activeTab === "Custom"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              {getCustomButtonText()} <CalendarIcon className={cn("h-3.5 w-3.5", activeTab === "Custom" ? "text-primary-foreground" : "text-muted-foreground")} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align={align}>
+            <div className="p-4 space-y-4 bg-card rounded-lg shadow-lg border border-border">
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-primary">From</label>
+                  <div className="relative">
+                      <DateInput
+                          value={startDate}
+                          onChange={setStartDate}
+                          placeholder="Select start date"
+                          className="border-primary ring-1 ring-primary bg-background text-foreground placeholder:text-muted-foreground"
+                      />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">To</label>
+                  <div className="relative">
+                      <DateInput
+                          value={endDate}
+                          onChange={setEndDate}
+
+                          placeholder="Select end date"
+                          className="bg-background text-foreground placeholder:text-muted-foreground"
+                      />
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">To</label>
-                <div className="relative">
-                    <DateInput
-                        value={endDate}
-                        onChange={setEndDate}
-
-                        placeholder="Select end date"
-                        className="bg-background text-foreground placeholder:text-muted-foreground"
-                    />
-                </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-border mt-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCancelCustom}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleApplyCustom}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  Apply
+                </Button>
               </div>
             </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-border mt-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCancelCustom}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleApplyCustom}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                Apply
-              </Button>
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   );
 }

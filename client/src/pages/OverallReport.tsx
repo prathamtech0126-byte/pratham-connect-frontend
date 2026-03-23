@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ import {
   ReferenceDot,
 } from "recharts";
 import { StatCard } from "@/components/cards/StatCard";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type FilterTab = "Today" | "Weekly" | "Monthly" | "Yearly" | "Custom";
 const TAB_TO_API_FILTER: Record<FilterTab, "today" | "weekly" | "monthly" | "yearly" | "custom"> = {
@@ -118,6 +119,68 @@ function getRevenueCardLabels(periodTab: FilterTab) {
   }
 }
 
+function OverallReportSkeleton() {
+  return (
+    <div className="grid gap-6">
+      <Card className="border-border/60 rounded-xl bg-muted/30 shadow-sm">
+        <CardHeader className="pb-2 border-b border-border/50">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-3 w-64 mt-2 max-w-full" />
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Skeleton className="h-[7.5rem] w-full rounded-xl" />
+            <Skeleton className="h-[7.5rem] w-full rounded-xl" />
+            <Skeleton className="h-[7.5rem] w-full rounded-xl sm:col-span-2 lg:col-span-1" />
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="border-border/60 rounded-xl bg-muted/30 shadow-sm">
+        <CardHeader className="pb-2 border-b border-border/50">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3 w-72 mt-2 max-w-full" />
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <Skeleton className="h-36 w-full rounded-xl" />
+              <Skeleton className="h-36 w-full rounded-xl" />
+              <Skeleton className="h-36 w-full rounded-xl" />
+            </div>
+            <Skeleton className="h-48 w-full rounded-xl lg:min-h-[12rem]" />
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="border-border/60 rounded-xl bg-muted/30 shadow-sm">
+        <CardHeader className="pb-2 border-b border-border/50">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-3 w-56 mt-2 max-w-full" />
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Skeleton className="h-[7.5rem] w-full rounded-xl" />
+            <Skeleton className="h-[7.5rem] w-full rounded-xl" />
+            <Skeleton className="h-[7.5rem] w-full rounded-xl" />
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="border-border/60 rounded-xl bg-muted/30 shadow-sm w-full">
+        <CardHeader className="pb-2 border-b border-border/50 flex flex-col sm:flex-row gap-3 justify-between">
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-3 w-full max-w-md" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+          <Skeleton className="h-10 w-full sm:w-[260px] rounded-md" />
+        </CardHeader>
+        <CardContent className="pt-4">
+          <Skeleton className="w-full min-h-[380px] h-[42vh] rounded-lg" />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function OverallReport() {
   const [periodTab, setPeriodTab] = useState<FilterTab>("Monthly");
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([
@@ -156,7 +219,7 @@ export default function OverallReport() {
   const startDate = toYMD(filterStart);
   const endDate = toYMD(filterEnd);
 
-  const { data, isLoading } = useQuery({
+  const { data, isPending, isFetching } = useQuery({
     queryKey: ["sale-dashboard", apiFilter, apiFilter === "custom" ? startDate : null, apiFilter === "custom" ? endDate : null],
     queryFn: () =>
       clientService.getSaleDashboard({
@@ -164,6 +227,7 @@ export default function OverallReport() {
         startDate: apiFilter === "custom" ? startDate : undefined,
         endDate: apiFilter === "custom" ? endDate : undefined,
       }),
+    placeholderData: keepPreviousData,
   });
 
   const cards = data?.cards;
@@ -173,7 +237,7 @@ export default function OverallReport() {
 
   const revenueLabels = getRevenueCardLabels(periodTab);
 
-  const { data: graphData } = useQuery({
+  const { data: graphData, isPending: isGraphPending } = useQuery({
     queryKey: [
       "sale-graph-report",
       trendSeries,
@@ -199,6 +263,7 @@ export default function OverallReport() {
         }))
         .sort((a, b) => Number(a.name) - Number(b.name));
     },
+    placeholderData: keepPreviousData,
   });
 
   const trendChartData: Array<any> = graphData && graphData.length > 0 ? graphData : lineChartData;
@@ -352,12 +417,16 @@ export default function OverallReport() {
           </CardContent>
         </Card>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-14">
-            <Loader2 className="h-7 w-7 animate-spin text-primary" />
-          </div>
+        {isPending ? (
+          <OverallReportSkeleton />
         ) : (
           <>
+            <div
+              className={cn(
+                "grid gap-6 transition-opacity",
+                isFetching && !isPending && "opacity-80",
+              )}
+            >
             <Card className="border-border/60 rounded-xl bg-muted/30 shadow-sm">
               <CardHeader className="pb-2 flex flex-row items-center gap-2 border-b border-border/50">
                 <div className="h-8 w-1 rounded-full bg-primary shrink-0" aria-hidden />
@@ -532,7 +601,12 @@ export default function OverallReport() {
                   <div className="flex flex-row items-start gap-2 min-w-0">
                     <div className="h-8 w-1 rounded-full bg-primary shrink-0 mt-0.5" aria-hidden />
                     <div>
-                    <CardTitle className="text-sm font-semibold">Trends</CardTitle>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-sm font-semibold">Trends</CardTitle>
+                      {isGraphPending && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" aria-label="Loading chart data" />
+                      )}
+                    </div>
                     <CardDescription className="text-xs">
                       {`Same period as the filter (${format(filterStart, "dd MMM")}–${format(filterEnd, "dd MMM yyyy")}). Pick a metric in the dropdown.`}
                     </CardDescription>
@@ -592,6 +666,7 @@ export default function OverallReport() {
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
+            </div>
           </>
         )}
       </div>

@@ -1370,6 +1370,8 @@ export default function Dashboard() {
             onDateChange={setCustomDateRange}
             activeTab={timeFilter === 'today' ? 'Today' : timeFilter === 'weekly' ? 'Weekly' : timeFilter === 'monthly' ? 'Monthly' : timeFilter === 'yearly' ? 'Yearly' : timeFilter === 'custom' ? 'Custom' : 'Today'}
             onTabChange={(tab) => setTimeFilter(tab === 'Today' ? 'today' : tab === 'Custom' ? 'custom' : tab.toLowerCase())}
+            showCustom={!isCounsellor}
+            showYearly={!isCounsellor}
             align="end"
           />
         </div>
