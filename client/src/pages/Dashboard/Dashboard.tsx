@@ -1822,7 +1822,17 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <Trophy className="w-5 h-5 text-yellow-500" />
-              {canViewFinancials ? "Performance Leaderboard" : "Counselor Leaderboard"}
+              {user?.role === "manager" || user?.role === "superadmin" || user?.role === "director" ? (
+                <button
+                  type="button"
+                  onClick={() => setLocation("/counsellor-leaderboard")}
+                  className="text-left transition-colors hover:text-primary hover:underline"
+                >
+                  {canViewFinancials ? "Performance Leaderboard" : "Counselor Leaderboard"}
+                </button>
+              ) : (
+                <span>{canViewFinancials ? "Performance Leaderboard" : "Counselor Leaderboard"}</span>
+              )}
             </CardTitle>
             <CardDescription>Top performing {canViewFinancials ? "team members" : "counselors"} this month</CardDescription>
           </CardHeader>
@@ -1852,6 +1862,9 @@ export default function Dashboard() {
                     // Highlight if the logged-in user is this counsellor (regardless of role)
                     const isHighlighted = counselor.isCurrentUser;
                     const counsellorId = (counselor as any).counsellorId;
+                    const targetValue = Number(counselor.target) || 0;
+                    const achievedValue = Number(counselor.achieved) || 0;
+                    const rowProgress = targetValue > 0 ? Math.min((achievedValue / targetValue) * 100, 100) : 0;
                     // Only admin/manager can open individual counsellor report; counsellor dashboard is display-only
                     const canOpenReport = canViewFinancials && counsellorId != null;
                     const reportHref = canOpenReport ? `/reports/counsellor/${counsellorId}` : null;
@@ -1872,11 +1885,14 @@ export default function Dashboard() {
                               {index === 0 ? <Medal className="w-3 h-3" /> : index + 1}
                             </div>
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className={`text-sm font-semibold truncate ${isHighlighted ? "text-primary" : "text-foreground"}`}>
                               {counselor.name} {isHighlighted && "(You)"}
                             </p>
                             <p className="text-xs text-muted-foreground">Target: {counselor.target}</p>
+                            <div className="mt-2 max-w-[220px]">
+                              <Progress value={rowProgress} className="h-2 bg-muted" />
+                            </div>
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">
