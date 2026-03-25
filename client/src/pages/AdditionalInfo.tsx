@@ -89,6 +89,7 @@ export default function AdditionalInfo() {
   const [selectedClients, setSelectedClients] = useState<Array<{ id: number; client: any }>>([]);
   const [selectedCounsellorId, setSelectedCounsellorId] = useState<number | null>(null);
   const [selectedCounsellor, setSelectedCounsellor] = useState<any | null>(null);
+  const [transferType, setTransferType] = useState<"full_transfer" | "owner_only_transfer_flag" | "">("");
   const [clientSearchInput, setClientSearchInput] = useState("");
   const [counsellorSearchInput, setCounsellorSearchInput] = useState("");
   const [showClientList, setShowClientList] = useState(false);
@@ -177,6 +178,14 @@ export default function AdditionalInfo() {
       });
       return;
     }
+    if (!transferType) {
+      toast({
+        title: "Error",
+        description: "Please select a transfer type",
+        variant: "destructive",
+      });
+      return;
+    }
 
     // Single client: check if already assigned to this counsellor
     if (selectedClients.length === 1) {
@@ -196,7 +205,7 @@ export default function AdditionalInfo() {
       setIsTransferring(true);
       const ids = selectedClients.map((c) => c.id);
       const payload = ids.length === 1 ? ids[0] : ids;
-      await clientService.transferClient(payload, selectedCounsellorId);
+      await clientService.transferClient(payload, selectedCounsellorId, transferType);
 
       const newCounsellorName = selectedCounsellor.fullName || selectedCounsellor.name || selectedCounsellor.fullname || "Unknown";
 
@@ -217,6 +226,7 @@ export default function AdditionalInfo() {
       setSelectedClients([]);
       setSelectedCounsellorId(null);
       setSelectedCounsellor(null);
+      setTransferType("");
       setClientSearchInput("");
       setCounsellorSearchInput("");
       setShowClientList(false);
@@ -1050,7 +1060,7 @@ export default function AdditionalInfo() {
       <Card className="mt-6">
         <CardHeader>
           <div>
-            <CardTitle>Client Transfer</CardTitle>
+            <CardTitle>Transfer Client</CardTitle>
             <CardDescription>
               Transfer individual clients to another counsellor
             </CardDescription>
@@ -1058,7 +1068,7 @@ export default function AdditionalInfo() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Transfer Form */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
             {/* Client Search - multi-select with checkboxes; selected shown as chips with cancel */}
             <div className="space-y-2 relative w-full min-w-0" ref={clientDropdownRef}>
               <Label>Select Client(s)</Label>
@@ -1218,10 +1228,26 @@ export default function AdditionalInfo() {
               )}
             </div>
 
+            <div className="space-y-2">
+              <Label>Transfer Type</Label>
+              <Select
+                value={transferType}
+                onValueChange={(v) => setTransferType(v as "full_transfer" | "owner_only_transfer_flag")}
+              >
+                <SelectTrigger data-testid="select-transfer-type">
+                  <SelectValue placeholder="Select transfer type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full_transfer">Change Ownership</SelectItem>
+                  <SelectItem value="owner_only_transfer_flag">Shared Owneship</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <Button
               onClick={handleTransferClient}
               data-testid="button-transfer"
-              disabled={isTransferring || selectedClients.length === 0 || !selectedCounsellorId}
+              disabled={isTransferring || selectedClients.length === 0 || !selectedCounsellorId || !transferType}
             >
               {isTransferring && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Transfer

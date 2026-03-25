@@ -334,8 +334,22 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       )}
                     >
                       <List className="w-4 h-4" />
-                      <span className="truncate">All Clients</span>
+                      <span className="truncate">Counsellor-wise Clients</span>
                     </Link>
+                    {user && ["superadmin", "manager", "director"].includes(user.role) && (
+                      <Link
+                        href="/clients/all-counsellor-clients"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                          location === "/clients/all-counsellor-clients"
+                            ? "border-primary text-primary font-medium bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                        )}
+                      >
+                        <Users className="w-4 h-4" />
+                        <span className="truncate">All Clients</span>
+                      </Link>
+                    )}
                     {user && ["superadmin", "manager", "counsellor"].includes(user.role) && (
                       <Link
                         href="/clients/new"

@@ -318,12 +318,22 @@ const renderProductDetails = (product: any) => {
 
     case 'ALL_FINANCE_EMPLOYEMENT':
     case 'ALL_FINANCE_EMPLOYMENT':
+      const financeInstallments = [
+        { label: "2nd Payment", amount: entity.anotherPaymentAmount, date: entity.anotherPaymentDate },
+        { label: "3rd Payment", amount: entity.anotherPaymentAmount2, date: entity.anotherPaymentDate2 },
+      ];
       return (
         <div className="space-y-2 text-sm">
           {entity.financeId && (
             <div className="flex justify-between">
               <span className="text-gray-500">Finance Id:</span>
               <span className="font-semibold">{entity.financeId}</span>
+            </div>
+          )}
+          {entity.totalAmount !== undefined && entity.totalAmount !== null && (
+            <div className="flex justify-between">
+              <span className="text-gray-500">Total Payment:</span>
+              <span className="font-semibold">₹{Number(entity.totalAmount).toLocaleString()}</span>
             </div>
           )}
           {entity.amount && (
@@ -356,18 +366,29 @@ const renderProductDetails = (product: any) => {
               <span className="font-semibold capitalize">{entity.approvalStatus}</span>
             </div>
           )}
-          {entity.anotherPaymentAmount !== undefined && entity.anotherPaymentAmount !== null && (
-            <div className="flex justify-between">
-              <span className="text-gray-500">Another Payment Amount:</span>
-              <span className="font-semibold">₹{Number(entity.anotherPaymentAmount).toLocaleString()}</span>
-            </div>
-          )}
-          {entity.anotherPaymentDate && (
-            <div className="flex justify-between">
-              <span className="text-gray-500">Another Payment Date:</span>
-              <span className="font-semibold">{formatDateLocal(entity.anotherPaymentDate)}</span>
-            </div>
-          )}
+          {financeInstallments.map((row) => {
+            const amountNum = Number(row.amount ?? 0);
+            const hasAmount = row.amount !== undefined && row.amount !== null && !Number.isNaN(amountNum) && amountNum > 0;
+            const hasDate = !!row.date;
+            if (!hasAmount && !hasDate) return null;
+
+            return (
+              <div key={row.label} className="space-y-2">
+                {hasAmount && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{row.label} Amount:</span>
+                    <span className="font-semibold">₹{amountNum.toLocaleString()}</span>
+                  </div>
+                )}
+                {hasDate && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{row.label} Date:</span>
+                    <span className="font-semibold">{formatDateLocal(row.date)}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {entity.remarks && (
             <div className="flex flex-col mt-1">
               <span className="text-gray-500 mb-1">Remarks:</span>
@@ -587,6 +608,13 @@ export default function ClientView() {
   const clientEnrollmentDate = clientData.enrollmentDate || client.enrollmentDate;
   const clientArchived = clientData.archived !== undefined ? clientData.archived : client.archived;
 
+  // Show "Duplicate Client" badge when client was transferred/duplicated to another counsellor
+  const isDuplicateClient =
+    clientData.transferStatus === true ||
+    clientData.transferedToCounsellorId != null ||
+    clientData.transferredToCounsellorId != null ||
+    (clientData as any).transferedToCounsellor_id != null;
+
   // Get saleType from multiple sources: direct property, or from payments array
   const getClientSaleType = () => {
     // First try direct property
@@ -647,6 +675,14 @@ export default function ClientView() {
                     <Badge className={clientArchived ? "bg-gray-100 text-gray-600" : "bg-emerald-100 text-emerald-700"}>
                       {clientArchived ? "Archived" : "Active"}
                     </Badge>
+                    {isDuplicateClient && (
+                      <Badge
+                        variant="secondary"
+                        className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
+                      >
+                        Duplicate Client
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>
@@ -799,8 +835,34 @@ export default function ClientView() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {client.productPayments && client.productPayments.length > 0 ? (
                       client.productPayments.map((prod: any, idx: number) => {
-                        // Get amount from entity.amount (where actual amount is stored) or fallback to prod.amount
-                        const productAmount = prod.entity?.amount || prod.amount || 0;
+                        const isAllFinance =
+                          prod.productName === "ALL_FINANCE_EMPLOYEMENT" ||
+                          prod.productName === "ALL_FINANCE_EMPLOYMENT";
+
+                        // For All Finance, show total paid (sum of installments) instead of only first amount.
+                        const paidAmountForAllFinance = isAllFinance
+                          ? [
+                            prod.entity?.amount,
+                            prod.entity?.anotherPaymentAmount,
+                            prod.entity?.anotherPaymentAmount2,
+                          ].reduce((sum: number, value: unknown) => {
+                            const n = Number(value ?? 0);
+                            return sum + (Number.isNaN(n) ? 0 : n);
+                          }, 0)
+                          : 0;
+
+                        const totalAmountForAllFinance = isAllFinance
+                          ? Number(prod.entity?.totalAmount ?? 0)
+                          : 0;
+
+                        const pendingAmountForAllFinance = isAllFinance
+                          ? Math.max(0, totalAmountForAllFinance - paidAmountForAllFinance)
+                          : 0;
+
+                        // Default amount display for non-finance products
+                        const productAmount = isAllFinance
+                          ? paidAmountForAllFinance
+                          : Number(prod.entity?.amount ?? prod.amount ?? 0);
                         const isExpanded = expandedProducts.has(idx);
                         const hasDetails = prod.entity || prod.entityType === 'master_only';
 
@@ -829,9 +891,25 @@ export default function ClientView() {
                                   </button>
                                 )}
                               </div>
-                              <span className="font-black text-lg text-[#1A2B3B]">
-                                ₹{Number(productAmount).toLocaleString()}
-                              </span>
+                              {isAllFinance ? (
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="font-black text-lg text-[#1A2B3B]">
+                                    ₹{Number(productAmount).toLocaleString()}
+                                  </span>
+                                  <div className="text-right">
+                                    <p className="text-[10px] text-gray-400 uppercase font-black tracking-wider">
+                                      Pending
+                                    </p>
+                                    <p className="font-black text-sm text-orange-700">
+                                      ₹{pendingAmountForAllFinance.toLocaleString()}
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="font-black text-lg text-[#1A2B3B]">
+                                  ₹{Number(productAmount).toLocaleString()}
+                                </span>
+                              )}
                             </div>
 
                             {/* Expandable Details Section */}

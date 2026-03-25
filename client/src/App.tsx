@@ -19,6 +19,7 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 const Dashboard = lazy(() => import("@/pages/Dashboard/Dashboard"));
 const ClientList = lazy(() => import("@/pages/Clients/ClientList"));
 const CounsellorClientsPage = lazy(() => import("@/pages/Clients/CounsellorClientsPage"));
+const AllCounsellorClientsPage = lazy(() => import("@/pages/Clients/AllCounsellorClientsPage"));
 const ClientForm = lazy(() => import("@/pages/Clients/ClientForm"));
 const ClientDetails = lazy(() => import("@/pages/Clients/ClientDetails"));
 const ClientView = lazy(() => import("@/pages/Clients/ClientView"));
@@ -138,6 +139,9 @@ function Router() {
         {/* Client Routes */}
         <Route path="/clients">
           {params => <ProtectedRoute component={ClientList} />}
+        </Route>
+        <Route path="/clients/all-counsellor-clients">
+          {params => <ProtectedRoute component={AllCounsellorClientsPage} />}
         </Route>
         <Route path="/clients/counsellor/:counsellorId">
           {params => <ProtectedRoute component={CounsellorClientsPage} params={params} />}

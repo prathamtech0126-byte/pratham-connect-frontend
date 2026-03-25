@@ -11,6 +11,13 @@ export interface Client {
   status: 'Active' | 'Completed' | 'Pending' | 'Dropped';
   stage?: 'Initial' | 'Financial' | 'Before Visa' | 'After Visa' | 'After Visa Payment' | 'Submitted Visa' | 'Visa Submitted';
 
+  // Transfer (used for showing "Transferred" badge in client lists)
+  transferStatus?: boolean;
+  transferedToCounsellorId?: number | null;
+  transferredToCounsellorId?: number | null;
+  transferedToCounsellor_id?: number | null;
+  isTransferred?: boolean;
+
   // Finance
   totalPayment: number;
   amountReceived: number;
@@ -1099,18 +1106,19 @@ export const clientService = {
   },
 
   // Transfer one or multiple clients to another counsellor
-  // Single: { clientId, counsellorId }, Multiple: { clientIds, counsellorId }
+  // Single: { clientId, counsellorId, transferType }, Multiple: { clientIds, counsellorId, transferType }
   transferClient: async (
     clientIdOrIds: number | number[],
-    counsellorId: number
+    counsellorId: number,
+    transferType: "full_transfer" | "owner_only_transfer_flag"
   ): Promise<any> => {
     try {
       const body =
         Array.isArray(clientIdOrIds) && clientIdOrIds.length > 0
-          ? { clientIds: clientIdOrIds, counsellorId }
+          ? { clientIds: clientIdOrIds, counsellorId, transferType }
           : Array.isArray(clientIdOrIds) && clientIdOrIds.length === 0
             ? undefined
-            : { clientId: clientIdOrIds as number, counsellorId };
+            : { clientId: clientIdOrIds as number, counsellorId, transferType };
       if (!body) {
         throw new Error("At least one client is required");
       }
@@ -1668,6 +1676,18 @@ export const clientService = {
   },
 
   // All Finance Approval APIs
+  // All finance history (Admin/Manager — backend enforces role)
+  getAllFinanceHistory: async (): Promise<any[]> => {
+    try {
+      const res = await api.get("/api/all-finance/history");
+      const list = res.data?.data ?? res.data ?? [];
+      return Array.isArray(list) ? list : [];
+    } catch (err: any) {
+      console.error("[clientService] Failed to fetch all finance history", err);
+      return [];
+    }
+  },
+
   // Get pending all finance approvals (Admin/Manager only)
   getPendingAllFinanceApprovals: async (): Promise<any[]> => {
     try {

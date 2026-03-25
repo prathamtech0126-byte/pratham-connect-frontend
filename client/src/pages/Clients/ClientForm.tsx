@@ -47,9 +47,18 @@ const financialEntrySchema = z.object({
   date: z.string().optional(),
   invoiceNo: z.string().optional(),
   remarks: z.string().optional(),
-  // All Finance & Employment: second payment fields
+  // All Finance & Employment: total + 2nd-6th installment fields
+  totalAmount: z.number().min(0).optional(),
   anotherPaymentAmount: z.number().min(0).optional(),
   anotherPaymentDate: z.string().optional(),
+  anotherPaymentAmount2: z.number().min(0).optional(),
+  anotherPaymentDate2: z.string().optional(),
+  anotherPaymentAmount3: z.number().min(0).optional(),
+  anotherPaymentDate3: z.string().optional(),
+  anotherPaymentAmount4: z.number().min(0).optional(),
+  anotherPaymentDate4: z.string().optional(),
+  anotherPaymentAmount5: z.number().min(0).optional(),
+  anotherPaymentDate5: z.string().optional(),
 });
 
 const insuranceSchema = z.object({
@@ -397,6 +406,25 @@ function NewServiceSection({
 }
 
 export default function ClientForm() {
+  const buildAllFinanceEntityData = (fieldData: any, partialPaymentFlag: boolean) => ({
+    amount: fieldData.amount,
+    paymentDate: fieldData.date || fieldData.paymentDate || new Date().toISOString().split("T")[0],
+    invoiceNo: fieldData.invoiceNo || "",
+    remarks: fieldData.remarks || "",
+    partialPayment: partialPaymentFlag,
+    totalAmount: fieldData.totalAmount != null && fieldData.totalAmount !== "" ? String(fieldData.totalAmount) : undefined,
+    anotherPaymentAmount: fieldData.anotherPaymentAmount != null && fieldData.anotherPaymentAmount !== "" ? String(fieldData.anotherPaymentAmount) : undefined,
+    anotherPaymentDate: fieldData.anotherPaymentDate || undefined,
+    anotherPaymentAmount2: fieldData.anotherPaymentAmount2 != null && fieldData.anotherPaymentAmount2 !== "" ? String(fieldData.anotherPaymentAmount2) : undefined,
+    anotherPaymentDate2: fieldData.anotherPaymentDate2 || undefined,
+    anotherPaymentAmount3: fieldData.anotherPaymentAmount3 != null && fieldData.anotherPaymentAmount3 !== "" ? String(fieldData.anotherPaymentAmount3) : undefined,
+    anotherPaymentDate3: fieldData.anotherPaymentDate3 || undefined,
+    anotherPaymentAmount4: fieldData.anotherPaymentAmount4 != null && fieldData.anotherPaymentAmount4 !== "" ? String(fieldData.anotherPaymentAmount4) : undefined,
+    anotherPaymentDate4: fieldData.anotherPaymentDate4 || undefined,
+    anotherPaymentAmount5: fieldData.anotherPaymentAmount5 != null && fieldData.anotherPaymentAmount5 !== "" ? String(fieldData.anotherPaymentAmount5) : undefined,
+    anotherPaymentDate5: fieldData.anotherPaymentDate5 || undefined,
+  });
+
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -1054,8 +1082,17 @@ export default function ClientForm() {
             date: pp.paymentDate || entity.paymentDate || "",
             invoiceNo: pp.invoiceNo || entity.invoiceNo || "",
             remarks: pp.remarks || entity.remarks || "",
+            totalAmount: entity.totalAmount != null ? Number(entity.totalAmount) : 0,
             anotherPaymentAmount: entity.anotherPaymentAmount != null ? Number(entity.anotherPaymentAmount) : 0,
             anotherPaymentDate: entity.anotherPaymentDate || "",
+            anotherPaymentAmount2: entity.anotherPaymentAmount2 != null ? Number(entity.anotherPaymentAmount2) : 0,
+            anotherPaymentDate2: entity.anotherPaymentDate2 || "",
+            anotherPaymentAmount3: entity.anotherPaymentAmount3 != null ? Number(entity.anotherPaymentAmount3) : 0,
+            anotherPaymentDate3: entity.anotherPaymentDate3 || "",
+            anotherPaymentAmount4: entity.anotherPaymentAmount4 != null ? Number(entity.anotherPaymentAmount4) : 0,
+            anotherPaymentDate4: entity.anotherPaymentDate4 || "",
+            anotherPaymentAmount5: entity.anotherPaymentAmount5 != null ? Number(entity.anotherPaymentAmount5) : 0,
+            anotherPaymentDate5: entity.anotherPaymentDate5 || "",
           };
 
           // For financeAndEmployment, also load partialPayment and approvalStatus
@@ -1136,7 +1173,23 @@ export default function ClientForm() {
       // Initialize unified productFields with all fields (combines spouse, visitor, and student)
       productFields: {
         // Common Finance & Employment Fields
-        financeAndEmployment: { amount: 0, date: "", invoiceNo: "", remarks: "", anotherPaymentAmount: 0, anotherPaymentDate: "" },
+        financeAndEmployment: {
+          totalAmount: 0,
+          amount: 0,
+          date: "",
+          invoiceNo: "",
+          remarks: "",
+          anotherPaymentAmount: 0,
+          anotherPaymentDate: "",
+          anotherPaymentAmount2: 0,
+          anotherPaymentDate2: "",
+          anotherPaymentAmount3: 0,
+          anotherPaymentDate3: "",
+          anotherPaymentAmount4: 0,
+          anotherPaymentDate4: "",
+          anotherPaymentAmount5: 0,
+          anotherPaymentDate5: "",
+        },
         indianSideEmployment: { amount: 0, date: "", invoiceNo: "", remarks: "" },
 
         // Spouse-Specific Finance Fields
@@ -2734,15 +2787,7 @@ export default function ClientForm() {
           // For ALL_FINANCE_EMPLOYEMENT, entityData should have: amount, paymentDate, invoiceNo, remarks, partialPayment
           let entityDataToSend = { ...fieldData };
           if (field === "financeAndEmployment" && productName === "ALL_FINANCE_EMPLOYEMENT") {
-            entityDataToSend = {
-              amount: fieldData.amount,
-              paymentDate: fieldData.date || fieldData.paymentDate || new Date().toISOString().split("T")[0],
-              invoiceNo: fieldData.invoiceNo || "",
-              remarks: fieldData.remarks || "",
-              partialPayment: isPartialPayment,
-              anotherPaymentAmount: fieldData.anotherPaymentAmount != null ? String(fieldData.anotherPaymentAmount) : undefined,
-              anotherPaymentDate: fieldData.anotherPaymentDate || undefined,
-            };
+            entityDataToSend = buildAllFinanceEntityData(fieldData, isPartialPayment);
           } else {
             // For financialEntry products, ensure proper entityData structure
             entityDataToSend = {
@@ -3613,15 +3658,7 @@ export default function ClientForm() {
             // For ALL_FINANCE_EMPLOYEMENT, entityData should have: amount, paymentDate, invoiceNo, remarks, partialPayment
             let entityDataToSend = { ...fieldData };
             if (field === "financeAndEmployment" && productName === "ALL_FINANCE_EMPLOYEMENT") {
-              entityDataToSend = {
-                amount: fieldData.amount,
-                paymentDate: fieldData.date || fieldData.paymentDate || new Date().toISOString().split("T")[0],
-                invoiceNo: fieldData.invoiceNo || "",
-                remarks: fieldData.remarks || "",
-                partialPayment: isPartialPayment,
-                anotherPaymentAmount: fieldData.anotherPaymentAmount != null ? String(fieldData.anotherPaymentAmount) : undefined,
-                anotherPaymentDate: fieldData.anotherPaymentDate || undefined,
-              };
+              entityDataToSend = buildAllFinanceEntityData(fieldData, isPartialPayment);
             } else {
               // For financialEntry products, ensure proper entityData structure
               entityDataToSend = {
@@ -5347,7 +5384,9 @@ export default function ClientForm() {
             name={`productFields.${product.id}` as any}
             label={product.name}
             hasRemarks={true}
-            showSecondPayment={product.id === "financeAndEmployment" && approvalStatus === "approved"}
+            showTotalPayment={product.id === "financeAndEmployment"}
+            showSecondPayment={product.id === "financeAndEmployment" && isPartialPayment}
+            maxAdditionalPayments={product.id === "financeAndEmployment" ? 2 : 5}
             disabled={isFinanceDisabled}
           />
         );
@@ -6064,15 +6103,7 @@ export default function ClientForm() {
                               setIsSubmitting(true);
                               try {
                                 const clientId = internalClientId || (window as any).currentClientId;
-                                const entityData = {
-                                  amount: fieldData.amount,
-                                  paymentDate: fieldData.date || fieldData.paymentDate || new Date().toISOString().split("T")[0],
-                                  invoiceNo: fieldData.invoiceNo || "",
-                                  remarks: fieldData.remarks || "",
-                                  partialPayment: true,
-                                  anotherPaymentAmount: fieldData.anotherPaymentAmount != null ? String(fieldData.anotherPaymentAmount) : undefined,
-                                  anotherPaymentDate: fieldData.anotherPaymentDate || undefined,
-                                };
+                                const entityData = buildAllFinanceEntityData(fieldData, true);
                                 const existingProductPaymentId = productPaymentIdsRef.current["ALL_FINANCE_EMPLOYEMENT"];
                                 const payload: any = {
                                   clientId: Number(clientId),
@@ -6156,15 +6187,7 @@ export default function ClientForm() {
 
                                 // Prepare entityData with partialPayment flag
                                 // For ALL_FINANCE_EMPLOYEMENT, entityData should have: amount, paymentDate, invoiceNo, remarks, partialPayment, anotherPaymentAmount, anotherPaymentDate
-                                const entityData = {
-                                  amount: fieldData.amount,
-                                  paymentDate: fieldData.date || fieldData.paymentDate || new Date().toISOString().split("T")[0],
-                                  invoiceNo: fieldData.invoiceNo || "",
-                                  remarks: fieldData.remarks || "",
-                                  partialPayment: true,
-                                  anotherPaymentAmount: fieldData.anotherPaymentAmount != null ? String(fieldData.anotherPaymentAmount) : undefined,
-                                  anotherPaymentDate: fieldData.anotherPaymentDate || undefined,
-                                };
+                                const entityData = buildAllFinanceEntityData(fieldData, true);
 
                                 // Check for existing product payment ID
                                 const existingProductPaymentId = productPaymentIdsRef.current["ALL_FINANCE_EMPLOYEMENT"];

@@ -35,7 +35,7 @@ export default function TeamList() {
           name: u.fullName || u.name,
           email: u.email,
           role: u.role,
-          status: "Active",
+          status: u.status === true ? "Active" : "Inactive",
           assignedTo: u.managerId ? "Assigned" : "",
           emp_id: u.empId || u.emp_id || u.empID,
           company_phone_no: u.officePhone || u.company_phone_no || u.office_phone,
@@ -78,7 +78,8 @@ export default function TeamList() {
     company_phone_no: "",
     personal_phone_no: "",
     designation: "",
-    isSupervisor: false
+    isSupervisor: false,
+    status: "Active"
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -137,7 +138,8 @@ export default function TeamList() {
       company_phone_no: "",
       personal_phone_no: "",
       designation: "",
-      isSupervisor: false
+      isSupervisor: false,
+      status: "Active"
     });
     setErrors({});
     setEditingId(null);
@@ -206,7 +208,8 @@ export default function TeamList() {
           email: newMember.email.toLowerCase().trim(),
           role: newMember.role.toLowerCase(),
           managerId: (newMember.role.toLowerCase() === "counsellor" || newMember.role.toLowerCase() === "telecaller") ? Number(newMember.managerId) : undefined,
-          isSupervisor: newMember.role.toLowerCase() === "manager" ? newMember.isSupervisor : undefined
+          isSupervisor: newMember.role.toLowerCase() === "manager" ? newMember.isSupervisor : undefined,
+          status: newMember.status === "Active"
         };
 
         // Call the update API
@@ -225,7 +228,8 @@ export default function TeamList() {
           email: newMember.email.toLowerCase().trim(),
           role: newMember.role.toLowerCase(),
           managerId: (newMember.role.toLowerCase() === "counsellor" || newMember.role.toLowerCase() === "telecaller") ? Number(newMember.managerId) : undefined,
-          isSupervisor: newMember.role.toLowerCase() === "manager" ? newMember.isSupervisor : false
+          isSupervisor: newMember.role.toLowerCase() === "manager" ? newMember.isSupervisor : false,
+          status: newMember.status === "Active"
         };
 
         const response = await api.post("/api/users/register", payload);
@@ -330,7 +334,8 @@ export default function TeamList() {
       company_phone_no: member.officePhone || member.company_phone_no || member.office_phone || "",
       personal_phone_no: member.personalPhone || member.personal_phone_no || member.personal_phone || "",
       designation: member.designation || "",
-      isSupervisor: member.isSupervisor || false
+      isSupervisor: member.isSupervisor || false,
+      status: member.status === "Inactive" || member.status === false ? "Inactive" : "Active"
     });
     setIsAddMemberOpen(true);
   };
@@ -508,6 +513,23 @@ export default function TeamList() {
                   </Select>
                   {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={newMember.status}
+                    onValueChange={(value) => {
+                      setNewMember({ ...newMember, status: value });
+                    }}
+                  >
+                    <SelectTrigger data-testid="select-team-status">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {newMember.role === "Manager" && (
                   <div className="space-y-2 col-span-2">
@@ -660,7 +682,10 @@ export default function TeamList() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={member.status === "Active" ? "default" : "secondary"}>
+                        <Badge
+                          variant={member.status === "Active" ? "default" : "secondary"}
+                          className={member.status === "Inactive" ? "bg-red-100 text-red-700 hover:bg-red-300" : ""}
+                        >
                           {member.status}
                         </Badge>
                       </TableCell>

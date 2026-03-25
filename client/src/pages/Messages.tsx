@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Send,
   AlertTriangle,
@@ -14,6 +14,7 @@ import {
   Clock,
   XCircle,
   ShieldAlert,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -45,6 +46,9 @@ export default function Messages() {
   const canSendMessages = user?.role === "superadmin" || user?.role === "director";
   const isAdmin = canSendMessages; // For viewing all messages
   const canApprovePayments = user?.role === "superadmin" || user?.role === "director" || user?.role === "manager";
+  /** All Finance history list: superadmin + manager only (not director/counsellor). */
+  const canViewAllFinanceHistory =
+    user?.role === "superadmin" || user?.role === "manager";
   const { socket, isConnected } = useSocket();
   const [processingApproval, setProcessingApproval] = useState<number | null>(null);
 
@@ -56,6 +60,29 @@ export default function Messages() {
     refetchInterval: 30000, // Refetch every 30 seconds
     retry: 1,
   });
+
+  const { data: allFinanceHistory = [], isLoading: isLoadingFinanceHistory } = useQuery({
+    queryKey: ["all-finance-history"],
+    queryFn: clientService.getAllFinanceHistory,
+    enabled: canViewAllFinanceHistory,
+    staleTime: 1000 * 60,
+    refetchInterval: 30000,
+    retry: 1,
+  });
+
+  const sumPaidAllFinance = (row: Record<string, unknown>) => {
+    const keys = ["amount", "anotherPaymentAmount", "anotherPaymentAmount2", "anotherPaymentAmount3"];
+    return keys.reduce((s, k) => s + (Number(row[k] ?? 0) || 0), 0);
+  };
+
+  const sortedFinanceHistory = useMemo(() => {
+    const list = Array.isArray(allFinanceHistory) ? [...allFinanceHistory] : [];
+    return list.sort((a, b) => {
+      const ta = new Date((a as any)?.createdAt ?? 0).getTime();
+      const tb = new Date((b as any)?.createdAt ?? 0).getTime();
+      return tb - ta;
+    });
+  }, [allFinanceHistory]);
 
   // Debug log to check pending approvals
   useEffect(() => {
@@ -90,6 +117,7 @@ export default function Messages() {
 
       // Refresh pending approvals immediately
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["all-finance-history"] });
     };
 
     // Listen for all finance approval
@@ -104,6 +132,7 @@ export default function Messages() {
 
       // Refresh pending approvals
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["all-finance-history"] });
     };
 
     // Listen for all finance rejection
@@ -118,6 +147,7 @@ export default function Messages() {
 
       // Refresh pending approvals
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["all-finance-history"] });
     };
 
     // Register event listeners
@@ -274,6 +304,7 @@ export default function Messages() {
       await refetchPendingApprovals();
       // Also invalidate to update count in Topbar
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["all-finance-history"] });
     } catch (error: any) {
       console.error("[Messages] Error approving payment:", error);
       console.error("[Messages] Error details:", {
@@ -312,6 +343,7 @@ export default function Messages() {
       await refetchPendingApprovals();
       // Also invalidate to update count in Topbar
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["all-finance-history"] });
     } catch (error: any) {
       console.error("[Messages] Error rejecting payment:", error);
       console.error("[Messages] Error details:", {
@@ -743,108 +775,224 @@ export default function Messages() {
           {/* Notifications Tab Content */}
           <TabsContent value="notifications" className="mt-6">
             {canApprovePayments ? (
-              pendingApprovals.length > 0 ? (
-                <Card className="border-none shadow-card bg-card rounded-xl overflow-hidden">
-                  <CardHeader className="px-6 py-5 border-b border-border/40">
-                    <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-                      <ShieldAlert className="w-5 h-5 text-orange-500" />
-                      Pending Approvals
-                    </CardTitle>
-                    <CardDescription>All Finance & Employment payments awaiting approval</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-6">
-                    <div className="space-y-4">
-                      {pendingApprovals.map((approval: any) => (
-                        <div
-                          key={approval.financeId}
-                          className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800">
-                                Pending
-                              </Badge>
-                              {approval.client && (
-                                <span className="font-semibold text-foreground">
-                                  {approval.client.fullName}
-                                </span>
-                              )}
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <span className="text-muted-foreground">Amount:</span>
-                                <p className="font-semibold text-foreground">₹{approval.amount || "N/A"}</p>
+              <div className="space-y-6">
+                {pendingApprovals.length > 0 ? (
+                  <Card className="border-none shadow-card bg-card rounded-xl overflow-hidden">
+                    <CardHeader className="px-6 py-5 border-b border-border/40">
+                      <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+                        <ShieldAlert className="w-5 h-5 text-orange-500" />
+                        Pending Approvals
+                      </CardTitle>
+                      <CardDescription>All Finance & Employment payments awaiting approval</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <div className="space-y-4">
+                        {pendingApprovals.map((approval: any) => (
+                          <div
+                            key={approval.financeId}
+                            className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800">
+                                  Pending
+                                </Badge>
+                                {approval.client && (
+                                  <span className="font-semibold text-foreground">
+                                    {approval.client.fullName}
+                                  </span>
+                                )}
                               </div>
-                              <div>
-                                <span className="text-muted-foreground">Payment Date:</span>
-                                <p className="font-medium text-foreground">
-                                  {approval.paymentDate ? new Date(approval.paymentDate).toLocaleDateString() : "N/A"}
-                                </p>
-                              </div>
-                              {approval.invoiceNo && (
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                 <div>
-                                  <span className="text-muted-foreground">Invoice No:</span>
-                                  <p className="font-medium text-foreground">{approval.invoiceNo}</p>
+                                  <span className="text-muted-foreground">Amount:</span>
+                                  <p className="font-semibold text-foreground">₹{approval.amount || "N/A"}</p>
                                 </div>
-                              )}
+                                <div>
+                                  <span className="text-muted-foreground">Payment Date:</span>
+                                  <p className="font-medium text-foreground">
+                                    {approval.paymentDate ? new Date(approval.paymentDate).toLocaleDateString() : "N/A"}
+                                  </p>
+                                </div>
+                                {approval.invoiceNo && (
+                                  <div>
+                                    <span className="text-muted-foreground">Invoice No:</span>
+                                    <p className="font-medium text-foreground">{approval.invoiceNo}</p>
+                                  </div>
+                                )}
 
-                              {approval.counsellor && (
-                                <div>
-                                  <span className="text-muted-foreground">Counsellor:</span>
-                                  <p className="font-medium text-foreground">{approval.counsellor.fullName}</p>
+                                {approval.counsellor && (
+                                  <div>
+                                    <span className="text-muted-foreground">Counsellor:</span>
+                                    <p className="font-medium text-foreground">{approval.counsellor.fullName}</p>
+                                  </div>
+                                )}
+                                <div className="col-span-2">
+                                  <span className="text-muted-foreground">Remarks:</span>
+                                  <p className="font-medium text-foreground">{approval.remarks || "—"}</p>
                                 </div>
-                              )}
-                              <div className="col-span-2">
-                                <span className="text-muted-foreground">Remarks:</span>
-                                <p className="font-medium text-foreground">{approval.remarks || "—"}</p>
                               </div>
                             </div>
+                            <div className="flex items-center gap-2 sm:ml-4 shrink-0">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => handleApprove(approval.financeId)}
+                                disabled={processingApproval === approval.financeId}
+                              >
+                                {processingApproval === approval.financeId ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="w-4 h-4 mr-1" />
+                                )}
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleReject(approval.financeId)}
+                                disabled={processingApproval === approval.financeId}
+                              >
+                                {processingApproval === approval.financeId ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <XCircle className="w-4 h-4 mr-1" />
+                                )}
+                                Reject
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 ml-4">
-                            <Button
-                              size="sm"
-                              variant="default"
-                              className="bg-green-600 hover:bg-green-700"
-                              onClick={() => handleApprove(approval.financeId)}
-                              disabled={processingApproval === approval.financeId}
-                            >
-                              {processingApproval === approval.financeId ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="w-4 h-4 mr-1" />
-                              )}
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleReject(approval.financeId)}
-                              disabled={processingApproval === approval.financeId}
-                            >
-                              {processingApproval === approval.financeId ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <XCircle className="w-4 h-4 mr-1" />
-                              )}
-                              Reject
-                            </Button>
-                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card className="border-none shadow-card bg-card rounded-xl overflow-hidden">
+                    <CardContent className="p-12 text-center">
+                      <ShieldAlert className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-lg font-medium text-foreground">No Pending Approvals</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        All payments have been processed
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {canViewAllFinanceHistory && (
+                  <Card className="border-none shadow-card bg-card rounded-xl overflow-hidden">
+                    <CardHeader className="px-6 py-5 border-b border-border/40">
+                      <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+                        <History className="w-5 h-5 text-primary" />
+                        All Finance history
+                      </CardTitle>
+                      <CardDescription>
+                        Recent All Finance & Employment records (newest first)
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      {isLoadingFinanceHistory ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="border-none shadow-card bg-card rounded-xl overflow-hidden">
-                  <CardContent className="p-12 text-center">
-                    <ShieldAlert className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <p className="text-lg font-medium text-foreground">No Pending Approvals</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      All payments have been processed
-                    </p>
-                  </CardContent>
-                </Card>
-              )
+                      ) : sortedFinanceHistory.length === 0 ? (
+                        <p className="text-center text-sm text-muted-foreground py-8">
+                          No history records found.
+                        </p>
+                      ) : (
+                        <div className="max-h-[min(70vh,520px)] overflow-y-auto space-y-3 pr-1">
+                          {sortedFinanceHistory.map((row: any) => {
+                            const total = row.totalAmount != null ? Number(row.totalAmount) : NaN;
+                            const paid = sumPaidAllFinance(row as Record<string, unknown>);
+                            const pending =
+                              !Number.isNaN(total) && total > 0
+                                ? Math.max(0, total - paid)
+                                : null;
+                            return (
+                              <div
+                                key={row.financeId ?? row.productPaymentId}
+                                className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm"
+                              >
+                                <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+                                  <div>
+                                    <p className="font-semibold text-foreground">
+                                      {row.client?.fullName ?? "Client"}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Finance ID {row.financeId ?? "—"}
+                                      {row.counsellor?.fullName
+                                        ? ` · Counsellor: ${row.counsellor.fullName}`
+                                        : ""}
+                                    </p>
+                                  </div>
+                                  <Badge variant="outline" className="capitalize shrink-0">
+                                    {row.approvalStatus ?? "—"}
+                                  </Badge>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs sm:text-sm">
+                                  <div>
+                                    <span className="text-muted-foreground block">Total (fee)</span>
+                                    <span className="font-semibold">
+                                      {Number.isNaN(total) ? "—" : `₹${total.toLocaleString()}`}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground block">Paid</span>
+                                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                                      ₹{paid.toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground block">Pending</span>
+                                    <span className="font-semibold text-orange-700 dark:text-orange-400">
+                                      {pending === null ? "—" : `₹${pending.toLocaleString()}`}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground block">Partial</span>
+                                    <span className="font-medium">
+                                      {row.partialPayment ? "Yes" : "No"}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground border-t border-border/40 pt-3">
+                                  <span>
+                                    1st: ₹{Number(row.amount ?? 0).toLocaleString()}
+                                    {row.paymentDate
+                                      ? ` · ${format(new Date(row.paymentDate), "dd MMM yyyy")}`
+                                      : ""}
+                                  </span>
+                                  {Number(row.anotherPaymentAmount ?? 0) > 0 || row.anotherPaymentDate ? (
+                                    <span>
+                                      2nd: ₹{Number(row.anotherPaymentAmount ?? 0).toLocaleString()}
+                                      {row.anotherPaymentDate
+                                        ? ` · ${format(new Date(row.anotherPaymentDate), "dd MMM yyyy")}`
+                                        : ""}
+                                    </span>
+                                  ) : null}
+                                  {Number(row.anotherPaymentAmount2 ?? 0) > 0 || row.anotherPaymentDate2 ? (
+                                    <span>
+                                      3rd: ₹{Number(row.anotherPaymentAmount2 ?? 0).toLocaleString()}
+                                      {row.anotherPaymentDate2
+                                        ? ` · ${format(new Date(row.anotherPaymentDate2), "dd MMM yyyy")}`
+                                        : ""}
+                                    </span>
+                                  ) : null}
+                                  {row.approver?.name && (
+                                    <span className="sm:col-span-2">
+                                      Approver: {row.approver.name}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             ) : (
               <Card className="border-none shadow-card bg-card rounded-xl overflow-hidden">
                 <CardContent className="p-12 text-center">

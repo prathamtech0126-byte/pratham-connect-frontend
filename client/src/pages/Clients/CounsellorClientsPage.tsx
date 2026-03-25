@@ -56,6 +56,11 @@ function transformRawToClient(client: any): Client {
     counsellor: counsellorName,
     productManager: client.productManager || client.product_manager || "N/A",
     salesType,
+    isTransferred:
+      client.transferStatus === true ||
+      client.transferedToCounsellorId != null ||
+      client.transferredToCounsellorId != null ||
+      client.transfered_to_counsellor_id != null,
     status: (client.archived ? "Dropped" : "Active") as "Active" | "Completed" | "Pending" | "Dropped",
     totalPayment,
     amountReceived: totalReceived,
@@ -289,7 +294,22 @@ export default function CounsellorClientsPage() {
 
   const getColumns = () => [
     { header: "Sr No", cell: (_: Client, index: number) => <span className="text-slate-400 font-mono text-xs">{String(index + 1).padStart(2, "0")}</span>, className: "w-[60px]" },
-    { header: "Name", accessorKey: "name", className: "font-semibold text-slate-900" },
+    {
+      header: "Name",
+      cell: (s: Client) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold text-slate-900">{s.name}</span>
+          {s.isTransferred && (
+            <Badge
+              variant="secondary"
+              className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
+            >
+              Duplicate Client
+            </Badge>
+          )}
+        </div>
+      ),
+    },
     { header: "Sales Type", cell: (s: Client) => <Badge variant="outline" className="font-normal whitespace-nowrap bg-slate-50 text-slate-600 border-slate-200">{s.salesType}</Badge> },
     { header: "Enrollment Date", accessorKey: "enrollmentDate", className: "whitespace-nowrap text-slate-500" },
     { header: "Total Payment", cell: (s: Client) => `₹${s.totalPayment.toLocaleString()}` },
