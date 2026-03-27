@@ -680,7 +680,7 @@ export default function ClientView() {
                         variant="secondary"
                         className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
                       >
-                        Duplicate Client
+                        Shared Client
                       </Badge>
                     )}
                   </div>
@@ -891,25 +891,9 @@ export default function ClientView() {
                                   </button>
                                 )}
                               </div>
-                              {isAllFinance ? (
-                                <div className="flex items-center justify-between gap-3">
-                                  <span className="font-black text-lg text-[#1A2B3B]">
-                                    ₹{Number(productAmount).toLocaleString()}
-                                  </span>
-                                  <div className="text-right">
-                                    <p className="text-[10px] text-gray-400 uppercase font-black tracking-wider">
-                                      Pending
-                                    </p>
-                                    <p className="font-black text-sm text-orange-700">
-                                      ₹{pendingAmountForAllFinance.toLocaleString()}
-                                    </p>
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="font-black text-lg text-[#1A2B3B]">
-                                  ₹{Number(productAmount).toLocaleString()}
-                                </span>
-                              )}
+                              <span className="font-black text-lg text-[#1A2B3B]">
+                                ₹{Number(productAmount).toLocaleString()}
+                              </span>
                             </div>
 
                             {/* Expandable Details Section */}
