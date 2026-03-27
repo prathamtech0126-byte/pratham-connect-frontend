@@ -32,9 +32,15 @@ function transformRawToClient(client: any): Client {
   const clientId = client.id || client.clientId || client.client_id;
   const clientName = client.name || client.fullName || client.full_name || "";
   const enrollmentDate = client.enrollmentDate || client.enrollment_date || client.date || "";
-  const counsellorName = typeof client.counsellor === "object" && client.counsellor?.name
+  const originalCounsellorName = typeof client.counsellor === "object" && client.counsellor?.name
     ? client.counsellor.name
     : (client.counsellor || client.counsellorName || client.counsellor_name || "");
+  const transferedToCounsellorName =
+    client.transferedToCounsellorName ||
+    client.transferredToCounsellorName ||
+    client.transfered_to_counsellor_name ||
+    "";
+  const counsellorName = transferedToCounsellorName || originalCounsellorName;
   let salesType = client.salesType || client.saleType?.saleType || client.sales_type;
   if (!salesType && client.payments?.length > 0) {
     const p = client.payments.find((x: any) => x.saleType?.saleType);
@@ -61,6 +67,8 @@ function transformRawToClient(client: any): Client {
       client.transferedToCounsellorId != null ||
       client.transferredToCounsellorId != null ||
       client.transfered_to_counsellor_id != null,
+    transferedToCounsellorName: transferedToCounsellorName || undefined,
+    originalCounsellorName: originalCounsellorName || undefined,
     status: (client.archived ? "Dropped" : "Active") as "Active" | "Completed" | "Pending" | "Dropped",
     totalPayment,
     amountReceived: totalReceived,
@@ -297,16 +305,23 @@ export default function CounsellorClientsPage() {
     {
       header: "Name",
       cell: (s: Client) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-slate-900">{s.name}</span>
-          {s.isTransferred && (
-            <Badge
-              variant="secondary"
-              className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
-            >
-              Duplicate Client
-            </Badge>
-          )}
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-slate-900">{s.name}</span>
+            {s.isTransferred && (
+              <Badge
+                variant="secondary"
+                className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
+              >
+                Shared Client
+              </Badge>
+            )}
+          </div>
+          {s.isTransferred && s.originalCounsellorName ? (
+            <p className="text-xs text-muted-foreground">
+              Original counsellor: <span className="font-medium text-foreground">{s.originalCounsellorName}</span>
+            </p>
+          ) : null}
         </div>
       ),
     },

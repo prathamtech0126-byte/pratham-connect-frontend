@@ -607,6 +607,16 @@ export default function ClientView() {
   const clientFullName = clientData.fullName || client.fullName || "N/A";
   const clientEnrollmentDate = clientData.enrollmentDate || client.enrollmentDate;
   const clientArchived = clientData.archived !== undefined ? clientData.archived : client.archived;
+  const originalCounsellorName =
+    (typeof clientData.counsellor === "object" ? clientData.counsellor?.name : clientData.counsellor) ||
+    clientData.counsellorName ||
+    clientData.counsellor_name ||
+    "N/A";
+  const transferedToCounsellorName =
+    clientData.transferedToCounsellorName ||
+    clientData.transferredToCounsellorName ||
+    clientData.transfered_to_counsellor_name ||
+    null;
 
   // Show "Duplicate Client" badge when client was transferred/duplicated to another counsellor
   const isDuplicateClient =
@@ -684,6 +694,16 @@ export default function ClientView() {
                       </Badge>
                     )}
                   </div>
+                  {isDuplicateClient ? (
+                    <p className="mt-2 text-sm text-gray-600">
+                      Original counsellor: <span className="font-semibold text-gray-900">{originalCounsellorName}</span>
+                      {transferedToCounsellorName ? (
+                        <>
+                          {" "}• Shared to: <span className="font-semibold text-gray-900">{transferedToCounsellorName}</span>
+                        </>
+                      ) : null}
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-8">

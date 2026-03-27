@@ -58,7 +58,7 @@ export function AllCounsellorClientsList({
               variant="secondary"
               className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
             >
-              Transferred
+              Shared Client
             </Badge>
           )}
         </div>

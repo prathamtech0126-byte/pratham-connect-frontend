@@ -16,6 +16,9 @@ export interface Client {
   transferedToCounsellorId?: number | null;
   transferredToCounsellorId?: number | null;
   transferedToCounsellor_id?: number | null;
+  transferedToCounsellorName?: string;
+  transferredToCounsellorName?: string;
+  originalCounsellorName?: string;
   isTransferred?: boolean;
 
   // Finance

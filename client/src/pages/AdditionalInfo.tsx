@@ -89,7 +89,7 @@ export default function AdditionalInfo() {
   const [selectedClients, setSelectedClients] = useState<Array<{ id: number; client: any }>>([]);
   const [selectedCounsellorId, setSelectedCounsellorId] = useState<number | null>(null);
   const [selectedCounsellor, setSelectedCounsellor] = useState<any | null>(null);
-  const [transferType, setTransferType] = useState<"full_transfer" | "owner_only_transfer_flag" | "">("");
+  const [transferType, setTransferType] = useState<"full_transfer" | "owner_only_transfer_flag">("full_transfer");
   const [clientSearchInput, setClientSearchInput] = useState("");
   const [counsellorSearchInput, setCounsellorSearchInput] = useState("");
   const [showClientList, setShowClientList] = useState(false);
@@ -178,15 +178,6 @@ export default function AdditionalInfo() {
       });
       return;
     }
-    if (!transferType) {
-      toast({
-        title: "Error",
-        description: "Please select a transfer type",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // Single client: check if already assigned to this counsellor
     if (selectedClients.length === 1) {
       const client = selectedClients[0].client;
@@ -226,16 +217,24 @@ export default function AdditionalInfo() {
       setSelectedClients([]);
       setSelectedCounsellorId(null);
       setSelectedCounsellor(null);
-      setTransferType("");
+      setTransferType("full_transfer");
       setClientSearchInput("");
       setCounsellorSearchInput("");
       setShowClientList(false);
       setShowCounsellorList(false);
     } catch (err: any) {
       console.error("Failed to transfer client(s)", err);
+      const backendMessage =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Failed to transfer client(s)";
+      const isTransferTypeValidationError =
+        err?.response?.status === 400 && /transfertype|transfer type/i.test(String(backendMessage));
+
       toast({
         title: "Error",
-        description: err.response?.data?.message || err.message || "Failed to transfer client(s)",
+        description: isTransferTypeValidationError ? String(backendMessage) : backendMessage,
         variant: "destructive",
       });
     } finally {
@@ -1235,11 +1234,11 @@ export default function AdditionalInfo() {
                 onValueChange={(v) => setTransferType(v as "full_transfer" | "owner_only_transfer_flag")}
               >
                 <SelectTrigger data-testid="select-transfer-type">
-                  <SelectValue placeholder="Select transfer type" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="full_transfer">Change Ownership</SelectItem>
-                  <SelectItem value="owner_only_transfer_flag">Shared Owneship</SelectItem>
+                  <SelectItem value="full_transfer">100% Transfer</SelectItem>
+                  <SelectItem value="owner_only_transfer_flag">Only Share</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1247,7 +1246,7 @@ export default function AdditionalInfo() {
             <Button
               onClick={handleTransferClient}
               data-testid="button-transfer"
-              disabled={isTransferring || selectedClients.length === 0 || !selectedCounsellorId || !transferType}
+              disabled={isTransferring || selectedClients.length === 0 || !selectedCounsellorId}
             >
               {isTransferring && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Transfer
