@@ -242,7 +242,10 @@ const formSchema = z.object({
   // For "Other Product" selection
   selectedProductType: z.string().optional(),
 
-  // Step 2: Consultancy Payment (0 allowed when user enters it explicitly)
+  /** Synced from selected sale type row `categoryName` (or product type for Other Product) — used for payment rules */
+  saleTypeCategoryName: z.string().optional(),
+
+  // Step 2: Consultancy Payment (0 allowed for student category only; see superRefine)
   totalPayment: z.preprocess(
     (val) => {
       if (val === undefined || val === null || val === "") return 0;
@@ -271,6 +274,17 @@ const formSchema = z.object({
   // Step 3: Unified Product Fields (Combines all spouse, visitor, and student fields)
   productFields: productFieldsSchema.optional(),
 }).superRefine((data, ctx) => {
+  const category = String(data.saleTypeCategoryName || "").toLowerCase();
+  const isStudentCategory = category === "student";
+  const totalNum = Number(data.totalPayment);
+  if (!isStudentCategory && (!Number.isFinite(totalNum) || totalNum <= 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Total payment must be greater than 0 for this sale type",
+      path: ["totalPayment"],
+    });
+  }
+
   // Calculate sum of all payment amounts
   const initialAmount = data.initialPayment?.amount || 0;
   const beforeVisaAmount = data.beforeVisaPayment?.amount || 0;
@@ -1153,6 +1167,7 @@ export default function ClientForm() {
       salesType: "",
       leadSource: "",
       selectedProductType: "",
+      saleTypeCategoryName: "",
       totalPayment: 0,
       initialPayment: { amount: 0, date: "", invoiceNo: "", remarks: "" },
       beforeVisaPayment: { amount: 0, date: "", invoiceNo: "", remarks: "" },
@@ -1688,6 +1703,13 @@ export default function ClientForm() {
             console.log('[ClientForm] ✅ Final leadSourceValue:', leadSourceValue);
           }
 
+          const saleTypeRowForLoad = allSaleTypes.find((st: any) => st.saleType === salesTypeValue);
+          let saleTypeCategoryNameForForm = String(saleTypeRowForLoad?.categoryName || "").toLowerCase();
+          if (salesTypeValue.toLowerCase() === "other product") {
+            const inferred = getProductType(salesTypeValue, "");
+            if (inferred) saleTypeCategoryNameForForm = inferred;
+          }
+
           const formData = {
             name: nameValue,
             enrollmentDate: enrollmentDateValue,
@@ -1699,6 +1721,7 @@ export default function ClientForm() {
             originalLeadTypeId: leadTypeId,
             originalSaleTypeId: saleTypeIdFromPayment, // ✅ Store saleTypeId for later mapping
             selectedProductType: "",
+            saleTypeCategoryName: saleTypeCategoryNameForForm,
             totalPayment: totalPaymentValue,
             initialPayment: {
               amount: Number(initialPayment.amount || 0),
@@ -2061,17 +2084,35 @@ export default function ClientForm() {
     }
   }, [clientDataToLoad, isEditMode, setValue]);
 
-  // Update Total Payment when Sales Type changes (only if not in edit mode or when manually changed)
+  // Sync category from API row; student → total 0 + initial cleared; others → total from catalog amount when set
   useEffect(() => {
-    if (salesType && !isEditMode) {
-      const selectedTypeData = allSaleTypes.find(
-        (t) => t.saleType === salesType,
-      );
-      if (selectedTypeData && selectedTypeData.amount) {
-        setValue("totalPayment", Number(selectedTypeData.amount));
-      }
+    if (!salesType || isEditMode) return;
+
+    const selectedTypeData = allSaleTypes.find((t) => t.saleType === salesType);
+    if (!selectedTypeData) {
+      setValue("saleTypeCategoryName", "", { shouldValidate: false });
+      return;
     }
-  }, [salesType, allSaleTypes, setValue, isEditMode]);
+
+    const lowerSt = salesType.toLowerCase();
+    let category = String(selectedTypeData.categoryName || "").toLowerCase();
+    if (lowerSt === "other product" && selectedProductType) {
+      category = String(selectedProductType).toLowerCase();
+    }
+    setValue("saleTypeCategoryName", category, { shouldValidate: false });
+
+    if (category === "student") {
+      setValue("totalPayment", 0, { shouldValidate: false });
+      setValue("showInitialPayment", false, { shouldValidate: false });
+      setValue(
+        "initialPayment",
+        { amount: 0, date: "", invoiceNo: "", remarks: "" },
+        { shouldValidate: false },
+      );
+    } else if (selectedTypeData.amount != null && selectedTypeData.amount !== "") {
+      setValue("totalPayment", Number(selectedTypeData.amount), { shouldValidate: false });
+    }
+  }, [salesType, selectedProductType, allSaleTypes, setValue, isEditMode]);
 
   // Auto-calc pending amount
   const totalPaymentRaw = useWatch({ control, name: "totalPayment" });
@@ -2115,14 +2156,19 @@ export default function ClientForm() {
   }, [totalPayment, initialAmountReceived, beforeVisaAmount, afterVisaAmount, clearErrors]);
 
 
-  // Check if service payment data exists: allow save when Sales Type + total (including 0), or when any payment section has data
+  const saleTypeCategoryName = useWatch({ control, name: "saleTypeCategoryName" });
+  const isStudentSaleCategory = saleTypeCategoryName === "student";
+
+  // Check if service payment data exists: student may save with total 0; other categories need total > 0
   const hasServiceData = useMemo(() => {
     const hasNumericTotal =
       totalPaymentRaw !== undefined &&
       totalPaymentRaw !== null &&
       !Number.isNaN(Number(totalPaymentRaw)) &&
       Number(totalPaymentRaw) >= 0;
-    const hasSalesTypeAndTotal = Boolean(salesType && hasNumericTotal);
+    const totalOkForCategory =
+      isStudentSaleCategory ? hasNumericTotal : hasNumericTotal && Number(totalPaymentRaw) > 0;
+    const hasSalesTypeAndTotal = Boolean(salesType && totalOkForCategory);
     const hasInitial = initialPayment && (
       (initialPayment.amount && initialPayment.amount > 0) ||
       initialPayment.date ||
@@ -2142,7 +2188,15 @@ export default function ClientForm() {
       afterVisaPayment.remarks
     );
     return hasSalesTypeAndTotal || hasInitial || hasBeforeVisa || hasAfterVisa;
-  }, [salesType, totalPaymentRaw, totalPayment, initialPayment, beforeVisaPayment, afterVisaPayment]);
+  }, [
+    salesType,
+    totalPaymentRaw,
+    totalPayment,
+    isStudentSaleCategory,
+    initialPayment,
+    beforeVisaPayment,
+    afterVisaPayment,
+  ]);
 
   // Check if product data exists
   const hasProductData = useMemo(() => {
@@ -2355,6 +2409,15 @@ export default function ClientForm() {
     if (isSubmitting || requestInFlightRef.current) {
       return;
     }
+
+    const st = form.getValues("salesType");
+    const rowSync = allSaleTypes.find((t) => t.saleType === st);
+    let categorySync = String(rowSync?.categoryName || "").toLowerCase();
+    if (st?.toLowerCase() === "other product") {
+      const spt = form.getValues("selectedProductType");
+      if (spt) categorySync = String(spt).toLowerCase();
+    }
+    setValue("saleTypeCategoryName", categorySync, { shouldValidate: false });
 
     const isValid = await trigger(["salesType", "totalPayment"] as any); // salesType is now required in Step 2
     if (!isValid) {

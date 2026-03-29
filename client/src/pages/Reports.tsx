@@ -384,17 +384,11 @@ function IntelligenceDashboard({
     saleTypeId != null
       ? saleTypes.find((st) => st.id === saleTypeId)?.sale_type ?? "Selected"
       : "All sale types";
-  const sorted = [...counsellorList].sort((a, b) => b.total_revenue - a.total_revenue);
-  const top5 = sorted.slice(0, 5);
-  // Only bottom counsellors: exclude top 5, then sort so lowest revenue first; put ₹0 at the end (revenue first, then zeros)
-  const top5Ids = new Set(top5.map((c) => c.counsellor_id));
-  const rest = counsellorList.filter((c) => !top5Ids.has(c.counsellor_id));
-  const bottomCounsellors = [...rest].sort((a, b) => {
-    const aZero = a.total_revenue === 0 ? 0 : 1;
-    const bZero = b.total_revenue === 0 ? 0 : 1;
-    if (aZero !== bZero) return aZero - bZero; // zero revenue first
-    return a.total_revenue - b.total_revenue;  // then ascending by revenue
-  });
+  // Single ranking: highest revenue first (same order as the bar chart)
+  const allCounsellorsByRevenue = [...counsellorList].sort(
+    (a, b) => b.total_revenue - a.total_revenue,
+  );
+  const counsellorCount = counsellorList.length;
 
   // One bar per counsellor; long names truncated with "..." so every label fits and shows (no blank space)
   const MAX_NAME_LEN = 14;
@@ -469,8 +463,9 @@ function IntelligenceDashboard({
             <p className="mt-0.5 text-xs text-muted-foreground">{selectedSaleTypeName}</p>
           </div>
           <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/20 p-4 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Bottom Counsellors</p>
-            <p className="mt-1 text-sm font-medium text-foreground">See list below</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Counsellors</p>
+            <p className="mt-1 text-xl font-bold tabular-nums text-foreground sm:text-2xl">{counsellorCount}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Listed below by revenue</p>
           </div>
         </div>
 
@@ -516,55 +511,34 @@ function IntelligenceDashboard({
               </ResponsiveContainer>
             </div>
           </div>
-          <div className="space-y-4">
-            <div className="rounded-xl border border-border/50 bg-card p-4 shadow-sm">
-              <h4 className="mb-3 text-sm font-semibold text-foreground">
-                Top 5 Counsellors
-              </h4>
-              <ul className="space-y-2">
-                {top5.map((c, i) => (
-                  <li
-                    key={c.counsellor_id}
-                    className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-sm"
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <Badge variant="secondary" className="h-6 min-w-6 shrink-0 justify-center rounded-full px-1.5 font-semibold">
-                        {i + 1}
-                      </Badge>
-                      <span className="truncate">{c.full_name}</span>
-                    </span>
-                    <span className="ml-2 shrink-0 font-semibold tabular-nums">{formatCurrency(c.total_revenue)}</span>
-                  </li>
-                ))}
-                {top5.length === 0 && (
-                  <li className="py-4 text-center text-sm text-muted-foreground">No data</li>
-                )}
-              </ul>
-            </div>
-            <div className="rounded-xl border border-border/50 bg-card p-4 shadow-sm">
-              <h4 className="mb-3 text-sm font-semibold text-foreground">
-                Bottom Counsellors
-              </h4>
-              <ul className="space-y-2 max-h-[320px] overflow-y-auto">
-                {bottomCounsellors.map((c, i) => (
-                  <li
-                    key={c.counsellor_id}
-                    className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-sm"
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <Badge variant="outline" className="h-6 min-w-6 shrink-0 justify-center rounded-full px-1.5">
-                        {i + 1}
-                      </Badge>
-                      <span className="truncate">{c.full_name}</span>
-                    </span>
-                    <span className="ml-2 shrink-0 font-semibold tabular-nums">{formatCurrency(c.total_revenue)}</span>
-                  </li>
-                ))}
-                {bottomCounsellors.length === 0 && (
-                  <li className="py-4 text-center text-sm text-muted-foreground">No data</li>
-                )}
-              </ul>
-            </div>
+          <div className="rounded-xl border border-border/50 bg-card p-4 shadow-sm">
+            <h4 className="mb-3 text-sm font-semibold text-foreground">
+              All counsellors (by revenue)
+            </h4>
+            <ul className="max-h-[min(520px,60vh)] space-y-2 overflow-y-auto pr-1">
+              {allCounsellorsByRevenue.map((c, i) => (
+                <li
+                  key={`${c.counsellor_id}-${i}`}
+                  className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-sm"
+                >
+                  <span className="flex min-w-0 flex-1 items-center gap-2 truncate">
+                    <Badge
+                      variant="secondary"
+                      className="h-6 min-w-6 shrink-0 justify-center rounded-full px-1.5 font-semibold"
+                    >
+                      {i + 1}
+                    </Badge>
+                    <span className="truncate">{c.full_name}</span>
+                  </span>
+                  <span className="ml-2 shrink-0 font-semibold tabular-nums">
+                    {formatCurrency(c.total_revenue)}
+                  </span>
+                </li>
+              ))}
+              {allCounsellorsByRevenue.length === 0 && (
+                <li className="py-4 text-center text-sm text-muted-foreground">No data</li>
+              )}
+            </ul>
           </div>
         </div>
 
