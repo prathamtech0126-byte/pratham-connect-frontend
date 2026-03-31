@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Edit, FileText, Download, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
+import { isClientListReturnPath } from "@/lib/clientListReturnPath";
 
 const RETURN_PATH_KEY = "client_list_return_path";
 const RETURN_COUNSELLOR_NAME_KEY = "client_list_return_counsellor_name";
@@ -23,7 +24,7 @@ export default function ClientDetails() {
   useEffect(() => {
     const path = sessionStorage.getItem(RETURN_PATH_KEY);
     const name = sessionStorage.getItem(RETURN_COUNSELLOR_NAME_KEY) || "";
-    if (path && path.startsWith("/clients/counsellor/")) {
+    if (path && isClientListReturnPath(path)) {
       setReturnPath(path);
       setReturnCounsellorName(name);
     } else {

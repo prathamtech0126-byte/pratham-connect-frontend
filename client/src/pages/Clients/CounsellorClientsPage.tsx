@@ -6,8 +6,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
-import { useLocation, useRoute } from "wouter";
-import { useState, useEffect, useMemo } from "react";
+import { useLocation, useRoute, useSearch } from "wouter";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
@@ -77,19 +77,35 @@ function transformRawToClient(client: any): Client {
   };
 }
 
-// Read ?role= from URL (passed when navigating from All Clients page)
-function useRoleFromSearch(): string {
-  if (typeof window === "undefined") return "counsellor";
-  const params = new URLSearchParams(window.location.search);
-  return params.get("role") || "counsellor";
+function parseFilterParam(v: string | null): FilterValue {
+  const ok: FilterValue[] = ["today", "weekly", "monthly", "yearly", "custom"];
+  if (v && ok.includes(v as FilterValue)) return v as FilterValue;
+  return "monthly";
 }
 
 export default function CounsellorClientsPage() {
-  const [, setLocation] = useLocation();
+  const [pathname, setLocation] = useLocation();
+  const searchStr = useSearch();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user: authUser } = useAuth();
-  const roleFromUrl = useRoleFromSearch();
+
+  const mergeQuery = useCallback(
+    (mutate: (p: URLSearchParams) => void, replace = true) => {
+      const p = new URLSearchParams(searchStr);
+      mutate(p);
+      const qs = p.toString();
+      setLocation(qs ? `${pathname}?${qs}` : pathname, { replace });
+    },
+    [pathname, searchStr, setLocation],
+  );
+
+  const urlParams = useMemo(() => new URLSearchParams(searchStr), [searchStr]);
+  const filter = parseFilterParam(urlParams.get("filter"));
+  const search = urlParams.get("q") ?? "";
+  const startDate = urlParams.get("start") ?? "";
+  const endDate = urlParams.get("end") ?? "";
+  const roleFromUrl = urlParams.get("role") || "counsellor";
   const [, paramsActive] = useRoute("/clients/counsellor/:counsellorId");
   const [, paramsArchive] = useRoute("/clients/archive/counsellor/:counsellorId");
   const isArchiveMode = !!paramsArchive;
@@ -126,11 +142,6 @@ export default function CounsellorClientsPage() {
   const counsellorId = counsellorIdFromRoute;
   const role = effectiveRole;
 
-  const [filter, setFilter] = useState<FilterValue>("monthly");
-  const [search, setSearch] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [customDateRange, setCustomDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
@@ -218,12 +229,8 @@ export default function CounsellorClientsPage() {
 
   const navigateToClient = (clientId: string, mode: "view" | "edit") => {
     if (counsellorId != null) {
-      const pathWithRole = `/clients/counsellor/${counsellorId}?role=${encodeURIComponent(role)}`;
-      const archivePathWithRole = `/clients/archive/counsellor/${counsellorId}?role=${encodeURIComponent(role)}`;
-      sessionStorage.setItem(
-        "client_list_return_path",
-        isArchiveMode ? archivePathWithRole : pathWithRole
-      );
+      const pathWithQuery = searchStr ? `${pathname}?${searchStr}` : pathname;
+      sessionStorage.setItem("client_list_return_path", pathWithQuery);
       sessionStorage.setItem("client_list_return_counsellor_name", counsellorName || "");
     }
     setLocation(`/clients/${clientId}/${mode}`);
@@ -445,7 +452,13 @@ export default function CounsellorClientsPage() {
               <Input
                 placeholder="Search clients by name..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  mergeQuery((p) => {
+                    if (v.trim()) p.set("q", v);
+                    else p.delete("q");
+                  });
+                }}
                 className="h-9"
               />
               <p className="text-xs text-muted-foreground">Filters the list below instantly.</p>
@@ -460,9 +473,13 @@ export default function CounsellorClientsPage() {
                 ]}
                 onDateChange={(range) => {
                   const [s, e] = range;
-                  setStartDate(s ? format(s, "yyyy-MM-dd") : "");
-                  setEndDate(e ? format(e, "yyyy-MM-dd") : "");
-                  setFilter("custom");
+                  mergeQuery((p) => {
+                    p.set("filter", "custom");
+                    if (s) p.set("start", format(s, "yyyy-MM-dd"));
+                    else p.delete("start");
+                    if (e) p.set("end", format(e, "yyyy-MM-dd"));
+                    else p.delete("end");
+                  });
                 }}
                 activeTab={
                   filter === "today"
@@ -475,11 +492,17 @@ export default function CounsellorClientsPage() {
                           ? "Yearly"
                           : "Custom"
                 }
-                onTabChange={(tab) =>
-                  setFilter(
-                    tab === "Today" ? "today" : tab === "Custom" ? "custom" : (tab.toLowerCase() as FilterValue)
-                  )
-                }
+                onTabChange={(tab) => {
+                  const next =
+                    tab === "Today" ? "today" : tab === "Custom" ? "custom" : (tab.toLowerCase() as FilterValue);
+                  mergeQuery((p) => {
+                    p.set("filter", next);
+                    if (next !== "custom") {
+                      p.delete("start");
+                      p.delete("end");
+                    }
+                  });
+                }}
                 align="end"
               />
             </div>

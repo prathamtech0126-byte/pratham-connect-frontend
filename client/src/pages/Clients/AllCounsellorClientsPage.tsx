@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Loader2 } from "lucide-react";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { clientService } from "@/services/clientService";
@@ -36,10 +36,29 @@ function normalizeStage(stage: string): "Initial" | "Before Visa" | "After Visa"
   return "Other";
 }
 
+function parseStageParam(v: string | null): ClientStageFilter {
+  const ok: ClientStageFilter[] = ["all", "initial", "before", "after"];
+  if (v && ok.includes(v as ClientStageFilter)) return v as ClientStageFilter;
+  return "all";
+}
+
 export default function AllCounsellorClientsPage() {
-  const [, setLocation] = useLocation();
-  const [search, setSearch] = useState("");
-  const [stageFilter, setStageFilter] = useState<ClientStageFilter>("all");
+  const [pathname, setLocation] = useLocation();
+  const searchStr = useSearch();
+
+  const mergeQuery = useCallback(
+    (mutate: (p: URLSearchParams) => void) => {
+      const p = new URLSearchParams(searchStr);
+      mutate(p);
+      const qs = p.toString();
+      setLocation(qs ? `${pathname}?${qs}` : pathname, { replace: true });
+    },
+    [pathname, searchStr, setLocation],
+  );
+
+  const urlParams = useMemo(() => new URLSearchParams(searchStr), [searchStr]);
+  const search = urlParams.get("q") ?? "";
+  const stageFilter = parseStageParam(urlParams.get("stage"));
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["all-counsellor-clients-direct"],
@@ -134,11 +153,31 @@ export default function AllCounsellorClientsPage() {
           <AllCounsellorClientsList
             data={filteredRows}
             search={search}
-            onSearchChange={setSearch}
+            onSearchChange={(v) => {
+              mergeQuery((p) => {
+                if (v.trim()) p.set("q", v);
+                else p.delete("q");
+              });
+            }}
             stageFilter={stageFilter}
-            onStageFilterChange={setStageFilter}
-            onView={(id) => setLocation(`/clients/${id}/view`)}
-            onEdit={(id) => setLocation(`/clients/${id}/edit`)}
+            onStageFilterChange={(v) => {
+              mergeQuery((p) => {
+                if (v && v !== "all") p.set("stage", v);
+                else p.delete("stage");
+              });
+            }}
+            onView={(id) => {
+              const ret = searchStr ? `${pathname}?${searchStr}` : pathname;
+              sessionStorage.setItem("client_list_return_path", ret);
+              sessionStorage.removeItem("client_list_return_counsellor_name");
+              setLocation(`/clients/${id}/view`);
+            }}
+            onEdit={(id) => {
+              const ret = searchStr ? `${pathname}?${searchStr}` : pathname;
+              sessionStorage.setItem("client_list_return_path", ret);
+              sessionStorage.removeItem("client_list_return_counsellor_name");
+              setLocation(`/clients/${id}/edit`);
+            }}
           />
         )}
       </div>

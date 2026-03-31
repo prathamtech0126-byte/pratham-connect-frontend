@@ -12,6 +12,7 @@ import { getLatestStageFromPayments } from "@/utils/stageUtils";
 import { useState, useEffect } from "react";
 import { useSocket } from "@/context/socket-context";
 import { useToast } from "@/hooks/use-toast";
+import { isClientListReturnPath } from "@/lib/clientListReturnPath";
 
 /** Parse date-only (YYYY-MM-DD), ISO string, or Date as local calendar date so display is correct in all timezones. */
 function parseDateOnly(val: string | Date | null | undefined): Date | null {
@@ -448,7 +449,7 @@ export default function ClientView() {
   useEffect(() => {
     const path = sessionStorage.getItem(RETURN_PATH_KEY);
     const name = sessionStorage.getItem(RETURN_COUNSELLOR_NAME_KEY) || "";
-    if (path && path.startsWith("/clients/counsellor/")) {
+    if (path && isClientListReturnPath(path)) {
       setReturnPath(path);
       setReturnCounsellorName(name);
     } else {
