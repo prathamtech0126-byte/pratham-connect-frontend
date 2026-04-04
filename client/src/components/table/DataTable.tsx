@@ -33,7 +33,7 @@ export function DataTable<T>({ data, columns, className, onRowClick }: DataTable
                 <TableHead 
                   key={index} 
                   className={cn(
-                    "whitespace-nowrap font-semibold text-xs uppercase tracking-wider text-muted-foreground py-4 h-auto", 
+                    "whitespace-nowrap font-semibold text-xs uppercase tracking-wider text-muted-foreground py-3 h-auto", 
                     col.className
                   )}
                 >
@@ -68,7 +68,7 @@ export function DataTable<T>({ data, columns, className, onRowClick }: DataTable
                   onClick={() => onRowClick?.(item)}
                 >
                   {columns.map((col, colIndex) => (
-                    <TableCell key={colIndex} className={cn("py-4 text-sm text-foreground", col.className)}>
+                    <TableCell key={colIndex} className={cn("py-3 text-sm text-foreground", col.className)}>
                       {col.cell 
                         ? col.cell(item, rowIndex) 
                         : (col.accessorKey ? (item as any)[col.accessorKey] : null)

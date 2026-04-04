@@ -12,7 +12,7 @@ const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 // Determine socket URL based on environment
 // WebSocket connections can't use proxy, so we need direct URL
-let SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"; // Default for localhost
+let SOCKET_URL = import.meta.env.VITE_API_URL ; // Default for localhost
 
 if (typeof window !== "undefined") {
   const isLocalhost =

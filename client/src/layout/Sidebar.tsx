@@ -60,10 +60,10 @@ interface SidebarItem {
 const sidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
   { icon: Users, label: "Clients", href: "/clients", roles: ["superadmin", "manager", "counsellor"] },
-  // { icon: Target, label: "Lead list", href: "/leads", roles: ["superadmin", "manager", "counsellor", "telecaller"] },
-  // { icon: LayoutGrid, label: "Kanban", href: "/leads/kanban", roles: ["superadmin", "manager", "counsellor", "telecaller"] },
-  // { icon: Zap, label: "Automation", href: "/leads/automation", roles: ["superadmin", "manager"] },
-  // { icon: BarChart3, label: "Lead reports", href: "/leads/reports", roles: ["superadmin", "manager"] },
+//  { icon: Target, label: "Lead list", href: "/leads", roles: ["superadmin", "manager", "counsellor", "telecaller"] },
+ // { icon: LayoutGrid, label: "Kanban", href: "/leads/kanban", roles: ["superadmin", "manager", "counsellor", "telecaller"] },
+ //  { icon: Zap, label: "Automation", href: "/leads/automation", roles: ["superadmin", "manager"] },
+ // { icon: BarChart3, label: "Lead reports", href: "/leads/reports", roles: ["superadmin", "manager"] },
   {
     icon: Activity,
     label: "Activity Log",

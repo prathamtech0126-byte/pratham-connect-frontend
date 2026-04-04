@@ -36,13 +36,13 @@ const CounsellorLeaderboard = lazy(() => import("@/pages/CounsellorLeaderboard/C
 const ManagerLeaderboard = lazy(() => import("@/pages/ManagerLeaderboard/ManagerLeaderboard"));
 const Reports = lazy(() => import("@/pages/Reports"));
 const CounsellorReportPage = lazy(() => import("@/pages/Reports/CounsellorReportPage"));
-// const LeadList = lazy(() => import("@/pages/Leads/LeadList"));
-// const LeadDetail = lazy(() => import("@/pages/Leads/LeadDetail"));
-// const LeadKanban = lazy(() => import("@/pages/Leads/LeadKanban"));
-// const LeadAutomation = lazy(() => import("@/pages/Leads/LeadAutomation"));
-// const LeadAutomationConfigure = lazy(() => import("@/pages/Leads/LeadAutomationConfigure"));
-// const LeadImport = lazy(() => import("@/pages/Leads/LeadImport"));
-// const LeadReports = lazy(() => import("@/pages/Leads/LeadReports"));
+const LeadList = lazy(() => import("@/pages/Leads/LeadList"));
+const LeadDetail = lazy(() => import("@/pages/Leads/LeadDetail"));
+const LeadKanban = lazy(() => import("@/pages/Leads/LeadKanban"));
+const LeadAutomation = lazy(() => import("@/pages/Leads/LeadAutomation"));
+const LeadAutomationConfigure = lazy(() => import("@/pages/Leads/LeadAutomationConfigure"));
+const LeadImport = lazy(() => import("@/pages/Leads/LeadImport"));
+const LeadReports = lazy(() => import("@/pages/Leads/LeadReports"));
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useAuth();
