@@ -1,4 +1,6 @@
 import { Link, useLocation } from "wouter";
+import connectIconWhite from "@/assets/images/Connect Icon White.svg";
+import connectIcon from "@/assets/images/Connect Icon.svg";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -247,7 +249,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
         className,
       )}
     >
-      <div className={cn(
+      {/* <div className={cn(
         "h-20 flex items-center justify-center border-b border-sidebar-border/60 transition-all duration-300",
         isCollapsed ? "px-2" : "px-6"
       )}>
@@ -262,7 +264,32 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
             className="h-12 w-auto object-contain transition-all hover:scale-105"
           />
         )}
-      </div>
+      </div> */}
+
+
+<div className={cn(
+  "h-20 flex items-center justify-center border-b border-sidebar-border/60 transition-all duration-300",
+  isCollapsed ? "px-2" : "px-6"
+)}>
+  {isCollapsed ? (
+    <div className="h-10 w-10 rounded-lg flex items-center justify-center p-1.5">
+      <img
+        src={isDarkMode ? connectIconWhite : connectIcon}
+        alt="Connect Icon"
+        className="w-full h-full object-contain"
+      />
+    </div>
+  ) : (
+    <img
+      src={currentLogo}
+      alt="Consultancy Logo"
+      className="h-12 w-auto object-contain transition-all hover:scale-105"
+    />
+  )}
+</div>
+
+
+
 
       <div className={cn(
         "flex-1 py-8 space-y-1.5 overflow-y-auto custom-scrollbar transition-all duration-300",
