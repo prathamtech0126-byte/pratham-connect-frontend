@@ -423,7 +423,7 @@ function IntelligenceDashboard({
             {report.filter_start_date} → {report.filter_end_date}
           </CardDescription>
         </div>
-        <div className="flex items-center gap-2">
+        {/* <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Sale type</span>
           <Select
             value={saleTypeId != null ? String(saleTypeId) : "all"}
@@ -441,7 +441,26 @@ function IntelligenceDashboard({
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </div> */}
+        <div className="flex items-center gap-2">
+  <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Sale type</span>
+  <Select
+    value={saleTypeId != null ? String(saleTypeId) : "all"}
+    onValueChange={(v) => onSaleTypeChange(v === "all" ? null : Number(v))}
+  >
+    <SelectTrigger className="w-[200px]">
+      <SelectValue placeholder="All sale types" />
+    </SelectTrigger>
+    <SelectContent className="max-h-[300px] overflow-y-auto">
+      <SelectItem value="all">All sale types</SelectItem>
+      {saleTypes.map((st) => (
+        <SelectItem key={st.id} value={String(st.id)}>
+          {st.sale_type}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+</div>
       </CardHeader>
       <CardContent className="space-y-6 p-4 sm:p-6">
         <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
