@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import connectIconWhite from "@/assets/images/Connect Icon White.svg";
 import connectIcon from "@/assets/images/Connect Icon.svg";
 import { cn } from "@/lib/utils";
+
 import {
   LayoutDashboard,
   Users,
@@ -669,8 +670,20 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
   );
 }
 
+// Add this import at the top of Sidebar.tsx
+
+
+// Then replace your existing MobileSidebar component with this:
 export function MobileSidebar() {
   const [open, setOpen] = useState(false);
+  const [location] = useLocation();
+
+  // Auto-close sidebar when route changes
+  useEffect(() => {
+    if (open) {
+      setOpen(false);
+    }
+  }, [location]);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -693,3 +706,31 @@ export function MobileSidebar() {
     </Sheet>
   );
 }
+
+// export function MobileSidebar() {
+//   const [open, setOpen] = useState(false);
+
+//   return (
+//     <Sheet open={open} onOpenChange={setOpen}>
+//       <SheetTrigger asChild>
+//         <Button
+//           variant="ghost"
+//           size="icon"
+//           className="md:hidden -ml-2 text-muted-foreground hover:text-foreground"
+//         >
+//           <Menu className="w-6 h-6" />
+//         </Button>
+//       </SheetTrigger>
+//       <SheetContent
+//         side="left"
+//         className="p-0 w-72 bg-sidebar border-r-sidebar-border text-sidebar-foreground"
+//       >
+//         <SheetTitle className="sr-only">Menu</SheetTitle>
+//         <Sidebar />
+//       </SheetContent>
+//     </Sheet>
+//   );
+
+
+
+// }
