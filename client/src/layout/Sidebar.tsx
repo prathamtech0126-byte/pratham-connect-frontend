@@ -30,6 +30,7 @@ import {
   BarChart3,
   FileBarChart,
   ClipboardList,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,7 +53,6 @@ import {
 } from "@/components/ui/collapsible";
 import { useQuery } from "@tanstack/react-query";
 import { clientService } from "@/services/clientService";
-import { Loader2 } from "lucide-react";
 
 interface SidebarItem {
   icon: any;
