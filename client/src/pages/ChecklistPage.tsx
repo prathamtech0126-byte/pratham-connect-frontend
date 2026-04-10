@@ -58,7 +58,6 @@ export default function ChecklistPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [drawerSlug, setDrawerSlug] = useState<string | null>(null);
-  const [hasCountrySpecific, setHasCountrySpecific] = useState(false);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const { data: categories = [], isLoading: catsLoading } = useCategories();
@@ -91,18 +90,10 @@ export default function ChecklistPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // ── Track whether current category has country-specific checklists ─────────
-  useEffect(() => {
-    if (!selectedCountry && checklists.length > 0) {
-      setHasCountrySpecific(checklists.some((c) => c.countryId !== null));
-    }
-  }, [checklists, selectedCountry]);
-
-  // ── Reset country + hasCountrySpecific when category changes ───────────────
+  // ── Reset country when category changes ───────────────────────────────────
   const handleCategorySelect = (slug: string) => {
     setActiveSlug(slug);
     setSelectedCountry("");
-    setHasCountrySpecific(false);
   };
 
   // ── Lookup maps ────────────────────────────────────────────────────────────
@@ -120,7 +111,10 @@ export default function ChecklistPage() {
     return countries.filter((c) => ids.has(c.id));
   }, [checklists, countries]);
 
-  const showCountryDropdown = hasCountrySpecific || !!selectedCountry;
+  const showCountryDropdown = useMemo(
+    () => checklists.some((c) => c.countryId !== null) || !!selectedCountry,
+    [checklists, selectedCountry]
+  );
 
   // ── Clear filters ──────────────────────────────────────────────────────────
   const clearFilters = () => {
