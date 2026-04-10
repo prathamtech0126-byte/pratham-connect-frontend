@@ -10,10 +10,12 @@ interface Props {
 
 export function CategoryTabs({ categories, activeSlug, onSelect }: Props) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+    <div className="flex gap-2 overflow-x-auto pb-1">
       {categories.map((cat) => (
         <button
           key={cat.slug}
+          type="button"
+          aria-pressed={cat.slug === activeSlug}
           onClick={() => onSelect(cat.slug)}
           className={cn(
             "flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200",
