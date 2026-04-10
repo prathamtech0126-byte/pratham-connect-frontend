@@ -36,6 +36,7 @@ const CounsellorLeaderboard = lazy(() => import("@/pages/CounsellorLeaderboard/C
 const ManagerLeaderboard = lazy(() => import("@/pages/ManagerLeaderboard/ManagerLeaderboard"));
 const Reports = lazy(() => import("@/pages/Reports"));
 const CounsellorReportPage = lazy(() => import("@/pages/Reports/CounsellorReportPage"));
+const ChecklistPage = lazy(() => import("@/pages/ChecklistPage"));
 // const LeadList = lazy(() => import("@/pages/Leads/LeadList"));
 // const LeadDetail = lazy(() => import("@/pages/Leads/LeadDetail"));
 // const LeadKanban = lazy(() => import("@/pages/Leads/LeadKanban"));
@@ -206,6 +207,10 @@ function Router() {
 
         <Route path="/university-db">
           {params => <ProtectedRoute component={UniversityDatabase} />}
+        </Route>
+
+        <Route path="/checklists">
+          {params => <ProtectedRoute component={ChecklistPage} />}
         </Route>
 
         <Route component={NotFound} />

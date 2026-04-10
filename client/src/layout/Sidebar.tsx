@@ -29,6 +29,7 @@ import {
   Zap,
   BarChart3,
   FileBarChart,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -101,6 +102,12 @@ const sidebarItems: SidebarItem[] = [
     label: "University List",
     href: "/university-db",
     roles: ["superadmin", "manager", "counsellor"],
+  },
+  {
+    icon: ClipboardList,
+    label: "Checklists",
+    href: "/checklists",
+    roles: ["superadmin", "manager"],
   },
 ];
 
