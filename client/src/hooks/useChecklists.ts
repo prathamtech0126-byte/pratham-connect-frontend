@@ -41,6 +41,8 @@ export function useChecklistDetail(slug: string | null) {
     queryKey: ["checklist-detail", slug],
     queryFn: () => fetchChecklistDetail(slug!),
     enabled: !!slug,
+    staleTime: 1000 * 60 * 5,
+    retry: false,
   });
 }
 
