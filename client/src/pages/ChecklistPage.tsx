@@ -202,14 +202,14 @@ export default function ChecklistPage() {
             {showCountryDropdown && (
               <div className="flex items-center gap-3">
                 <Select
-                  value={selectedCountry}
-                  onValueChange={setSelectedCountry}
+                  value={selectedCountry || "all"}
+                  onValueChange={(v) => setSelectedCountry(v === "all" ? "" : v)}
                 >
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="All Countries" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Countries</SelectItem>
+                    <SelectItem value="all">All Countries</SelectItem>
                     {relevantCountryCodes.map((c) => (
                       <SelectItem key={c.code} value={c.code}>
                         {c.name}
