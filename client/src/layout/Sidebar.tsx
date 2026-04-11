@@ -32,10 +32,9 @@ import {
   ClipboardList,
   FolderOpen,
   Loader2,
-  Info, // Add this
-  GraduationCap, // Add this
-  CheckSquare, // Add this
-
+  Info,
+  GraduationCap,
+  CheckSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +57,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useQuery } from "@tanstack/react-query";
 import { clientService } from "@/services/clientService";
+
 
 interface SidebarItem {
   icon: any;
@@ -111,6 +111,56 @@ const sidebarItems: SidebarItem[] = [
     roles: ["superadmin", "manager"],
   },
 ];
+
+// const sidebarItems: SidebarItem[] = [
+//   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
+//   { icon: Users, label: "Clients", href: "/clients", roles: ["superadmin", "manager", "counsellor"] },
+// // { icon: Target, label: "Lead list", href: "/leads", roles: ["superadmin", "manager", "counsellor", "telecaller"] },
+//  // { icon: LayoutGrid, label: "Kanban", href: "/leads/kanban", roles: ["superadmin", "manager", "counsellor", "telecaller"] },
+//   // { icon: Zap, label: "Automation", href: "/leads/automation", roles: ["superadmin", "manager"] },
+//   // { icon: BarChart3, label: "Lead reports", href: "/leads/reports", roles: ["superadmin", "manager"] },
+//   {
+//     icon: Activity,
+//     label: "Activity Log",
+//     href: "/activity",
+//   },
+//   {
+//     icon: Megaphone,
+//     label: "Messages",
+//     href: "/messages",
+//   },
+//   { icon: PieChart, label: "Reports", href: "/reports" },
+//   {
+//     icon: Users,
+//     label: "Team",
+//     href: "/team",
+//     roles: ["superadmin", "director"],
+//   },
+//   {
+//     icon: Trophy,
+//     label: "Leaderboard",
+//     href: "/counsellor-leaderboard",
+//     roles: ["superadmin", "manager"],
+//   },
+//   {
+//     icon: FileText,
+//     label: "Additional Info",
+//     href: "/additional-info",
+//     roles: ["superadmin", "director"],
+//   },
+//   {
+//     icon: FileSpreadsheet,
+//     label: "University List",
+//     href: "/university-db",
+//     roles: ["superadmin", "manager", "counsellor"],
+//   },
+//   {
+//     icon: CheckSquare,
+//     label: "Checklists",
+//     href: "/checklists",
+//     roles: ["superadmin", "manager"],
+//   },
+// ];
 
 export function Sidebar({ className, isCollapsed }: { className?: string; isCollapsed?: boolean }) {
   const [location] = useLocation();
