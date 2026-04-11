@@ -30,7 +30,12 @@ import {
   BarChart3,
   FileBarChart,
   ClipboardList,
+  FolderOpen,
   Loader2,
+  Info, // Add this
+  GraduationCap, // Add this
+  CheckSquare, // Add this
+
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,14 +65,10 @@ interface SidebarItem {
   href: string;
   roles?: UserRole[];
 }
-
+// Updated sidebar items with more appropriate icons
 const sidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
   { icon: Users, label: "Clients", href: "/clients", roles: ["superadmin", "manager", "counsellor"] },
-// { icon: Target, label: "Lead list", href: "/leads", roles: ["superadmin", "manager", "counsellor", "telecaller"] },
- // { icon: LayoutGrid, label: "Kanban", href: "/leads/kanban", roles: ["superadmin", "manager", "counsellor", "telecaller"] },
-  // { icon: Zap, label: "Automation", href: "/leads/automation", roles: ["superadmin", "manager"] },
-  // { icon: BarChart3, label: "Lead reports", href: "/leads/reports", roles: ["superadmin", "manager"] },
   {
     icon: Activity,
     label: "Activity Log",
@@ -92,19 +93,19 @@ const sidebarItems: SidebarItem[] = [
     roles: ["superadmin", "manager"],
   },
   {
-    icon: FileText,
+    icon: Info, // or FileInfo, or CircleInfo
     label: "Additional Info",
     href: "/additional-info",
     roles: ["superadmin", "director"],
   },
   {
-    icon: FileSpreadsheet,
+    icon: GraduationCap, // or Building2, or Library
     label: "University List",
     href: "/university-db",
     roles: ["superadmin", "manager", "counsellor"],
   },
   {
-    icon: ClipboardList,
+    icon: CheckSquare, // or CheckCircle2, or ListChecks
     label: "Checklists",
     href: "/checklists",
     roles: ["superadmin", "manager"],
@@ -116,6 +117,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
   const { user, logout } = useAuth();
   const { theme } = useTheme();
   const [isClientsOpen, setIsClientsOpen] = useState(false);
+  const [isRegisteredClientOpen, setIsRegisteredClientOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isReportsOpen, setIsReportsOpen] = useState(false);
@@ -210,6 +212,12 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
     }
   }, [location]);
 
+  useEffect(() => {
+    if (location.startsWith("/backend/clients")) {
+      setIsRegisteredClientOpen(true);
+    }
+  }, [location]);
+
   // Auto-expand leaderboard if we are on a leaderboard page
   useEffect(() => {
     if (location === "/manager-leaderboard" || location === "/counsellor-leaderboard") {
@@ -227,6 +235,10 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
       team_lead: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
       counsellor: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
       telecaller: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
+      backend_manager: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-900/30 dark:text-fuchsia-300 dark:border-fuchsia-800",
+      customer_experience: "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-800",
+      binding_team: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800",
+      application_team: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800",
     };
 
     const labels: Record<string, string> = {
@@ -236,6 +248,10 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
       team_lead: "Team Lead",
       counsellor: "Counsellor",
       telecaller: "Telecaller",
+      backend_manager: "Backend Manager",
+      customer_experience: "CX Team",
+      binding_team: "Binding Team",
+      application_team: "Application Team",
     };
 
     return (
@@ -410,6 +426,66 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                     >
                       <Archive className="w-4 h-4" />
                       <span className="truncate">Archive</span>
+                    </Link>
+                  </CollapsibleContent>
+                )}
+              </Collapsible>
+            );
+          }
+          if (item.label === "Registered Client") {
+            return (
+              <Collapsible
+                key={item.href}
+                open={isRegisteredClientOpen}
+                onOpenChange={setIsRegisteredClientOpen}
+                className="space-y-1"
+              >
+                <div className="flex items-center gap-2">
+                  <CollapsibleTrigger asChild>
+                    <div
+                      className={cn(
+                        "flex flex-1 items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative cursor-pointer select-none",
+                        isCollapsed ? "px-2 justify-center" : "px-3",
+                        isActive
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-primary/20"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      )}
+                    >
+                      <item.icon
+                        className={cn(
+                          "transition-transform group-hover:scale-110 shrink-0",
+                          isCollapsed ? "w-5 h-5" : "w-5 h-5",
+                          isActive
+                            ? "text-sidebar-primary-foreground"
+                            : "text-muted-foreground group-hover:text-sidebar-primary",
+                        )}
+                      />
+                      {!isCollapsed && (
+                        <>
+                          <span className="flex-1">{item.label}</span>
+                          {isRegisteredClientOpen ? (
+                            <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 opacity-50 shrink-0" />
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </CollapsibleTrigger>
+                </div>
+                {!isCollapsed && (
+                  <CollapsibleContent className="pl-4 space-y-1 overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                    <Link
+                      href="/backend/clients"
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                        location.startsWith("/backend/clients")
+                          ? "border-primary text-primary font-medium bg-primary/5"
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                      )}
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span className="truncate">Filling Client</span>
                     </Link>
                   </CollapsibleContent>
                 )}

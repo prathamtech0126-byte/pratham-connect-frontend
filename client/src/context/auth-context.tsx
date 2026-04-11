@@ -3,7 +3,16 @@ import { useLocation } from "wouter";
 import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
-export type UserRole = 'superadmin' | 'manager' | 'counsellor' | 'director' | 'telecaller';
+export type UserRole =
+  | 'superadmin'
+  | 'manager'
+  | 'counsellor'
+  | 'director'
+  | 'telecaller'
+  | 'backend_manager'
+  | 'application_team'
+  | 'customer_experience'
+  | 'binding_team';
 
 interface User {
   id: string;
@@ -59,6 +68,30 @@ const MOCK_USERS: Record<UserRole, User> = {
     name: 'Rahul Telecaller',
     role: 'telecaller',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+  },
+  backend_manager: {
+    id: '7',
+    username: 'backend_manager',
+    name: 'Backend Manager',
+    role: 'backend_manager',
+  },
+  application_team: {
+    id: '8',
+    username: 'application_team',
+    name: 'Application Team',
+    role: 'application_team',
+  },
+  customer_experience: {
+    id: '9',
+    username: 'customer_experience',
+    name: 'Customer Experience',
+    role: 'customer_experience',
+  },
+  binding_team: {
+    id: '10',
+    username: 'binding_team',
+    name: 'Binding Team',
+    role: 'binding_team',
   },
 };
 

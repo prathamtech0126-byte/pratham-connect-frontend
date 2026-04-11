@@ -1,16 +1,20 @@
 import { useRoute, useLocation } from "wouter";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { clientService } from "@/services/clientService";
+import api from "@/lib/api";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SectionTabs } from "@/components/tabs/SectionTabs";
 import { format } from "date-fns";
-import { User, Calendar, CreditCard, ClipboardList, Info, ChevronDown, ChevronUp, Edit, ArrowLeft } from "lucide-react";
+import { CreditCard, ClipboardList, Info, ChevronDown, ChevronUp, Edit, ArrowLeft, FolderOpen, ListChecks, Route } from "lucide-react";
 import { getLatestStageFromPayments } from "@/utils/stageUtils";
 import { useState, useEffect } from "react";
 import { useSocket } from "@/context/socket-context";
+import { useAuth } from "@/context/auth-context";
+import { BACKEND_ALLOWED_ROLES } from "@/constants/roles";
 import { useToast } from "@/hooks/use-toast";
 import { isClientListReturnPath } from "@/lib/clientListReturnPath";
 
@@ -437,13 +441,26 @@ const renderProductDetails = (product: any) => {
 const RETURN_PATH_KEY = "client_list_return_path";
 const RETURN_COUNSELLOR_NAME_KEY = "client_list_return_counsellor_name";
 
+type TimelineItem = {
+  id: string;
+  title: string;
+  subtitle: string;
+  date?: string | null;
+};
+
 export default function ClientView() {
   const [, params] = useRoute("/clients/:id/view");
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
   const clientId = params?.id ? parseInt(params.id) : null;
   const [expandedProducts, setExpandedProducts] = useState<Set<number>>(new Set());
   const [returnPath, setReturnPath] = useState<string | null>(null);
   const [returnCounsellorName, setReturnCounsellorName] = useState<string>("");
+  const [selectedFolder, setSelectedFolder] = useState<string>("uncategorized");
+  const [newFolderName, setNewFolderName] = useState<string>("");
+  const [documentTitle, setDocumentTitle] = useState<string>("");
+  const [selectedDocFile, setSelectedDocFile] = useState<File | null>(null);
+  const [customFolders, setCustomFolders] = useState<string[]>([]);
   const { socket, isConnected } = useSocket();
 
   useEffect(() => {
@@ -642,8 +659,112 @@ export default function ClientView() {
     return "Only Products";
   };
   const clientSaleType = getClientSaleType();
+  const isBackendViewRole = !!user && BACKEND_ALLOWED_ROLES.includes(user.role);
+  const canViewDocsVault = isBackendViewRole;
 
-  // When a particular client is open: Home > Clients > Client name
+  const timelineItems: TimelineItem[] = [
+    {
+      id: "enrollment",
+      title: "Client Enrolled",
+      subtitle: "Enrollment date recorded",
+      date: clientEnrollmentDate,
+    },
+    {
+      id: "created",
+      title: "Client Created",
+      subtitle: "Client profile created",
+      date: clientData.createdAt,
+    },
+    ...(client.payments || []).map((payment: any, index: number) => ({
+      id: `payment-${payment.paymentId || index}`,
+      title: `Payment ${payment.stage ? `(${String(payment.stage).replace(/_/g, " ")})` : ""}`.trim(),
+      subtitle: `${payment.invoiceNo || "Invoice not added yet"} • ₹${Number(payment.amount || 0).toLocaleString()}`,
+      date: payment.paymentDate || payment.createdAt,
+    })),
+  ]
+    .filter((item) => item.date)
+    .sort((a, b) => {
+      const aTime = parseDateOnly(a.date || "")?.getTime() || 0;
+      const bTime = parseDateOnly(b.date || "")?.getTime() || 0;
+      return bTime - aTime;
+    });
+
+  const documents: any[] = Array.isArray(clientData.documents) ? clientData.documents : [];
+  const folderStorageKey = `client_docs_vault_folders_${clientId || "unknown"}`;
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(folderStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) setCustomFolders(parsed);
+    } catch {
+      // ignore parsing issues
+    }
+  }, [folderStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(folderStorageKey, JSON.stringify(customFolders));
+  }, [folderStorageKey, customFolders]);
+
+  const documentsByFolder = documents.reduce<Record<string, any[]>>((acc, doc) => {
+    const folderKey = String(doc.folderName || doc.folder || doc.category || doc.documentCategory || "uncategorized").toLowerCase();
+    if (!acc[folderKey]) acc[folderKey] = [];
+    acc[folderKey].push(doc);
+    return acc;
+  }, {});
+  const allFolderKeys = Array.from(new Set([...Object.keys(documentsByFolder), ...customFolders])).sort();
+
+  const uploadDocumentMutation = useMutation({
+    mutationFn: async () => {
+      if (!clientId) throw new Error("Client id not found");
+      if (!selectedDocFile) throw new Error("Please select a file");
+      const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
+      if (!allowedTypes.includes(selectedDocFile.type)) {
+        throw new Error("Only PDF and image files are allowed");
+      }
+
+      const formData = new FormData();
+      formData.append("file", selectedDocFile);
+      formData.append("documentName", documentTitle || selectedDocFile.name);
+      formData.append("folderName", selectedFolder);
+      formData.append("documentCategory", selectedFolder);
+      const res = await api.post(`/api/clients/${clientId}/documents`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["client-complete", clientId] });
+      setDocumentTitle("");
+      setSelectedDocFile(null);
+      toast({
+        title: "Document uploaded",
+        description: "File uploaded successfully in docs vault.",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Upload failed",
+        description: err?.message || "Could not upload file. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateFolder = () => {
+    const normalized = newFolderName.trim().toLowerCase().replace(/\s+/g, "_");
+    if (!normalized) return;
+    if (allFolderKeys.includes(normalized)) {
+      toast({ title: "Folder exists", description: "This folder already exists." });
+      return;
+    }
+    setCustomFolders((prev) => [...prev, normalized]);
+    setSelectedFolder(normalized);
+    setNewFolderName("");
+    toast({ title: "Folder created", description: "New folder added to docs vault." });
+  };
+
   const mainBreadcrumbs = [
     { label: "Clients", href: "/clients" },
     { label: clientFullName },
@@ -671,270 +792,393 @@ export default function ClientView() {
       }
     >
       <div className="space-y-8">
-        {/* Header Section */}
-        <Card className="border-none shadow-md bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                  <User className="h-8 w-8" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">{clientFullName}</h2>
-                  <div className="flex items-center gap-2 mt-1">
-                    {/* <Badge variant="outline" className="bg-white">{clientSaleType}</Badge> */}
-                    <Badge className={clientArchived ? "bg-gray-100 text-gray-600" : "bg-emerald-100 text-emerald-700"}>
-                      {clientArchived ? "Archived" : "Active"}
-                    </Badge>
-                    {isDuplicateClient && (
-                      <Badge
-                        variant="secondary"
-                        className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
-                      >
-                        Shared Client
-                      </Badge>
-                    )}
-                  </div>
-                  {isDuplicateClient ? (
-                    <p className="mt-2 text-sm text-gray-600">
-                      Original counsellor: <span className="font-semibold text-gray-900">{originalCounsellorName}</span>
-                      {transferedToCounsellorName ? (
-                        <>
-                          {" "}• Shared to: <span className="font-semibold text-gray-900">{transferedToCounsellorName}</span>
-                        </>
-                      ) : null}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-8">
-                <div>
-                  <p className="text-sm text-gray-500">Enrollment Date</p>
-                  <p className="font-semibold">{formatDateLocal(clientEnrollmentDate)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Current Stage</p>
-                  <p className="font-semibold text-blue-600">{getLatestStageFromPayments(
-                    client.payments,
-                    client.client?.stage || client.stage,
-                    client.client?.visaSubmitted || client.visaSubmitted
-                  ) || "N/A"}</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="space-y-8">
-          {/* Payment Overview - Horizontal Summary */}
-          <Card className="border-none shadow-md overflow-hidden bg-white">
-            <CardHeader className="pb-4 border-b border-gray-50">
-              <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
-                <CreditCard className="h-6 w-6 text-blue-500" />
-                Core Service Payment Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="flex flex-wrap gap-4 mb-8">
-                {/* Calculate totals from all payments */}
-                {(() => {
-                  const totalPayment = client.payments?.[0]?.totalPayment || 0;
-                  // Sum all payment amounts (INITIAL + BEFORE_VISA + AFTER_VISA)
-                  const totalReceived = client.payments?.reduce((sum: number, payment: any) => {
-                    return sum + Number(payment.amount || 0);
-                  }, 0) || 0;
-                  const totalPending = Number(totalPayment) - Number(totalReceived);
-
-                  return (
-                    <>
-
-                      <div className="flex-1 min-w-[200px] p-4 rounded-2xl bg-gray-50/50 border border-gray-100 flex flex-col items-center text-center">
-                        <p className="text-[10px] text-gray-400 uppercase font-black tracking-wider">Total Fees</p>
-                        <p className="text-xl font-black mt-1 text-[#1A2B3B]">₹{Number(totalPayment).toLocaleString()}</p>
+        <SectionTabs
+          defaultValue="basic-details"
+          items={[
+            {
+              value: "basic-details",
+              label: "Basic Details",
+              content: (
+                <Card className="border-none shadow-md overflow-hidden bg-white">
+                  <CardHeader className="pb-4 border-b border-gray-50">
+                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                      <Info className="h-6 w-6 text-blue-500" />
+                      Basic Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="rounded-lg border border-gray-100 p-4">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Client Name</p>
+                        <p className="text-sm font-semibold mt-1">{clientFullName}</p>
                       </div>
-                      <div className="flex-1 min-w-[200px] p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 flex flex-col items-center text-center">
-                        <p className="text-[10px] text-emerald-600 uppercase font-black tracking-wider">Received</p>
-                        <p className="text-xl font-black mt-1 text-emerald-700">₹{Number(totalReceived).toLocaleString()}</p>
+                      <div className="rounded-lg border border-gray-100 p-4">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Enrollment Date</p>
+                        <p className="text-sm font-semibold mt-1">{formatDateLocal(clientEnrollmentDate)}</p>
                       </div>
-                      <div className="flex-1 min-w-[200px] p-4 rounded-2xl bg-orange-50/50 border border-orange-100 flex flex-col items-center text-center">
-                        <p className="text-[10px] text-orange-600 uppercase font-black tracking-wider">Pending</p>
-                        <p className="text-xl font-black mt-1 text-orange-700">₹{Math.max(0, Number(totalPending)).toLocaleString()}</p>
+                      <div className="rounded-lg border border-gray-100 p-4">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
+                        <p className="text-sm font-semibold mt-1">{clientArchived ? "Archived" : "Active"}</p>
                       </div>
-                    </>
-                  );
-                })()}
-              </div>
-
-
-              <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-sm">
-                <ClipboardList className="h-4 w-4 text-gray-400" />
-                Payment History
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {client.payments?.length > 0 ? (
-                  client.payments.map((payment: any, idx: number) => (
-                    <div key={idx} className="flex justify-between items-center p-4 rounded-xl border border-gray-100 bg-white shadow-sm">
-                      <div>
-                        <p className="font-bold text-[#1A2B3B]">{payment.invoiceNo || "Invoice not added yet"}</p>
-                        <p className="text-xs text-gray-400 font-medium">{formatDateLocal(payment.paymentDate)}</p>
+                      <div className="rounded-lg border border-gray-100 p-4">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Current Stage</p>
+                        <p className="text-sm font-semibold mt-1 text-blue-600">{getLatestStageFromPayments(
+                          client.payments,
+                          client.client?.stage || client.stage,
+                          client.client?.visaSubmitted || client.visaSubmitted
+                        ) || "N/A"}</p>
                       </div>
-                      <div className="text-right flex flex-col items-end gap-1">
-                        <p className="font-black text-lg text-[#1A2B3B]">₹{Number(payment.amount).toLocaleString()}</p>
-                        <Badge variant="outline" className="text-[12px] font-black uppercase tracking-tighter px-2 h-7 rounded-md border-gray-200 text-gray-500 bg-gray-50">
-                          {payment.stage?.replace(/_/g, ' ')}
-                        </Badge>
+                      <div className="rounded-lg border border-gray-100 p-4">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Lead Type</p>
+                        <p className="text-sm font-semibold mt-1">{client.leadType?.leadType || clientData.leadType || "N/A"}</p>
                       </div>
+                      <div className="rounded-lg border border-gray-100 p-4">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Passport Details</p>
+                        <p className="text-sm font-semibold mt-1">{clientData.passportDetails || "N/A"}</p>
+                      </div>
+                      <div className="rounded-lg border border-gray-100 p-4">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Counsellor</p>
+                        <p className="text-sm font-semibold mt-1">{originalCounsellorName}</p>
+                      </div>
+                      <div className="rounded-lg border border-gray-100 p-4">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide">Sale Type</p>
+                        <p className="text-sm font-semibold mt-1">{clientSaleType}</p>
+                      </div>
+                      {isDuplicateClient && (
+                        <div className="rounded-lg border border-gray-100 p-4 md:col-span-2 lg:col-span-3">
+                          <p className="text-xs text-gray-500 uppercase tracking-wide">Shared Client Details</p>
+                          <p className="text-sm font-semibold mt-1 text-gray-900">
+                            Original counsellor: {originalCounsellorName}
+                            {transferedToCounsellorName ? ` • Shared to: ${transferedToCounsellorName}` : ""}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  ))
-                ) : (
-                  <p className="col-span-full text-center py-8 text-gray-400 italic text-sm">No payment records found.</p>
-                )}
-              </div>
-              <h4 className="font-bold mt-4 text-gray-700 mb-4 flex items-center gap-2 text-sm">
-                <Info className="h-4 w-4 text-gray-400" />
-                Sales Type and Core Product Details
-              </h4>
-
-              {client.payments?.length > 0 && (() => {
-                const payment = client.payments[0]; // take only first item
-
-                return (
-                  <div className="flex flex-wrap gap-4">
-                    <div className="flex-1 min-w-[200px] p-4 rounded-xl border border-gray-100 bg-white shadow-sm">
-                      <label className="text-[10px] text-gray-400 uppercase font-black tracking-wider block mb-1">
-                        SALES TYPE
-                      </label>
-                      <p className="font-bold text-lg text-[#1A2B3B]">
-                        {payment.saleType?.saleType || payment.salesType || "Only Products"}
-                      </p>
-                    </div>
-
-                    <div className="flex-1 min-w-[200px] p-4 rounded-xl border border-gray-100 bg-white shadow-sm">
-                      <label className="text-[10px] text-gray-400 uppercase font-black tracking-wider block mb-1">
-                        CORE PRODUCT
-                      </label>
-                      <p className="font-bold text-lg text-[#1A2B3B]">
-                        {payment.saleType?.isCoreProduct !== undefined
-                          ? payment.saleType.isCoreProduct ? "Yes" : "No"
-                          : payment.isCoreProduct !== undefined
-                            ? payment.isCoreProduct ? "Yes" : "No"
-                            : "Only Products"}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()}
-            </CardContent>
-          </Card>
-
-          {/* Product Details - Full Width below Payment */}
-          <Card className="border-none shadow-md overflow-hidden bg-white">
-            <CardHeader className="pb-4 border-b border-gray-50">
-              <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
-                <Info className="h-6 w-6 text-indigo-500" />
-                Product Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="space-y-8">
-                {/* Product Details Section - Sales Type and Core Product */}
-                {/* <div>
-                  <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-sm">
-                    <Info className="h-4 w-4 text-indigo-500" />
-                    Product Details
-                  </h4>
-
-                </div> */}
-
-                {/* Service Breakdown Section */}
-                <div>
-                  <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-sm">
-                    <ClipboardList className="h-4 w-4 text-gray-400" />
-                    Service Breakdown
-                  </h4>
-                  {/* Expandable Service Cards Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {client.productPayments && client.productPayments.length > 0 ? (
-                      client.productPayments.map((prod: any, idx: number) => {
-                        const isAllFinance =
-                          prod.productName === "ALL_FINANCE_EMPLOYEMENT" ||
-                          prod.productName === "ALL_FINANCE_EMPLOYMENT";
-
-                        // For All Finance, show total paid (sum of installments) instead of only first amount.
-                        const paidAmountForAllFinance = isAllFinance
-                          ? [
-                            prod.entity?.amount,
-                            prod.entity?.anotherPaymentAmount,
-                            prod.entity?.anotherPaymentAmount2,
-                          ].reduce((sum: number, value: unknown) => {
-                            const n = Number(value ?? 0);
-                            return sum + (Number.isNaN(n) ? 0 : n);
-                          }, 0)
-                          : 0;
-
-                        const totalAmountForAllFinance = isAllFinance
-                          ? Number(prod.entity?.totalAmount ?? 0)
-                          : 0;
-
-                        const pendingAmountForAllFinance = isAllFinance
-                          ? Math.max(0, totalAmountForAllFinance - paidAmountForAllFinance)
-                          : 0;
-
-                        // Default amount display for non-finance products
-                        const productAmount = isAllFinance
-                          ? paidAmountForAllFinance
-                          : Number(prod.entity?.amount ?? prod.amount ?? 0);
-                        const isExpanded = expandedProducts.has(idx);
-                        const hasDetails = prod.entity || prod.entityType === 'master_only';
-
-                        return (
-                          <div
-                            key={idx}
-                            className={`rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden transition-all ${isExpanded ? 'shadow-md' : 'hover:bg-gray-50/50'
-                              }`}
-                          >
-                            {/* Header - Always visible */}
-                            <div
-                              className={`p-4 flex flex-col justify-between gap-2 ${hasDetails ? 'cursor-pointer' : ''}`}
-                              onClick={() => hasDetails && toggleProduct(idx)}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider line-clamp-2 flex-1">
-                                  {prod.productName?.replace(/_/g, ' ')}
-                                </span>
-                                {hasDetails && (
-                                  <button className="text-gray-400 hover:text-gray-600 transition-colors">
-                                    {isExpanded ? (
-                                      <ChevronUp className="h-4 w-4" />
-                                    ) : (
-                                      <ChevronDown className="h-4 w-4" />
-                                    )}
-                                  </button>
-                                )}
+                  </CardContent>
+                </Card>
+              ),
+            },
+            {
+              value: "payment-details",
+              label: "Payment Details",
+              content: (
+                <div className="space-y-8">
+                  <Card className="border-none shadow-md overflow-hidden bg-white">
+                    <CardHeader className="pb-4 border-b border-gray-50">
+                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                        <CreditCard className="h-6 w-6 text-blue-500" />
+                        Core Service Payment Summary
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      <div className="flex flex-wrap gap-4 mb-8">
+                        {(() => {
+                          const totalPayment = client.payments?.[0]?.totalPayment || 0;
+                          const totalReceived = client.payments?.reduce((sum: number, payment: any) => {
+                            return sum + Number(payment.amount || 0);
+                          }, 0) || 0;
+                          const totalPending = Number(totalPayment) - Number(totalReceived);
+                          return (
+                            <>
+                              <div className="flex-1 min-w-[200px] p-4 rounded-2xl bg-gray-50/50 border border-gray-100 flex flex-col items-center text-center">
+                                <p className="text-[10px] text-gray-400 uppercase font-black tracking-wider">Total Fees</p>
+                                <p className="text-xl font-black mt-1 text-[#1A2B3B]">₹{Number(totalPayment).toLocaleString()}</p>
                               </div>
-                              <span className="font-black text-lg text-[#1A2B3B]">
-                                ₹{Number(productAmount).toLocaleString()}
-                              </span>
+                              <div className="flex-1 min-w-[200px] p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 flex flex-col items-center text-center">
+                                <p className="text-[10px] text-emerald-600 uppercase font-black tracking-wider">Received</p>
+                                <p className="text-xl font-black mt-1 text-emerald-700">₹{Number(totalReceived).toLocaleString()}</p>
+                              </div>
+                              <div className="flex-1 min-w-[200px] p-4 rounded-2xl bg-orange-50/50 border border-orange-100 flex flex-col items-center text-center">
+                                <p className="text-[10px] text-orange-600 uppercase font-black tracking-wider">Pending</p>
+                                <p className="text-xl font-black mt-1 text-orange-700">₹{Math.max(0, Number(totalPending)).toLocaleString()}</p>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+
+                      <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-sm">
+                        <ClipboardList className="h-4 w-4 text-gray-400" />
+                        Payment History
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {client.payments?.length > 0 ? (
+                          client.payments.map((payment: any, idx: number) => (
+                            <div key={idx} className="flex justify-between items-center p-4 rounded-xl border border-gray-100 bg-white shadow-sm">
+                              <div>
+                                <p className="font-bold text-[#1A2B3B]">{payment.invoiceNo || "Invoice not added yet"}</p>
+                                <p className="text-xs text-gray-400 font-medium">{formatDateLocal(payment.paymentDate)}</p>
+                              </div>
+                              <div className="text-right flex flex-col items-end gap-1">
+                                <p className="font-black text-lg text-[#1A2B3B]">₹{Number(payment.amount).toLocaleString()}</p>
+                                <Badge variant="outline" className="text-[12px] font-black uppercase tracking-tighter px-2 h-7 rounded-md border-gray-200 text-gray-500 bg-gray-50">
+                                  {payment.stage?.replace(/_/g, " ")}
+                                </Badge>
+                              </div>
                             </div>
+                          ))
+                        ) : (
+                          <p className="col-span-full text-center py-8 text-gray-400 italic text-sm">No payment records found.</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                            {/* Expandable Details Section */}
-                            {hasDetails && isExpanded && (
-                              <div className="px-4 pb-4 pt-2 border-t border-gray-100 bg-gray-50/50">
-                                {renderProductDetails(prod)}
-                              </div>
+                  <Card className="border-none shadow-md overflow-hidden bg-white">
+                    <CardHeader className="pb-4 border-b border-gray-50">
+                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                        <Info className="h-6 w-6 text-indigo-500" />
+                        Product Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      <div>
+                        <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-sm">
+                          <ClipboardList className="h-4 w-4 text-gray-400" />
+                          Service Breakdown
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {client.productPayments && client.productPayments.length > 0 ? (
+                            client.productPayments.map((prod: any, idx: number) => {
+                              const isAllFinance =
+                                prod.productName === "ALL_FINANCE_EMPLOYEMENT" ||
+                                prod.productName === "ALL_FINANCE_EMPLOYMENT";
+                              const paidAmountForAllFinance = isAllFinance
+                                ? [
+                                  prod.entity?.amount,
+                                  prod.entity?.anotherPaymentAmount,
+                                  prod.entity?.anotherPaymentAmount2,
+                                ].reduce((sum: number, value: unknown) => {
+                                  const n = Number(value ?? 0);
+                                  return sum + (Number.isNaN(n) ? 0 : n);
+                                }, 0)
+                                : 0;
+                              const productAmount = isAllFinance
+                                ? paidAmountForAllFinance
+                                : Number(prod.entity?.amount ?? prod.amount ?? 0);
+                              const isExpanded = expandedProducts.has(idx);
+                              const hasDetails = prod.entity || prod.entityType === "master_only";
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden transition-all ${isExpanded ? "shadow-md" : "hover:bg-gray-50/50"}`}
+                                >
+                                  <div
+                                    className={`p-4 flex flex-col justify-between gap-2 ${hasDetails ? "cursor-pointer" : ""}`}
+                                    onClick={() => hasDetails && toggleProduct(idx)}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider line-clamp-2 flex-1">
+                                        {prod.productName?.replace(/_/g, " ")}
+                                      </span>
+                                      {hasDetails && (
+                                        <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                        </button>
+                                      )}
+                                    </div>
+                                    <span className="font-black text-lg text-[#1A2B3B]">₹{Number(productAmount).toLocaleString()}</span>
+                                  </div>
+
+                                  {hasDetails && isExpanded && (
+                                    <div className="px-4 pb-4 pt-2 border-t border-gray-100 bg-gray-50/50">
+                                      {renderProductDetails(prod)}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <p className="col-span-full text-center py-8 text-gray-400 italic text-sm">No service breakdown available.</p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ),
+            },
+            {
+              value: "timeline",
+              label: "Timeline",
+              content: (
+                <Card className="border-none shadow-md overflow-hidden bg-white">
+                  <CardHeader className="pb-4 border-b border-gray-50">
+                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                      <Route className="h-6 w-6 text-violet-500" />
+                      Full Timeline
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    {timelineItems.length > 0 ? (
+                      <div className="space-y-3">
+                        {timelineItems.map((item) => (
+                          <div key={item.id} className="rounded-lg border border-gray-100 p-4">
+                            <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                            <p className="text-xs text-gray-500 mt-1">{item.subtitle}</p>
+                            <p className="text-xs text-gray-400 mt-1">{formatDateLocal(item.date || "")}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center py-8 text-gray-400 italic text-sm">No timeline events found.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ),
+            },
+            ...(canViewDocsVault
+              ? [{
+                value: "docs-vault",
+                label: "Docs Vault",
+                content: (
+                  <Card className="border-none shadow-md overflow-hidden bg-white">
+                    <CardHeader className="pb-4 border-b border-gray-50">
+                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                        <FolderOpen className="h-6 w-6 text-blue-500" />
+                        Docs Vault
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+                        <div className="rounded-lg border border-gray-100 p-3">
+                          <p className="px-2 pb-2 text-xs font-semibold uppercase text-gray-500">Folder Structure</p>
+                          <div className="space-y-1">
+                            {allFolderKeys.length > 0 ? allFolderKeys.map((folderName) => (
+                              <button
+                                key={folderName}
+                                type="button"
+                                onClick={() => setSelectedFolder(folderName)}
+                                className={`w-full rounded-md px-3 py-2 text-left text-sm ${selectedFolder === folderName ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50 text-gray-700"}`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span>{folderName.replace(/_/g, " ")}</span>
+                                  <span className="text-xs text-gray-500">{(documentsByFolder[folderName] || []).length}</span>
+                                </div>
+                              </button>
+                            )) : (
+                              <p className="px-2 py-2 text-sm text-gray-500">No folders yet.</p>
                             )}
                           </div>
-                        );
-                      })
+
+                          <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
+                            <p className="text-xs font-semibold uppercase text-gray-500">Create Folder</p>
+                            <input
+                              value={newFolderName}
+                              onChange={(e) => setNewFolderName(e.target.value)}
+                              placeholder="Folder name"
+                              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                            />
+                            <Button type="button" className="w-full" size="sm" onClick={handleCreateFolder}>
+                              Create Folder
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-gray-100 p-4">
+                          <div className="mb-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                            <input
+                              value={documentTitle}
+                              onChange={(e) => setDocumentTitle(e.target.value)}
+                              placeholder="Document title (optional)"
+                              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                            />
+                            <input
+                              type="file"
+                              accept=".pdf,image/*"
+                              onChange={(e) => setSelectedDocFile(e.target.files?.[0] || null)}
+                              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                            />
+                            <Button type="button" onClick={() => uploadDocumentMutation.mutate()} disabled={uploadDocumentMutation.isPending || !selectedDocFile}>
+                              {uploadDocumentMutation.isPending ? "Uploading..." : "Upload File"}
+                            </Button>
+                          </div>
+
+                          {(documentsByFolder[selectedFolder] || []).length > 0 ? (
+                            <div className="space-y-2">
+                              {(documentsByFolder[selectedFolder] || []).map((doc: any, idx: number) => (
+                                <div key={`${selectedFolder}-${idx}`} className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2">
+                                  <div>
+                                    <p className="text-sm text-gray-800">{doc.documentName || doc.name || doc.fileName || "Document"}</p>
+                                    <p className="text-xs text-gray-500">{formatDateLocal(doc.createdAt || doc.uploadedAt || "")}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {(doc.fileUrl || doc.url || doc.path) && (
+                                      <a
+                                        href={doc.fileUrl || doc.url || doc.path}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-xs text-blue-600 hover:underline"
+                                      >
+                                        Open
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500">No files in this folder.</p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ),
+              }]
+              : []),
+            {
+              value: "task-followup",
+              label: "Task & Followup",
+              content: (
+                <Card className="border-none shadow-md overflow-hidden bg-white">
+                  <CardHeader className="pb-4 border-b border-gray-50">
+                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                      <ListChecks className="h-6 w-6 text-amber-500" />
+                      Task & Followup
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center">
+                      <p className="text-sm font-semibold text-gray-700">Task and followup section is ready for client-side task data.</p>
+                      <p className="text-xs text-gray-500 mt-1">Connect this tab with task/followup API when backend is finalized.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ),
+            },
+            {
+              value: "application-tracker",
+              label: "Application Tracker",
+              content: (
+                <Card className="border-none shadow-md overflow-hidden bg-white">
+                  <CardHeader className="pb-4 border-b border-gray-50">
+                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                      <Route className="h-6 w-6 text-emerald-500" />
+                      Application Tracker
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    {timelineItems.length > 0 ? (
+                      <div className="space-y-3">
+                        {timelineItems.map((item) => (
+                          <div key={`tracker-${item.id}`} className="rounded-lg border border-gray-100 p-4">
+                            <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                            <p className="text-xs text-gray-500 mt-1">{item.subtitle}</p>
+                            <p className="text-xs text-gray-400 mt-1">{formatDateLocal(item.date || "")}</p>
+                          </div>
+                        ))}
+                      </div>
                     ) : (
-                      <p className="col-span-full text-center py-8 text-gray-400 italic text-sm">No service breakdown available.</p>
+                      <p className="text-center py-8 text-gray-400 italic text-sm">No tracker events found.</p>
                     )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                  </CardContent>
+                </Card>
+              ),
+            },
+          ]}
+        />
       </div>
     </PageWrapper>
   );
