@@ -5,7 +5,15 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MainLayout } from "@/layout/MainLayout";
-import { AuthProvider, useAuth } from "@/context/auth-context";
+import { AuthProvider, useAuth, UserRole } from "@/context/auth-context";
+import {
+  APPLICATION_ALLOWED_ROLES,
+  BACKEND_ALLOWED_ROLES,
+  BACKEND_CHECKLIST_ADMIN_ROLES,
+  BINDING_ALLOWED_ROLES,
+  CLIENT_FOLDER_ALLOWED_ROLES,
+  CX_ALLOWED_ROLES,
+} from "@/constants/roles";
 import { SocketProvider } from "@/context/socket-context";
 import { AlertProvider } from "@/context/alert-context";
 import { EmergencyAlert } from "@/components/ui/emergency-alert";
@@ -36,6 +44,23 @@ const CounsellorLeaderboard = lazy(() => import("@/pages/CounsellorLeaderboard/C
 const ManagerLeaderboard = lazy(() => import("@/pages/ManagerLeaderboard/ManagerLeaderboard"));
 const Reports = lazy(() => import("@/pages/Reports"));
 const CounsellorReportPage = lazy(() => import("@/pages/Reports/CounsellorReportPage"));
+const CxDashboardPage = lazy(() => import("@/modules/cx/pages/DashboardPage"));
+const CxClientListPage = lazy(() => import("@/modules/cx/pages/ClientListPage"));
+const CxActivityPage = lazy(() => import("@/modules/cx/pages/ActivityPage"));
+const CxReportsPage = lazy(() => import("@/modules/cx/pages/ReportsPage"));
+const BindingDashboardPage = lazy(() => import("@/modules/binding/pages/DashboardPage"));
+const BindingClientListPage = lazy(() => import("@/modules/binding/pages/ClientListPage"));
+const BindingActivityPage = lazy(() => import("@/modules/binding/pages/ActivityPage"));
+const BindingReportsPage = lazy(() => import("@/modules/binding/pages/ReportsPage"));
+const ApplicationDashboardPage = lazy(() => import("@/modules/application/pages/DashboardPage"));
+const ApplicationClientListPage = lazy(() => import("@/modules/application/pages/ClientListPage"));
+const ApplicationActivityPage = lazy(() => import("@/modules/application/pages/ActivityPage"));
+const ApplicationReportsPage = lazy(() => import("@/modules/application/pages/ReportsPage"));
+const BackendFillingClientPage = lazy(() => import("@/modules/backend/pages/FillingClientPage"));
+const BackendRegisteredClientsPage = lazy(() => import("@/modules/backend/pages/RegisteredClientsPage"));
+const ChecklistCategoryPage = lazy(() => import("@/modules/backend/pages/ChecklistCategoryPage"));
+const ClientFolderPage = lazy(() => import("@/modules/backend/pages/ClientFolderPage"));
+const ClientFolderDetailsPage = lazy(() => import("@/modules/backend/pages/ClientFolderDetailsPage"));
 // const LeadList = lazy(() => import("@/pages/Leads/LeadList"));
 // const LeadDetail = lazy(() => import("@/pages/Leads/LeadDetail"));
 // const LeadKanban = lazy(() => import("@/pages/Leads/LeadKanban"));
@@ -44,7 +69,7 @@ const CounsellorReportPage = lazy(() => import("@/pages/Reports/CounsellorReport
 // const LeadImport = lazy(() => import("@/pages/Leads/LeadImport"));
 // const LeadReports = lazy(() => import("@/pages/Leads/LeadReports"));
 
-function ProtectedRoute({ component: Component, ...rest }: any) {
+function ProtectedRoute({ component: Component, allowedRoles, ...rest }: any) {
   const { user, isLoading } = useAuth();
 
   // ✅ STRICT AUTHENTICATION CHECK
@@ -70,6 +95,10 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
     localStorage.removeItem('accessToken');
     // Force redirect to login
     return <Redirect to="/login" />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
+    return <Redirect to="/" />;
   }
 
   // ✅ User is authenticated, render the protected component
@@ -115,6 +144,54 @@ function Router() {
 
         <Route path="/activity">
           {params => <ProtectedRoute component={Activity} />}
+        </Route>
+
+        <Route path="/cx/dashboard">
+          {params => <ProtectedRoute component={CxDashboardPage} allowedRoles={CX_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/cx/clients">
+          {params => <ProtectedRoute component={CxClientListPage} allowedRoles={CX_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/cx/clients/:id">
+          {params => <ProtectedRoute component={BackendFillingClientPage} params={params} allowedRoles={CX_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/cx/activity">
+          {params => <ProtectedRoute component={CxActivityPage} allowedRoles={CX_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/cx/reports">
+          {params => <ProtectedRoute component={CxReportsPage} allowedRoles={CX_ALLOWED_ROLES} />}
+        </Route>
+
+        <Route path="/binding/dashboard">
+          {params => <ProtectedRoute component={BindingDashboardPage} allowedRoles={BINDING_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/binding/clients">
+          {params => <ProtectedRoute component={BindingClientListPage} allowedRoles={BINDING_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/binding/clients/:id">
+          {params => <ProtectedRoute component={BackendFillingClientPage} params={params} allowedRoles={BINDING_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/binding/activity">
+          {params => <ProtectedRoute component={BindingActivityPage} allowedRoles={BINDING_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/binding/reports">
+          {params => <ProtectedRoute component={BindingReportsPage} allowedRoles={BINDING_ALLOWED_ROLES} />}
+        </Route>
+
+        <Route path="/application/dashboard">
+          {params => <ProtectedRoute component={ApplicationDashboardPage} allowedRoles={APPLICATION_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/application/clients">
+          {params => <ProtectedRoute component={ApplicationClientListPage} allowedRoles={APPLICATION_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/application/clients/:id">
+          {params => <ProtectedRoute component={BackendFillingClientPage} params={params} allowedRoles={APPLICATION_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/application/activity">
+          {params => <ProtectedRoute component={ApplicationActivityPage} allowedRoles={APPLICATION_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/application/reports">
+          {params => <ProtectedRoute component={ApplicationReportsPage} allowedRoles={APPLICATION_ALLOWED_ROLES} />}
         </Route>
 
         <Route path="/reports">
@@ -206,6 +283,22 @@ function Router() {
 
         <Route path="/university-db">
           {params => <ProtectedRoute component={UniversityDatabase} />}
+        </Route>
+
+        <Route path="/backend/clients">
+          {params => <ProtectedRoute component={BackendRegisteredClientsPage} allowedRoles={BACKEND_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/backend/clients/:id/filling">
+          {params => <ProtectedRoute component={BackendFillingClientPage} params={params} allowedRoles={BACKEND_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/backend/checklist-categories">
+          {params => <ProtectedRoute component={ChecklistCategoryPage} allowedRoles={BACKEND_CHECKLIST_ADMIN_ROLES} />}
+        </Route>
+        <Route path="/backend/client-folders">
+          {params => <ProtectedRoute component={ClientFolderPage} allowedRoles={CLIENT_FOLDER_ALLOWED_ROLES} />}
+        </Route>
+        <Route path="/backend/client-folders/:clientId">
+          {params => <ProtectedRoute component={ClientFolderDetailsPage} params={params} allowedRoles={CLIENT_FOLDER_ALLOWED_ROLES} />}
         </Route>
 
         <Route component={NotFound} />
