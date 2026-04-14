@@ -15,7 +15,7 @@ export interface PaymentRecord {
   amount: string;      // numeric string e.g. "35400"
   clientOwner: string;
   addedBy: string;
-  sharedClient: string; // "Yes" | "No"
+  sharedClient: "Yes" | "No";
 }
 
 export interface PaymentsListResponse {
