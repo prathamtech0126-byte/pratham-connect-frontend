@@ -35,7 +35,7 @@ const PRESETS: Preset[] = [
   { label: "This month",         resolve: () => ({ filter: "monthly" }) },
   { label: "Last month",         resolve: () => { const s = startOfMonth(dfSubMonths(today(), 1)); return { filter: "custom", start: s, end: endOfMonth(s) }; } },
   { label: "This year",          resolve: () => ({ filter: "yearly" }) },
-  { label: "Last year",          resolve: () => { const s = startOfYear(subDays(startOfYear(today()), 1)); return { filter: "custom", start: startOfYear(s), end: endOfYear(s) }; } },
+  { label: "Last year",          resolve: () => { const lastYear = new Date(today().getFullYear() - 1, 0, 1); return { filter: "custom", start: startOfYear(lastYear), end: endOfYear(lastYear) }; } },
 ];
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -91,12 +91,12 @@ function MonthCalendar({ month, tempStart, tempEnd, hoverDate, onDayClick, onDay
               onMouseEnter={() => onDayHover(d)}
               onMouseLeave={() => onDayHover(null)}
               className={cn(
-                "mx-auto flex h-7 w-7 items-center justify-center rounded-full text-[12px] transition-colors",
+                "mx-auto flex h-7 w-7 items-center justify-center text-[12px] transition-colors",
                 (tempStart && isSameDay(d, tempStart)) || (tempEnd && isSameDay(d, tempEnd))
-                  ? "bg-[#2d3a8c] text-white font-bold"
+                  ? "rounded-full bg-[#2d3a8c] text-white font-bold"
                   : isInRange(d)
-                  ? "bg-blue-100 text-blue-800 rounded-none"
-                  : "hover:bg-slate-100 text-slate-700"
+                  ? "rounded-none bg-blue-100 text-blue-800"
+                  : "rounded-full hover:bg-slate-100 text-slate-700"
               )}
             >
               {d.getDate()}
@@ -128,15 +128,21 @@ export function DateRangePicker({ onApply, onCancel }: DateRangePickerProps) {
     setTempStart(start ?? null);
     setTempEnd(end ?? null);
     setHoverDate(null);
-    if (start) setLeftMonth(startOfMonth(start));
+    // Always navigate calendar: to the start date if present, or to today for non-date presets
+    setLeftMonth(startOfMonth(start ?? today()));
   }
 
   function handleDayClick(d: Date) {
     setActivePreset(null);
     if (!tempStart || (tempStart && tempEnd)) {
+      // First click: start a new range — disable Update until end is picked
       setTempStart(d);
       setTempEnd(null);
+      setPendingFilter("custom");
+      setPendingStart(null);
+      setPendingEnd(null);
     } else {
+      // Second click: complete the range
       if (isBefore(d, tempStart)) {
         setTempEnd(tempStart);
         setTempStart(d);
