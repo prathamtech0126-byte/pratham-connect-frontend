@@ -413,7 +413,7 @@ export default function PaymentsTable({
               </td>
               {onEdit && (
                 <td className="border border-slate-200 px-3 py-1.5 text-center">
-                  {row.source === "payment" && row.paymentId ? (
+                  {row.paymentId ? (
                     <button
                       type="button"
                       onClick={() => onEdit(row)}

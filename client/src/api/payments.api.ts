@@ -87,8 +87,22 @@ export interface UpdatePaymentParams {
   remarks?: string;
 }
 
+export interface UpdateProductPaymentParams {
+  productPaymentId: number;
+  clientId: number;
+  productName: string; // ProductType enum value from backend (matches client_product_payment.product_name column)
+  amount: string;
+  paymentDate: string; // YYYY-MM-DD
+  invoiceNo?: string;
+  remarks?: string;
+}
+
 export async function updatePayment(params: UpdatePaymentParams): Promise<void> {
   await api.post("/api/client-payments", params);
+}
+
+export async function updateProductPayment(params: UpdateProductPaymentParams): Promise<void> {
+  await api.post("/api/client-product-payments", params);
 }
 
 export interface PaymentsListResponse {
