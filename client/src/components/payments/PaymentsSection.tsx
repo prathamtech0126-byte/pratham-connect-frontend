@@ -9,6 +9,7 @@ import DateRangePicker from "./DateRangePicker";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const FILTERS: PaymentsFilter[] = ["today", "monthly", "yearly", "custom"];
@@ -19,6 +20,7 @@ export default function PaymentsSection() {
   const [endDate, setEndDate] = useState<string | undefined>();
   const [showPicker, setShowPicker] = useState(false);
   const [selectedCounsellorId, setSelectedCounsellorId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const pickerRef = useRef<HTMLDivElement>(null);
 
   // Close picker when clicking outside
@@ -75,7 +77,7 @@ export default function PaymentsSection() {
   );
 
   // Fallback safety: if backend returns unfiltered rows, apply counsellor filter on UI too.
-  const visibleRows = useMemo(() => {
+  const counsellorRows = useMemo(() => {
     const rows = data?.data ?? [];
     if (!selectedCounsellor) return rows;
     const selectedName = selectedCounsellor.name.trim().toLowerCase();
@@ -85,6 +87,16 @@ export default function PaymentsSection() {
       return owner === selectedName || addedBy === selectedName;
     });
   }, [data?.data, selectedCounsellor]);
+
+  // Client-side search across all visible text columns
+  const visibleRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return counsellorRows;
+    return counsellorRows.filter((row) =>
+      [row.clientName, row.clientOwner, row.addedBy, row.paymentType ?? "", row.date, row.amount]
+        .some((val) => val.toLowerCase().includes(q))
+    );
+  }, [counsellorRows, searchQuery]);
 
   // 🔁 Filter change
   const handleFilterChange = (value: PaymentsFilter) => {
@@ -226,6 +238,15 @@ export default function PaymentsSection() {
           </div>
         </div>
 
+        {/* 🔍 Search */}
+        <Input
+          type="search"
+          placeholder="Search by client, counsellor, payment type, date…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full sm:max-w-sm"
+        />
+
         {/* 💰 Summary + Export */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-slate-50 border rounded-lg p-3">
           
@@ -248,6 +269,7 @@ export default function PaymentsSection() {
           data={visibleRows}
           isLoading={isLoading}
           error={error as Error | null}
+          searchQuery={searchQuery}
         />
       </CardContent>
     </Card>
