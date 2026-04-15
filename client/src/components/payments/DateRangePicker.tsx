@@ -200,10 +200,11 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
       : "Select a range");
 
   return (
-    <div className="z-50 flex overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
-      {/* Left: preset list */}
-      <div className="w-44 overflow-y-auto border-r border-slate-200 bg-slate-50 py-2 text-[13px]">
-        <div className="mb-1 px-4 pt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+    <div className="z-50 flex w-[min(96vw,780px)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl md:flex-row">
+
+      {/* Presets — horizontal scroll on mobile, vertical sidebar on desktop */}
+      <div className="flex shrink-0 flex-row gap-1 overflow-x-auto border-b border-slate-200 bg-slate-50 px-3 py-2 text-[13px] md:w-44 md:flex-col md:gap-0 md:overflow-x-visible md:overflow-y-auto md:border-b-0 md:border-r md:px-0 md:py-2">
+        <div className="hidden shrink-0 px-4 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400 md:block">
           Presets
         </div>
         {PRESETS.map((p) => (
@@ -212,9 +213,10 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
             type="button"
             onClick={() => handlePreset(p)}
             className={cn(
-              "w-full px-4 py-[5px] text-left hover:bg-slate-100",
+              "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-[12px] md:w-full md:rounded-none md:px-4 md:py-[5px]",
+              "hover:bg-slate-100",
               activePreset === p.label
-                ? "border-l-2 border-[#2d3a8c] bg-indigo-50 font-semibold text-[#2d3a8c]"
+                ? "bg-indigo-50 font-semibold text-[#2d3a8c] md:border-l-2 md:border-[#2d3a8c]"
                 : "text-slate-700"
             )}
           >
@@ -223,9 +225,10 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
         ))}
       </div>
 
-      {/* Right: calendars + footer */}
-      <div className="flex flex-col">
-        <div className="flex gap-6 p-4">
+      {/* Calendars + footer */}
+      <div className="flex min-w-0 flex-col">
+        <div className="flex flex-col gap-4 p-4 md:flex-row md:gap-6">
+
           {/* Left calendar with prev arrow */}
           <div className="flex flex-col gap-1">
             <button
@@ -245,8 +248,8 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
             />
           </div>
 
-          {/* Right calendar with next arrow */}
-          <div className="flex flex-col gap-1">
+          {/* Right calendar — desktop only */}
+          <div className="hidden flex-col gap-1 md:flex">
             <div className="flex justify-end">
               <button
                 type="button"
@@ -265,22 +268,35 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
               onDayHover={setHoverDate}
             />
           </div>
+
+          {/* Next arrow on mobile (shown inline below left calendar) */}
+          <div className="flex justify-end md:hidden">
+            <button
+              type="button"
+              onClick={() => setLeftMonth((m) => addMonths(m, 1))}
+              className="flex h-6 w-6 items-center justify-center rounded hover:bg-slate-100"
+            >
+              <ChevronRight className="h-4 w-4 text-slate-500" />
+            </button>
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
           <span className="flex-1 truncate text-[12px] text-slate-600">{rangeLabel}</span>
-          <Button variant="outline" size="sm" onClick={onCancel} className="text-xs">
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleUpdate}
-            disabled={!canUpdate}
-            className="bg-[#2d3a8c] text-xs hover:bg-[#232f73]"
-          >
-            Update
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={onCancel} className="text-xs">
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleUpdate}
+              disabled={!canUpdate}
+              className="bg-[#2d3a8c] text-xs hover:bg-[#232f73]"
+            >
+              Update
+            </Button>
+          </div>
         </div>
       </div>
     </div>
