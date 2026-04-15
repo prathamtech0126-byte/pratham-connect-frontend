@@ -1,6 +1,22 @@
 // client/src/components/payments/DateRangePicker.tsx
 import { useState } from "react";
-import { format, addMonths, subMonths, startOfMonth, isSameDay, isWithinInterval, isBefore, isAfter, startOfWeek, endOfWeek, startOfYear, endOfYear, subDays, subMonths as dfSubMonths, endOfMonth } from "date-fns";
+import {
+  format,
+  addMonths,
+  subMonths,
+  startOfMonth,
+  isSameDay,
+  isWithinInterval,
+  isBefore,
+  isAfter,
+  startOfWeek,
+  endOfWeek,
+  startOfYear,
+  endOfYear,
+  subDays,
+  subMonths as dfSubMonths,
+  endOfMonth,
+} from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,26 +39,28 @@ interface Preset {
 const today = () => new Date();
 
 const PRESETS: Preset[] = [
-  { label: "Today",              resolve: () => ({ filter: "today" }) },
-  { label: "Yesterday",          resolve: () => { const d = subDays(today(), 1); return { filter: "custom", start: d, end: d }; } },
-  { label: "Today and yesterday",resolve: () => ({ filter: "custom", start: subDays(today(), 1), end: today() }) },
-  { label: "Last 7 days",        resolve: () => ({ filter: "custom", start: subDays(today(), 6), end: today() }) },
-  { label: "Last 14 days",       resolve: () => ({ filter: "custom", start: subDays(today(), 13), end: today() }) },
-  { label: "Last 28 days",       resolve: () => ({ filter: "custom", start: subDays(today(), 27), end: today() }) },
-  { label: "Last 30 days",       resolve: () => ({ filter: "custom", start: subDays(today(), 29), end: today() }) },
-  { label: "This week",          resolve: () => ({ filter: "custom", start: startOfWeek(today(), { weekStartsOn: 1 }), end: today() }) },
-  { label: "Last week",          resolve: () => { const s = startOfWeek(subDays(today(), 7), { weekStartsOn: 1 }); return { filter: "custom", start: s, end: endOfWeek(s, { weekStartsOn: 1 }) }; } },
-  { label: "This month",         resolve: () => ({ filter: "monthly" }) },
-  { label: "Last month",         resolve: () => { const s = startOfMonth(dfSubMonths(today(), 1)); return { filter: "custom", start: s, end: endOfMonth(s) }; } },
-  { label: "This year",          resolve: () => ({ filter: "yearly" }) },
-  { label: "Last year",          resolve: () => { const lastYear = new Date(today().getFullYear() - 1, 0, 1); return { filter: "custom", start: startOfYear(lastYear), end: endOfYear(lastYear) }; } },
+  { label: "Today",               resolve: () => ({ filter: "today" }) },
+  { label: "Yesterday",           resolve: () => { const d = subDays(today(), 1); return { filter: "custom", start: d, end: d }; } },
+  { label: "Today and yesterday", resolve: () => ({ filter: "custom", start: subDays(today(), 1), end: today() }) },
+  { label: "Last 7 days",         resolve: () => ({ filter: "custom", start: subDays(today(), 6), end: today() }) },
+  { label: "Last 14 days",        resolve: () => ({ filter: "custom", start: subDays(today(), 13), end: today() }) },
+  { label: "Last 28 days",        resolve: () => ({ filter: "custom", start: subDays(today(), 27), end: today() }) },
+  { label: "Last 30 days",        resolve: () => ({ filter: "custom", start: subDays(today(), 29), end: today() }) },
+  { label: "This week",           resolve: () => ({ filter: "custom", start: startOfWeek(today(), { weekStartsOn: 1 }), end: today() }) },
+  { label: "Last week",           resolve: () => { const s = startOfWeek(subDays(today(), 7), { weekStartsOn: 1 }); return { filter: "custom", start: s, end: endOfWeek(s, { weekStartsOn: 1 }) }; } },
+  { label: "This month",          resolve: () => ({ filter: "monthly" }) },
+  { label: "Last month",          resolve: () => { const s = startOfMonth(dfSubMonths(today(), 1)); return { filter: "custom", start: s, end: endOfMonth(s) }; } },
+  { label: "This year",           resolve: () => ({ filter: "yearly" }) },
+  { label: "Last year",           resolve: () => { const lastYear = new Date(today().getFullYear() - 1, 0, 1); return { filter: "custom", start: startOfYear(lastYear), end: endOfYear(lastYear) }; } },
 ];
+
+// ─── Calendar helpers ──────────────────────────────────────────────────────────
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
 function calendarDays(month: Date): (Date | null)[] {
   const first = startOfMonth(month);
-  const blanks = first.getDay(); // 0=Sun
+  const blanks = first.getDay();
   const days: (Date | null)[] = Array(blanks).fill(null);
   const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   for (let i = 1; i <= count; i++) {
@@ -50,6 +68,8 @@ function calendarDays(month: Date): (Date | null)[] {
   }
   return days;
 }
+
+// ─── MonthCalendar ─────────────────────────────────────────────────────────────
 
 interface MonthCalendarProps {
   month: Date;
@@ -78,7 +98,9 @@ function MonthCalendar({ month, tempStart, tempEnd, hoverDate, onDayClick, onDay
       </div>
       <div className="grid grid-cols-7 text-center">
         {DAYS.map((d) => (
-          <div key={d} className="py-1 text-[11px] font-medium text-slate-400">{d}</div>
+          <div key={d} className="py-1 text-[11px] font-medium text-slate-400">
+            {d}
+          </div>
         ))}
         {days.map((d, i) =>
           d === null ? (
@@ -93,10 +115,10 @@ function MonthCalendar({ month, tempStart, tempEnd, hoverDate, onDayClick, onDay
               className={cn(
                 "mx-auto flex h-7 w-7 items-center justify-center text-[12px] transition-colors",
                 (tempStart && isSameDay(d, tempStart)) || (tempEnd && isSameDay(d, tempEnd))
-                  ? "rounded-full bg-[#2d3a8c] text-white font-bold"
+                  ? "rounded-full bg-[#2d3a8c] font-bold text-white"
                   : isInRange(d)
                   ? "rounded-none bg-blue-100 text-blue-800"
-                  : "rounded-full hover:bg-slate-100 text-slate-700"
+                  : "rounded-full text-slate-700 hover:bg-slate-100"
               )}
             >
               {d.getDate()}
@@ -108,9 +130,12 @@ function MonthCalendar({ month, tempStart, tempEnd, hoverDate, onDayClick, onDay
   );
 }
 
-export function DateRangePicker({ onApply, onCancel }: DateRangePickerProps) {
+// ─── DateRangePicker ───────────────────────────────────────────────────────────
+
+export default function DateRangePicker({ onApply, onCancel }: DateRangePickerProps) {
   const [leftMonth, setLeftMonth] = useState(() => startOfMonth(new Date()));
   const rightMonth = addMonths(leftMonth, 1);
+
   const [tempStart, setTempStart] = useState<Date | null>(null);
   const [tempEnd, setTempEnd] = useState<Date | null>(null);
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
@@ -128,21 +153,20 @@ export function DateRangePicker({ onApply, onCancel }: DateRangePickerProps) {
     setTempStart(start ?? null);
     setTempEnd(end ?? null);
     setHoverDate(null);
-    // Always navigate calendar: to the start date if present, or to today for non-date presets
     setLeftMonth(startOfMonth(start ?? today()));
   }
 
   function handleDayClick(d: Date) {
     setActivePreset(null);
     if (!tempStart || (tempStart && tempEnd)) {
-      // First click: start a new range — disable Update until end is picked
+      // First click — disable Update until end is picked
       setTempStart(d);
       setTempEnd(null);
       setPendingFilter("custom");
       setPendingStart(null);
       setPendingEnd(null);
     } else {
-      // Second click: complete the range
+      // Second click — complete the range
       if (isBefore(d, tempStart)) {
         setTempEnd(tempStart);
         setTempStart(d);
@@ -202,7 +226,7 @@ export function DateRangePicker({ onApply, onCancel }: DateRangePickerProps) {
       {/* Right: calendars + footer */}
       <div className="flex flex-col">
         <div className="flex gap-6 p-4">
-          {/* Prev arrow */}
+          {/* Left calendar with prev arrow */}
           <div className="flex flex-col gap-1">
             <button
               type="button"
@@ -220,7 +244,8 @@ export function DateRangePicker({ onApply, onCancel }: DateRangePickerProps) {
               onDayHover={setHoverDate}
             />
           </div>
-          {/* Next arrow + right calendar */}
+
+          {/* Right calendar with next arrow */}
           <div className="flex flex-col gap-1">
             <div className="flex justify-end">
               <button
@@ -248,7 +273,12 @@ export function DateRangePicker({ onApply, onCancel }: DateRangePickerProps) {
           <Button variant="outline" size="sm" onClick={onCancel} className="text-xs">
             Cancel
           </Button>
-          <Button size="sm" onClick={handleUpdate} disabled={!canUpdate} className="bg-[#2d3a8c] text-xs hover:bg-[#232f73]">
+          <Button
+            size="sm"
+            onClick={handleUpdate}
+            disabled={!canUpdate}
+            className="bg-[#2d3a8c] text-xs hover:bg-[#232f73]"
+          >
             Update
           </Button>
         </div>
