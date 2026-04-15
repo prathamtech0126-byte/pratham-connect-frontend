@@ -232,7 +232,7 @@
 // client/src/components/payments/PaymentsTable.tsx
 
 import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { PaymentRecord } from "@/api/payments.api";
 
@@ -241,6 +241,7 @@ interface PaymentsTableProps {
   isLoading: boolean;
   error: Error | null;
   searchQuery?: string;
+  onEdit?: (row: PaymentRecord) => void;
 }
 
 type DateSortOrder = "none" | "asc" | "desc";
@@ -256,6 +257,7 @@ export default function PaymentsTable({
   isLoading,
   error,
   searchQuery = "",
+  onEdit,
 }: PaymentsTableProps) {
   const [dateSortOrder, setDateSortOrder] = useState<DateSortOrder>("none");
 
@@ -356,6 +358,11 @@ export default function PaymentsTable({
             <th className="sticky top-0 z-10 border border-slate-200 bg-slate-100 px-3 py-2 text-center text-xs font-semibold text-slate-700">
               Shared Client
             </th>
+            {onEdit && (
+              <th className="sticky top-0 z-10 border border-slate-200 bg-slate-100 px-3 py-2 text-center text-xs font-semibold text-slate-700">
+                Actions
+              </th>
+            )}
           </tr>
         </thead>
 
@@ -404,6 +411,22 @@ export default function PaymentsTable({
                   </Badge>
                 )}
               </td>
+              {onEdit && (
+                <td className="border border-slate-200 px-3 py-1.5 text-center">
+                  {row.source === "payment" && row.paymentId ? (
+                    <button
+                      type="button"
+                      onClick={() => onEdit(row)}
+                      title="Edit payment"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-slate-200"
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-slate-500" />
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-slate-300">—</span>
+                  )}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

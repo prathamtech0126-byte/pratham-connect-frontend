@@ -6,6 +6,8 @@ import { fetchPaymentsList, PaymentsFilter } from "@/api/payments.api";
 import { clientService } from "@/services/clientService";
 import PaymentsTable from "./PaymentsTable";
 import DateRangePicker from "./DateRangePicker";
+import EditPaymentModal from "./EditPaymentModal";
+import type { PaymentRecord } from "@/api/payments.api";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +23,7 @@ export default function PaymentsSection() {
   const [showPicker, setShowPicker] = useState(false);
   const [selectedCounsellorId, setSelectedCounsellorId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingRow, setEditingRow] = useState<PaymentRecord | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   // Close picker when clicking outside
@@ -270,7 +273,16 @@ export default function PaymentsSection() {
           isLoading={isLoading}
           error={error as Error | null}
           searchQuery={searchQuery}
+          onEdit={setEditingRow}
         />
+
+        {editingRow && (
+          <EditPaymentModal
+            row={editingRow}
+            open={!!editingRow}
+            onClose={() => setEditingRow(null)}
+          />
+        )}
       </CardContent>
     </Card>
   );
