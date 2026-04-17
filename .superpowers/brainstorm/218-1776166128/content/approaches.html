@@ -1,0 +1,63 @@
+<h2>3 Ways to Add Payments to Reports</h2>
+<p class="subtitle">Which structure keeps existing code most intact?</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Embedded section at bottom of Reports page <span style="background:#16a34a;color:white;font-size:11px;padding:2px 7px;border-radius:4px;margin-left:6px;">Recommended</span></h3>
+      <p>Add a <code>&lt;PaymentsSection /&gt;</code> component that renders below the existing sales/counsellor sections — only for <code>superadmin</code>. The component has its own filter state and API call, completely independent.</p>
+      <div style="margin-top:10px;background:#f8f8f8;border:1px solid #ddd;border-radius:6px;padding:10px;font-size:11px;">
+        <div style="font-size:10px;color:#888;margin-bottom:4px;">Reports.tsx — only 3 lines added at the bottom:</div>
+        <pre style="background:#1e1e1e;color:#d4d4d4;padding:8px;border-radius:4px;font-size:10px;overflow:auto;">{/* Payments List — superadmin only */}
+{user?.role === 'superadmin' &amp;&amp; (
+  &lt;PaymentsSection /&gt;
+)}</pre>
+        <div style="font-size:10px;color:#888;margin-top:8px;">New file: <code>components/payments/PaymentsSection.tsx</code><br/>Has own filter bar (Today/Monthly/Yearly/Custom) + table</div>
+      </div>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Minimal touch to Reports.tsx (3 lines)</li><li>Self-contained component</li><li>Appears naturally after sales content</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Two filter bars on one page (but clearly separated)</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Separate page — <code>/reports/payments-list</code></h3>
+      <p>A completely standalone page. Zero changes to Reports.tsx. A sidebar sub-link under Reports, visible to superadmin only, links to it.</p>
+      <div style="margin-top:10px;background:#f8f8f8;border:1px solid #ddd;border-radius:6px;padding:10px;font-size:11px;">
+        <div style="font-size:10px;color:#888;margin-bottom:4px;">Changes:</div>
+        <ul style="margin:0;padding-left:16px;font-size:10px;line-height:1.8;">
+          <li>New file: <code>pages/Reports/PaymentsListPage.tsx</code></li>
+          <li>Add route in <code>App.tsx</code> (1 line)</li>
+          <li>Add sidebar sub-link in <code>Sidebar.tsx</code> (superadmin only)</li>
+          <li>Reports.tsx: <strong>zero changes</strong></li>
+        </ul>
+      </div>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Reports.tsx untouched</li><li>Clean URL, bookmarkable</li><li>No visual clutter on Reports page</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Not literally "in" the Reports page</li><li>Sidebar.tsx needs a small edit</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Top-level tabs: Sales | Payments</h3>
+      <p>Replace the current period filter bar with a top-level "Sales Report / Payments List" switcher. Picking "Payments" swaps the entire content area.</p>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Clean tab UX</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Most invasive — restructures Reports.tsx significantly</li><li>Breaks the existing filter bar pattern</li><li>High risk of affecting existing code</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:16px;background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;padding:12px;font-size:12px;">
+  <strong>Recommendation: Option A.</strong> Adds the Payments section naturally after the sales report with only 3 new lines in Reports.tsx. The component is fully isolated — its own state, its own API call. Existing behaviour is completely unaffected.
+</div>

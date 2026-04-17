@@ -1,0 +1,102 @@
+<h2>Design: UI Layout & Table</h2>
+<p class="subtitle">Section 2 of 3 — Visual structure matching existing Reports UI</p>
+
+<div class="section">
+  <h3>PaymentsSection — Full Layout</h3>
+  <div style="background:#f8f9fa;border:1px solid #e2e8f0;border-radius:8px;padding:16px;font-size:12px;">
+
+    <!-- Section header row -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#1e293b;">Payments List</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px;">Total Records: <strong>2</strong></div>
+      </div>
+      <!-- Filter pills — same style as Reports period tabs -->
+      <div style="display:flex;gap:4px;align-items:center;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;padding:4px;">
+        <span style="background:#2d3a8c;color:white;padding:4px 12px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;">Today</span>
+        <span style="color:#64748b;padding:4px 12px;border-radius:7px;font-size:11px;font-weight:500;cursor:pointer;">Monthly</span>
+        <span style="color:#64748b;padding:4px 12px;border-radius:7px;font-size:11px;font-weight:500;cursor:pointer;">Yearly</span>
+        <span style="color:#64748b;padding:4px 12px;border-radius:7px;font-size:11px;font-weight:500;cursor:pointer;">Custom</span>
+      </div>
+    </div>
+
+    <!-- Custom date row (hidden by default, shown when Custom is active) -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px;font-size:11px;">
+      <span style="color:#92400e;">Custom range:</span>
+      <span style="background:white;border:1px solid #d1d5db;border-radius:4px;padding:3px 8px;color:#374151;">2026-04-01</span>
+      <span style="color:#64748b;">→</span>
+      <span style="background:white;border:1px solid #d1d5db;border-radius:4px;padding:3px 8px;color:#374151;">2026-04-14</span>
+      <span style="background:#2d3a8c;color:white;padding:3px 12px;border-radius:4px;cursor:pointer;">Apply</span>
+      <span style="font-size:10px;color:#92400e;">(shown only when Custom is selected)</span>
+    </div>
+
+    <!-- Excel-style table -->
+    <div style="overflow-x:auto;border-radius:6px;border:1px solid #cbd5e1;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <!-- Sticky header -->
+        <thead>
+          <tr style="background:#f1f5f9;position:sticky;top:0;">
+            <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;font-weight:700;width:36px;color:#374151;">#</th>
+            <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:left;font-weight:700;color:#374151;">Date</th>
+            <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:left;font-weight:700;color:#374151;">Client Name</th>
+            <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;font-weight:700;color:#374151;">Amount</th>
+            <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:left;font-weight:700;color:#374151;">Client Owner</th>
+            <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:left;font-weight:700;color:#374151;">Added By</th>
+            <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:center;font-weight:700;color:#374151;">Shared Client</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:#ffffff;">
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:center;color:#64748b;">1</td>
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;color:#374151;">14 Apr 2026</td>
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;color:#1e293b;font-weight:500;">Keyur Kumar Patel</td>
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right;font-family:monospace;color:#1e293b;font-weight:600;">35,400</td>
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;color:#374151;">Khushbu Jagtap</td>
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;color:#374151;">Rutika Patel</td>
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:center;">
+              <span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;">Yes</span>
+            </td>
+          </tr>
+          <tr style="background:#f8fafc;">
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:center;color:#64748b;">2</td>
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;color:#374151;">14 Apr 2026</td>
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;color:#1e293b;font-weight:500;">Priya Sharma</td>
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:right;font-family:monospace;color:#1e293b;font-weight:600;">1,20,000</td>
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;color:#374151;">Ravi Desai</td>
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;color:#374151;">Neha Joshi</td>
+            <td style="border:1px solid #e2e8f0;padding:5px 8px;text-align:center;">
+              <span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;">No</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- States preview row -->
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:120px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:8px;text-align:center;font-size:10px;color:#64748b;">
+        <div style="font-size:16px;margin-bottom:2px;">⏳</div>Loading spinner
+      </div>
+      <div style="flex:1;min-width:120px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:8px;text-align:center;font-size:10px;color:#64748b;">
+        <div style="font-size:16px;margin-bottom:2px;">📭</div>No payments found
+      </div>
+      <div style="flex:1;min-width:120px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px;text-align:center;font-size:10px;color:#dc2626;">
+        <div style="font-size:16px;margin-bottom:2px;">⚠️</div>Error loading data
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Key Visual Decisions</h3>
+  <ul style="font-size:12px;line-height:2;padding-left:18px;">
+    <li>Filter pill style copied exactly from existing Reports period tabs (same <code>bg-muted/40</code> container, same active state)</li>
+    <li>Table uses <code>border-collapse</code> with <code>border-slate-200</code> grid lines — spreadsheet feel</li>
+    <li>Alternating rows: white / <code>bg-slate-50</code></li>
+    <li>Amount column: right-aligned, monospace font, formatted with <code>toLocaleString('en-IN')</code></li>
+    <li>Shared Client: green badge for Yes (<code>bg-green-100 text-green-700</code>), red badge for No (<code>bg-red-100 text-red-600</code>)</li>
+    <li>Section sits inside a <code>Card</code> wrapper matching other sections on the Reports page</li>
+  </ul>
+</div>
+
+<p style="margin-top:8px;font-size:13px;">Does this UI look right?</p>

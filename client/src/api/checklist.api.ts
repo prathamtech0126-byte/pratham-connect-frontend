@@ -126,15 +126,20 @@ export interface Country {
 }
 
 export interface ChecklistSummary {
+  type: any;
+  category: any;
   id: string;
   title: string;
   slug: string;
   subType: string | null;
   countryId: string | null;
+  visaCategoryId: string;
   displayOrder: number;
   isActive: boolean;
   sectionCount: number;
   itemCount: number;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 export interface Item {
@@ -257,10 +262,11 @@ export async function fetchCountries(): Promise<Country[]> {
 }
 
 export async function fetchChecklists(
-  category: string,
+  category: string | null,
   country: string | null
 ): Promise<ChecklistSummary[]> {
-  const params: Record<string, string> = { category };
+  const params: Record<string, string> = {};
+  if (category) params.category = category;
   if (country) params.country = country;
   const res = await api.get<{ data: ChecklistSummary[] }>("/api/v1/checklists", { params });
   return res.data.data;
@@ -277,6 +283,11 @@ export async function searchItems(query: string): Promise<SearchResult[]> {
 }
 
 // ─── POST API Functions (Admin) ───────────────────────────────────────────────
+
+export async function createCountry(data: { name: string; code: string }): Promise<ApiResponse<Country>> {
+  const res = await api.post<ApiResponse<Country>>("/api/v1/admin/countries", data);
+  return res.data;
+}
 
 export async function createChecklist(data: CreateChecklistData): Promise<ApiResponse<ChecklistSummary>> {
   const res = await api.post<ApiResponse<ChecklistSummary>>("/api/v1/admin/checklists", data);
@@ -325,6 +336,71 @@ export async function deleteSection(id: string): Promise<ApiResponse<void>> {
 export async function deleteItem(id: string): Promise<ApiResponse<void>> {
   const res = await api.delete<ApiResponse<void>>(`/api/v1/admin/items/${id}`);
   return res.data;
+}
+
+function buildCopyTitle(title: string, existingTitles: string[]): string {
+  // Strip any existing " (copy)" or " (copy N)" suffix to get the base
+  const base = title.replace(/ \(copy(?: \d+)?\)$/i, "").trim();
+  // Escape special regex chars in base
+  const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`^${escaped} \\(copy(?: (\\d+))?\\)$`, "i");
+
+  let maxNum = 0;
+  for (const t of existingTitles) {
+    const m = t.match(pattern);
+    if (m) maxNum = Math.max(maxNum, m[1] ? parseInt(m[1], 10) : 1);
+  }
+
+  return maxNum === 0 ? `${base} (copy)` : `${base} (copy ${maxNum + 1})`;
+}
+
+export async function duplicateChecklist(
+  checklist: ChecklistSummary,
+  existingTitles: string[],
+): Promise<ApiResponse<ChecklistSummary>> {
+  // 1. Fetch full detail (sections + items)
+  const detail = await fetchChecklistDetail(checklist.slug);
+
+  // 2. Create new checklist with a smart "(copy N)" title
+  const copyTitle = buildCopyTitle(checklist.title, existingTitles);
+  const newChecklist = await createChecklist({
+    visaCategoryId: checklist.visaCategoryId,
+    title: copyTitle,
+    subType: checklist.subType ?? undefined,
+    countryId: checklist.countryId,
+    displayOrder: checklist.displayOrder,
+    isActive: checklist.isActive,
+  });
+
+  if (!newChecklist.success) return newChecklist;
+
+  // 3. Re-create all sections and their items
+  const sortedSections = detail.sections.slice().sort((a, b) => a.displayOrder - b.displayOrder);
+  for (const section of sortedSections) {
+    const newSection = await createSection(newChecklist.data.id, {
+      title: section.title,
+      description: section.description ?? "",
+      displayOrder: section.displayOrder,
+      isConditional: section.isConditional,
+      conditionText: section.conditionText ?? "",
+    });
+    if (!newSection.success) continue;
+
+    const sortedItems = section.items.slice().sort((a, b) => a.displayOrder - b.displayOrder);
+    for (const item of sortedItems) {
+      await createItem(newSection.data.id, {
+        name: item.name,
+        notes: item.notes ?? "",
+        isMandatory: item.isMandatory,
+        isConditional: item.isConditional,
+        conditionText: item.conditionText ?? "",
+        quantityNote: item.quantityNote ?? "",
+        displayOrder: item.displayOrder,
+      });
+    }
+  }
+
+  return newChecklist;
 }
 
 // ─── Bulk Operations (Admin) ──────────────────────────────────────────────────

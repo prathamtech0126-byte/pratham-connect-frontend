@@ -68,7 +68,13 @@ interface SidebarItem {
 // Updated sidebar items with more appropriate icons
 const sidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-  { icon: Users, label: "Clients", href: "/clients", roles: ["superadmin", "manager", "counsellor"] },
+  { icon: Users, label: "Clients", href: "/clients", roles: ["superadmin", "developer", "manager", "counsellor"] },
+//   { icon: Target, label: "Lead list", href: "/leads", roles: ["superadmin", "developer", "manager", "counsellor", "telecaller"] },
+//  { icon: LayoutGrid, label: "Kanban", href: "/leads/kanban", roles: ["superadmin", "developer", "manager", "counsellor", "telecaller"] },
+//   { icon: Zap, label: "Automation", href: "/leads/automation", roles: ["superadmin", "developer", "manager"] },
+//   { icon: BarChart3, label: "Lead reports", href: "/leads/reports", roles: ["superadmin", "developer", "manager"] },
+
+  
   {
     icon: Activity,
     label: "Activity Log",
@@ -84,41 +90,41 @@ const sidebarItems: SidebarItem[] = [
     icon: Users,
     label: "Team",
     href: "/team",
-    roles: ["superadmin", "director"],
+    roles: ["superadmin", "developer", "director"],
   },
   {
     icon: Trophy,
     label: "Leaderboard",
     href: "/counsellor-leaderboard",
-    roles: ["superadmin", "manager"],
+    roles: ["superadmin", "developer", "manager"],
   },
   {
     icon: Info, // or FileInfo, or CircleInfo
     label: "Additional Info",
     href: "/additional-info",
-    roles: ["superadmin", "director"],
+    roles: ["superadmin", "developer", "director"],
   },
   {
     icon: GraduationCap, // or Building2, or Library
     label: "University List",
     href: "/university-db",
-    roles: ["superadmin", "manager", "counsellor"],
+    roles: ["superadmin", "developer", "manager", "counsellor"],
   },
-  {
-    icon: CheckSquare, // or CheckCircle2, or ListChecks
-    label: "Checklists",
-    href: "/checklists",
-    roles: ["superadmin", "manager"],
-  },
+  // {
+  //   icon: CheckSquare,
+  //   label: "Checklists",
+  //   href: "/checklists",
+  //   roles: ["superadmin", "developer", "manager"],
+  // },
 ];
 
 // const sidebarItems: SidebarItem[] = [
 //   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-//   { icon: Users, label: "Clients", href: "/clients", roles: ["superadmin", "manager", "counsellor"] },
-// // { icon: Target, label: "Lead list", href: "/leads", roles: ["superadmin", "manager", "counsellor", "telecaller"] },
-//  // { icon: LayoutGrid, label: "Kanban", href: "/leads/kanban", roles: ["superadmin", "manager", "counsellor", "telecaller"] },
-//   // { icon: Zap, label: "Automation", href: "/leads/automation", roles: ["superadmin", "manager"] },
-//   // { icon: BarChart3, label: "Lead reports", href: "/leads/reports", roles: ["superadmin", "manager"] },
+//   { icon: Users, label: "Clients", href: "/clients", roles: ["superadmin", "developer", "manager", "counsellor"] },
+// // { icon: Target, label: "Lead list", href: "/leads", roles: ["superadmin",  "developer","manager", "counsellor", "telecaller"] },
+//  // { icon: LayoutGrid, label: "Kanban", href: "/leads/kanban", roles: ["superadmin", "developer", "manager", "counsellor", "telecaller"] },
+//   // { icon: Zap, label: "Automation", href: "/leads/automation", roles: ["superadmin",  "developer","manager"] },
+//   // { icon: BarChart3, label: "Lead reports", href: "/leads/reports", roles: ["superadmin", "developer", "manager"] },
 //   {
 //     icon: Activity,
 //     label: "Activity Log",
@@ -134,31 +140,31 @@ const sidebarItems: SidebarItem[] = [
 //     icon: Users,
 //     label: "Team",
 //     href: "/team",
-//     roles: ["superadmin", "director"],
+//     roles: ["superadmin", "developer", "director"],
 //   },
 //   {
 //     icon: Trophy,
 //     label: "Leaderboard",
 //     href: "/counsellor-leaderboard",
-//     roles: ["superadmin", "manager"],
+//     roles: ["superadmin", "developer", "manager"],
 //   },
 //   {
 //     icon: FileText,
 //     label: "Additional Info",
 //     href: "/additional-info",
-//     roles: ["superadmin", "director"],
+//     roles: ["superadmin", "developer", "director"],
 //   },
 //   {
 //     icon: FileSpreadsheet,
 //     label: "University List",
 //     href: "/university-db",
-//     roles: ["superadmin", "manager", "counsellor"],
+//     roles: ["superadmin", "developer", "manager", "counsellor"],
 //   },
 //   {
 //     icon: CheckSquare,
 //     label: "Checklists",
 //     href: "/checklists",
-//     roles: ["superadmin", "manager"],
+//     roles: ["superadmin", "developer", "manager"],
 //   },
 // ];
 
@@ -280,6 +286,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
 
     const colors: Record<string, string> = {
       superadmin: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800",
+      developer: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/30 dark:text-slate-300 dark:border-slate-800",
       director: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800",
       manager: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
       team_lead: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
@@ -293,6 +300,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
 
     const labels: Record<string, string> = {
       superadmin: "Super Admin",
+      developer: "Developer",
       director: "Director",
       manager: "Manager",
       team_lead: "Team Lead",
@@ -437,7 +445,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       <List className="w-4 h-4" />
                       <span className="truncate">Counsellor-wise Clients</span>
                     </Link>
-                    {user && ["superadmin", "manager", "director"].includes(user.role) && (
+                    {user && ["superadmin", "developer", "manager", "director"].includes(user.role) && (
                       <Link
                         href="/clients/all-counsellor-clients"
                         className={cn(
@@ -451,7 +459,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                         <span className="truncate">All Clients</span>
                       </Link>
                     )}
-                    {user && ["superadmin", "manager", "counsellor"].includes(user.role) && (
+                    {user && ["superadmin", "developer", "manager", "counsellor"].includes(user.role) && (
                       <Link
                         href="/clients/new"
                         className={cn(
@@ -593,7 +601,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                 </div>
                 {!isCollapsed && (
                   <CollapsibleContent className="pl-4 space-y-1 overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
-                    {user?.role === "superadmin" && (
+                    {(user?.role === "superadmin" || user?.role === "developer") && (
                       <Link
                         href="/manager-leaderboard"
                         className={cn(
@@ -679,9 +687,26 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       <FileText className="w-4 h-4" />
                       Counsellor Reports
                     </Link>
+
+                    
+
+                    {user && [ "developer"].includes(user.role) && (
+                       <Link
+                      href="/reports/payments"
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
+                        location === "/reports/payments"
+                          ? "border-primary text-primary bg-primary/5"
+                          : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
+                      )}
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                      Payments Report
+                    </Link>
+                    )}
           
                     {/* Overall Reports (restricted) */}
-                    {user && ["superadmin", "manager"].includes(user.role) && (
+                    {user && ["superadmin", "developer", "manager"].includes(user.role) && (
                       <Link
                         href="/overall-report"
                         className={cn(

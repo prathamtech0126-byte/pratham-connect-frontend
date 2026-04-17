@@ -1,8 +1,8 @@
 import { useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
-import { Loader2 } from "lucide-react";
 import { PageWrapper } from "@/layout/PageWrapper";
+import { AllCounsellorClientsSkeleton } from "@/components/ui/page-skeletons";
 import { clientService } from "@/services/clientService";
 import { getLatestStageFromPayments } from "@/utils/stageUtils";
 import {
@@ -146,9 +146,7 @@ export default function AllCounsellorClientsPage() {
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          </div>
+          <AllCounsellorClientsSkeleton />
         ) : (
           <AllCounsellorClientsList
             data={filteredRows}

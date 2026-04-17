@@ -9,6 +9,7 @@ import { useSocket } from "@/context/socket-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Download, X, Filter, ChevronRight, User, Loader2, ExternalLink } from "lucide-react";
+import { ClientRedirectSkeleton } from "@/components/ui/page-skeletons";
 import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -47,10 +48,7 @@ function CounsellorRedirect({ id, role }: { id: string | number; role: string })
   }, [id, role, setLocation]);
   return (
     <PageWrapper title="Clients" breadcrumbs={[{ label: "Clients" }]}>
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        <p className="ml-2 text-muted-foreground">Loading...</p>
-      </div>
+      <ClientRedirectSkeleton />
     </PageWrapper>
   );
 }

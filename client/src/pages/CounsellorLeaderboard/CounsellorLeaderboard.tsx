@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Trophy, Target, TrendingUp, Plus, Pencil, Trash2, Calendar, Loader2 } from "lucide-react";
+import { CounsellorLeaderboardSkeleton } from "@/components/ui/page-skeletons";
 import { clientService } from "@/services/clientService";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -340,12 +341,7 @@ export default function CounsellorLeaderboard() {
   if (isLoadingCounsellors || isLoadingLeaderboard) {
     return (
       <PageWrapper title="Counsellor Leaderboard" breadcrumbs={[{ label: "Leaderboard" }]}>
-        <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <div className="text-muted-foreground">Loading leaderboard...</div>
-          </div>
-        </div>
+        <CounsellorLeaderboardSkeleton />
       </PageWrapper>
     );
   }

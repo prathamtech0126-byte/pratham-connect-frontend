@@ -25,14 +25,14 @@ export function useCountries() {
 }
 
 export function useChecklists(
-  category: string,
+  category: string | null,
   country: string | null,
   enabled: boolean
 ) {
   return useQuery({
     queryKey: ["checklists", category, country],
     queryFn: () => fetchChecklists(category, country),
-    enabled: enabled && !!category,
+    enabled,
   });
 }
 

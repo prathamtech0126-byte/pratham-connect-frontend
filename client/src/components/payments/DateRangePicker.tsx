@@ -11,8 +11,6 @@ import {
   isAfter,
   startOfWeek,
   endOfWeek,
-  startOfYear,
-  endOfYear,
   subDays,
   subMonths as dfSubMonths,
   endOfMonth,
@@ -44,19 +42,20 @@ const PRESETS: Preset[] = [
   { label: "Today and yesterday", resolve: () => ({ filter: "custom", start: subDays(today(), 1), end: today() }) },
   { label: "Last 7 days",         resolve: () => ({ filter: "custom", start: subDays(today(), 6), end: today() }) },
   { label: "Last 14 days",        resolve: () => ({ filter: "custom", start: subDays(today(), 13), end: today() }) },
-  { label: "Last 28 days",        resolve: () => ({ filter: "custom", start: subDays(today(), 27), end: today() }) },
   { label: "Last 30 days",        resolve: () => ({ filter: "custom", start: subDays(today(), 29), end: today() }) },
   { label: "This week",           resolve: () => ({ filter: "custom", start: startOfWeek(today(), { weekStartsOn: 1 }), end: today() }) },
   { label: "Last week",           resolve: () => { const s = startOfWeek(subDays(today(), 7), { weekStartsOn: 1 }); return { filter: "custom", start: s, end: endOfWeek(s, { weekStartsOn: 1 }) }; } },
   { label: "This month",          resolve: () => ({ filter: "monthly" }) },
   { label: "Last month",          resolve: () => { const s = startOfMonth(dfSubMonths(today(), 1)); return { filter: "custom", start: s, end: endOfMonth(s) }; } },
-  { label: "This year",           resolve: () => ({ filter: "yearly" }) },
-  { label: "Last year",           resolve: () => { const lastYear = new Date(today().getFullYear() - 1, 0, 1); return { filter: "custom", start: startOfYear(lastYear), end: endOfYear(lastYear) }; } },
+  { label: "Maximum",             resolve: () => ({ filter: "maximum" }) },
 ];
 
-// ─── Calendar helpers ──────────────────────────────────────────────────────────
+const MONTHS = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
+];
 
-const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function calendarDays(month: Date): (Date | null)[] {
   const first = startOfMonth(month);
@@ -91,12 +90,12 @@ function MonthCalendar({ month, tempStart, tempEnd, hoverDate, onDayClick, onDay
     return isWithinInterval(d, { start: lo, end: hi });
   }
 
+  const isStart = (d: Date) => !!(tempStart && isSameDay(d, tempStart));
+  const isEnd   = (d: Date) => !!(tempEnd && isSameDay(d, tempEnd));
+
   return (
-    <div>
-      <div className="mb-2 text-center text-sm font-semibold text-slate-800">
-        {format(month, "MMMM yyyy")}
-      </div>
-      <div className="grid grid-cols-7 text-center">
+    <div className="min-w-[200px]">
+      <div className="grid grid-cols-7 text-center mb-1">
         {DAYS.map((d) => (
           <div key={d} className="py-1 text-[11px] font-medium text-slate-400">
             {d}
@@ -114,7 +113,7 @@ function MonthCalendar({ month, tempStart, tempEnd, hoverDate, onDayClick, onDay
               onMouseLeave={() => onDayHover(null)}
               className={cn(
                 "mx-auto flex h-7 w-7 items-center justify-center text-[12px] transition-colors",
-                (tempStart && isSameDay(d, tempStart)) || (tempEnd && isSameDay(d, tempEnd))
+                isStart(d) || isEnd(d)
                   ? "rounded-full bg-[#2d3a8c] font-bold text-white"
                   : isInRange(d)
                   ? "rounded-none bg-blue-100 text-blue-800"
@@ -159,14 +158,12 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
   function handleDayClick(d: Date) {
     setActivePreset(null);
     if (!tempStart || (tempStart && tempEnd)) {
-      // First click — disable Update until end is picked
       setTempStart(d);
       setTempEnd(null);
       setPendingFilter("custom");
       setPendingStart(null);
       setPendingEnd(null);
     } else {
-      // Second click — complete the range
       if (isBefore(d, tempStart)) {
         setTempEnd(tempStart);
         setTempStart(d);
@@ -189,6 +186,23 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
     }
   }
 
+  function handleMonthSelect(side: "left" | "right", monthIndex: number) {
+    if (side === "left") {
+      setLeftMonth(new Date(leftMonth.getFullYear(), monthIndex, 1));
+    } else {
+      // right month is leftMonth + 1, so set left to month - 1
+      setLeftMonth(new Date(rightMonth.getFullYear(), monthIndex - 1, 1));
+    }
+  }
+
+  function handleYearSelect(side: "left" | "right", year: number) {
+    if (side === "left") {
+      setLeftMonth(new Date(year, leftMonth.getMonth(), 1));
+    } else {
+      setLeftMonth(new Date(year, rightMonth.getMonth() - 1, 1));
+    }
+  }
+
   const canUpdate =
     pendingFilter !== "custom" ||
     (pendingStart != null && pendingEnd != null);
@@ -196,48 +210,124 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
   const rangeLabel =
     activePreset ??
     (pendingStart && pendingEnd
-      ? `${format(pendingStart, "d MMM yyyy")} → ${format(pendingEnd, "d MMM yyyy")}`
-      : "Select a range");
+      ? `${format(pendingStart, "d MMM yyyy")} – ${format(pendingEnd, "d MMM yyyy")}`
+      : null);
+
+  const dateDisplay =
+    pendingStart && pendingEnd
+      ? `${format(pendingStart, "d MMMM yyyy")} \u2192 ${format(pendingEnd, "d MMMM yyyy")}`
+      : null;
+
+  // Year options: current year ± 5
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
 
   return (
-    <div className="z-50 flex w-[min(96vw,780px)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl md:flex-row">
+    <div className="z-50 flex w-[min(96vw,760px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
 
-      {/* Presets — horizontal scroll on mobile, vertical sidebar on desktop */}
-      <div className="flex shrink-0 flex-row gap-1 overflow-x-auto border-b border-slate-200 bg-slate-50 px-3 py-2 text-[13px] md:w-44 md:flex-col md:gap-0 md:overflow-x-visible md:overflow-y-auto md:border-b-0 md:border-r md:px-0 md:py-2">
-        <div className="hidden shrink-0 px-4 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400 md:block">
+      {/* ── Sidebar: preset list with radio buttons ── */}
+      <div className="flex w-44 shrink-0 flex-col overflow-y-auto border-r border-slate-200 py-3">
+        <div className="mb-1 px-4 text-[10px] font-bold uppercase tracking-wide text-slate-400">
           Presets
         </div>
-        {PRESETS.map((p) => (
-          <button
-            key={p.label}
-            type="button"
-            onClick={() => handlePreset(p)}
-            className={cn(
-              "shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-[12px] md:w-full md:rounded-none md:px-4 md:py-[5px]",
-              "hover:bg-slate-100",
-              activePreset === p.label
-                ? "bg-indigo-50 font-semibold text-[#2d3a8c] md:border-l-2 md:border-[#2d3a8c]"
-                : "text-slate-700"
-            )}
-          >
-            {p.label}
-          </button>
-        ))}
+        {PRESETS.map((p) => {
+          const active = activePreset === p.label;
+          return (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => handlePreset(p)}
+              className={cn(
+                "flex w-full items-center gap-3 px-4 py-[7px] text-left text-[13px] transition-colors hover:bg-slate-50",
+                active ? "text-[#2d3a8c]" : "text-slate-700"
+              )}
+            >
+              {/* Radio indicator */}
+              <span
+                className={cn(
+                  "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                  active ? "border-[#2d3a8c] bg-[#2d3a8c]" : "border-slate-300 bg-white"
+                )}
+              >
+                {active && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+              </span>
+              <span className={cn("leading-tight", active && "font-medium")}>{p.label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Calendars + footer */}
-      <div className="flex min-w-0 flex-col">
-        <div className="flex flex-col gap-4 p-4 md:flex-row md:gap-6">
+      {/* ── Right panel: header + calendars + footer ── */}
+      <div className="flex min-w-0 flex-1 flex-col">
 
-          {/* Left calendar with prev arrow */}
-          <div className="flex flex-col gap-1">
-            <button
-              type="button"
-              onClick={() => setLeftMonth((m) => subMonths(m, 1))}
-              className="mb-1 flex h-6 w-6 items-center justify-center rounded hover:bg-slate-100"
-            >
-              <ChevronLeft className="h-4 w-4 text-slate-500" />
-            </button>
+        {/* Navigation row: ← [Apr ▼ 2026 ▼]   [May ▼ 2026 ▼] → */}
+        <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+          <button
+            type="button"
+            onClick={() => setLeftMonth((m) => subMonths(m, 1))}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 hover:bg-slate-100"
+          >
+            <ChevronLeft className="h-4 w-4 text-slate-500" />
+          </button>
+
+          <div className="flex flex-1 items-center justify-around">
+            {/* Left month/year selects */}
+            <div className="flex items-center gap-1">
+              <select
+                value={leftMonth.getMonth()}
+                onChange={(e) => handleMonthSelect("left", Number(e.target.value))}
+                className="cursor-pointer appearance-none rounded border border-slate-200 bg-white px-2 py-0.5 text-[13px] font-semibold text-slate-800 hover:bg-slate-50 focus:outline-none"
+              >
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={i}>{m}</option>
+                ))}
+              </select>
+              <select
+                value={leftMonth.getFullYear()}
+                onChange={(e) => handleYearSelect("left", Number(e.target.value))}
+                className="cursor-pointer appearance-none rounded border border-slate-200 bg-white px-2 py-0.5 text-[13px] font-semibold text-slate-800 hover:bg-slate-50 focus:outline-none"
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Right month/year selects */}
+            <div className="hidden items-center gap-1 md:flex">
+              <select
+                value={rightMonth.getMonth()}
+                onChange={(e) => handleMonthSelect("right", Number(e.target.value))}
+                className="cursor-pointer appearance-none rounded border border-slate-200 bg-white px-2 py-0.5 text-[13px] font-semibold text-slate-800 hover:bg-slate-50 focus:outline-none"
+              >
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={i}>{m}</option>
+                ))}
+              </select>
+              <select
+                value={rightMonth.getFullYear()}
+                onChange={(e) => handleYearSelect("right", Number(e.target.value))}
+                className="cursor-pointer appearance-none rounded border border-slate-200 bg-white px-2 py-0.5 text-[13px] font-semibold text-slate-800 hover:bg-slate-50 focus:outline-none"
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setLeftMonth((m) => addMonths(m, 1))}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 hover:bg-slate-100"
+          >
+            <ChevronRight className="h-4 w-4 text-slate-500" />
+          </button>
+        </div>
+
+        {/* Calendars */}
+        <div className="flex flex-col gap-4 px-4 pb-2 md:flex-row md:gap-0">
+          <div className="flex-1 pr-5">
             <MonthCalendar
               month={leftMonth}
               tempStart={tempStart}
@@ -247,18 +337,9 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
               onDayHover={setHoverDate}
             />
           </div>
-
-          {/* Right calendar — desktop only */}
-          <div className="hidden flex-col gap-1 md:flex">
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setLeftMonth((m) => addMonths(m, 1))}
-                className="mb-1 flex h-6 w-6 items-center justify-center rounded hover:bg-slate-100"
-              >
-                <ChevronRight className="h-4 w-4 text-slate-500" />
-              </button>
-            </div>
+          {/* Vertical divider */}
+          <div className="hidden w-px self-stretch bg-slate-200 md:block" />
+          <div className="hidden flex-1 pl-5 md:block">
             <MonthCalendar
               month={rightMonth}
               tempStart={tempStart}
@@ -268,34 +349,41 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
               onDayHover={setHoverDate}
             />
           </div>
-
-          {/* Next arrow on mobile (shown inline below left calendar) */}
-          <div className="flex justify-end md:hidden">
-            <button
-              type="button"
-              onClick={() => setLeftMonth((m) => addMonths(m, 1))}
-              className="flex h-6 w-6 items-center justify-center rounded hover:bg-slate-100"
-            >
-              <ChevronRight className="h-4 w-4 text-slate-500" />
-            </button>
-          </div>
         </div>
 
         {/* Footer */}
-        <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
-          <span className="flex-1 truncate text-[12px] text-slate-600">{rangeLabel}</span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onCancel} className="text-xs">
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleUpdate}
-              disabled={!canUpdate}
-              className="bg-[#2d3a8c] text-xs hover:bg-[#232f73]"
-            >
-              Update
-            </Button>
+        <div className="border-t border-slate-200 px-4 py-3">
+          {/* Range display row */}
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
+            {rangeLabel && (
+              <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium text-slate-700">
+                {rangeLabel}
+              </span>
+            )}
+            {dateDisplay && (
+              <span className="text-slate-500">{dateDisplay}</span>
+            )}
+            {!rangeLabel && !dateDisplay && (
+              <span className="text-slate-400 italic">Select a range</span>
+            )}
+          </div>
+
+          {/* Timezone + buttons */}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-slate-400">Dates are shown in Kolkata Time</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={onCancel} className="text-xs">
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleUpdate}
+                disabled={!canUpdate}
+                className="bg-[#2d3a8c] text-xs hover:bg-[#232f73]"
+              >
+                Update
+              </Button>
+            </div>
           </div>
         </div>
       </div>

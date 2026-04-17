@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
+import { CounsellorClientsSkeleton, ClientRedirectSkeleton } from "@/components/ui/page-skeletons";
 import { useLocation, useRoute, useSearch } from "wouter";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Input } from "@/components/ui/input";
@@ -371,10 +372,7 @@ export default function CounsellorClientsPage() {
   if (isCounsellor && meQuery.isLoading) {
     return (
       <PageWrapper title="Clients" breadcrumbs={[{ label: "Clients" }]}>
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          <p className="ml-2 text-muted-foreground">Loading...</p>
-        </div>
+        <ClientRedirectSkeleton />
       </PageWrapper>
     );
   }
@@ -523,9 +521,7 @@ export default function CounsellorClientsPage() {
         {(canFetch || isArchiveMode) && (
           <>
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-              </div>
+              <CounsellorClientsSkeleton />
             ) : (
               <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
                 <DataTable

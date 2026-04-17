@@ -748,7 +748,7 @@ import { useLocation } from 'wouter';
 import {
   ArrowLeft, Plus, Trash2, Save, X, AlertCircle,
   FolderPlus, FileText, FileCheck, File, Archive, CheckCircle, ChevronRight,
-  Globe, BookOpen, Hash, Tag, Settings2, Loader2,
+  Globe, BookOpen, Hash, Tag, Settings2, Loader2, Check, ChevronsUpDown,
 } from 'lucide-react';
 import { PageWrapper } from '@/layout/PageWrapper';
 import { Button } from '@/components/ui/button';
@@ -769,17 +769,61 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   createChecklist,
   createSection,
   createItem,
   fetchCategories,
   fetchCountries,
   fetchChecklists,
+  createCountry,
   type CreateChecklistData,
   type CreateSectionData,
   type CreateItemData,
   type ChecklistSummary,
 } from '@/api/checklist.api';
+import { COUNTRY_LIST } from '@/data/countries';
+
+function getFriendlyError(error: any, fallback = 'Something went wrong. Please try again.'): string {
+  const serverMsg: string | undefined = error?.response?.data?.message;
+  if (serverMsg) return serverMsg;
+
+  const status: number | undefined = error?.response?.status;
+  if (status) {
+    if (status === 400) return 'The information provided is invalid. Please review your inputs and try again.';
+    if (status === 401) return 'Your session has expired. Please log in again.';
+    if (status === 403) return "You don't have permission to perform this action.";
+    if (status === 404) return 'The requested resource could not be found.';
+    if (status === 409) return error?.message || 'A conflict occurred. This entry may already exist.';
+    if (status >= 500) return 'A server error occurred. Please try again in a moment, or contact support if the problem persists.';
+  }
+
+  const msg: string = error?.message || '';
+  if (/network error/i.test(msg)) return 'Unable to connect. Please check your internet connection and try again.';
+  if (/timeout/i.test(msg)) return 'The request timed out. Please try again.';
+  if (/request failed/i.test(msg)) return 'A server error occurred. Please try again in a moment.';
+
+  return fallback;
+}
 
 interface SectionForm extends CreateSectionData {
   id?: string;
@@ -805,6 +849,7 @@ export default function AddChecklistPage() {
   const [mode, setMode] = useState<'new' | 'existing'>('new');
   const [selectedChecklistId, setSelectedChecklistId] = useState<string>('');
   const [selectedChecklistTitle, setSelectedChecklistTitle] = useState<string>('');
+  const [checklistSearch, setChecklistSearch] = useState<string>('');
   
   // Checklist form state
   const [checklistData, setChecklistData] = useState<CreateChecklistData>({
@@ -826,6 +871,54 @@ export default function AddChecklistPage() {
   
   const [createdChecklistId, setCreatedChecklistId] = useState<string | null>(null);
 
+  // ── Add Country dialog state ──────────────────────────────────────────────
+  const [countryDialogOpen, setCountryDialogOpen] = useState(false);
+  const [countryComboOpen, setCountryComboOpen] = useState(false);
+  const [countryName, setCountryName] = useState('');
+  const [countryCode, setCountryCode] = useState('');
+  const [countryError, setCountryError] = useState<string | null>(null);
+  const [countryLoading, setCountryLoading] = useState(false);
+  const [countrySuccess, setCountrySuccess] = useState<string | null>(null);
+
+  const openCountryDialog = () => {
+    setCountryName('');
+    setCountryCode('');
+    setCountryError(null);
+    setCountrySuccess(null);
+    setCountryComboOpen(false);
+    setCountryDialogOpen(true);
+  };
+
+  const handleAddCountry = async () => {
+    if (!countryName.trim()) { setCountryError('Country name is required.'); return; }
+    if (!countryCode.trim()) { setCountryError('Country code is required (e.g. CA, IN, UK).'); return; }
+    setCountryError(null);
+    setCountryLoading(true);
+    try {
+      const result = await createCountry({ name: countryName.trim(), code: countryCode.trim() });
+      if (result.success) {
+        setCountrySuccess(`"${result.data.name}" added successfully.`);
+        // Refresh countries list
+        const updated = await fetchCountries();
+        setCountries(updated);
+        setCountryName('');
+        setCountryCode('');
+        setTimeout(() => setCountryDialogOpen(false), 1200);
+      }
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 409) {
+        setCountryError('A country with that name or code already exists.');
+      } else if (status === 400) {
+        setCountryError(err?.response?.data?.error?.message || 'Invalid input. Please check your values.');
+      } else {
+        setCountryError('Something went wrong. Please try again.');
+      }
+    } finally {
+      setCountryLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchInitialData();
     if (mode === 'existing') {
@@ -843,7 +936,7 @@ export default function AddChecklistPage() {
       setCountries(countriesData);
     } catch (error) {
       console.error('Error fetching initial data:', error);
-      setError('Failed to load categories and countries');
+      setError('Unable to load form data. Please refresh the page and try again.');
     }
   };
 
@@ -860,14 +953,33 @@ export default function AddChecklistPage() {
     setMode(newMode);
     setError(null);
     setSuccess(null);
+    setActiveTab('checklist');
+    // Reset existing-checklist selection whenever mode changes
+    setSelectedChecklistId('');
+    setSelectedChecklistTitle('');
+    setCreatedChecklistId(null);
+    setChecklistSearch('');
     if (newMode === 'existing') {
       fetchExistingChecklists();
     }
   };
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    // Going back to the selection step in existing mode: clear the previous pick
+    if (tab === 'checklist' && mode === 'existing') {
+      setSelectedChecklistId('');
+      setSelectedChecklistTitle('');
+      setCreatedChecklistId(null);
+      setChecklistSearch('');
+      setSuccess(null);
+      setError(null);
+    }
+  };
+
   const handleChecklistSubmit = async () => {
     if (!checklistData.title || !checklistData.visaCategoryId) {
-      setError('Please fill in all required fields (Title and Category)');
+      setError('Title and Category are required. Please fill in all highlighted fields before continuing.');
       return;
     }
 
@@ -889,19 +1001,18 @@ export default function AddChecklistPage() {
 
       if (result.success && result.data.id) {
         setCreatedChecklistId(result.data.id);
-        setSuccess('Checklist created successfully! Now you can add sections and items.');
+        setSuccess('Checklist created! Now add sections and documents in the next step.');
         setActiveTab('sections');
       } else {
-        throw new Error('Failed to create checklist: Invalid response');
+        throw new Error('Invalid response from server');
       }
     } catch (error: any) {
       console.error('Error creating checklist:', error);
       const status = error.response?.status;
-      const message = error.response?.data?.message || error.message || 'Error creating checklist';
       if (status === 409) {
-        setSlugError(message);
+        setSlugError(error.response?.data?.message || 'This slug is already taken. Please choose a different one.');
       } else {
-        setError(message);
+        setError(getFriendlyError(error, 'Failed to create the checklist. Please try again.'));
       }
     } finally {
       setLoading(false);
@@ -914,7 +1025,7 @@ export default function AddChecklistPage() {
       setSelectedChecklistId(checklistId);
       setSelectedChecklistTitle(selected.title);
       setCreatedChecklistId(checklistId);
-      setSuccess(`Selected checklist: ${selected.title}. You can now add sections and items.`);
+      setSuccess(`"${selected.title}" selected. You can now add sections and documents below.`);
       setActiveTab('sections');
     }
   };
@@ -964,7 +1075,7 @@ export default function AddChecklistPage() {
 
   const handleSectionsSubmit = async () => {
     if (!createdChecklistId) {
-      setError('Please select or create a checklist first');
+      setError('No checklist selected. Please create a new checklist or select an existing one before adding sections.');
       setActiveTab('checklist');
       return;
     }
@@ -1006,19 +1117,20 @@ export default function AddChecklistPage() {
         }
       }
       
-      setSuccess(`Successfully added ${sectionCount} section(s) and ${itemCount} item(s) to the checklist!`);
-      
+      setSuccess(
+        `${sectionCount} section${sectionCount !== 1 ? 's' : ''} and ${itemCount} document${itemCount !== 1 ? 's' : ''} added successfully. Redirecting to checklists…`
+      );
+
       setSections([
         { title: '', description: '', displayOrder: sections.length, isConditional: false, conditionText: '', items: [] }
       ]);
-      
+
       setTimeout(() => {
         setLocation('/checklists');
       }, 2000);
     } catch (error: any) {
       console.error('Error creating sections/items:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Error creating sections/items';
-      setError(errorMessage);
+      setError(getFriendlyError(error, 'Failed to save sections and documents. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -1099,7 +1211,7 @@ export default function AddChecklistPage() {
           </Card>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="grid w-full max-w-md grid-cols-2 bg-slate-100">
             <TabsTrigger value="checklist" className="data-[state=active]:bg-white data-[state=active]:text-[#0063cc]">
               <BookOpen className="w-4 h-4 mr-2" />
@@ -1225,13 +1337,61 @@ export default function AddChecklistPage() {
                           />
                         </div>
                       </div>
-
                       <div className="space-y-1.5">
-                        <Label htmlFor="country" className="text-sm font-semibold flex items-center gap-1.5">
-                          <Globe className="w-3.5 h-3.5 text-slate-400" />
-                          Country{' '}
-                          <span className="text-xs font-normal text-slate-400">(optional)</span>
-                        </Label>
+  <Label htmlFor="country" className="text-sm font-semibold flex items-center gap-1.5">
+    <Globe className="w-3.5 h-3.5 text-slate-400" />
+    Country
+  </Label>
+  <div className="flex gap-2">
+    <Select
+      value={checklistData.countryId || '__all__'}
+      onValueChange={(value) =>
+        setChecklistData({ ...checklistData, countryId: value === '__all__' ? null : value })
+      }
+    >
+      <SelectTrigger className="focus:ring-[#0063cc] focus:border-[#0063cc] flex-1">
+        <SelectValue placeholder="All Countries" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="__all__">🌍 All Countries</SelectItem>
+        {countries.map((country) => (
+          <SelectItem key={country.id} value={country.id}>
+            {country.name} ({country.code})
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={openCountryDialog}
+      className="h-10 px-3 text-sm border-[#0063cc] text-[#0063cc] hover:bg-[#0063cc]/10 gap-1 whitespace-nowrap"
+    >
+      <Plus className="w-4 h-4" />
+      Add Country
+    </Button>
+  </div>
+</div>
+
+                      {/* <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="country" className="text-sm font-semibold flex items-center gap-1.5">
+                            <Globe className="w-3.5 h-3.5 text-slate-400" />
+                            Country{' '}
+                            <span className="text-xs font-normal text-slate-400">(optional)</span>
+                          </Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={openCountryDialog}
+                            className="h-7 px-2 text-xs border-[#0063cc] text-[#0063cc] hover:bg-[#0063cc]/10 gap-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add Country
+                          </Button>
+                        </div>
                         <Select
                           value={checklistData.countryId || '__all__'}
                           onValueChange={(value) =>
@@ -1250,7 +1410,7 @@ export default function AddChecklistPage() {
                             ))}
                           </SelectContent>
                         </Select>
-                      </div>
+                      </div> */}
                     </div>
 
                     {/* ── Group 3: Advanced ─────────────────────────────── */}
@@ -1356,58 +1516,117 @@ export default function AddChecklistPage() {
 
                   </div>
                 ) : (
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="existingChecklist" className="text-sm font-semibold flex items-center gap-2">
+                  <div className="space-y-5">
+                    {/* Search */}
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-semibold flex items-center gap-2">
                         <FolderPlus className="w-4 h-4 text-[#0063cc]" />
                         Select Existing Checklist <span className="text-red-500">*</span>
                       </Label>
-                      <Select
-                        value={selectedChecklistId}
-                        onValueChange={handleExistingChecklistSelect}
-                      >
-                        <SelectTrigger className="focus:ring-[#0063cc] focus:border-[#0063cc]">
-                          <SelectValue placeholder="Choose a checklist to add content to" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {existingChecklists.map((checklist) => (
-                            <SelectItem key={checklist.id} value={checklist.id}>
-                              <div className="flex items-center justify-between w-full">
-                                <span className="font-medium">{checklist.title}</span>
-                                <div className="flex gap-2 ml-4">
-                                  {checklist.subType && (
-                                    <Badge variant="outline" className="text-xs">{checklist.subType}</Badge>
-                                  )}
-                                  <Badge className="text-xs bg-[#0063cc]/10 text-[#0063cc]">
-                                    {checklist.sectionCount} sections
-                                  </Badge>
-                                </div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="relative">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" /></svg>
+                        <Input
+                          value={checklistSearch}
+                          onChange={(e) => setChecklistSearch(e.target.value)}
+                          placeholder="Search checklists…"
+                          className="pl-9 focus:ring-[#0063cc] focus:border-[#0063cc]"
+                        />
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        {existingChecklists.length} checklist{existingChecklists.length !== 1 ? 's' : ''} available
+                      </p>
                     </div>
 
+                    {/* Checklist list */}
+                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                      <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                        {existingChecklists.length === 0 ? (
+                          <div className="py-10 text-center text-slate-400 text-sm">
+                            No checklists found
+                          </div>
+                        ) : (() => {
+                          const filtered = existingChecklists.filter((c) =>
+                            c.title.toLowerCase().includes(checklistSearch.toLowerCase()) ||
+                            (c.subType || '').toLowerCase().includes(checklistSearch.toLowerCase())
+                          );
+                          return filtered.length === 0 ? (
+                            <div className="py-10 text-center text-slate-400 text-sm">
+                              No checklists match "{checklistSearch}"
+                            </div>
+                          ) : (
+                            filtered.map((checklist) => {
+                              const isSelected = selectedChecklistId === checklist.id;
+                              return (
+                                <button
+                                  key={checklist.id}
+                                  type="button"
+                                  onClick={() => handleExistingChecklistSelect(checklist.id)}
+                                  className={`w-full text-left px-4 py-3 flex items-center justify-between gap-3 transition-colors ${
+                                    isSelected
+                                      ? 'bg-[#0063cc]/8 border-l-4 border-l-[#0063cc]'
+                                      : 'hover:bg-slate-50 border-l-4 border-l-transparent'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? 'bg-[#0063cc] text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                      {isSelected
+                                        ? <CheckCircle className="w-4 h-4" />
+                                        : <FileText className="w-4 h-4" />
+                                      }
+                                    </div>
+                                    <span className={`text-sm font-medium truncate ${isSelected ? 'text-[#0063cc]' : 'text-slate-800'}`}>
+                                      {checklist.title}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {checklist.subType && (
+                                      <Badge variant="outline" className="text-xs text-slate-500">{checklist.subType}</Badge>
+                                    )}
+                                    <Badge className="text-xs bg-slate-100 text-slate-600 hover:bg-slate-100">
+                                      {checklist.sectionCount} section{checklist.sectionCount !== 1 ? 's' : ''}
+                                    </Badge>
+                                  </div>
+                                </button>
+                              );
+                            })
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Selected banner */}
                     {selectedChecklistId && (
-                      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-white rounded-lg">
+                      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="p-2 bg-white rounded-lg shrink-0">
                             <CheckCircle className="w-5 h-5 text-[#0063cc]" />
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <p className="text-xs font-medium text-[#0063cc] uppercase tracking-wide">Selected Checklist</p>
-                            <p className="text-sm font-semibold text-slate-800">{selectedChecklistTitle}</p>
+                            <p className="text-sm font-semibold text-slate-800 truncate">{selectedChecklistTitle}</p>
                           </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedChecklistId('');
+                            setSelectedChecklistTitle('');
+                            setCreatedChecklistId(null);
+                            setSuccess(null);
+                            setChecklistSearch('');
+                          }}
+                          className="shrink-0 text-xs text-slate-500 hover:text-red-500 underline underline-offset-2 transition-colors"
+                        >
+                          Change
+                        </button>
                       </div>
                     )}
 
                     <Separator className="my-4" />
 
-                    <div className="flex gap-3 pt-4">
-                      <Button 
-                        onClick={() => setActiveTab('sections')} 
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        onClick={() => setActiveTab('sections')}
                         disabled={!selectedChecklistId}
                         className="bg-[#0063cc] hover:bg-[#0052a3]"
                       >
@@ -1441,32 +1660,35 @@ export default function AddChecklistPage() {
                 <div className="space-y-6">
                   {sections.map((section, sectionIndex) => (
                     <Card key={sectionIndex} className="border-2 hover:border-[#0063cc]/30 transition-all duration-200">
-                      <CardHeader className="bg-slate-50/50">
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-[#0063cc]/10 text-[#0063cc] flex items-center justify-center text-sm font-bold">
+                      {/* Section header */}
+                      <CardHeader className="bg-slate-50/50 px-4 py-3 sm:px-6 sm:py-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                            <div className="shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-[#0063cc]/10 text-[#0063cc] flex items-center justify-center text-sm font-bold">
                               {sectionIndex + 1}
                             </div>
-                            <div>
-                              <h3 className="text-lg font-semibold text-slate-800">Section {sectionIndex + 1}</h3>
-                              <p className="text-xs text-slate-500">Add documents and requirements for this section</p>
+                            <div className="min-w-0">
+                              <h3 className="text-base sm:text-lg font-semibold text-slate-800 leading-tight">Section {sectionIndex + 1}</h3>
+                              <p className="text-xs text-slate-500 hidden sm:block">Add documents and requirements for this section</p>
                             </div>
                           </div>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => removeSection(sectionIndex)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            className="shrink-0 text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-5 pt-5">
-                        <div className="space-y-2">
+
+                      <CardContent className="space-y-4 px-4 pt-4 pb-4 sm:px-6 sm:pt-5 sm:pb-5">
+                        {/* Section Title */}
+                        <div className="space-y-1.5">
                           <Label className="text-sm font-semibold flex items-center gap-2">
                             <FileText className="w-4 h-4 text-[#0063cc]" />
-                            Section Title *
+                            Section Title <span className="text-red-500">*</span>
                           </Label>
                           <Input
                             value={section.title}
@@ -1476,10 +1698,11 @@ export default function AddChecklistPage() {
                           />
                         </div>
 
-                        <div className="space-y-2">
+                        {/* Description */}
+                        <div className="space-y-1.5">
                           <Label className="text-sm font-semibold flex items-center gap-2">
                             <FileCheck className="w-4 h-4 text-[#0063cc]" />
-                            Description (Optional)
+                            Description <span className="text-xs font-normal text-slate-400">(Optional)</span>
                           </Label>
                           <Textarea
                             value={section.description || ''}
@@ -1490,8 +1713,9 @@ export default function AddChecklistPage() {
                           />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
+                        {/* Display Order + Conditional — stack on mobile, side-by-side on sm+ */}
+                        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                          <div className="space-y-1.5 w-full sm:w-40">
                             <Label className="text-sm font-semibold flex items-center gap-2">
                               <Hash className="w-4 h-4 text-[#0063cc]" />
                               Display Order
@@ -1503,21 +1727,19 @@ export default function AddChecklistPage() {
                               className="focus:ring-[#0063cc] focus:border-[#0063cc]"
                             />
                           </div>
-                          <div className="flex items-center pt-6">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={section.isConditional}
-                                onChange={(e) => updateSection(sectionIndex, 'isConditional', e.target.checked)}
-                                className="rounded border-slate-300 text-[#0063cc] focus:ring-[#0063cc]"
-                              />
-                              <span className="text-sm font-medium">Conditional Section</span>
-                            </label>
-                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer pb-1 sm:pb-2">
+                            <input
+                              type="checkbox"
+                              checked={section.isConditional}
+                              onChange={(e) => updateSection(sectionIndex, 'isConditional', e.target.checked)}
+                              className="rounded border-slate-300 text-[#0063cc] focus:ring-[#0063cc]"
+                            />
+                            <span className="text-sm font-medium">Conditional Section</span>
+                          </label>
                         </div>
 
                         {section.isConditional && (
-                          <div className="space-y-2">
+                          <div className="space-y-1.5">
                             <Label className="text-sm font-semibold">Condition Text</Label>
                             <Input
                               value={section.conditionText || ''}
@@ -1528,21 +1750,22 @@ export default function AddChecklistPage() {
                           </div>
                         )}
 
-                        <Separator className="my-2" />
+                        <Separator className="my-1" />
 
-                        {/* Items/Documents */}
+                        {/* Documents */}
                         <div className="space-y-3">
-                          <Label className="text-md font-semibold text-slate-700 flex items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                             <Archive className="w-4 h-4 text-[#0063cc]" />
                             Documents & Requirements
-                          </Label>
-                          
+                          </p>
+
                           {section.items.map((item, itemIndex) => (
                             <Card key={itemIndex} className="border-l-4 border-l-[#0063cc] bg-slate-50/30">
-                              <CardContent className="pt-4 pb-3">
-                                <div className="flex justify-between items-start mb-3">
-                                  <h4 className="font-medium text-slate-700 flex items-center gap-2">
-                                    <File className="w-4 h-4 text-[#0063cc]" />
+                              <CardContent className="px-3 pt-3 pb-3 sm:px-4 sm:pt-4">
+                                {/* Doc header */}
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                                    <File className="w-4 h-4 text-[#0063cc] shrink-0" />
                                     Document {itemIndex + 1}
                                   </h4>
                                   <Button
@@ -1555,9 +1778,10 @@ export default function AddChecklistPage() {
                                   </Button>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <Label className="text-sm font-semibold">Document Name *</Label>
+                                {/* Name + Quantity — stack on mobile */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-sm font-semibold">Document Name <span className="text-red-500">*</span></Label>
                                     <Input
                                       value={item.name}
                                       onChange={(e) => updateItem(sectionIndex, itemIndex, 'name', e.target.value)}
@@ -1565,20 +1789,24 @@ export default function AddChecklistPage() {
                                       className="focus:ring-[#0063cc] focus:border-[#0063cc]"
                                     />
                                   </div>
-
-                                  <div className="space-y-2">
-                                    <Label className="text-sm font-semibold">Quantity Note</Label>
+                                  <div className="space-y-1.5">
+                                    <Label className="text-sm font-semibold">
+                                      Quantity Note <span className="text-xs font-normal text-slate-400">(Optional)</span>
+                                    </Label>
                                     <Input
                                       value={item.quantityNote || ''}
                                       onChange={(e) => updateItem(sectionIndex, itemIndex, 'quantityNote', e.target.value)}
-                                      placeholder="e.g., Min. 4,000 CAD, 9-10 photos"
+                                      placeholder="e.g., Min. 4,000 CAD"
                                       className="focus:ring-[#0063cc] focus:border-[#0063cc]"
                                     />
                                   </div>
                                 </div>
 
-                                <div className="space-y-2 mt-3">
-                                  <Label className="text-sm font-semibold">Notes (Optional)</Label>
+                                {/* Notes */}
+                                <div className="space-y-1.5 mt-3">
+                                  <Label className="text-sm font-semibold">
+                                    Notes <span className="text-xs font-normal text-slate-400">(Optional)</span>
+                                  </Label>
                                   <Textarea
                                     value={item.notes || ''}
                                     onChange={(e) => updateItem(sectionIndex, itemIndex, 'notes', e.target.value)}
@@ -1588,7 +1816,8 @@ export default function AddChecklistPage() {
                                   />
                                 </div>
 
-                                <div className="flex flex-wrap gap-4 mt-3">
+                                {/* Checkboxes — wrap on mobile */}
+                                <div className="flex flex-wrap gap-x-5 gap-y-2 mt-3">
                                   <label className="flex items-center gap-2 cursor-pointer">
                                     <input
                                       type="checkbox"
@@ -1596,7 +1825,7 @@ export default function AddChecklistPage() {
                                       onChange={(e) => updateItem(sectionIndex, itemIndex, 'isMandatory', e.target.checked)}
                                       className="rounded border-slate-300 text-[#0063cc] focus:ring-[#0063cc]"
                                     />
-                                    <span className="text-sm">Mandatory Document</span>
+                                    <span className="text-sm">Mandatory</span>
                                   </label>
                                   <label className="flex items-center gap-2 cursor-pointer">
                                     <input
@@ -1605,12 +1834,12 @@ export default function AddChecklistPage() {
                                       onChange={(e) => updateItem(sectionIndex, itemIndex, 'isConditional', e.target.checked)}
                                       className="rounded border-slate-300 text-[#0063cc] focus:ring-[#0063cc]"
                                     />
-                                    <span className="text-sm">Conditional Document</span>
+                                    <span className="text-sm">Conditional</span>
                                   </label>
                                 </div>
 
                                 {item.isConditional && (
-                                  <div className="space-y-2 mt-3">
+                                  <div className="space-y-1.5 mt-3">
                                     <Label className="text-sm font-semibold">Condition Text</Label>
                                     <Input
                                       value={item.conditionText || ''}
@@ -1621,13 +1850,17 @@ export default function AddChecklistPage() {
                                   </div>
                                 )}
 
-                                <div className="space-y-2 mt-3">
-                                  <Label className="text-sm font-semibold">Display Order</Label>
+                                {/* Display Order — compact */}
+                                <div className="flex items-center gap-3 mt-3">
+                                  <Label className="text-sm font-semibold shrink-0">
+                                    <Hash className="w-3.5 h-3.5 inline mr-1 text-slate-400" />
+                                    Order
+                                  </Label>
                                   <Input
                                     type="number"
                                     value={item.displayOrder}
                                     onChange={(e) => updateItem(sectionIndex, itemIndex, 'displayOrder', parseInt(e.target.value))}
-                                    className="focus:ring-[#0063cc] focus:border-[#0063cc] max-w-[200px]"
+                                    className="focus:ring-[#0063cc] focus:border-[#0063cc] w-20"
                                   />
                                 </div>
                               </CardContent>
@@ -1638,7 +1871,7 @@ export default function AddChecklistPage() {
                             variant="outline"
                             size="sm"
                             onClick={() => addItem(sectionIndex)}
-                            className="mt-2 border-[#0063cc] text-[#0063cc] hover:bg-[#0063cc]/10"
+                            className="w-full sm:w-auto mt-1 border-[#0063cc] text-[#0063cc] hover:bg-[#0063cc]/10"
                           >
                             <Plus className="w-4 h-4 mr-2" />
                             Add Document
@@ -1648,14 +1881,23 @@ export default function AddChecklistPage() {
                     </Card>
                   ))}
 
-                  <div className="flex gap-3 pt-4">
-                    <Button variant="outline" onClick={addSection} className="border-[#0063cc] text-[#0063cc] hover:bg-[#0063cc]/10">
+                  {/* Bottom actions — stack on mobile */}
+                  <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={addSection}
+                      className="w-full sm:w-auto border-[#0063cc] text-[#0063cc] hover:bg-[#0063cc]/10"
+                    >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Another Section
                     </Button>
-                    <Button onClick={handleSectionsSubmit} disabled={loading} className="bg-[#0063cc] hover:bg-[#0052a3]">
+                    <Button
+                      onClick={handleSectionsSubmit}
+                      disabled={loading}
+                      className="w-full sm:w-auto bg-[#0063cc] hover:bg-[#0052a3]"
+                    >
                       <Save className="w-4 h-4 mr-2" />
-                      {loading ? 'Saving...' : 'Save All Sections & Documents'}
+                      {loading ? 'Saving…' : 'Save All Sections & Documents'}
                     </Button>
                   </div>
                 </div>
@@ -1664,6 +1906,109 @@ export default function AddChecklistPage() {
           </TabsContent>
         </Tabs>
       </div>
+      {/* ── Add Country Dialog ── */}
+      <Dialog open={countryDialogOpen} onOpenChange={(open) => {
+        if (!countryLoading) setCountryDialogOpen(open);
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="w-5 h-5 text-[#0063cc]" />
+              Add New Country
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {countryError && (
+              <Alert variant="destructive">
+                <AlertDescription>{countryError}</AlertDescription>
+              </Alert>
+            )}
+            {countrySuccess && (
+              <Alert className="border-green-500 bg-green-50">
+                <AlertDescription className="text-green-700">{countrySuccess}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold">
+                Select Country <span className="text-red-500">*</span>
+              </p>
+              <Popover open={countryComboOpen} onOpenChange={setCountryComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={countryComboOpen}
+                    disabled={countryLoading}
+                    className="w-full justify-between font-normal text-slate-700 hover:text-slate-900"
+                  >
+                    {countryName ? (
+                      <span className="flex items-center gap-2">
+                        <span>{countryName}</span>
+                        <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                          {countryCode}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">Search country…</span>
+                    )}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-slate-400" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                  <Command>
+                    <CommandInput placeholder="Type to search…" className="h-9" />
+                    <CommandList className="max-h-60">
+                      <CommandEmpty>No country found.</CommandEmpty>
+                      <CommandGroup>
+                        {COUNTRY_LIST.map((c) => (
+                          <CommandItem
+                            key={c.code}
+                            value={`${c.name} ${c.code}`}
+                            onSelect={() => {
+                              setCountryName(c.name);
+                              setCountryCode(c.code);
+                              setCountryError(null);
+                              setCountryComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${countryCode === c.code ? 'opacity-100 text-[#0063cc]' : 'opacity-0'}`}
+                            />
+                            <span className="flex-1">{c.name}</span>
+                            <span className="ml-2 text-xs font-mono text-slate-400">{c.code}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCountryDialogOpen(false)}
+              disabled={countryLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAddCountry}
+              disabled={countryLoading}
+              className="bg-[#0063cc] hover:bg-[#0052a3]"
+            >
+              {countryLoading ? 'Adding…' : 'Add Country'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   );
 }

@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Archive, ArrowLeft, Filter, Download, Loader2 } from "lucide-react";
+import { ClientRedirectSkeleton } from "@/components/ui/page-skeletons";
 import { useLocation } from "wouter";
 import { useState, useMemo, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -118,10 +119,7 @@ function CounsellorArchiveRedirect({ id, role }: { id: number; role: string }) {
   }, [id, role, setLocation]);
   return (
     <PageWrapper title="Archived Clients" breadcrumbs={[{ label: "Clients", href: "/clients" }, { label: "Archive" }]}>
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        <p className="ml-2 text-muted-foreground">Loading...</p>
-      </div>
+      <ClientRedirectSkeleton />
     </PageWrapper>
   );
 }

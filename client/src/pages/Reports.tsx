@@ -24,6 +24,7 @@ import {
   Loader2,
   FileBarChart,
 } from "lucide-react";
+import { ReportsSkeleton } from "@/components/ui/page-skeletons";
 import { DateInput } from "@/components/ui/date-input";
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import {
@@ -105,8 +106,15 @@ export default function Reports() {
   const [dashboardSaleTypeId, setDashboardSaleTypeId] = useState<number | null>(null);
 
   const { data: report, isLoading, error } = useQuery({
-    queryKey: ["reports", effectiveFilter, effectiveFilter === "custom" ? effectiveStart : null, effectiveFilter === "custom" ? effectiveEnd : null, dashboardSaleTypeId],
-    queryFn: () =>
+ //   queryKey: ["reports", effectiveFilter, effectiveFilter === "custom" ? effectiveStart : null, effectiveFilter === "custom" ? effectiveEnd : null, dashboardSaleTypeId],
+ queryKey: [
+  "reports",
+  effectiveFilter,
+  effectiveStart ?? "no-start",
+  effectiveEnd ?? "no-end",
+  dashboardSaleTypeId ?? "all",
+],  
+ queryFn: () =>
       clientService.getReports({
         filter: effectiveFilter as "today" | "weekly" | "monthly" | "yearly" | "custom",
         ...(effectiveFilter === "custom" && effectiveStart && effectiveEnd
@@ -188,10 +196,7 @@ export default function Reports() {
   if (isLoading) {
     return (
       <PageWrapper title="Reports" breadcrumbs={[{ label: "Reports" }]}>
-        <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-2xl border border-border/50 bg-card/50 py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="text-sm font-medium text-muted-foreground">Loading reports...</span>
-        </div>
+        <ReportsSkeleton />
       </PageWrapper>
     );
   }

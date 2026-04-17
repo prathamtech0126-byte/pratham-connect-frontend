@@ -5,6 +5,7 @@ import api from '@/lib/api';
 
 export type UserRole =
   | 'superadmin'
+  | 'developer'
   | 'manager'
   | 'counsellor'
   | 'director'
@@ -40,6 +41,12 @@ const MOCK_USERS: Record<UserRole, User> = {
     name: 'Super Admin',
     role: 'superadmin',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+  },
+  developer: {
+    id: '11',
+    username: 'developer',
+    name: 'Developer',
+    role: 'developer',
   },
   manager: {
     id: '2',
@@ -189,9 +196,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const newCsrf = csrf ?? csrfSnake ?? null;
               if (newCsrf) setCsrfToken(newCsrf);
 
+              // Fetch real userId from /me since refresh may not return it
+              let resolvedUserId = userId;
+              if (!resolvedUserId) {
+                try {
+                  const meRes = await api.get("/api/users/me");
+                  resolvedUserId = meRes.data.userId;
+                } catch {}
+              }
+
               const mappedRole = (role === "admin" ? "superadmin" : role) as UserRole;
               const verifiedUserData: User = {
-                id: String(userId || userData.id || '1'),
+                id: String(resolvedUserId || userData.id || '1'),
                 username: username || userData.username || 'user',
                 name: name || userData.name || 'User',
                 role: mappedRole,
@@ -225,9 +241,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const newCsrf = csrf ?? csrfSnake ?? null;
         if (newCsrf) setCsrfToken(newCsrf);
 
+        // Fetch real userId from /me since refresh may not return it
+        let resolvedUserId = userId;
+        if (!resolvedUserId) {
+          try {
+            const meRes = await api.get("/api/users/me");
+            resolvedUserId = meRes.data.userId;
+          } catch {}
+        }
+
         const mappedRole = (role === "admin" ? "superadmin" : role) as UserRole;
         const userData: User = {
-          id: String(userId || '1'),
+          id: String(resolvedUserId || '1'),
           username: username || 'user',
           name: name || 'User',
           role: mappedRole,

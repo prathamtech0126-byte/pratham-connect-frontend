@@ -814,6 +814,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { DateInput } from "@/components/ui/date-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CounsellorReportSkeleton } from "@/components/ui/page-skeletons";
 import {
   Loader2,
   IndianRupee,
@@ -1270,9 +1271,7 @@ export default function CounsellorReportPage() {
 
         {/* ── Data ──────────────────────────────────────────────────────────── */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
+          <CounsellorReportSkeleton />
         ) : !report ? (
           <Card>
             <CardContent className="py-10 text-center text-muted-foreground">

@@ -593,6 +593,62 @@ export default function ClientView() {
     });
   };
 
+  // ── Docs vault hooks — must be before any early return ───────────────────
+  const folderStorageKey = `client_docs_vault_folders_${clientId || "unknown"}`;
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(folderStorageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) setCustomFolders(parsed);
+    } catch {
+      // ignore parsing issues
+    }
+  }, [folderStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(folderStorageKey, JSON.stringify(customFolders));
+  }, [folderStorageKey, customFolders]);
+
+  const uploadDocumentMutation = useMutation({
+    mutationFn: async () => {
+      if (!clientId) throw new Error("Client id not found");
+      if (!selectedDocFile) throw new Error("Please select a file");
+      const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
+      if (!allowedTypes.includes(selectedDocFile.type)) {
+        throw new Error("Only PDF and image files are allowed");
+      }
+
+      const formData = new FormData();
+      formData.append("file", selectedDocFile);
+      formData.append("documentName", documentTitle || selectedDocFile.name);
+      formData.append("folderName", selectedFolder);
+      formData.append("documentCategory", selectedFolder);
+      const res = await api.post(`/api/clients/${clientId}/documents`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["client-complete", clientId] });
+      setDocumentTitle("");
+      setSelectedDocFile(null);
+      toast({
+        title: "Document uploaded",
+        description: "File uploaded successfully in docs vault.",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Upload failed",
+        description: err?.message || "Could not upload file. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+  // ─────────────────────────────────────────────────────────────────────────
+
   if (isLoading) {
     const loadingBreadcrumbs = [{ label: "Clients", href: "/clients" }, { label: "Loading..." }];
     return (
@@ -690,22 +746,6 @@ export default function ClientView() {
     });
 
   const documents: any[] = Array.isArray(clientData.documents) ? clientData.documents : [];
-  const folderStorageKey = `client_docs_vault_folders_${clientId || "unknown"}`;
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(folderStorageKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) setCustomFolders(parsed);
-    } catch {
-      // ignore parsing issues
-    }
-  }, [folderStorageKey]);
-
-  useEffect(() => {
-    localStorage.setItem(folderStorageKey, JSON.stringify(customFolders));
-  }, [folderStorageKey, customFolders]);
 
   const documentsByFolder = documents.reduce<Record<string, any[]>>((acc, doc) => {
     const folderKey = String(doc.folderName || doc.folder || doc.category || doc.documentCategory || "uncategorized").toLowerCase();
@@ -714,43 +754,6 @@ export default function ClientView() {
     return acc;
   }, {});
   const allFolderKeys = Array.from(new Set([...Object.keys(documentsByFolder), ...customFolders])).sort();
-
-  const uploadDocumentMutation = useMutation({
-    mutationFn: async () => {
-      if (!clientId) throw new Error("Client id not found");
-      if (!selectedDocFile) throw new Error("Please select a file");
-      const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
-      if (!allowedTypes.includes(selectedDocFile.type)) {
-        throw new Error("Only PDF and image files are allowed");
-      }
-
-      const formData = new FormData();
-      formData.append("file", selectedDocFile);
-      formData.append("documentName", documentTitle || selectedDocFile.name);
-      formData.append("folderName", selectedFolder);
-      formData.append("documentCategory", selectedFolder);
-      const res = await api.post(`/api/clients/${clientId}/documents`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      return res.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["client-complete", clientId] });
-      setDocumentTitle("");
-      setSelectedDocFile(null);
-      toast({
-        title: "Document uploaded",
-        description: "File uploaded successfully in docs vault.",
-      });
-    },
-    onError: (err: any) => {
-      toast({
-        title: "Upload failed",
-        description: err?.message || "Could not upload file. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleCreateFolder = () => {
     const normalized = newFolderName.trim().toLowerCase().replace(/\s+/g, "_");

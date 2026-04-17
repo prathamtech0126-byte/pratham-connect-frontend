@@ -200,8 +200,8 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
-  const canViewFinancials = user?.role === 'superadmin' || user?.role === 'director' || user?.role === 'manager';
-  const canApprovePayments = user?.role === 'superadmin' || user?.role === 'director' || user?.role === 'manager';
+  const canViewFinancials = user?.role === 'superadmin' ||user?.role === 'developer' || user?.role === 'director' || user?.role === 'manager';
+  const canApprovePayments = user?.role === 'superadmin' || user?.role === 'developer' ||user?.role === 'director' || user?.role === 'manager';
   const [processingApproval, setProcessingApproval] = useState<number | null>(null);
 
   // Fetch pending approvals (for admin/manager)
@@ -588,8 +588,8 @@ export default function Dashboard() {
       return;
     }
 
-    // Only listen if user is admin (superadmin, manager, director)
-    const isAdmin = user?.role === 'superadmin' || user?.role === 'manager' || user?.role === 'director';
+    // Only listen if user is admin (superadmin, developer,manager, director)
+    const isAdmin = user?.role === 'superadmin' ||user?.role === 'developer' || user?.role === 'manager' || user?.role === 'director';
     if (!isAdmin) {
       // console.log('[Dashboard] User is not admin, skipping dashboard WebSocket listener');
       return;
@@ -1378,6 +1378,7 @@ export default function Dashboard() {
       </div>
 
       {(user?.role === "superadmin" ||
+     user?.role === "developer" ||
         user?.role === "director" ||
         user?.role === "manager" ||
         user?.role === "counsellor") &&
@@ -1822,7 +1823,7 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <Trophy className="w-5 h-5 text-yellow-500" />
-              {user?.role === "manager" || user?.role === "superadmin" || user?.role === "director" ? (
+              {user?.role === "manager" || user?.role === "superadmin"|| user?.role === "developer" || user?.role === "director" ? (
                 <button
                   type="button"
                   onClick={() => setLocation("/counsellor-leaderboard")}
