@@ -6,13 +6,12 @@ import { fetchPaymentsList, PaymentsFilter } from "@/api/payments.api";
 import { clientService } from "@/services/clientService";
 import PaymentsTable from "./PaymentsTable";
 import DateRangePicker from "./DateRangePicker";
-import EditPaymentModal from "./EditPaymentModal";
-import type { PaymentRecord } from "@/api/payments.api";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RefreshCw } from "lucide-react";
 
 const FILTERS: PaymentsFilter[] = ["today", "monthly", "yearly", "custom"];
 
@@ -23,7 +22,6 @@ export default function PaymentsSection() {
   const [showPicker, setShowPicker] = useState(false);
   const [selectedCounsellorId, setSelectedCounsellorId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingRow, setEditingRow] = useState<PaymentRecord | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   // Close picker when clicking outside
@@ -55,7 +53,7 @@ export default function PaymentsSection() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: [
       "payments-list",
       filter,
@@ -181,26 +179,24 @@ export default function PaymentsSection() {
   };
 
   return (
-    <Card className="mt-6">
-      <CardContent className="p-4 space-y-4">
-        
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          
-          <div>
-            <h2 className="text-lg font-semibold">Payments List</h2>
-            <p className="text-sm text-muted-foreground">Total Records: {visibleRows.length}</p>
+    <Card>
+      <CardContent className="p-3 sm:p-5 space-y-3 sm:space-y-4">
+
+        {/* ── Header row: title + counsellor + date filters ── */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="shrink-0">
+            <h2 className="text-base sm:text-lg font-semibold">Payments List</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Records: {visibleRows.length}</p>
           </div>
 
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-wrap">
             <Select
               value={selectedCounsellorId ? String(selectedCounsellorId) : "all"}
               onValueChange={(value) =>
                 setSelectedCounsellorId(value === "all" ? null : Number(value))
               }
             >
-              <SelectTrigger className="w-full sm:w-[230px] rounded-lg bg-background">
+              <SelectTrigger className="w-full sm:w-[200px] rounded-lg bg-background text-sm">
                 <SelectValue placeholder="Select Counsellor" />
               </SelectTrigger>
               <SelectContent className="max-h-64 overflow-y-auto">
@@ -214,13 +210,13 @@ export default function PaymentsSection() {
             </Select>
 
             <div className="relative" ref={pickerRef}>
-              <div className="flex items-center gap-1 bg-muted/40 ring-1 ring-border/50 rounded-xl p-1.5">
+              <div className="flex items-center gap-1 bg-muted/40 ring-1 ring-border/50 rounded-xl p-1">
                 {FILTERS.map((f) => (
                   <Button
                     key={f}
                     variant={filter === f ? "default" : "ghost"}
                     size="sm"
-                    className="capitalize rounded-lg"
+                    className="capitalize rounded-lg text-xs px-2.5 h-7"
                     onClick={() => handleFilterChange(f)}
                   >
                     {f}
@@ -228,7 +224,6 @@ export default function PaymentsSection() {
                 ))}
               </div>
 
-              {/* Date picker dropdown — anchored to filter pills */}
               {filter === "custom" && showPicker && (
                 <div className="absolute right-0 top-full z-50 mt-2">
                   <DateRangePicker
@@ -241,48 +236,57 @@ export default function PaymentsSection() {
           </div>
         </div>
 
-        {/* 🔍 Search */}
-        <Input
-          type="search"
-          placeholder="Search by client, counsellor, payment type, date…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full sm:max-w-sm"
-        />
+        {/* ── Search + Total + Export ── */}
+      
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+  {/* Left: Search */}
+  <Input
+    type="search"
+    placeholder="Search by client, counsellor, payment type, date…"
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+    className="w-full sm:max-w-md text-sm"
+  />
 
-        {/* 💰 Summary + Export */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-slate-50 border rounded-lg p-3">
-          
-          {/* Total */}
-          <div className="text-sm font-medium text-slate-700">
-            Total Amount: 
-            <span className="ml-2 font-semibold text-green-700">
-              ₹ {formattedTotal}
-            </span>
-          </div>
+  {/* Right: Total + Export */}
+  <div className="flex items-center gap-3 sm:ml-auto">
+    <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
+      Total Amount :
+      <span className="ml-1.5 font-semibold text-green-700">
+        ₹ {formattedTotal}
+      </span>
+    </span>
 
-          {/* Export */}
-          <Button size="sm" onClick={handleExport}>
-            Export CSV
-          </Button>
-        </div>
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() => refetch()}
+      disabled={isFetching}
+      className="whitespace-nowrap text-xs h-8 px-3"
+      title="Refresh payments"
+    >
+      <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />
+      Refresh
+    </Button>
 
-        {/* Table */}
+    <Button
+      size="sm"
+      onClick={handleExport}
+      className="whitespace-nowrap text-xs h-8 px-3"
+    >
+      Export CSV
+    </Button>
+  </div>
+</div>
+
+        {/* ── Table ── */}
         <PaymentsTable
           data={visibleRows}
           isLoading={isLoading}
           error={error as Error | null}
           searchQuery={searchQuery}
-          onEdit={setEditingRow}
+          counsellors={counsellors}
         />
-
-        {editingRow && (
-          <EditPaymentModal
-            row={editingRow}
-            open={!!editingRow}
-            onClose={() => setEditingRow(null)}
-          />
-        )}
       </CardContent>
     </Card>
   );

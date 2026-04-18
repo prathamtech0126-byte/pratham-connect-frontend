@@ -187,7 +187,7 @@ export const ClientReportPDF = ({ clients, filterDescription }: ClientReportPDFP
           <Text style={styles.reportTitle}>Client Master Report</Text>
         </View>
         <View style={styles.metaInfo}>
-          <Text style={styles.metaText}>Generated: {new Date().toLocaleString()}</Text>
+          <Text style={styles.metaText}>Generated: {new Date().toLocaleString('en-IN')}</Text>
           <Text style={styles.metaText}>Total Records: {clients.length}</Text>
           {filterDescription && (
             <View style={styles.filterBadge}>
@@ -207,10 +207,10 @@ export const ClientReportPDF = ({ clients, filterDescription }: ClientReportPDFP
             <Text style={[styles.tableCell, styles.colSalesType]}>{client.salesType}</Text>
             <Text style={[styles.tableCell, styles.colDate]}>{client.enrollmentDate}</Text>
             <Text style={[styles.tableCell, styles.colPM]}>{client.productManager}</Text>
-            <Text style={[styles.tableCell, styles.colPayment]}>₹{client.totalPayment.toLocaleString()}</Text>
+            <Text style={[styles.tableCell, styles.colPayment]}>₹{client.totalPayment.toLocaleString('en-IN')}</Text>
 
             <Text style={[styles.tableCell, styles.colReceived, styles.moneyText, styles.textGreen]}>
-              ₹{client.amountReceived.toLocaleString()}
+              ₹{client.amountReceived.toLocaleString('en-IN')}
             </Text>
 
             <Text style={[
@@ -219,7 +219,7 @@ export const ClientReportPDF = ({ clients, filterDescription }: ClientReportPDFP
               styles.moneyText,
               client.amountPending > 0 ? styles.textRed : styles.textMuted
             ]}>
-              ₹{client.amountPending.toLocaleString()}
+              ₹{client.amountPending.toLocaleString('en-IN')}
             </Text>
 
             <Text style={[styles.tableCell, styles.colCounsellor]}>{client.counsellor}</Text>

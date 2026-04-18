@@ -60,6 +60,18 @@ export async function updateProductPayment(params: UpdateProductPaymentParams): 
   await api.post("/api/client-product-payments", params);
 }
 
+export interface UpdateAssignmentParams {
+  paymentId: number;
+  clientId: number;
+  source: "payment" | "product";
+  field: "clientOwner" | "addedBy";
+  counsellorId: number;
+}
+
+export async function updatePaymentAssignment(params: UpdateAssignmentParams): Promise<void> {
+  await api.patch("/api/payments/assign-counsellor", params);
+}
+
 export interface PaymentsListResponse {
   success: boolean;
   filter: PaymentsFilter;

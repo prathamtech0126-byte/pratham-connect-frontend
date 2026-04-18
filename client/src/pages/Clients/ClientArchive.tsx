@@ -883,13 +883,13 @@ export default function ClientArchive() {
     },
     {
       header: "Total Payment",
-      cell: (s: any) => `₹${(s.totalPayment || 0).toLocaleString()}`
+      cell: (s: any) => `₹${(s.totalPayment || 0).toLocaleString('en-IN')}`
     },
     {
       header: "Received",
       cell: (s: any) => (
         <span className="text-emerald-600 font-medium">
-          ₹{(s.amountReceived || 0).toLocaleString()}
+          ₹{(s.amountReceived || 0).toLocaleString('en-IN')}
         </span>
       )
     },
@@ -929,7 +929,7 @@ export default function ClientArchive() {
       header: "Pending",
       cell: (s: any) => (
         <span className={(s.amountPending || 0) > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>
-          ₹{(s.amountPending || 0).toLocaleString()}
+          ₹{(s.amountPending || 0).toLocaleString('en-IN')}
         </span>
       )
     },

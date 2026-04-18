@@ -379,7 +379,7 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
                 size="sm"
                 onClick={handleUpdate}
                 disabled={!canUpdate}
-                className="bg-[#2d3a8c] text-xs hover:bg-[#232f73]"
+                className="bg-primary text-xs hover:bg-primary/90"
               >
                 Update
               </Button>

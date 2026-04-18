@@ -6,7 +6,7 @@ import { useLocation } from "wouter";
 import { clientService, type ReportsResponse, type CounsellorPerformanceRow, type ManagerDataRow } from "@/services/clientService";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo, useEffect } from "react";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, parseISO } from "date-fns";
 import {
   BarChart,
   Bar,
@@ -25,8 +25,8 @@ import {
   FileBarChart,
 } from "lucide-react";
 import { ReportsSkeleton } from "@/components/ui/page-skeletons";
-import { DateInput } from "@/components/ui/date-input";
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
+import DateRangePicker from "@/components/payments/DateRangePicker";
 import {
   Table,
   TableBody,
@@ -177,6 +177,19 @@ export default function Reports() {
     setDateRange([start, end]);
   };
 
+  const handlePickerApply = (_filter: string, startDate?: string, endDate?: string) => {
+    if (startDate && endDate) {
+      const s = parseISO(startDate);
+      const e = parseISO(endDate);
+      setDateRange([s, e]);
+      setAppliedCustomRange([s, e]);
+      setPeriodTab("Custom");
+    }
+    setCustomOpen(false);
+  };
+
+  const handlePickerCancel = () => setCustomOpen(false);
+
   const counsellorList = report?.counsellor_performance ?? [];
   const managerList = report?.manager_data ?? [];
   const hasReport = !!report;
@@ -252,38 +265,8 @@ export default function Reports() {
                 </span>
               </div>
             </PopoverAnchor>
-            <PopoverContent align="end" className="w-[min(90vw,320px)] rounded-xl p-4 shadow-lg">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">From</label>
-                  <DateInput
-                    value={dateRange[0] ?? undefined}
-                    onChange={(d) => setDateRange([d ?? null, dateRange[1]])}
-                    placeholder="Start date"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">To</label>
-                  <DateInput
-                    value={dateRange[1] ?? undefined}
-                    onChange={(d) => setDateRange([dateRange[0], d ?? null])}
-                    placeholder="End date"
-                  />
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    if (dateRange[0] && dateRange[1]) {
-                      setAppliedCustomRange([dateRange[0], dateRange[1]]);
-                      setCustomOpen(false);
-                    }
-                  }}
-                  disabled={!dateRange[0] || !dateRange[1]}
-                  className="w-full rounded-lg"
-                >
-                  Apply
-                </Button>
-              </div>
+            <PopoverContent align="end" className="w-auto p-0">
+              <DateRangePicker onApply={handlePickerApply} onCancel={handlePickerCancel} />
             </PopoverContent>
           </Popover>
         </div>

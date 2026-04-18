@@ -802,6 +802,7 @@ import {
   endOfWeek,
   startOfYear,
   endOfYear,
+  parseISO,
 } from "date-fns";
 import {
   Table,
@@ -812,8 +813,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { DateInput } from "@/components/ui/date-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import DateRangePicker from "@/components/payments/DateRangePicker";
 import { CounsellorReportSkeleton } from "@/components/ui/page-skeletons";
 import {
   Loader2,
@@ -953,7 +954,6 @@ export default function CounsellorReportPage() {
   // ── Admin / Manager filter state (pill buttons) ───────────────────────────
   const [adminTab,          setAdminTab]          = useState<AdminTab>("Monthly");
   const [dateRange,         setDateRange]         = useState<[Date | null, Date | null]>([null, null]);
-  const [pendingRange,      setPendingRange]      = useState<[Date | null, Date | null]>([null, null]);
   const [customPopoverOpen, setCustomPopoverOpen] = useState(false);
 
   // ── Sale type filter (counsellor + admin/manager) ──────────────────────────
@@ -1000,12 +1000,15 @@ export default function CounsellorReportPage() {
     else if (tab === "Yearly")  setDateRange([startOfYear(n), endOfYear(n)]);
   };
 
-  const handleCustomApply = () => {
-    if (!pendingRange[0] || !pendingRange[1]) return;
-    setDateRange(pendingRange);
-    setAdminTab("Custom");
+  const handlePickerApply = (_filter: string, startDate?: string, endDate?: string) => {
+    if (startDate && endDate) {
+      setDateRange([parseISO(startDate), parseISO(endDate)]);
+      setAdminTab("Custom");
+    }
     setCustomPopoverOpen(false);
   };
+
+  const handlePickerCancel = () => setCustomPopoverOpen(false);
 
   // ── Unified query params ───────────────────────────────────────────────────
   const queryStartDate = isCounsellor ? counsellorStartDate : adminStartDate;
@@ -1235,33 +1238,8 @@ export default function CounsellorReportPage() {
                         : "Custom"}
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-4" align="start">
-                    <div className="space-y-4">
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium">From</label>
-                        <DateInput
-                          value={pendingRange[0] ?? undefined}
-                          onChange={(d) => setPendingRange((prev) => [d ?? null, prev[1]])}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium">To</label>
-                        <DateInput
-                          value={pendingRange[1] ?? undefined}
-                          onChange={(d) => setPendingRange((prev) => [prev[0], d ?? null])}
-                          className="mt-1"
-                        />
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={handleCustomApply}
-                        disabled={!pendingRange[0] || !pendingRange[1]}
-                        className="w-full"
-                      >
-                        Apply
-                      </Button>
-                    </div>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <DateRangePicker onApply={handlePickerApply} onCancel={handlePickerCancel} />
                   </PopoverContent>
                 </Popover>
               </div>

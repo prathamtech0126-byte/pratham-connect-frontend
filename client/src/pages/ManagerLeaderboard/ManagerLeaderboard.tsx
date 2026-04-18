@@ -118,7 +118,7 @@ function CustomFilterPopoverContent({
 
 function formatRevenue(value: string | number): string {
   const n = typeof value === "string" ? parseFloat(value) || 0 : value;
-  return `₹${n.toLocaleString()}`;
+  return `₹${n.toLocaleString('en-IN')}`;
 }
 
 // Parse DD-MM-YYYY to Date for calendar; invalid/empty returns undefined

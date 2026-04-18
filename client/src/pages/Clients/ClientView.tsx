@@ -58,7 +58,7 @@ const renderProductDetails = (product: any) => {
         {product.amount && (
           <div className="flex justify-between">
             <span className="text-gray-500">Amount:</span>
-            <span className="font-semibold">₹{Number(product.amount).toLocaleString()}</span>
+            <span className="font-semibold">₹{Number(product.amount).toLocaleString('en-IN')}</span>
           </div>
         )}
         {product.paymentDate && (
@@ -141,7 +141,7 @@ const renderProductDetails = (product: any) => {
           {entity.amount && (
             <div className="flex justify-between">
               <span className="text-gray-500">Amount:</span>
-              <span className="font-semibold">₹{Number(entity.amount).toLocaleString()}</span>
+              <span className="font-semibold">₹{Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.airTicketNumber && (
@@ -171,7 +171,7 @@ const renderProductDetails = (product: any) => {
           {entity.amount && (
             <div className="flex justify-between">
               <span className="text-gray-500">Amount:</span>
-              <span className="font-semibold">₹{Number(entity.amount).toLocaleString()}</span>
+              <span className="font-semibold">₹{Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.policyNumber && (
@@ -213,7 +213,7 @@ const renderProductDetails = (product: any) => {
           {entity.amount && (
             <div className="flex justify-between">
               <span className="text-gray-500">Amount:</span>
-              <span className="font-semibold">${Number(entity.amount).toLocaleString()}</span>
+              <span className="font-semibold">${Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.remarks && (
@@ -243,7 +243,7 @@ const renderProductDetails = (product: any) => {
           {entity.amount && (
             <div className="flex justify-between">
               <span className="text-gray-500">Amount:</span>
-              <span className="font-semibold">₹{Number(entity.amount).toLocaleString()}</span>
+              <span className="font-semibold">₹{Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.remarks && (
@@ -297,7 +297,7 @@ const renderProductDetails = (product: any) => {
           {entity.amount && (
             <div className="flex justify-between">
               <span className="text-gray-500">Amount:</span>
-              <span className="font-semibold">₹{Number(entity.amount).toLocaleString()}</span>
+              <span className="font-semibold">₹{Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.sellDate && (
@@ -338,13 +338,13 @@ const renderProductDetails = (product: any) => {
           {entity.totalAmount !== undefined && entity.totalAmount !== null && (
             <div className="flex justify-between">
               <span className="text-gray-500">Total Payment:</span>
-              <span className="font-semibold">₹{Number(entity.totalAmount).toLocaleString()}</span>
+              <span className="font-semibold">₹{Number(entity.totalAmount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.amount && (
             <div className="flex justify-between">
               <span className="text-gray-500">Amount:</span>
-              <span className="font-semibold">₹{Number(entity.amount).toLocaleString()}</span>
+              <span className="font-semibold">₹{Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.paymentDate && (
@@ -382,7 +382,7 @@ const renderProductDetails = (product: any) => {
                 {hasAmount && (
                   <div className="flex justify-between">
                     <span className="text-gray-500">{row.label} Amount:</span>
-                    <span className="font-semibold">₹{amountNum.toLocaleString()}</span>
+                    <span className="font-semibold">₹{amountNum.toLocaleString('en-IN')}</span>
                   </div>
                 )}
                 {hasDate && (
@@ -423,7 +423,7 @@ const renderProductDetails = (product: any) => {
                 : typeof value === 'boolean'
                   ? value ? 'Yes' : 'No'
                   : typeof value === 'number' && key.toLowerCase().includes('amount')
-                    ? `₹${Number(value).toLocaleString()}`
+                    ? `₹${Number(value).toLocaleString('en-IN')}`
                     : String(value);
 
             return (
@@ -481,6 +481,7 @@ export default function ClientView() {
     queryKey: ["client-complete", clientId],
     queryFn: () => clientService.getClientCompleteDetails(clientId!),
     enabled: !!clientId,
+    staleTime: 0,
   });
 
   // WebSocket listeners for real-time payment and product payment updates
@@ -734,7 +735,7 @@ export default function ClientView() {
     ...(client.payments || []).map((payment: any, index: number) => ({
       id: `payment-${payment.paymentId || index}`,
       title: `Payment ${payment.stage ? `(${String(payment.stage).replace(/_/g, " ")})` : ""}`.trim(),
-      subtitle: `${payment.invoiceNo || "Invoice not added yet"} • ₹${Number(payment.amount || 0).toLocaleString()}`,
+      subtitle: `${payment.invoiceNo || "Invoice not added yet"} • ₹${Number(payment.amount || 0).toLocaleString('en-IN')}`,
       date: payment.paymentDate || payment.createdAt,
     })),
   ]
@@ -885,15 +886,15 @@ export default function ClientView() {
                             <>
                               <div className="flex-1 min-w-[200px] p-4 rounded-2xl bg-gray-50/50 border border-gray-100 flex flex-col items-center text-center">
                                 <p className="text-[10px] text-gray-400 uppercase font-black tracking-wider">Total Fees</p>
-                                <p className="text-xl font-black mt-1 text-[#1A2B3B]">₹{Number(totalPayment).toLocaleString()}</p>
+                                <p className="text-xl font-black mt-1 text-[#1A2B3B]">₹{Number(totalPayment).toLocaleString('en-IN')}</p>
                               </div>
                               <div className="flex-1 min-w-[200px] p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 flex flex-col items-center text-center">
                                 <p className="text-[10px] text-emerald-600 uppercase font-black tracking-wider">Received</p>
-                                <p className="text-xl font-black mt-1 text-emerald-700">₹{Number(totalReceived).toLocaleString()}</p>
+                                <p className="text-xl font-black mt-1 text-emerald-700">₹{Number(totalReceived).toLocaleString('en-IN')}</p>
                               </div>
                               <div className="flex-1 min-w-[200px] p-4 rounded-2xl bg-orange-50/50 border border-orange-100 flex flex-col items-center text-center">
                                 <p className="text-[10px] text-orange-600 uppercase font-black tracking-wider">Pending</p>
-                                <p className="text-xl font-black mt-1 text-orange-700">₹{Math.max(0, Number(totalPending)).toLocaleString()}</p>
+                                <p className="text-xl font-black mt-1 text-orange-700">₹{Math.max(0, Number(totalPending)).toLocaleString('en-IN')}</p>
                               </div>
                             </>
                           );
@@ -913,7 +914,7 @@ export default function ClientView() {
                                 <p className="text-xs text-gray-400 font-medium">{formatDateLocal(payment.paymentDate)}</p>
                               </div>
                               <div className="text-right flex flex-col items-end gap-1">
-                                <p className="font-black text-lg text-[#1A2B3B]">₹{Number(payment.amount).toLocaleString()}</p>
+                                <p className="font-black text-lg text-[#1A2B3B]">₹{Number(payment.amount).toLocaleString('en-IN')}</p>
                                 <Badge variant="outline" className="text-[12px] font-black uppercase tracking-tighter px-2 h-7 rounded-md border-gray-200 text-gray-500 bg-gray-50">
                                   {payment.stage?.replace(/_/g, " ")}
                                 </Badge>
@@ -981,7 +982,7 @@ export default function ClientView() {
                                         </button>
                                       )}
                                     </div>
-                                    <span className="font-black text-lg text-[#1A2B3B]">₹{Number(productAmount).toLocaleString()}</span>
+                                    <span className="font-black text-lg text-[#1A2B3B]">₹{Number(productAmount).toLocaleString('en-IN')}</span>
                                   </div>
 
                                   {hasDetails && isExpanded && (

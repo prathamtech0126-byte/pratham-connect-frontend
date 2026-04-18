@@ -118,13 +118,9 @@ export default function Dashboard() {
       const now = new Date();
       const y = now.getFullYear();
       const m = String(now.getMonth() + 1).padStart(2, '0');
-      const d = String(now.getDate()).padStart(2, '0');
-      params.beforeDate = `${y}-${m}-${d}`; // today
-      const lastMonth = new Date(y, now.getMonth() - 1, now.getDate());
-      const ly = lastMonth.getFullYear();
-      const lm = String(lastMonth.getMonth() + 1).padStart(2, '0');
-      const ld = String(lastMonth.getDate()).padStart(2, '0');
-      params.afterDate = `${ly}-${lm}-${ld}`; // same date, last month
+      const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+      params.afterDate = `${y}-${m}-01`; // first day of current month
+      params.beforeDate = `${y}-${m}-${String(lastDay).padStart(2, '0')}`; // last day of current month
     } else if (timeFilter === 'custom' && customDateRange[0] && customDateRange[1]) {
       // Backend expects: beforeDate = start (earlier), afterDate = end (later)
       params.beforeDate = toYYYYMMDD(customDateRange[0]); // start of range (earlier)
@@ -155,12 +151,9 @@ export default function Dashboard() {
   const revenueChartRangeLabel = useMemo(() => {
     if (timeFilter === 'monthly') {
       const now = new Date();
-      const beforeDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const afterDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-      const startMonth = format(afterDate, "MMM");
-      const endMonth = format(beforeDate, "MMM");
-      const todayStr = format(beforeDate, "d MMM yyyy");
-      return `${startMonth} - ${endMonth} (Today ${todayStr})`;
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return `${format(monthStart, "d MMM")} - ${format(monthEnd, "d MMM yyyy")}`;
     }
     if (timeFilter === 'custom' && customDateRange[0] && customDateRange[1]) {
       return `${format(customDateRange[0], "d MMM yyyy")} - ${format(customDateRange[1], "d MMM yyyy")}`;
@@ -986,6 +979,7 @@ export default function Dashboard() {
               onDateChange={setCustomDateRange}
               activeTab={timeFilter === 'today' ? 'Today' : timeFilter === 'weekly' ? 'Weekly' : timeFilter === 'monthly' ? 'Monthly' : timeFilter === 'yearly' ? 'Yearly' : timeFilter === 'custom' ? 'Custom' : 'Monthly'}
               onTabChange={(tab) => setTimeFilter(tab === 'Today' ? 'today' : tab === 'Custom' ? 'custom' : tab.toLowerCase())}
+              showYearly={false}
               align="end"
             />
           </div>
@@ -1371,7 +1365,7 @@ export default function Dashboard() {
             activeTab={timeFilter === 'today' ? 'Today' : timeFilter === 'weekly' ? 'Weekly' : timeFilter === 'monthly' ? 'Monthly' : timeFilter === 'yearly' ? 'Yearly' : timeFilter === 'custom' ? 'Custom' : 'Today'}
             onTabChange={(tab) => setTimeFilter(tab === 'Today' ? 'today' : tab === 'Custom' ? 'custom' : tab.toLowerCase())}
             showCustom={!isCounsellor}
-            showYearly={!isCounsellor}
+            showYearly={false}
             align="end"
           />
         </div>
@@ -1514,7 +1508,7 @@ export default function Dashboard() {
             <StatCard
               title="Core Sale"
               value={Number((stats as any)?.coreSale?.number ?? 0)}
-              secondaryValue={(stats as any)?.coreSale?.amount ? `₹${Number((stats as any)?.coreSale?.amount).toLocaleString()}` : undefined}
+              secondaryValue={(stats as any)?.coreSale?.amount ? `₹${Number((stats as any)?.coreSale?.amount).toLocaleString('en-IN')}` : undefined}
               icon={CreditCard}
               trend={(stats as any)?.coreSale?.change !== undefined ? {
                 value: (stats as any)?.coreSale?.change ?? 0,
@@ -1527,7 +1521,7 @@ export default function Dashboard() {
             <StatCard
               title="Core Product"
               value={Number((stats as any)?.coreProduct?.number ?? 0)}
-              secondaryValue={(stats as any)?.coreProduct?.amount ? `₹${Number((stats as any)?.coreProduct?.amount).toLocaleString()}` : undefined}
+              secondaryValue={(stats as any)?.coreProduct?.amount ? `₹${Number((stats as any)?.coreProduct?.amount).toLocaleString('en-IN')}` : undefined}
               icon={Target}
               trend={(stats as any)?.coreProduct?.change !== undefined ? {
                 value: (stats as any)?.coreProduct?.change ?? 0,
@@ -1540,7 +1534,7 @@ export default function Dashboard() {
             <StatCard
               title="Other Product"
               value={Number((stats as any)?.otherProduct?.number ?? 0)}
-              secondaryValue={(stats as any)?.otherProduct?.amount ? `₹${Number((stats as any)?.otherProduct?.amount).toLocaleString()}` : undefined}
+              secondaryValue={(stats as any)?.otherProduct?.amount ? `₹${Number((stats as any)?.otherProduct?.amount).toLocaleString('en-IN')}` : undefined}
               icon={TrendingUp}
               trend={(stats as any)?.otherProduct?.change !== undefined ? {
                 value: (stats as any)?.otherProduct?.change ?? 0,
@@ -1552,7 +1546,7 @@ export default function Dashboard() {
 
             <StatCard
               title="Total Pending Amount"
-              value={`₹${Number((stats as any)?.totalPendingAmount?.amount ?? 0).toLocaleString()}`}
+              value={`₹${Number((stats as any)?.totalPendingAmount?.amount ?? 0).toLocaleString('en-IN')}`}
               icon={Clock}
               trend={(stats as any)?.totalPendingAmount?.change !== undefined ? {
                 value: (stats as any)?.totalPendingAmount?.change ?? 0,
@@ -1581,7 +1575,7 @@ export default function Dashboard() {
           <StatCard
             title="Core Sale"
             value={Number((stats as any)?.coreSale?.number ?? 0)}
-            secondaryValue={(stats as any)?.coreSale?.amount ? `₹ ${Number((stats as any)?.coreSale?.amount).toLocaleString()}` : undefined}
+            secondaryValue={(stats as any)?.coreSale?.amount ? `₹ ${Number((stats as any)?.coreSale?.amount).toLocaleString('en-IN')}` : undefined}
             icon={CreditCard}
             trend={(stats as any)?.coreSale?.change !== undefined ? {
               value: (stats as any)?.coreSale?.change ?? 0,
@@ -1606,7 +1600,7 @@ export default function Dashboard() {
           <StatCard
             title="Core Product"
             value={Number((stats as any)?.coreProduct?.number ?? 0)}
-            secondaryValue={(stats as any)?.coreProduct?.amount ? `₹ ${Number((stats as any)?.coreProduct?.amount).toLocaleString()}` : undefined}
+            secondaryValue={(stats as any)?.coreProduct?.amount ? `₹ ${Number((stats as any)?.coreProduct?.amount).toLocaleString('en-IN')}` : undefined}
             icon={Target}
             trend={(stats as any)?.coreProduct?.change !== undefined ? {
               value: (stats as any)?.coreProduct?.change ?? 0,
@@ -1619,7 +1613,7 @@ export default function Dashboard() {
           <StatCard
             title="Other Product"
             value={Number((stats as any)?.otherProduct?.number ?? 0)}
-            secondaryValue={(stats as any)?.otherProduct?.amount ? `₹ ${Number((stats as any)?.otherProduct?.amount).toLocaleString()}` : undefined}
+            secondaryValue={(stats as any)?.otherProduct?.amount ? `₹ ${Number((stats as any)?.otherProduct?.amount).toLocaleString('en-IN')}` : undefined}
             icon={TrendingUp}
             trend={(stats as any)?.otherProduct?.change !== undefined ? {
               value: (stats as any)?.otherProduct?.change ?? 0,
@@ -1652,7 +1646,7 @@ export default function Dashboard() {
                             {String(r.name ?? "—").replace(/_/g, " ")}
                           </span>
                           <span className="text-muted-foreground whitespace-nowrap tabular-nums">
-                            {Number(r.count ?? 0)} • ₹ {Number(r.amount ?? 0).toLocaleString()}
+                            {Number(r.count ?? 0)} • ₹ {Number(r.amount ?? 0).toLocaleString('en-IN')}
                           </span>
                         </div>
                       ))}
@@ -1668,7 +1662,7 @@ export default function Dashboard() {
 
           <StatCard
             title="Total Pending Amount"
-            value={`₹ ${Number((stats as any)?.totalPendingAmount?.amount ?? 0).toLocaleString()}`}
+            value={`₹ ${Number((stats as any)?.totalPendingAmount?.amount ?? 0).toLocaleString('en-IN')}`}
             icon={Clock}
             trend={(stats as any)?.totalPendingAmount?.change !== undefined ? {
               value: (stats as any)?.totalPendingAmount?.change ?? 0,
@@ -1684,7 +1678,7 @@ export default function Dashboard() {
             >
               <StatCard
                 title="Revenue"
-                value={`₹ ${Number((stats as any)?.revenue?.amount ?? 0).toLocaleString()}`}
+                value={`₹ ${Number((stats as any)?.revenue?.amount ?? 0).toLocaleString('en-IN')}`}
                 icon={IndianRupee}
                 trend={(stats as any)?.revenue?.change !== undefined ? {
                   value: (stats as any)?.revenue?.change ?? 0,
@@ -2005,7 +1999,7 @@ export default function Dashboard() {
                      header: "Revenue",
                      accessorKey: "revenue",
                      cell: (item: any) => (
-                       <div className="font-mono font-medium text-foreground">₹{item.revenue.toLocaleString()}</div>
+                       <div className="font-mono font-medium text-foreground">₹{item.revenue.toLocaleString('en-IN')}</div>
                      )
                    },
                    {
@@ -2043,7 +2037,7 @@ export default function Dashboard() {
                      header: "Amount",
                      accessorKey: "amountReceived",
                      cell: (client: Client) => (
-                       <div className="font-mono font-medium text-foreground">₹{client.amountReceived?.toLocaleString()}</div>
+                       <div className="font-mono font-medium text-foreground">₹{client.amountReceived?.toLocaleString('en-IN')}</div>
                      )
                    },
                    {

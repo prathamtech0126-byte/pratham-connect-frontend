@@ -37,7 +37,7 @@ export function PaymentCard({ title, amount, date, status, className, onPay }: P
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold tracking-tight">
-          ₹ {amount.toLocaleString()}
+          ₹ {amount.toLocaleString('en-IN')}
         </div>
         {date && (
           <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">

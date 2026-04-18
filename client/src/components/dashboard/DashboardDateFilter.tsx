@@ -45,19 +45,16 @@
 //   );
 // }
 import * as React from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { DateInput } from "@/components/ui/date-input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import DateRangePicker from "@/components/payments/DateRangePicker";
 
-type ValuePiece = Date | null;
-type Value = ValuePiece | [ValuePiece, ValuePiece];
 
 interface DashboardDateFilterProps {
   date?: [Date | null, Date | null];
@@ -96,56 +93,38 @@ export function DashboardDateFilter({
   }
   const [isOpen, _setIsOpen] = React.useState(false);
 
-  // Custom date range state
-  const [startDate, setStartDate] = React.useState<Date | undefined>(date?.[0] || undefined);
-  const [endDate, setEndDate] = React.useState<Date | undefined>(date?.[1] || undefined);
-
-  // Update local state when prop changes
-  React.useEffect(() => {
-    if (date) {
-      setStartDate(date[0] || undefined);
-      setEndDate(date[1] || undefined);
-    }
-  }, [date]);
-
   const handleTabClick = (tab: string) => {
     if (tab === "Custom") {
-      // Only open popover, no dashboard change
       setInternalTab("Custom");
       _setIsOpen(true);
       return;
     }
-
-    // Normal tabs
     if (onTabChange) {
       onTabChange(tab);
     } else {
       setInternalTab(tab);
     }
-
     _setIsOpen(false);
   };
+
   const handleCustomClick = () => {
     setInternalTab("Custom");
     _setIsOpen(true);
   };
 
-  const handleApplyCustom = () => {
-    if (onTabChange) {
-      onTabChange("Custom"); // 🔥 dashboard updates here
+  const handlePickerApply = (filter: string, startDate?: string, endDate?: string) => {
+    if (filter !== "custom") {
+      // presets like today/monthly/maximum — map to closest tab or treat as custom with no range
+      if (onTabChange) onTabChange("Custom");
+      if (onDateChange) onDateChange([null, null]);
+    } else if (startDate && endDate) {
+      if (onTabChange) onTabChange("Custom");
+      if (onDateChange) onDateChange([parseISO(startDate), parseISO(endDate)]);
     }
-
-    if (onDateChange) {
-      onDateChange([startDate || null, endDate || null]);
-    }
-
     _setIsOpen(false);
   };
 
-  const handleCancelCustom = () => {
-    // Reset to props
-    setStartDate(date?.[0] || undefined);
-    setEndDate(date?.[1] || undefined);
+  const handlePickerCancel = () => {
     _setIsOpen(false);
   };
 
@@ -196,53 +175,11 @@ export function DashboardDateFilter({
               {getCustomButtonText()} <CalendarIcon className={cn("h-3.5 w-3.5", activeTab === "Custom" ? "text-primary-foreground" : "text-muted-foreground")} />
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-80 p-0" align={align}>
-            <div className="p-4 space-y-4 bg-card rounded-lg shadow-lg border border-border">
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-primary">From</label>
-                  <div className="relative">
-                      <DateInput
-                          value={startDate}
-                          onChange={setStartDate}
-                          placeholder="Select start date"
-                          className="border-primary ring-1 ring-primary bg-background text-foreground placeholder:text-muted-foreground"
-                      />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">To</label>
-                  <div className="relative">
-                      <DateInput
-                          value={endDate}
-                          onChange={setEndDate}
-
-                          placeholder="Select end date"
-                          className="bg-background text-foreground placeholder:text-muted-foreground"
-                      />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-border mt-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCancelCustom}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleApplyCustom}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                >
-                  Apply
-                </Button>
-              </div>
-            </div>
+          <PopoverContent className="w-auto p-0" align={align}>
+            <DateRangePicker
+              onApply={handlePickerApply}
+              onCancel={handlePickerCancel}
+            />
           </PopoverContent>
         </Popover>
       )}

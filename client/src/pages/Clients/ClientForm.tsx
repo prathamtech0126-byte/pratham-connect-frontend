@@ -298,7 +298,7 @@ const formSchema = z.object({
   const cap = Number.isFinite(totalCap) ? totalCap : 0;
   // Sum of stage payments must not exceed total (including when total is 0)
   if (totalPayments > cap) {
-    const errorMessage = `Total payments (${totalPayments.toLocaleString()}) exceed total payment (${cap.toLocaleString()})`;
+    const errorMessage = `Total payments (${totalPayments.toLocaleString('en-IN')}) exceed total payment (${cap.toLocaleString('en-IN')})`;
 
     // Set error on all payment fields that are visible/enabled
     // This helps users understand which fields contribute to the excess
@@ -1496,6 +1496,14 @@ export default function ClientForm() {
         if (clientData) {
           setInternalClientId(Number(clientIdFromUrl));
 
+          // Store the counsellorId from the API so non-counsellor saves don't overwrite it with their own ID
+          const apiCounsellorId =
+            clientData.counsellorId ||
+            clientData.counsellor?.id ||
+            clientData.counsellor?.counsellorId ||
+            null;
+          clientOriginalCounsellorIdRef.current = apiCounsellorId ? Number(apiCounsellorId) : null;
+
           // Pre-fill form values and load existing payment IDs for updates
           const initialPayment = clientData.payments?.find((p: any) => p.stage === "Initial" || p.stage === "INITIAL") || {};
           const beforeVisaPayment = clientData.payments?.find((p: any) => p.stage === "Before_Visa" || p.stage === "BEFORE_VISA") || {};
@@ -2242,6 +2250,8 @@ export default function ClientForm() {
   const [paymentIds, setPaymentIds] = useState<{ [key: string]: number }>({});
   const [paymentPermissions, setPaymentPermissions] = useState({ canAddPayment: true, canEditTotalPayment: true });
   const [rawPaymentsFromApi, setRawPaymentsFromApi] = useState<any[]>([]);
+  // Stores the counsellorId fetched from the API — used to preserve it for non-counsellor saves
+  const clientOriginalCounsellorIdRef = useRef<number | null>(null);
   const paymentEditability = { initialPayment: true, beforeVisaPayment: true, afterVisaPayment: true };
   const [productPaymentIds, setProductPaymentIds] = useState<
     Record<string, number>
@@ -2474,7 +2484,10 @@ export default function ClientForm() {
       return;
     }
 
-    const isValid = await trigger(["name", "enrollmentDate", "passportDetails", "counsellorId"] as any);
+    const isCounsellorRole = user?.role === 'counsellor';
+    const fieldsToValidate: string[] = ["name", "enrollmentDate", "passportDetails"];
+    if (!isCounsellorRole) fieldsToValidate.push("counsellorId");
+    const isValid = await trigger(fieldsToValidate as any);
     if (!isValid) {
       return;
     }
@@ -2490,12 +2503,17 @@ export default function ClientForm() {
       const selectedLeadType = leadTypes.find((lt: any) => lt.leadType === data.leadSource);
       const leadTypeId = selectedLeadType?.id || selectedLeadType?.leadTypeId || null;
 
+      // Counsellor: use own ID. Admin/manager/developer: preserve original counsellor from API (don't inject admin's ID).
+      const resolvedCounsellorId = isCounsellorRole
+        ? Number(user?.id)
+        : (clientOriginalCounsellorIdRef.current ?? data.counsellorId);
+
       const payload: any = {
         fullName: data.name,
         enrollmentDate: data.enrollmentDate,
         passportDetails: data.passportDetails,
         saleTypeId: selectedTypeData?.id || null,
-        counsellorId: data.counsellorId,
+        counsellorId: resolvedCounsellorId,
         leadTypeId: leadTypeId,
       };
 
@@ -2580,7 +2598,12 @@ export default function ClientForm() {
       // First, ensure client is created
       if (!internalClientId) {
         // Validate client info first
-        const isValidClient = await trigger(["name", "enrollmentDate", "passportDetails", "counsellorId"] as any);
+        const isCounsellorRole = user?.role === 'counsellor';
+        const fieldsToValidate: string[] = ["name", "enrollmentDate", "passportDetails"];
+        if (!isCounsellorRole) {
+          fieldsToValidate.push("counsellorId");
+        }
+        const isValidClient = await trigger(fieldsToValidate as any);
         if (!isValidClient) {
           toast({
             title: "Validation Error",
@@ -2598,16 +2621,25 @@ export default function ClientForm() {
         const selectedLeadType = leadTypes.find((lt: any) => lt.leadType === data.leadSource);
         const leadTypeId = selectedLeadType?.id || selectedLeadType?.leadTypeId || null;
 
+        // Counsellor: use own ID. Admin/manager/developer: preserve original counsellor from API (don't inject admin's ID).
+        const resolvedCounsellorId = isCounsellorRole
+          ? Number(user?.id)
+          : (clientOriginalCounsellorIdRef.current ?? data.counsellorId);
+
         const payload: any = {
           fullName: data.name,
           enrollmentDate: data.enrollmentDate,
           passportDetails: data.passportDetails,
           saleTypeId: selectedTypeData?.id || null,
-          counsellorId: data.counsellorId,
+          counsellorId: resolvedCounsellorId,
           leadTypeId: leadTypeId,
         };
 
+     
+        
+
         const clientRes = await api.post("/api/clients", payload);
+       
         const returnedClient = clientRes.data?.data?.client;
         const newId = returnedClient?.clientId || clientRes.data?.data?.clientId || clientRes.data?.clientId;
 
@@ -2643,9 +2675,10 @@ export default function ClientForm() {
       if (showProductSection) {
         await saveProductData();
       }
-
+ 
       toast({ title: "Success", description: "All data saved successfully!" });
-      setTimeout(() => { window.location.href = "/clients"; }, 150);
+     
+    setTimeout(() => { window.location.href = "/clients"; }, 150);
     } catch (error: any) {
       console.error("Failed to save data:", error);
       toast({
@@ -2700,7 +2733,7 @@ export default function ClientForm() {
     const saveTotalCap = Number(data.totalPayment);
     const saveCap = Number.isFinite(saveTotalCap) ? saveTotalCap : 0;
     if (totalPayments > saveCap) {
-      const errorMessage = `Total payments (${totalPayments.toLocaleString()}) exceed total payment (${saveCap.toLocaleString()})`;
+      const errorMessage = `Total payments (${totalPayments.toLocaleString('en-IN')}) exceed total payment (${saveCap.toLocaleString('en-IN')})`;
       if (data.showInitialPayment && initialAmount > 0) {
         setError("initialPayment.amount" as any, { type: "manual", message: errorMessage });
       }
@@ -3293,7 +3326,7 @@ export default function ClientForm() {
             className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             data-testid="text-amount-pending"
           >
-            ₹ {calculatedPending.toLocaleString()}
+            ₹ {calculatedPending.toLocaleString('en-IN')}
           </div>
         </div>
       </div>

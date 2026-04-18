@@ -519,7 +519,7 @@ export default function CounsellorLeaderboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ₹{summary.totalRevenue.toLocaleString()}
+                ₹{summary.totalRevenue.toLocaleString('en-IN')}
               </div>
             </CardContent>
           </Card>
@@ -571,7 +571,7 @@ export default function CounsellorLeaderboard() {
 
                     {/* Revenue */}
                     <div className="text-center min-w-[100px] sm:min-w-[120px]">
-                      <div className="text-lg font-semibold">₹{counsellor.currentRevenue.toLocaleString()}</div>
+                      <div className="text-lg font-semibold">₹{counsellor.currentRevenue.toLocaleString('en-IN')}</div>
                       <div className="text-xs text-muted-foreground">Revenue</div>
                     </div>
 
