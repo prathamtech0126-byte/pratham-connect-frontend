@@ -4,7 +4,7 @@ interface IncentiveTotalBannerProps {
   visaType: 'all' | 'spouse' | 'visitor' | 'student'
 }
 
-const visaLabels: Record<string, string> = {
+const visaLabels: Record<'all' | 'spouse' | 'visitor' | 'student', string> = {
   all: 'All Visa Types',
   spouse: 'Spouse Visa',
   visitor: 'Visitor Visa',
@@ -12,11 +12,11 @@ const visaLabels: Record<string, string> = {
 }
 
 export function IncentiveTotalBanner({ totalApprovedAmount, month, visaType }: IncentiveTotalBannerProps) {
-  const [year, monthNum] = month.split('-')
-  const monthLabel = new Date(Number(year), Number(monthNum) - 1).toLocaleString('en-IN', {
-    month: 'long',
-    year: 'numeric',
-  })
+  const monthLabel = (() => {
+    const [year, monthNum] = month.split('-')
+    const d = new Date(Number(year), Number(monthNum) - 1)
+    return isNaN(d.getTime()) ? month : d.toLocaleString('en-IN', { month: 'long', year: 'numeric' })
+  })()
   const formattedAmount = `₹${totalApprovedAmount.toLocaleString('en-IN')}`
 
   return (

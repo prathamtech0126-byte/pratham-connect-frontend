@@ -28,7 +28,7 @@ export function ConfirmActionModal({
   const isApprove = action === 'approve'
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen && !isLoading) onClose() }}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -58,7 +59,7 @@ export function IncentiveFilters({
   onMonthChange,
   counsellors,
 }: IncentiveFiltersProps) {
-  const monthOptions = getMonthOptions()
+  const monthOptions = useMemo(() => getMonthOptions(), [])
 
   return (
     <div className="px-4 py-3 flex flex-wrap gap-3 items-center border-b border-border/60">

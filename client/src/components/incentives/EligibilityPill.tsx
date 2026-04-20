@@ -10,7 +10,7 @@ export function EligibilityPill({ eligible, onChange, disabled = false }: Eligib
   return (
     <button
       type="button"
-      onClick={() => !disabled && onChange(!eligible)}
+      onClick={() => onChange(!eligible)}
       disabled={disabled}
       className={cn(
         'inline-block px-5 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer',

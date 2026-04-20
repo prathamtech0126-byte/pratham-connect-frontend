@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format, parseISO, isValid } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { EligibilityPill } from './EligibilityPill'
@@ -77,10 +77,12 @@ export function IncentiveTable({
               <td className="px-4 py-3 font-medium text-foreground">{row.clientName}</td>
               <td className="px-4 py-3 text-muted-foreground">{row.counsellorName || '—'}</td>
               <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                {format(new Date(row.enrollmentDate), 'd MMM yyyy')}
+                {(() => { const d = parseISO(row.enrollmentDate); return isValid(d) ? format(d, 'd MMM yyyy') : '—' })()}
               </td>
               <td className="px-4 py-3">
-                <span className={cn('px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase', visaBadgeClass[row.visaType])}>
+                <span className={cn('px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase',
+                  visaBadgeClass[row.visaType] ?? 'bg-muted text-muted-foreground'
+                )}>
                   {row.visaType}
                 </span>
               </td>
@@ -88,6 +90,7 @@ export function IncentiveTable({
                 <EligibilityPill
                   eligible={row.eligible}
                   onChange={(val) => onEligibilityChange(row.id, val)}
+                  disabled={row.status !== 'pending'}
                 />
               </td>
               <td className="px-4 py-3 text-right font-bold text-primary">
