@@ -184,8 +184,8 @@ export function RevenueChart({ className, monthlyRevenue, chartData, range = "ye
               formatter={(value: number) => {
                 // Revenue = currency; clientCount = "Clients"; other counts = "Count"
                 const formattedValue = hasRevenueField
-                  ? `₹${value.toLocaleString()}`
-                  : value.toLocaleString();
+                  ? `₹${value.toLocaleString('en-IN')}`
+                  : value.toLocaleString('en-IN');
                 const label = hasRevenueField ? "Revenue" : (hasClientCount ? "Clients" : "Count");
                 return [formattedValue, label];
               }}

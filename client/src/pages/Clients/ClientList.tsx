@@ -9,6 +9,7 @@ import { useSocket } from "@/context/socket-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Download, X, Filter, ChevronRight, User, Loader2, ExternalLink } from "lucide-react";
+import { ClientRedirectSkeleton } from "@/components/ui/page-skeletons";
 import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -47,10 +48,7 @@ function CounsellorRedirect({ id, role }: { id: string | number; role: string })
   }, [id, role, setLocation]);
   return (
     <PageWrapper title="Clients" breadcrumbs={[{ label: "Clients" }]}>
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        <p className="ml-2 text-muted-foreground">Loading...</p>
-      </div>
+      <ClientRedirectSkeleton />
     </PageWrapper>
   );
 }
@@ -1261,8 +1259,8 @@ export default function ClientList() {
     { header: "Name", accessorKey: "name", className: "font-semibold text-slate-900 " },
     { header: "Sales Type", cell: (s: Client) => <Badge variant="outline" className="font-normal whitespace-nowrap bg-slate-50 text-slate-600 border-slate-200">{s.salesType}</Badge> },
     { header: "Enrollment Date", accessorKey: "enrollmentDate", className: "whitespace-nowrap text-slate-500" },
-    { header: "Total Payment", cell: (s: Client) => `₹${s.totalPayment.toLocaleString()}` },
-    { header: "Received", cell: (s: Client) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString()}</span> },
+    { header: "Total Payment", cell: (s: Client) => `₹${s.totalPayment.toLocaleString('en-IN')}` },
+    { header: "Received", cell: (s: Client) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString('en-IN')}</span> },
     { header: "Stage", cell: (s: Client) => {
       const stage: string = s.stage || 'N/A';
 
@@ -1292,7 +1290,7 @@ export default function ClientList() {
         </Badge>
       );
     }},
-    { header: "Pending", cell: (s: Client) => <span className={s.amountPending > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>₹{s.amountPending.toLocaleString()}</span> },
+    { header: "Pending", cell: (s: Client) => <span className={s.amountPending > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>₹{s.amountPending.toLocaleString('en-IN')}</span> },
     // Removed Counsellor column since it's now grouped
     // Removed Status column as per user request
     { header: "Actions", cell: (s: Client) => (

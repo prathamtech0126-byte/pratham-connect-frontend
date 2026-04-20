@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
+import { CounsellorClientsSkeleton, ClientRedirectSkeleton } from "@/components/ui/page-skeletons";
 import { useLocation, useRoute, useSearch } from "wouter";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Input } from "@/components/ui/input";
@@ -334,8 +335,8 @@ export default function CounsellorClientsPage() {
     },
     { header: "Sales Type", cell: (s: Client) => <Badge variant="outline" className="font-normal whitespace-nowrap bg-slate-50 text-slate-600 border-slate-200">{s.salesType}</Badge> },
     { header: "Enrollment Date", accessorKey: "enrollmentDate", className: "whitespace-nowrap text-slate-500" },
-    { header: "Total Payment", cell: (s: Client) => `₹${s.totalPayment.toLocaleString()}` },
-    { header: "Received", cell: (s: Client) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString()}</span> },
+    { header: "Total Payment", cell: (s: Client) => `₹${s.totalPayment.toLocaleString('en-IN')}` },
+    { header: "Received", cell: (s: Client) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString('en-IN')}</span> },
     {
       header: "Stage",
       cell: (s: Client) => {
@@ -350,7 +351,7 @@ export default function CounsellorClientsPage() {
         return <Badge variant="outline" className={`font-medium whitespace-nowrap ${badgeClass}`}>{displayStage}</Badge>;
       },
     },
-    { header: "Pending", cell: (s: Client) => <span className={s.amountPending > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>₹{s.amountPending.toLocaleString()}</span> },
+    { header: "Pending", cell: (s: Client) => <span className={s.amountPending > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>₹{s.amountPending.toLocaleString('en-IN')}</span> },
     {
       header: "Actions",
       cell: (s: Client) => (
@@ -371,10 +372,7 @@ export default function CounsellorClientsPage() {
   if (isCounsellor && meQuery.isLoading) {
     return (
       <PageWrapper title="Clients" breadcrumbs={[{ label: "Clients" }]}>
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          <p className="ml-2 text-muted-foreground">Loading...</p>
-        </div>
+        <ClientRedirectSkeleton />
       </PageWrapper>
     );
   }
@@ -523,9 +521,7 @@ export default function CounsellorClientsPage() {
         {(canFetch || isArchiveMode) && (
           <>
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-              </div>
+              <CounsellorClientsSkeleton />
             ) : (
               <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
                 <DataTable

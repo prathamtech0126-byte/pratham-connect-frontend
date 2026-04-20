@@ -181,7 +181,7 @@ const formatAmount = (amount: number | string | undefined): string => {
   if (!amount || amount === 0 || amount === '') return '';
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(numAmount)) return '';
-  return `₹${numAmount.toLocaleString()}`;
+  return `₹${numAmount.toLocaleString('en-IN')}`;
 };
 
 const formatDate = (date: string | undefined): string => {
@@ -246,7 +246,7 @@ export const ClientDetailsPDF = ({ clients }: ClientDetailsPDFProps) => {
       simPlan: typeof productData.simPlan?.amount === 'string' ? productData.simPlan.amount : '',
       simCard: productData.simCard?.date ? "Yes" : "",
       beacon: formatAmount(productData.beaconAccount?.amount),
-      cad: totalCad ? `CAD ${Number(totalCad).toLocaleString()}` : "",
+      cad: totalCad ? `CAD ${Number(totalCad).toLocaleString('en-IN')}` : "",
       judicial: formatAmount(productData.judicialReview?.amount),
       judicialDate: formatDate(productData.judicialReview?.date),
       stage: client.stage || "N/A",
@@ -263,7 +263,7 @@ export const ClientDetailsPDF = ({ clients }: ClientDetailsPDFProps) => {
             <Text style={styles.reportTitle}>Client Details Report</Text>
           </View>
           <View style={styles.metaInfo}>
-            <Text style={styles.metaText}>Generated: {new Date().toLocaleString()}</Text>
+            <Text style={styles.metaText}>Generated: {new Date().toLocaleString('en-IN')}</Text>
             <Text style={styles.metaText}>Total Records: {clients.length}</Text>
           </View>
         </View>

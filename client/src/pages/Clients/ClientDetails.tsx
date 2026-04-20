@@ -70,11 +70,11 @@ export default function ClientDetails() {
       <InfoCard
         title="Consultancy Payment Details"
         items={[
-          { label: "Total Payment", value: `₹${client.totalPayment.toLocaleString()}` },
-          { label: "Initial Amount Received", value: `₹${client.amountReceived.toLocaleString()}` },
-          { label: "Before Visa Payment", value: `₹${client.amountReceived.toLocaleString()}` },
+          { label: "Total Payment", value: `₹${client.totalPayment.toLocaleString('en-IN')}` },
+          { label: "Initial Amount Received", value: `₹${client.amountReceived.toLocaleString('en-IN')}` },
+          { label: "Before Visa Payment", value: `₹${client.amountReceived.toLocaleString('en-IN')}` },
           { label: "After Visa Payment", value: `₹0` },
-          { label: "Pending Amount", value: `₹${client.amountPending.toLocaleString()}` },
+          { label: "Pending Amount", value: `₹${client.amountPending.toLocaleString('en-IN')}` },
         ]}
       />
     </div>
@@ -170,29 +170,29 @@ export default function ClientDetails() {
   const buildProductDetailsInfo = () => {
     if (clientType === "spouse" && client.spouseFields) {
       const items = [];
-      if (client.spouseFields.marriagePhoto?.amount) items.push({ label: "Marriage Photo", value: `₹${client.spouseFields.marriagePhoto.amount.toLocaleString()}` });
-      if (client.spouseFields.marriageCertificate?.amount) items.push({ label: "Marriage Certificate", value: `₹${client.spouseFields.marriageCertificate.amount.toLocaleString()}` });
-      if (client.spouseFields.relationshipAffidavit?.amount) items.push({ label: "Relationship Affidavit", value: `₹${client.spouseFields.relationshipAffidavit.amount.toLocaleString()}` });
-      if (client.spouseFields.judicialReview?.amount) items.push({ label: "Judicial Review", value: `₹${client.spouseFields.judicialReview.amount.toLocaleString()}` });
-      if (client.spouseFields.insurance?.amount) items.push({ label: "Insurance", value: `₹${client.spouseFields.insurance.amount.toLocaleString()}` });
-      if (client.spouseFields.airTicket?.amount) items.push({ label: "Air Ticket", value: `₹${client.spouseFields.airTicket.amount.toLocaleString()}` });
+      if (client.spouseFields.marriagePhoto?.amount) items.push({ label: "Marriage Photo", value: `₹${client.spouseFields.marriagePhoto.amount.toLocaleString('en-IN')}` });
+      if (client.spouseFields.marriageCertificate?.amount) items.push({ label: "Marriage Certificate", value: `₹${client.spouseFields.marriageCertificate.amount.toLocaleString('en-IN')}` });
+      if (client.spouseFields.relationshipAffidavit?.amount) items.push({ label: "Relationship Affidavit", value: `₹${client.spouseFields.relationshipAffidavit.amount.toLocaleString('en-IN')}` });
+      if (client.spouseFields.judicialReview?.amount) items.push({ label: "Judicial Review", value: `₹${client.spouseFields.judicialReview.amount.toLocaleString('en-IN')}` });
+      if (client.spouseFields.insurance?.amount) items.push({ label: "Insurance", value: `₹${client.spouseFields.insurance.amount.toLocaleString('en-IN')}` });
+      if (client.spouseFields.airTicket?.amount) items.push({ label: "Air Ticket", value: `₹${client.spouseFields.airTicket.amount.toLocaleString('en-IN')}` });
       return items;
     } else if (clientType === "student" && client.studentFields) {
       const items = [];
-      if (client.studentFields.financeAndEmployment?.amount) items.push({ label: "Finance & Employment", value: `₹${client.studentFields.financeAndEmployment.amount.toLocaleString()}` });
-      if (client.studentFields.ieltsEnrollment?.amount) items.push({ label: "IELTS Enrollment", value: `₹${client.studentFields.ieltsEnrollment.amount.toLocaleString()}` });
-      if (client.studentFields.loan?.amount) items.push({ label: "Loan Amount", value: `₹${client.studentFields.loan.amount.toLocaleString()}` });
-      if (client.studentFields.beaconAccount?.cadAmount) items.push({ label: "Beacon Account Funding", value: `CAD ${client.studentFields.beaconAccount.cadAmount.toLocaleString()}` });
-      if (client.studentFields.airTicket?.amount) items.push({ label: "Air Ticket", value: `₹${client.studentFields.airTicket.amount.toLocaleString()}` });
-      if (client.studentFields.insurance?.amount) items.push({ label: "Insurance", value: `₹${client.studentFields.insurance.amount.toLocaleString()}` });
+      if (client.studentFields.financeAndEmployment?.amount) items.push({ label: "Finance & Employment", value: `₹${client.studentFields.financeAndEmployment.amount.toLocaleString('en-IN')}` });
+      if (client.studentFields.ieltsEnrollment?.amount) items.push({ label: "IELTS Enrollment", value: `₹${client.studentFields.ieltsEnrollment.amount.toLocaleString('en-IN')}` });
+      if (client.studentFields.loan?.amount) items.push({ label: "Loan Amount", value: `₹${client.studentFields.loan.amount.toLocaleString('en-IN')}` });
+      if (client.studentFields.beaconAccount?.cadAmount) items.push({ label: "Beacon Account Funding", value: `CAD ${client.studentFields.beaconAccount.cadAmount.toLocaleString('en-IN')}` });
+      if (client.studentFields.airTicket?.amount) items.push({ label: "Air Ticket", value: `₹${client.studentFields.airTicket.amount.toLocaleString('en-IN')}` });
+      if (client.studentFields.insurance?.amount) items.push({ label: "Insurance", value: `₹${client.studentFields.insurance.amount.toLocaleString('en-IN')}` });
       return items;
     } else if (clientType === "visitor" && client.visitorFields) {
       const items = [];
-      if (client.visitorFields.baseFee?.amount) items.push({ label: "Base Fee", value: `₹${client.visitorFields.baseFee.amount.toLocaleString()}` });
-      if (client.visitorFields.sponsorCharges?.amount) items.push({ label: "Sponsor Charges", value: `₹${client.visitorFields.sponsorCharges.amount.toLocaleString()}` });
-      if (client.visitorFields.insurance?.amount) items.push({ label: "Insurance", value: `₹${client.visitorFields.insurance.amount.toLocaleString()}` });
-      if (client.visitorFields.beaconAccount?.fundingAmount) items.push({ label: "Beacon Account Funding", value: `$${client.visitorFields.beaconAccount.fundingAmount.toLocaleString()}` });
-      if (client.visitorFields.airTicket?.amount) items.push({ label: "Air Ticket", value: `₹${client.visitorFields.airTicket.amount.toLocaleString()}` });
+      if (client.visitorFields.baseFee?.amount) items.push({ label: "Base Fee", value: `₹${client.visitorFields.baseFee.amount.toLocaleString('en-IN')}` });
+      if (client.visitorFields.sponsorCharges?.amount) items.push({ label: "Sponsor Charges", value: `₹${client.visitorFields.sponsorCharges.amount.toLocaleString('en-IN')}` });
+      if (client.visitorFields.insurance?.amount) items.push({ label: "Insurance", value: `₹${client.visitorFields.insurance.amount.toLocaleString('en-IN')}` });
+      if (client.visitorFields.beaconAccount?.fundingAmount) items.push({ label: "Beacon Account Funding", value: `$${client.visitorFields.beaconAccount.fundingAmount.toLocaleString('en-IN')}` });
+      if (client.visitorFields.airTicket?.amount) items.push({ label: "Air Ticket", value: `₹${client.visitorFields.airTicket.amount.toLocaleString('en-IN')}` });
       return items;
     }
     return [];

@@ -68,9 +68,9 @@ export function AllCounsellorClientsList({
     { header: "Enrollment", accessorKey: "enrollmentDate", className: "whitespace-nowrap text-slate-500" },
     { header: "Sales Type", cell: (s: AllCounsellorClientRow) => <Badge variant="outline" className="font-normal whitespace-nowrap bg-slate-50 text-slate-600 border-slate-200">{s.salesType}</Badge> },
     { header: "Stage", cell: (s: AllCounsellorClientRow) => <Badge variant="outline" className={`font-medium whitespace-nowrap ${getStageBadgeClass(s.stage)}`}>{s.stage}</Badge> },
-    { header: "Total", cell: (s: AllCounsellorClientRow) => `₹${s.totalPayment.toLocaleString()}` },
-    { header: "Received", cell: (s: AllCounsellorClientRow) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString()}</span> },
-    { header: "Pending", cell: (s: AllCounsellorClientRow) => <span className={s.amountPending > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>₹{s.amountPending.toLocaleString()}</span> },
+    { header: "Total", cell: (s: AllCounsellorClientRow) => `₹${s.totalPayment.toLocaleString('en-IN')}` },
+    { header: "Received", cell: (s: AllCounsellorClientRow) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString('en-IN')}</span> },
+    { header: "Pending", cell: (s: AllCounsellorClientRow) => <span className={s.amountPending > 0 ? "text-amber-600 font-medium" : "text-slate-400"}>₹{s.amountPending.toLocaleString('en-IN')}</span> },
     {
       header: "Actions",
       cell: (s: AllCounsellorClientRow) => (

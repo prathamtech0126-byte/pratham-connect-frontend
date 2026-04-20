@@ -4,6 +4,7 @@ import { PageWrapper } from "@/layout/PageWrapper";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 // Table components not needed - using raw HTML for sticky header support
+import { UniversityDatabaseSkeleton } from "@/components/ui/page-skeletons";
 import {
   Download,
   Search,
@@ -640,10 +641,7 @@ export default function UniversityDatabase() {
         {/* Data Table */}
         <div className="rounded-lg overflow-hidden">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-              <p className="text-muted-foreground">Loading university data...</p>
-            </div>
+            <UniversityDatabaseSkeleton />
           ) : isError ? (
             <div className="flex flex-col items-center justify-center h-64 p-6">
               <FileSpreadsheet className="h-12 w-12 text-destructive mb-4 opacity-50" />

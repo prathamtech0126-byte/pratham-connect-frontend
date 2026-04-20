@@ -22,6 +22,7 @@ import {
   Package,
   Trash2
 } from "lucide-react";
+import { ActivitySkeleton } from "@/components/ui/page-skeletons";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -542,10 +543,7 @@ export default function Activity() {
             />
 
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">Loading activity logs...</span>
-              </div>
+              <ActivitySkeleton />
             ) : error ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <AlertCircle className="h-8 w-8 text-destructive mb-2" />

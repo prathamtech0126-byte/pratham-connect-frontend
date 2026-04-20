@@ -933,19 +933,19 @@ export default function Messages() {
                                   <div>
                                     <span className="text-muted-foreground block">Total (fee)</span>
                                     <span className="font-semibold">
-                                      {Number.isNaN(total) ? "—" : `₹${total.toLocaleString()}`}
+                                      {Number.isNaN(total) ? "—" : `₹${total.toLocaleString('en-IN')}`}
                                     </span>
                                   </div>
                                   <div>
                                     <span className="text-muted-foreground block">Paid</span>
                                     <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                                      ₹{paid.toLocaleString()}
+                                      ₹{paid.toLocaleString('en-IN')}
                                     </span>
                                   </div>
                                   <div>
                                     <span className="text-muted-foreground block">Pending</span>
                                     <span className="font-semibold text-orange-700 dark:text-orange-400">
-                                      {pending === null ? "—" : `₹${pending.toLocaleString()}`}
+                                      {pending === null ? "—" : `₹${pending.toLocaleString('en-IN')}`}
                                     </span>
                                   </div>
                                   <div>
@@ -957,14 +957,14 @@ export default function Messages() {
                                 </div>
                                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground border-t border-border/40 pt-3">
                                   <span>
-                                    1st: ₹{Number(row.amount ?? 0).toLocaleString()}
+                                    1st: ₹{Number(row.amount ?? 0).toLocaleString('en-IN')}
                                     {row.paymentDate
                                       ? ` · ${format(new Date(row.paymentDate), "dd MMM yyyy")}`
                                       : ""}
                                   </span>
                                   {Number(row.anotherPaymentAmount ?? 0) > 0 || row.anotherPaymentDate ? (
                                     <span>
-                                      2nd: ₹{Number(row.anotherPaymentAmount ?? 0).toLocaleString()}
+                                      2nd: ₹{Number(row.anotherPaymentAmount ?? 0).toLocaleString('en-IN')}
                                       {row.anotherPaymentDate
                                         ? ` · ${format(new Date(row.anotherPaymentDate), "dd MMM yyyy")}`
                                         : ""}
@@ -972,7 +972,7 @@ export default function Messages() {
                                   ) : null}
                                   {Number(row.anotherPaymentAmount2 ?? 0) > 0 || row.anotherPaymentDate2 ? (
                                     <span>
-                                      3rd: ₹{Number(row.anotherPaymentAmount2 ?? 0).toLocaleString()}
+                                      3rd: ₹{Number(row.anotherPaymentAmount2 ?? 0).toLocaleString('en-IN')}
                                       {row.anotherPaymentDate2
                                         ? ` · ${format(new Date(row.anotherPaymentDate2), "dd MMM yyyy")}`
                                         : ""}

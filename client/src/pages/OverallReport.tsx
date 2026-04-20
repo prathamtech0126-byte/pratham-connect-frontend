@@ -11,6 +11,7 @@ import {
   endOfWeek,
   startOfYear,
   endOfYear,
+  parseISO,
 } from "date-fns";
 import {
   Users,
@@ -19,8 +20,8 @@ import {
   ChevronDown,
   Loader2,
 } from "lucide-react";
-import { DateInput } from "@/components/ui/date-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import DateRangePicker from "@/components/payments/DateRangePicker";
 import { cn } from "@/lib/utils";
 import { clientService } from "@/services/clientService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -187,7 +188,6 @@ export default function OverallReport() {
     startOfMonth(new Date()),
     endOfMonth(new Date()),
   ]);
-  const [pendingRange, setPendingRange] = useState<[Date | null, Date | null]>([null, null]);
   const [customPopoverOpen, setCustomPopoverOpen] = useState(false);
   // Categories expand/collapse independently (multiple can stay open)
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<Record<number, boolean>>({});
@@ -331,12 +331,15 @@ export default function OverallReport() {
     setDateRange([startOfYear(now), endOfYear(now)]);
   };
 
-  const handleCustomApply = () => {
-    if (!pendingRange[0] || !pendingRange[1]) return;
-    setDateRange([pendingRange[0], pendingRange[1]]);
-    setPeriodTab("Custom");
+  const handlePickerApply = (_filter: string, startDate?: string, endDate?: string) => {
+    if (startDate && endDate) {
+      setDateRange([parseISO(startDate), parseISO(endDate)]);
+      setPeriodTab("Custom");
+    }
     setCustomPopoverOpen(false);
   };
+
+  const handlePickerCancel = () => setCustomPopoverOpen(false);
 
   return (
     <PageWrapper title="Overall Reports">
@@ -352,7 +355,7 @@ export default function OverallReport() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded-lg w-fit">
-              {(["Today", "Weekly", "Monthly", "Yearly"] as const).map((tab) => (
+              {(["Today", "Weekly", "Monthly"] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => handlePresetClick(tab)}
@@ -384,33 +387,8 @@ export default function OverallReport() {
                     <ChevronDown className="h-3.5 w-3.5 opacity-70" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-4" align="start">
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium">From</label>
-                      <DateInput
-                        value={pendingRange[0] ?? undefined}
-                        onChange={(d) => setPendingRange((prev) => [d ?? null, prev[1]])}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium">To</label>
-                      <DateInput
-                        value={pendingRange[1] ?? undefined}
-                        onChange={(d) => setPendingRange((prev) => [prev[0], d ?? null])}
-                        className="mt-1"
-                      />
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={handleCustomApply}
-                      disabled={!pendingRange[0] || !pendingRange[1]}
-                      className="w-full"
-                    >
-                      Apply
-                    </Button>
-                  </div>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <DateRangePicker onApply={handlePickerApply} onCancel={handlePickerCancel} />
                 </PopoverContent>
               </Popover>
             </div>

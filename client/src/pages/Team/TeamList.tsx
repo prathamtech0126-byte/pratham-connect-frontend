@@ -520,7 +520,11 @@ export default function TeamList() {
                       <SelectItem value="Manager">Manager</SelectItem>
                       <SelectItem value="Counsellor">Counsellor</SelectItem>
                       <SelectItem value="Telecaller">Telecaller</SelectItem>
+
                       <SelectItem value="IT Support">IT Support</SelectItem>
+
+                       <SelectItem value="Developer">Developer</SelectItem>
+
                     </SelectContent>
                   </Select>
                   {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
@@ -634,7 +638,11 @@ export default function TeamList() {
                   <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="counsellor">Counsellor</SelectItem>
                   <SelectItem value="telecaller">Telecaller</SelectItem>
+
                   <SelectItem value="it support">IT Support</SelectItem>
+
+                  <SelectItem value="developer">Developer</SelectItem>
+
                 </SelectContent>
               </Select>
             </div>

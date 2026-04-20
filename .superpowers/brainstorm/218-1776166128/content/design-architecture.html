@@ -1,0 +1,55 @@
+<h2>Design: Architecture & Components</h2>
+<p class="subtitle">Section 1 of 3 — File structure and data flow</p>
+
+<div class="section">
+  <h3>New Files</h3>
+  <div style="background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:6px;font-size:12px;font-family:monospace;line-height:1.8;">
+    <span style="color:#9cdcfe;">client/src/</span><br/>
+    <span style="color:#9cdcfe;">  components/payments/</span><br/>
+    <span style="color:#4ec9b0;">    PaymentsSection.tsx</span>   <span style="color:#6a9955;">← main component (filter bar + table)</span><br/>
+    <span style="color:#4ec9b0;">    PaymentsTable.tsx</span>      <span style="color:#6a9955;">← Excel-style table, receives data as props</span><br/>
+    <span style="color:#9cdcfe;">  api/</span><br/>
+    <span style="color:#4ec9b0;">    payments.api.ts</span>        <span style="color:#6a9955;">← GET /api/reports/payments-list via api instance</span>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Files Changed (minimally)</h3>
+  <div style="background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:6px;font-size:12px;font-family:monospace;line-height:1.8;">
+    <span style="color:#ce9178;">pages/Reports.tsx</span>   <span style="color:#6a9955;">← +3 lines at bottom: conditional render for superadmin</span>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Data Flow</h3>
+  <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px;padding:12px;font-size:12px;line-height:2;">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="background:#2d3a8c;color:white;padding:3px 10px;border-radius:4px;">PaymentsSection</span>
+      <span style="color:#888;">owns filter state (Today/Monthly/Yearly/Custom)</span>
+    </div>
+    <div style="margin-left:20px;color:#888;">↓ passes filter params</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="background:#0891b2;color:white;padding:3px 10px;border-radius:4px;">payments.api.ts</span>
+      <span style="color:#888;">useQuery → GET /api/reports/payments-list?filter=today</span>
+    </div>
+    <div style="margin-left:20px;color:#888;">↓ passes data</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="background:#059669;color:white;padding:3px 10px;border-radius:4px;">PaymentsTable</span>
+      <span style="color:#888;">pure display — renders rows, handles empty/loading/error states</span>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>API Function Signature</h3>
+  <div style="background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:6px;font-size:12px;font-family:monospace;">
+    <span style="color:#dcdcaa;">fetchPaymentsList</span>(<span style="color:#9cdcfe;">params</span>: &#123;<br/>
+    &nbsp;&nbsp;<span style="color:#9cdcfe;">filter</span>: <span style="color:#4ec9b0;">'today' | 'monthly' | 'yearly' | 'custom'</span><br/>
+    &nbsp;&nbsp;<span style="color:#9cdcfe;">startDate?</span>: <span style="color:#4ec9b0;">string</span>  <span style="color:#6a9955;">// YYYY-MM-DD, only when filter='custom'</span><br/>
+    &nbsp;&nbsp;<span style="color:#9cdcfe;">endDate?</span>: <span style="color:#4ec9b0;">string</span><br/>
+    &#125;)
+  </div>
+  <p style="font-size:12px;color:#666;margin-top:8px;">Uses the existing <code>api</code> axios instance from <code>lib/api.ts</code> — auth headers (JWT + CSRF) are injected automatically by the interceptors. No manual credential handling needed.</p>
+</div>
+
+<p style="margin-top:16px;font-size:13px;">Does this architecture look right?</p>

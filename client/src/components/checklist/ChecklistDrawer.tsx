@@ -1,4 +1,5 @@
 // client/src/components/checklist/ChecklistDrawer.tsx
+import { useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -8,6 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { SectionAccordion } from "@/components/checklist/SectionAccordion";
 import { useChecklistDetail } from "@/hooks/useChecklists";
+import type { Section } from "@/api/checklist.api";
 
 interface Props {
   slug: string | null;
@@ -34,16 +36,28 @@ function DrawerSkeleton() {
 
 export function ChecklistDrawer({ slug, countryName, onClose }: Props) {
   const { data, isLoading, isError } = useChecklistDetail(slug);
+  const [sections, setSections] = useState<Section[] | null>(null);
 
-  const sortedSections = data
-    ? data.sections.slice().sort((a, b) => a.displayOrder - b.displayOrder)
-    : [];
+  // Sync local sections state when data loads
+  const displaySections: Section[] = sections ?? (data?.sections ?? []);
+  const sortedSections = displaySections.slice().sort((a, b) => a.displayOrder - b.displayOrder);
+
+  // When drawer opens for a new slug, reset local sections
+  const handleSectionDeleted = (id: string) => {
+    setSections((prev) => (prev ?? data?.sections ?? []).filter((s) => s.id !== id));
+  };
+
+  const handleSectionUpdated = (updated: Section) => {
+    setSections((prev) =>
+      (prev ?? data?.sections ?? []).map((s) => (s.id === updated.id ? updated : s))
+    );
+  };
 
   return (
     <Sheet
       open={!!slug}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open) { setSections(null); onClose(); }
       }}
     >
       <SheetContent
@@ -87,7 +101,12 @@ export function ChecklistDrawer({ slug, countryName, onClose }: Props) {
                 </p>
               ) : (
                 sortedSections.map((section) => (
-                  <SectionAccordion key={section.id} section={section} />
+                  <SectionAccordion
+                    key={section.id}
+                    section={section}
+                    onSectionDeleted={handleSectionDeleted}
+                    onSectionUpdated={handleSectionUpdated}
+                  />
                 ))
               )}
             </div>
