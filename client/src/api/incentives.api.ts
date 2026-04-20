@@ -1,5 +1,5 @@
 // client/src/api/incentives.api.ts
-import { api } from '@/lib/api'
+import api from '@/lib/api'
 
 // ─── Shared Types ────────────────────────────────────────────────────────────
 
