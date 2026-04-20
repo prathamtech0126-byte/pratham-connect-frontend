@@ -58,13 +58,17 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
 
     // Get counsellorId from user.id (convert string to number) - only for counsellors
-    const counsellorId = user.role === 'counsellor' ? Number(user.id) : null;
+    const isCounsellor = user.role === 'counsellor';
+    const rawCounsellorId = isCounsellor ? Number(user.id) : null;
+    const counsellorId = Number.isFinite(rawCounsellorId as number) ? (rawCounsellorId as number) : null;
 
     // Admin users (superadmin, manager, director) can also connect to socket for real-time updates
     const isAdmin = user.role === 'superadmin' || user.role === 'manager' || user.role === 'director';
+    const isTechSupport = user.role === 'tech_support';
+   
 
-    // Connect if user is counsellor or admin
-    if (!counsellorId && !isAdmin) {
+    // Connect if user is counsellor, admin, or tech_support
+    if (!isCounsellor && !isAdmin && !isTechSupport) {
       return;
     }
 
@@ -77,7 +81,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     if (!shouldReconnect && socketRef.current?.connected && counsellorIdRef.current === counsellorId) {
       // Even if connected, ensure role rooms are joined (in case they weren't joined before)
       const socket = socketRef.current;
-      if (counsellorId) {
+      if (isCounsellor) {
+        if (counsellorId) {
+          socket.emit('join:counsellor', counsellorId);
+        }
         socket.emit('join:role', 'counsellor');
         const userId = Number(user.id);
         if (!isNaN(userId)) {
@@ -109,9 +116,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setConnectionStatus('connected');
 
       // Join counsellor room (only for counsellors)
-      if (counsellorId) {
-        newSocket.emit('join:counsellor', counsellorId);
-        counsellorIdRef.current = counsellorId;
+      if (isCounsellor) {
+        if (counsellorId) {
+          newSocket.emit('join:counsellor', counsellorId);
+          counsellorIdRef.current = counsellorId;
+        } else {
+          counsellorIdRef.current = null;
+        }
         isAdminRoomJoinedRef.current = false;
 
         // Listen for confirmation that room was joined
@@ -178,54 +189,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         // Also join admin dashboard room for real-time dashboard updates
         newSocket.emit('join:dashboard');
 
-        // CRITICAL: Join role-based room for broadcast messages (if admin is also manager)
-        // This ensures managers receive broadcast messages even if they're admins
-        if (user.role === 'manager') {
-          // Retry mechanism to ensure join happens
-          const joinManagerRoleRoom = (attempt = 1) => {
-            if (attempt > 5) {
-              return;
-            }
-
-            if (!newSocket.connected) {
-              setTimeout(() => joinManagerRoleRoom(attempt + 1), 500);
-              return;
-            }
-
-            // Listen for backend confirmation BEFORE emitting
-            const confirmationListener = () => {
-              newSocket.off('joined:role', confirmationListener);
-            };
-            newSocket.on('joined:role', confirmationListener);
-
-            // Also listen for any errors
-            const errorListener = () => {
-              newSocket.off('error', errorListener);
-            };
-            newSocket.once('error', errorListener);
-
-            // Emit with callback (if backend supports it)
-            newSocket.emit('join:role', 'manager');
-
-            // Retry if no confirmation (backend should log it)
-            if (attempt < 3) {
-              setTimeout(() => {
-                newSocket.off('joined:role', confirmationListener);
-                newSocket.off('error', errorListener);
-                joinManagerRoleRoom(attempt + 1);
-              }, 2000);
-            } else {
-              // Clean up listeners after final attempt
-              setTimeout(() => {
-                newSocket.off('joined:role', confirmationListener);
-                newSocket.off('error', errorListener);
-              }, 3000);
-            }
-          };
-
-          // Start joining after a short delay
-          setTimeout(() => joinManagerRoleRoom(1), 300);
-        }
+        // CRITICAL: Join role-based room for broadcast messages (All admin roles: superadmin, director, manager)
+        const joinRoleRoom = (roleName: string, attempt = 1) => {
+          if (attempt > 5) return;
+          if (!newSocket.connected) {
+            setTimeout(() => joinRoleRoom(roleName, attempt + 1), 500);
+            return;
+          }
+          newSocket.emit('join:role', roleName);
+        };
+        
+        // Join the specific role room (e.g., 'superadmin', 'manager', 'director')
+        joinRoleRoom(user.role);
 
         // Join user-specific room for individual messages
         const userId = Number(user.id);
@@ -233,6 +208,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           setTimeout(() => {
             newSocket.emit('join:user', userId);
           }, 150);
+        }
+      } else if (isTechSupport) {
+        // Tech support users need role + user rooms for request/ticket updates
+        newSocket.emit('join:role', 'tech_support');
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          newSocket.emit('join:user', userId);
         }
       } else if (user.role === 'manager') {
         // Manager (non-admin) - join role and user rooms for messages
@@ -267,9 +249,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setConnectionStatus('connected');
 
       // Rejoin room after reconnection
-      if (counsellorId) {
-        newSocket.emit('join:counsellor', counsellorId);
-        counsellorIdRef.current = counsellorId;
+      if (isCounsellor) {
+        if (counsellorId) {
+          newSocket.emit('join:counsellor', counsellorId);
+          counsellorIdRef.current = counsellorId;
+        } else {
+          counsellorIdRef.current = null;
+        }
         isAdminRoomJoinedRef.current = false;
 
         // CRITICAL: Rejoin role-based room for broadcast messages
@@ -293,6 +279,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         }
 
         // Rejoin user-specific room for individual messages
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          newSocket.emit('join:user', userId);
+        }
+      } else if (isTechSupport) {
+        newSocket.emit('join:role', 'tech_support');
         const userId = Number(user.id);
         if (!isNaN(userId)) {
           newSocket.emit('join:user', userId);
@@ -346,8 +338,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
 
     const socket = socketRef.current;
-    const counsellorId = user.role === 'counsellor' ? Number(user.id) : null;
+    const isCounsellor = user.role === 'counsellor';
+    const rawCounsellorId = isCounsellor ? Number(user.id) : null;
+    const counsellorId = Number.isFinite(rawCounsellorId as number) ? (rawCounsellorId as number) : null;
     const isAdmin = user.role === 'superadmin' || user.role === 'manager' || user.role === 'director';
+    const isTechSupport = user.role === 'tech_support';
 
     // Ensure role rooms are joined for message system (with delay to ensure socket is ready)
     // This is a safety mechanism that runs whenever socket connects
@@ -356,14 +351,25 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (counsellorId) {
+      if (isCounsellor) {
+        if (counsellorId) {
+          socket.emit('join:counsellor', counsellorId);
+        }
         socket.emit('join:role', 'counsellor');
         const userId = Number(user.id);
         if (!isNaN(userId)) {
           socket.emit('join:user', userId);
         }
-      } else if (isAdmin && user.role === 'manager') {
-        socket.emit('join:role', 'manager');
+      } else if (isAdmin) {
+        // ALWAYS join role room for any admin role
+        socket.emit('join:role', user.role);
+        
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          socket.emit('join:user', userId);
+        }
+      } else if (isTechSupport) {
+        socket.emit('join:role', 'tech_support');
         const userId = Number(user.id);
         if (!isNaN(userId)) {
           socket.emit('join:user', userId);

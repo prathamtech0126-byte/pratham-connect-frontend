@@ -56,6 +56,7 @@ const counselorTargets = [
 import { format } from "date-fns";
 import { RevenueChart } from "@/components/charts/RevenueChart";
 import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
+import { ITSupportKanbanDashboard } from "@/pages/tech-support/ITSupportKanbanDashboard";
 
 const counselorRevenue = [
   { name: "Priya Singh", revenue: 1250000, clients: 12, avatar: "P" },
@@ -77,6 +78,7 @@ function hasAchievedTarget(data: { achieved?: number; target?: number; targetSta
 export default function Dashboard() {
   const { user } = useAuth();
   const isCounsellor = user?.role === "counsellor";
+  const isTechSupport = user?.role === "tech_support";
   /** Full-screen canvas so confetti renders above layout/sidebar (default confetti can sit behind). */
   const confettiCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [, setLocation] = useLocation();
@@ -148,7 +150,7 @@ export default function Dashboard() {
     },
     retry: 1,
     staleTime: 1000 * 60 * 2, // Cache for 2 minutes
-    enabled: !!user && user.role !== 'telecaller' && (timeFilter !== 'custom' || (!!customDateRange[0] && !!customDateRange[1])),
+    enabled: !!user && user.role !== 'telecaller' && user.role !== "tech_support" && (timeFilter !== 'custom' || (!!customDateRange[0] && !!customDateRange[1])),
   });
 
   // Label for monthly chart: "Jan - Feb (Today 2 Feb 2026)". For custom: "1 Jan 2026 - 5 Feb 2026"
@@ -171,7 +173,7 @@ export default function Dashboard() {
   // All roles (admin, manager, counsellor) use POST filtered API; no GET /api/clients/counsellor-clients
   const userId = user?.id ?? (user as any)?.userId ?? (user as any)?.user_id;
   const userNum = typeof userId === "number" ? userId : parseInt(String(userId), 10);
-  const hasUserForFiltered = !!user?.role && !Number.isNaN(userNum) && userNum > 0 && user.role !== "telecaller";
+  const hasUserForFiltered = !!user?.role && !Number.isNaN(userNum) && userNum > 0 && user.role !== "telecaller" && user.role !== "tech_support";
 
   const { data: recentClientsRaw } = useQuery({
     queryKey: ["recent-clients", "filtered", userNum, user?.role, "monthly"],
@@ -191,6 +193,7 @@ export default function Dashboard() {
     queryKey: ['dashboard-activities'],
     queryFn: clientService.getRecentActivities
   });
+
 
   // Fetch user profile to get the actual fullname (user.name might be generic "User")
   const { data: userProfile } = useQuery({
@@ -314,7 +317,8 @@ export default function Dashboard() {
     queryKey: ['leaderboard', leaderboardPeriod.month, leaderboardPeriod.year],
     queryFn: () => clientService.getLeaderboard(leaderboardPeriod.month, leaderboardPeriod.year),
     staleTime: 1000 * 60 * 2, // Cache for 2 minutes
-    enabled: !!user && !apiLeaderboard, // Only fetch if not in stats
+    // Skip leaderboard API call for tech support users (403 forbidden for them)
+    enabled: !!user && !apiLeaderboard && user?.role !== 'tech_support',
   });
 
   // API returns { data: array, summary }; stats may return array or single object
@@ -850,7 +854,7 @@ export default function Dashboard() {
   }
 
   // Show loading state (skip for telecaller - they don't use stats)
-  if (user?.role !== 'telecaller' && isLoading && !stats) {
+  if (user?.role !== 'telecaller' && user?.role !== "tech_support" && isLoading && !stats) {
     return (
       <PageWrapper title="Dashboard" breadcrumbs={[{ label: "Dashboard" }]}>
         <div className="space-y-4">
@@ -860,6 +864,10 @@ export default function Dashboard() {
         </div>
       </PageWrapper>
     );
+  }
+
+  if (isTechSupport) {
+    return <ITSupportKanbanDashboard />;
   }
 
   // Telecaller view: full dashboard per system requirements
@@ -1344,6 +1352,10 @@ export default function Dashboard() {
         </Dialog>
       </div>
     );
+  }
+
+  if (isTechSupport) {
+    return <ITSupportKanbanDashboard />;
   }
 
   return (

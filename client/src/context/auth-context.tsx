@@ -9,6 +9,7 @@ export type UserRole =
   | 'counsellor'
   | 'director'
   | 'telecaller'
+  | 'tech_support'
   | 'backend_manager'
   | 'application_team'
   | 'customer_experience'
@@ -68,6 +69,12 @@ const MOCK_USERS: Record<UserRole, User> = {
     name: 'Rahul Telecaller',
     role: 'telecaller',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+  },
+  tech_support: {
+    id: '11',
+    username: 'tech_support',
+    name: 'Tech Support',
+    role: 'tech_support',
   },
   backend_manager: {
     id: '7',

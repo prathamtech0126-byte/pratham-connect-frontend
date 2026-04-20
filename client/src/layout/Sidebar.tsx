@@ -35,6 +35,7 @@ import {
   Info,
   GraduationCap,
   CheckSquare,
+  Headset,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -109,6 +110,19 @@ const sidebarItems: SidebarItem[] = [
     label: "Checklists",
     href: "/checklists",
     roles: ["superadmin", "manager"],
+  },
+
+  {
+    icon: Headset,
+    label: "IT Support",
+    href: "/tech-support",
+    roles: ["superadmin", "director", "manager", "counsellor"],
+  },
+  {
+    icon: Info,
+    label: "Device Info",
+    href: "/tech-support/device-info",
+    roles: ["tech_support", "superadmin", "manager", "director"],
   },
 ];
 
@@ -198,7 +212,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
     }
   }, [theme]);
 
-  
+
   useEffect(() => {
     if (location.startsWith("/reports") || location.startsWith("/overall-report")) {
       setIsReportsOpen(true);
@@ -212,6 +226,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
   const { data: clients } = useQuery({
     queryKey: ["sidebar-clients"],
     queryFn: clientService.getClients,
+    enabled: !!user && ["superadmin", "manager", "counsellor"].includes(user.role),
   });
 
   // Fetch real user profile data
@@ -225,6 +240,10 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
 
   // Filter items based on user role
   const filteredItems = sidebarItems.filter((item) => {
+    if (user?.role === "tech_support") {
+      // Tech support should only see dashboard + device info.
+      return ["/", "/tech-support/device-info"].includes(item.href);
+    }
     if (!item.roles) return true;
     return user && item.roles.includes(user.role);
   });
@@ -285,6 +304,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
       team_lead: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
       counsellor: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
       telecaller: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
+      tech_support: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-800",
       backend_manager: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-900/30 dark:text-fuchsia-300 dark:border-fuchsia-800",
       customer_experience: "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-800",
       binding_team: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800",
@@ -298,6 +318,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
       team_lead: "Team Lead",
       counsellor: "Counsellor",
       telecaller: "Telecaller",
+      tech_support: "Tech Support",
       backend_manager: "Backend Manager",
       customer_experience: "CX Team",
       binding_team: "Binding Team",
@@ -341,26 +362,26 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
       </div> */}
 
 
-<div className={cn(
-  "h-20 flex items-center justify-center border-b border-sidebar-border/60 transition-all duration-300",
-  isCollapsed ? "px-2" : "px-6"
-)}>
-  {isCollapsed ? (
-    <div className="h-10 w-10 rounded-lg flex items-center justify-center p-1.5">
-      <img
-        src={isDarkMode ? connectIconWhite : connectIcon}
-        alt="Connect Icon"
-        className="w-full h-full object-contain"
-      />
-    </div>
-  ) : (
-    <img
-      src={currentLogo}
-      alt="Consultancy Logo"
-      className="h-12 w-auto object-contain transition-all hover:scale-105"
-    />
-  )}
-</div>
+      <div className={cn(
+        "h-20 flex items-center justify-center border-b border-sidebar-border/60 transition-all duration-300",
+        isCollapsed ? "px-2" : "px-6"
+      )}>
+        {isCollapsed ? (
+          <div className="h-10 w-10 rounded-lg flex items-center justify-center p-1.5">
+            <img
+              src={isDarkMode ? connectIconWhite : connectIcon}
+              alt="Connect Icon"
+              className="w-full h-full object-contain"
+            />
+          </div>
+        ) : (
+          <img
+            src={currentLogo}
+            alt="Consultancy Logo"
+            className="h-12 w-auto object-contain transition-all hover:scale-105"
+          />
+        )}
+      </div>
 
 
 
@@ -628,7 +649,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
           if (item.label === "Reports") {
             const isReportsActive =
               location.startsWith("/reports") || location.startsWith("/overall-report");
-          
+
             return (
               <Collapsible
                 key="reports"
@@ -648,7 +669,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       )}
                     >
                       <PieChart className="w-5 h-5 shrink-0" />
-          
+
                       {!isCollapsed && (
                         <>
                           <span className="flex-1">Reports</span>
@@ -662,10 +683,10 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                     </div>
                   </CollapsibleTrigger>
                 </div>
-          
+
                 {!isCollapsed && (
                   <CollapsibleContent className="pl-4 space-y-1">
-                    
+
                     {/* Individual Reports */}
                     <Link
                       href="/reports"
@@ -679,7 +700,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       <FileText className="w-4 h-4" />
                       Counsellor Reports
                     </Link>
-          
+
                     {/* Overall Reports (restricted) */}
                     {user && ["superadmin", "manager"].includes(user.role) && (
                       <Link
@@ -695,7 +716,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                         Sales Reports
                       </Link>
                     )}
-          
+
                   </CollapsibleContent>
                 )}
               </Collapsible>
@@ -747,13 +768,13 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
               isCollapsed ? "px-2 py-2 justify-center" : "px-3 py-3 gap-3"
             )}>
               {isLoadingProfile ? (
-                  <div className={cn(
-                    "flex items-center w-full",
-                    isCollapsed ? "justify-center" : "gap-3"
-                  )}>
-                    <div className="h-10 w-10 rounded-full bg-sidebar-accent flex items-center justify-center shrink-0">
-                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                    </div>
+                <div className={cn(
+                  "flex items-center w-full",
+                  isCollapsed ? "justify-center" : "gap-3"
+                )}>
+                  <div className="h-10 w-10 rounded-full bg-sidebar-accent flex items-center justify-center shrink-0">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
                   {!isCollapsed && (
                     <div className="flex flex-col overflow-hidden flex-1">
                       <div className="h-4 w-24 bg-sidebar-accent rounded animate-pulse mb-2" />
@@ -768,8 +789,8 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                     <AvatarFallback className="bg-primary/10 text-primary font-bold">
                       {userProfile?.fullname
                         ? (userProfile.fullname.split(' ').length >= 2
-                            ? (userProfile.fullname.split(' ')[0].charAt(0) + userProfile.fullname.split(' ')[userProfile.fullname.split(' ').length - 1].charAt(0)).toUpperCase()
-                            : userProfile.fullname.charAt(0).toUpperCase())
+                          ? (userProfile.fullname.split(' ')[0].charAt(0) + userProfile.fullname.split(' ')[userProfile.fullname.split(' ').length - 1].charAt(0)).toUpperCase()
+                          : userProfile.fullname.charAt(0).toUpperCase())
                         : user.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>

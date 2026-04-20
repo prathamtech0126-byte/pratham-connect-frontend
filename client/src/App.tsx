@@ -649,6 +649,8 @@ const Reports = lazy(() => import("@/pages/Reports"));
 const CounsellorReportPage = lazy(() => import("@/pages/Reports/CounsellorReportPage"));
 const ChecklistPage = lazy(() => import("@/pages/ChecklistPage"));
 const AddChecklistPage = lazy(() => import("@/pages/AddChecklistPage"));
+const TechSupportPage = lazy(() => import("@/pages/tech-support/TechSupportPage"));
+const DeviceInfoPage = lazy(() => import("@/pages/tech-support/DeviceInfo"));
 // const LeadList = lazy(() => import("@/pages/Leads/LeadList"));
 // const LeadDetail = lazy(() => import("@/pages/Leads/LeadDetail"));
 // const LeadKanban = lazy(() => import("@/pages/Leads/LeadKanban"));
@@ -729,9 +731,32 @@ const PageLoadFallback = () => (
 
 function Router() {
   const { user } = useAuth();
+  const isTechSupportOnlyUser = user?.role === "tech_support";
 
   return (
     <Suspense fallback={<PageLoadFallback />}>
+      {isTechSupportOnlyUser ? (
+        <Switch>
+          <Route path="/login">
+            {() => <Redirect to="/tech-support" />}
+          </Route>
+          <Route path="/">
+            {params => <ProtectedRoute component={Dashboard} />}
+          </Route>
+          <Route path="/dashboard">
+            {params => <Redirect to="/" />}
+          </Route>
+          <Route path="/tech-support">
+            {params => <ProtectedRoute component={TechSupportPage} />}
+          </Route>
+          <Route path="/tech-support/device-info">
+            {params => <ProtectedRoute component={DeviceInfoPage} />}
+          </Route>
+          <Route>
+            {() => <Redirect to="/tech-support" />}
+          </Route>
+        </Switch>
+      ) : (
       <Switch>
         {/* ✅ If user is logged in and tries to access /login, redirect to dashboard */}
         <Route path="/login">
@@ -812,6 +837,22 @@ function Router() {
 
         <Route path="/messages">
           {params => <ProtectedRoute component={Messages} />}
+        </Route>
+
+        <Route path="/tech-support">
+          {params => <ProtectedRoute component={TechSupportPage} />}
+        </Route>
+
+        <Route
+          path="/tech-support/device-info"
+          // Admin and tech support users can view device inventory details.
+        >
+          {params => (
+            <ProtectedRoute
+              component={DeviceInfoPage}
+              allowedRoles={["tech_support", "superadmin", "manager", "director"] as UserRole[]}
+            />
+          )}
         </Route>
 
         <Route path="/calendar">
@@ -910,6 +951,7 @@ function Router() {
 
         <Route component={NotFound} />
       </Switch>
+      )}
     </Suspense>
   );
 }
