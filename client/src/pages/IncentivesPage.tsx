@@ -230,13 +230,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useLocation } from 'wouter'
 import { PageWrapper } from '@/layout/PageWrapper'
-import { clientService } from '@/services/clientService'
 import { Button } from '@/components/ui/button'
 import {
-  fetchIncentives,
+  fetchIncentivesReport,
   approveIncentive,
   rejectIncentive,
-  // updateEligibility removed — eligibility is now computed server-side
   type IncentiveRow,
 } from '@/api/incentives.api'
 import { IncentiveTotalBanner } from '@/components/incentives/IncentiveTotalBanner'
@@ -245,35 +243,6 @@ import { IncentiveTable } from '@/components/incentives/IncentiveTable'
 import { ConfirmActionModal } from '@/components/incentives/ConfirmActionModal'
 
 type SaleTypeFilter = 'all' | 'spouse' | 'visitor' | 'student'
-
-const DUMMY_INCENTIVES: IncentiveRow[] = [
-  {
-    id: 'demo-1',
-    clientId: 'C1001',
-    clientName: 'Riya Shah',
-    counsellorId: '12',
-    counsellorName: 'Avani Patel',
-    enrollmentDate: '2026-04-02',
-    saleType: 'spouse',
-    eligible: true,
-    amount: 50000,
-    incentiveAmount: 1200,
-    status: 'pending',
-  },
-  {
-    id: 'demo-2',
-    clientId: 'C1002',
-    clientName: 'Mitesh Patel',
-    counsellorId: '14',
-    counsellorName: 'Khushbu Jagtap',
-    enrollmentDate: '2026-04-05',
-    saleType: 'visitor',
-    eligible: true,
-    amount: 30000,
-    incentiveAmount: 950,
-    status: 'approved',
-  },
-]
 
 function getCurrentMonth(): string {
   const now = new Date()
@@ -294,20 +263,13 @@ export default function IncentivesPage() {
   const [selectedRow, setSelectedRow] = useState<IncentiveRow | null>(null)
   const [remarks, setRemarks] = useState('')
 
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['incentives', { saleType, counsellorId, month }],
-    queryFn: () => fetchIncentives({ saleType, counsellorId, month }),
-  })
-
-  const { data: counsellors = [] } = useQuery({
-    queryKey: ['counsellors'],
-    queryFn: () => clientService.getCounsellors(),
+  const { data = [], isLoading } = useQuery({
+    queryKey: ['incentives-report', month],
+    queryFn: () => fetchIncentivesReport({ month }),
   })
 
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ['incentives'] })
+    queryClient.invalidateQueries({ queryKey: ['incentives-report'] })
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => approveIncentive(id),
@@ -326,55 +288,33 @@ export default function IncentivesPage() {
     },
   })
 
-  const bulkApproveMutation = useMutation({
-    mutationFn: (ids: string[]) =>
-      Promise.all(ids.map((id) => approveIncentive(id))),
-    onSuccess: () => {
-      toast.success('All selected incentives approved')
-      setSelectedIds([])
-      invalidate()
-    },
-  })
-
-  const hasServerData = (data?.items?.length ?? 0) > 0
-  const sourceRows = hasServerData ? data?.items ?? [] : DUMMY_INCENTIVES
-
-  const approvedRows = sourceRows.filter((r) => r.status === 'approved')
-  const bannerTotal = approvedRows.reduce(
-    (sum, row) => sum + row.incentiveAmount,
-    0
+  const counsellors = useMemo(
+    () =>
+      [...new Set(data.map((r) => r.counsellorName).filter(Boolean))].map(
+        (name) => ({ id: name, name })
+      ),
+    [data]
   )
-  const bannerReceived = approvedRows.reduce(
-    (sum, row) => sum + row.amount,
-    0
+
+  const totalIncentiveAmount = useMemo(
+    () => data.reduce((s, r) => s + r.incentiveAmount, 0),
+    [data]
+  )
+
+  const totalReceivedAmount = useMemo(
+    () => data.reduce((s, r) => s + r.amount, 0),
+    [data]
   )
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    if (!q) return sourceRows
-    return sourceRows.filter(
-      (r) =>
-        r.clientName.toLowerCase().includes(q) ||
-        r.clientId.toLowerCase().includes(q)
-    )
-  }, [sourceRows, search])
-
-  const handleSelectRow = (id: string, checked: boolean) => {
-    setSelectedIds((prev) =>
-      checked ? [...prev, id] : prev.filter((i) => i !== id)
-    )
-  }
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(filtered.map((r) => r.id))
-    } else {
-      setSelectedIds([])
-    }
-  }
-
-  const isAllSelected =
-    filtered.length > 0 && selectedIds.length === filtered.length
+    return data.filter((r) => {
+      if (saleType !== 'all' && r.saleType !== saleType) return false
+      if (counsellorId && r.counsellorName !== counsellorId) return false
+      if (q && !r.clientName.toLowerCase().includes(q) && !r.clientId.includes(q)) return false
+      return true
+    })
+  }, [data, search, saleType, counsellorId])
 
   const handleApprove = (row: IncentiveRow) => {
     setSelectedRow(row)
@@ -417,8 +357,8 @@ export default function IncentivesPage() {
       }
     >
       <IncentiveTotalBanner
-        totalApprovedAmount={bannerTotal}
-        totalReceivedAmount={bannerReceived}
+        totalIncentiveAmount={totalIncentiveAmount}
+        totalReceivedAmount={totalReceivedAmount}
         month={month}
         saleType={saleType}
       />
@@ -432,35 +372,14 @@ export default function IncentivesPage() {
         onCounsellorChange={setCounsellorId}
         month={month}
         onMonthChange={setMonth}
-        counsellors={counsellors.map((c: any) => ({
-          id: String(c.id),
-          name: c.name || c.fullname,
-        }))}
+        counsellors={counsellors}
       />
-
-      {selectedIds.length > 0 && (
-        <div className="flex justify-end mb-2">
-          <Button
-            onClick={() => bulkApproveMutation.mutate(selectedIds)}
-            disabled={bulkApproveMutation.isPending}
-          >
-            Approve All ({selectedIds.length})
-          </Button>
-        </div>
-      )}
 
       <IncentiveTable
         rows={filtered}
         isLoading={isLoading}
         onApprove={handleApprove}
         onReject={handleReject}
-        onEligibilityChange={(id, eligible) =>
-          console.warn('eligibilityChange disabled — eligibility is now computed', id, eligible)
-        }
-        selectedIds={selectedIds}
-        onSelectRow={handleSelectRow}
-        onSelectAll={handleSelectAll}
-        isAllSelected={isAllSelected}
       />
 
       <ConfirmActionModal
