@@ -64,19 +64,32 @@ function getMonthRange(monthStr: string): { startDate: string; endDate: string }
   }
 }
 
+const SALE_TYPE_MAP: Record<ReportRow['saleType'], SaleType> = {
+  Spouse: 'spouse',
+  Visitor: 'visitor',
+  Student: 'student',
+}
+
+const STATUS_MAP: Record<ReportRow['status'], IncentiveStatus> = {
+  Pending: 'pending',
+  Approved: 'approved',
+  Rejected: 'rejected',
+}
+
 function mapReportRow(row: ReportRow): IncentiveRow {
   return {
+    // clientId is unique per report response (one row per client), so it serves as the row key
     id: String(row.clientId),
     clientId: String(row.clientId),
     clientName: row.clientName,
-    counsellorId: '',
+    counsellorId: '', // report API provides counsellor name only, not a counsellor ID
     counsellorName: row.counsellor,
     enrollmentDate: row.enrollmentDate,
-    saleType: row.saleType.toLowerCase() as SaleType,
+    saleType: SALE_TYPE_MAP[row.saleType],
     eligible: row.eligibility === 'Eligible',
     amount: row.receivedAmount,
     incentiveAmount: row.incentiveAmount,
-    status: row.status.toLowerCase() as IncentiveStatus,
+    status: STATUS_MAP[row.status],
   }
 }
 
@@ -117,8 +130,15 @@ export async function fetchIncentives(params: IncentivesParams): Promise<Incenti
 export async function fetchIncentivesReport(params: { month: string }): Promise<IncentiveRow[]> {
   const { startDate, endDate } = getMonthRange(params.month)
   const res = await api.get<ReportResponse>('/api/incentives/report', {
+    // pageSize=100 is the API maximum; months with >100 enrollments will be silently truncated.
+    // Upgrade path: add a dedicated /summary endpoint for aggregated totals.
     params: { startDate, endDate, page: 1, pageSize: 100 },
   })
+  if (res.data.pagination.totalRecords > 100) {
+    console.warn(
+      `fetchIncentivesReport: ${res.data.pagination.totalRecords} records exist but only 100 were fetched. Banner totals will be incomplete.`
+    )
+  }
   return res.data.data.map(mapReportRow)
 }
 

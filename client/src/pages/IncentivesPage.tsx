@@ -236,7 +236,7 @@ import {
   fetchIncentives,
   approveIncentive,
   rejectIncentive,
-  // updateEligibility, // removed — function deleted; page will be rewritten in Task 3
+  // updateEligibility removed — eligibility is now computed server-side
   type IncentiveRow,
 } from '@/api/incentives.api'
 import { IncentiveTotalBanner } from '@/components/incentives/IncentiveTotalBanner'
@@ -294,10 +294,7 @@ export default function IncentivesPage() {
   const [selectedRow, setSelectedRow] = useState<IncentiveRow | null>(null)
   const [remarks, setRemarks] = useState('')
 
-  // ✅ NEW: selection state
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-
-  /* ================= FETCH ================= */
 
   const { data, isLoading } = useQuery({
     queryKey: ['incentives', { saleType, counsellorId, month }],
@@ -311,8 +308,6 @@ export default function IncentivesPage() {
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['incentives'] })
-
-  /* ================= MUTATIONS ================= */
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => approveIncentive(id),
@@ -331,16 +326,6 @@ export default function IncentivesPage() {
     },
   })
 
-  const eligibilityMutation = useMutation({
-    mutationFn: (_args: { id: string; eligible: boolean }) =>
-      Promise.reject(new Error('updateEligibility removed')), // TODO Task 3: rewrite page
-    onSuccess: () => {
-      toast.success('Eligibility updated')
-      invalidate()
-    },
-  })
-
-  // ✅ NEW: Bulk approve
   const bulkApproveMutation = useMutation({
     mutationFn: (ids: string[]) =>
       Promise.all(ids.map((id) => approveIncentive(id))),
@@ -350,8 +335,6 @@ export default function IncentivesPage() {
       invalidate()
     },
   })
-
-  /* ================= DATA ================= */
 
   const hasServerData = (data?.items?.length ?? 0) > 0
   const sourceRows = hasServerData ? data?.items ?? [] : DUMMY_INCENTIVES
@@ -376,8 +359,6 @@ export default function IncentivesPage() {
     )
   }, [sourceRows, search])
 
-  /* ================= SELECTION ================= */
-
   const handleSelectRow = (id: string, checked: boolean) => {
     setSelectedIds((prev) =>
       checked ? [...prev, id] : prev.filter((i) => i !== id)
@@ -395,8 +376,6 @@ export default function IncentivesPage() {
   const isAllSelected =
     filtered.length > 0 && selectedIds.length === filtered.length
 
-  /* ================= ACTIONS ================= */
-
   const handleApprove = (row: IncentiveRow) => {
     setSelectedRow(row)
     setModalAction('approve')
@@ -411,7 +390,6 @@ export default function IncentivesPage() {
 
   const handleConfirm = () => {
     if (!selectedRow) return
-
     if (modalAction === 'approve') {
       approveMutation.mutate(selectedRow.id)
       setModalOpen(false)
@@ -420,13 +398,10 @@ export default function IncentivesPage() {
         toast.error('Remarks required')
         return
       }
-
       rejectMutation.mutate({ id: selectedRow.id, remarks })
       setModalOpen(false)
     }
   }
-
-  /* ================= UI ================= */
 
   return (
     <PageWrapper
@@ -463,7 +438,6 @@ export default function IncentivesPage() {
         }))}
       />
 
-      {/* ✅ Bulk Approve Button */}
       {selectedIds.length > 0 && (
         <div className="flex justify-end mb-2">
           <Button
@@ -481,10 +455,8 @@ export default function IncentivesPage() {
         onApprove={handleApprove}
         onReject={handleReject}
         onEligibilityChange={(id, eligible) =>
-          eligibilityMutation.mutate({ id, eligible })
+          console.warn('eligibilityChange disabled — eligibility is now computed', id, eligible)
         }
-
-        // ✅ NEW props
         selectedIds={selectedIds}
         onSelectRow={handleSelectRow}
         onSelectAll={handleSelectAll}
@@ -500,9 +472,7 @@ export default function IncentivesPage() {
         onConfirm={handleConfirm}
         action={modalAction}
         row={selectedRow}
-        isLoading={
-          approveMutation.isPending || rejectMutation.isPending
-        }
+        isLoading={approveMutation.isPending || rejectMutation.isPending}
         remarks={remarks}
         onRemarksChange={setRemarks}
       />
