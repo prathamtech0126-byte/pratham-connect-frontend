@@ -3,7 +3,7 @@ import api from '@/lib/api'
 
 // ─── Shared Types ────────────────────────────────────────────────────────────
 
-export type VisaType = 'spouse' | 'visitor' | 'student'
+export type SaleType = 'spouse' | 'visitor' | 'student'
 export type IncentiveStatus = 'pending' | 'approved' | 'rejected' | 'ineligible'
 
 export interface IncentiveRow {
@@ -13,14 +13,15 @@ export interface IncentiveRow {
   counsellorId: string
   counsellorName: string
   enrollmentDate: string
-  visaType: VisaType
+  saleType: SaleType
   eligible: boolean
+  amount: number
   incentiveAmount: number
   status: IncentiveStatus
 }
 
 export interface IncentivesParams {
-  visaType: 'all' | VisaType
+  saleType: 'all' | SaleType
   counsellorId: string | null
   month: string
 }
@@ -30,55 +31,152 @@ export interface IncentivesResponse {
   totalApprovedAmount: number
 }
 
-export interface SpouseRule {
+export interface ReportRow {
+  clientId: number
+  clientName: string
+  counsellor: string
+  enrollmentDate: string
+  saleType: 'Spouse' | 'Visitor' | 'Student'
+  eligibility: 'Eligible' | 'Not Eligible'
+  receivedAmount: number
+  incentiveAmount: number
+  status: 'Pending' | 'Approved' | 'Rejected'
+}
+
+interface ReportResponse {
+  success: boolean
+  data: ReportRow[]
+  pagination: {
+    page: number
+    pageSize: number
+    totalRecords: number
+    totalPages: number
+  }
+}
+
+function getMonthRange(monthStr: string): { startDate: string; endDate: string } {
+  const [year, month] = monthStr.split('-').map(Number)
+  const start = new Date(year, month - 1, 1)
+  const end = new Date(year, month, 0)
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10),
+  }
+}
+
+function mapReportRow(row: ReportRow): IncentiveRow {
+  return {
+    id: String(row.clientId),
+    clientId: String(row.clientId),
+    clientName: row.clientName,
+    counsellorId: '',
+    counsellorName: row.counsellor,
+    enrollmentDate: row.enrollmentDate,
+    saleType: row.saleType.toLowerCase() as SaleType,
+    eligible: row.eligibility === 'Eligible',
+    amount: row.receivedAmount,
+    incentiveAmount: row.incentiveAmount,
+    status: row.status.toLowerCase() as IncentiveStatus,
+  }
+}
+
+// ─── Rule Types ───────────────────────────────────────────────────────────────
+
+// Used by: Core Spouse, Finance Spouse, Student, UK Student
+export interface SalaryRangeRule {
   id: string
   minCount: number
-  maxCount: number
+  maxCount: number   // -1 = open-ended ("& above")
   incentiveAmount: number
 }
 
-export interface VisitorRule {
+// Used by: Core Visitor, Visitor Product Core
+export interface CategoryRule {
   id: string
-  minAmount: number
-  maxAmount: number
-  incentiveAmount: number
-}
-
-export interface StudentRule {
-  id: string
-  country: string
-  ruleType: string
+  label: string      // e.g. "8K", "REFUSAL", "SPONSOR"
   incentiveAmount: number
 }
 
 export interface IncentiveRulesPayload {
-  spouseRules: SpouseRule[]
-  visitorRules: VisitorRule[]
-  studentRules: StudentRule[]
+  coreSpouseRules: SalaryRangeRule[]
+  financeSpouseRules: SalaryRangeRule[]
+  coreVisitorRules: CategoryRule[]
+  visitorProductRules: CategoryRule[]
+  canadaStudentRules: SalaryRangeRule[]
+  studentRules: SalaryRangeRule[]
+  allFinanceRules: SalaryRangeRule[]
 }
+
+// ─── API Functions ────────────────────────────────────────────────────────────
 
 export async function fetchIncentives(params: IncentivesParams): Promise<IncentivesResponse> {
   const res = await api.get('/api/incentives', { params })
   return res.data
 }
 
+export async function fetchIncentivesReport(params: { month: string }): Promise<IncentiveRow[]> {
+  const { startDate, endDate } = getMonthRange(params.month)
+  const res = await api.get<ReportResponse>('/api/incentives/report', {
+    params: { startDate, endDate, page: 1, pageSize: 100 },
+  })
+  return res.data.data.map(mapReportRow)
+}
+
 export async function approveIncentive(id: string): Promise<void> {
   await api.post(`/api/incentives/${id}/approve`)
 }
 
-export async function rejectIncentive(id: string): Promise<void> {
-  await api.post(`/api/incentives/${id}/reject`)
-}
-
-export async function updateEligibility(id: string, eligible: boolean): Promise<void> {
-  await api.patch(`/api/incentives/${id}/eligibility`, { eligible })
+export async function rejectIncentive(id: string, remarks: string): Promise<void> {
+  await api.post(`/api/incentives/${id}/reject`, { remarks })
 }
 
 export async function fetchIncentiveRules(): Promise<IncentiveRulesPayload> {
-  const res = await api.get('/api/incentives/rules')
-  return res.data
+  const [spouse, visitor, canadaStudent, student, allFinance] = await Promise.all([
+    api.get('/api/incentives/rules/spouse'),
+    api.get('/api/incentives/rules/visitor'),
+    api.get('/api/incentives/rules/canada-student'),
+    api.get('/api/incentives/rules/student'),
+    api.get('/api/incentives/rules/all-finance'),
+  ])
+  return {
+    coreSpouseRules: spouse.data.data?.coreSpouseRules ?? [],
+    financeSpouseRules: spouse.data.data?.financeSpouseRules ?? [],
+    coreVisitorRules: visitor.data.data?.coreVisitorRules ?? [],
+    visitorProductRules: visitor.data.data?.visitorProductRules ?? [],
+    canadaStudentRules: canadaStudent.data.data ?? [],
+    studentRules: student.data.data ?? [],
+    allFinanceRules: allFinance.data.data ?? [],
+  }
 }
 
-export async function saveIncentiveRules(payload: IncentiveRulesPayload): Promise<void> {
-  await api.put('/api/incentives/rules', payload)
+export async function saveSpouseRules(payload: {
+  coreSpouseRules: SalaryRangeRule[]
+  financeSpouseRules: SalaryRangeRule[]
+}): Promise<void> {
+  await api.put('/api/incentives/rules/spouse', payload)
+}
+
+export async function saveVisitorRules(payload: {
+  coreVisitorRules: CategoryRule[]
+  visitorProductRules: CategoryRule[]
+}): Promise<void> {
+  await api.put('/api/incentives/rules/visitor', payload)
+}
+
+export async function saveCanadaStudentRules(payload: {
+  canadaStudentRules: SalaryRangeRule[]
+}): Promise<void> {
+  await api.put('/api/incentives/rules/canada-student', payload)
+}
+
+export async function saveStudentRules(payload: {
+  studentRules: SalaryRangeRule[]
+}): Promise<void> {
+  await api.put('/api/incentives/rules/student', payload)
+}
+
+export async function saveAllFinanceRules(payload: {
+  allFinanceRules: SalaryRangeRule[]
+}): Promise<void> {
+  await api.put('/api/incentives/rules/all-finance', payload)
 }
