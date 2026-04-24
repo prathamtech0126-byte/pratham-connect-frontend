@@ -20,17 +20,6 @@ export interface IncentiveRow {
   status: IncentiveStatus
 }
 
-export interface IncentivesParams {
-  saleType: 'all' | SaleType
-  counsellorId: string | null
-  month: string
-}
-
-export interface IncentivesResponse {
-  items: IncentiveRow[]
-  totalApprovedAmount: number
-}
-
 export interface ReportRow {
   clientId: number
   clientName: string
@@ -54,13 +43,14 @@ interface ReportResponse {
   }
 }
 
+function pad(n: number) { return String(n).padStart(2, '0') }
+
 function getMonthRange(monthStr: string): { startDate: string; endDate: string } {
   const [year, month] = monthStr.split('-').map(Number)
-  const start = new Date(year, month - 1, 1)
-  const end = new Date(year, month, 0)
+  const lastDay = new Date(year, month, 0).getDate()
   return {
-    startDate: start.toISOString().slice(0, 10),
-    endDate: end.toISOString().slice(0, 10),
+    startDate: `${year}-${pad(month)}-01`,
+    endDate: `${year}-${pad(month)}-${pad(lastDay)}`,
   }
 }
 
@@ -121,11 +111,6 @@ export interface IncentiveRulesPayload {
 }
 
 // ─── API Functions ────────────────────────────────────────────────────────────
-
-export async function fetchIncentives(params: IncentivesParams): Promise<IncentivesResponse> {
-  const res = await api.get('/api/incentives', { params })
-  return res.data
-}
 
 export async function fetchIncentivesReport(params: { month: string }): Promise<IncentiveRow[]> {
   const { startDate, endDate } = getMonthRange(params.month)
