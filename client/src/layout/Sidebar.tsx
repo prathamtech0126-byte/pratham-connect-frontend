@@ -35,6 +35,7 @@ import {
   Info,
   GraduationCap,
   CheckSquare,
+  BadgeDollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -86,6 +87,12 @@ const sidebarItems: SidebarItem[] = [
     href: "/messages",
   },
   { icon: PieChart, label: "Reports", href: "/reports" },
+  {
+    icon: BadgeDollarSign,
+    label: "Incentives",
+    href: "/incentives",
+    roles: ["superadmin", "developer", "manager"],
+  },
   {
     icon: Users,
     label: "Team",

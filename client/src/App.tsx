@@ -15,6 +15,7 @@ import {
   BINDING_ALLOWED_ROLES,
   CLIENT_FOLDER_ALLOWED_ROLES,
   CX_ALLOWED_ROLES,
+  INCENTIVE_ROLES,
 } from "@/constants/roles";
 import { SocketProvider } from "@/context/socket-context";
 import { AlertProvider } from "@/context/alert-context";
@@ -47,6 +48,8 @@ const ManagerLeaderboard = lazy(() => import("@/pages/ManagerLeaderboard/Manager
 const Reports = lazy(() => import("@/pages/Reports"));
 const CounsellorReportPage = lazy(() => import("@/pages/Reports/CounsellorReportPage"));
 const PaymentsPage = lazy(() => import("@/pages/Reports/PaymentsPage"));
+const IncentivesPage = lazy(() => import("@/pages/IncentivesPage"))
+const IncentiveRulesPage = lazy(() => import("@/pages/IncentiveRulesPage"))
 // const ChecklistPage = lazy(() => import("@/pages/ChecklistPage"));
 // const AddChecklistPage = lazy(() => import("@/pages/AddChecklistPage"));
 // const LeadList = lazy(() => import("@/pages/Leads/LeadList"));
@@ -191,7 +194,13 @@ function Router() {
 
       <Route path="/reports/payments">
           {params => <ProtectedRoute component={PaymentsPage} />}
-        </Route>  
+        </Route>
+        <Route path="/incentives">
+          {() => <ProtectedRoute component={IncentivesPage} allowedRoles={INCENTIVE_ROLES} />}
+        </Route>
+        <Route path="/incentives/rules">
+          {() => <ProtectedRoute component={IncentiveRulesPage} allowedRoles={INCENTIVE_ROLES} />}
+        </Route>
         <Route path="/reports">
           {params => <ProtectedRoute component={Reports} />}
         </Route>

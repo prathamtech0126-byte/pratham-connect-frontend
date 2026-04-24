@@ -70,6 +70,8 @@ temp/
 
 # Ignore all Markdown files
 *.md
+!docs/superpowers/specs/*.md
+!docs/superpowers/plans/*.md
 
 # Ignore all ZIP files
 *.zip
