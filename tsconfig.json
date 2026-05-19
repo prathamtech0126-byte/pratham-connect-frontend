@@ -1,0 +1,22 @@
+{
+  "include": ["client/src/**/*", "vite.config.ts", "vite-env.d.ts"],
+  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
+    "noEmit": true,
+    "module": "ESNext",
+    "strict": true,
+    "lib": ["esnext", "dom", "dom.iterable"],
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "moduleResolution": "bundler",
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@/*": ["./client/src/*"]
+    }
+  }
+}
