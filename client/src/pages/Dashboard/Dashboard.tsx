@@ -53,7 +53,7 @@ const counselorTargets = [
   { name: "Mike Brown", achieved: 3, target: 10, avatar: "M" },
 ];
 
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { RevenueChart } from "@/components/charts/RevenueChart";
 import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
 import { ITSupportKanbanDashboard } from "@/pages/tech-support/ITSupportKanbanDashboard";
@@ -403,6 +403,69 @@ export default function Dashboard() {
     enabled: !!user && !apiLeaderboard && user?.role !== 'tech_support',
   });
 
+  const isManagerRoleUser = user?.role === "manager";
+  // Supervisor managers can see all counsellors and all managers (same as admin view)
+  const isSupervisorManager = isManagerRoleUser && !!user?.isSupervisor;
+  const showManagerTargets = canViewFinancials;
+
+  // Derive start/end dates for manager-targets query from the dashboard date filter
+  const managerTargetsDateRange = useMemo(() => {
+    const now = new Date();
+    if (timeFilter === 'today') {
+      const d = toYYYYMMDD(now);
+      return { start: d, end: d };
+    }
+    if (timeFilter === 'weekly') {
+      const day = now.getDay();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+      return { start: toYYYYMMDD(startOfWeek), end: toYYYYMMDD(now) };
+    }
+    if (timeFilter === 'monthly') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return { start: toYYYYMMDD(start), end: toYYYYMMDD(end) };
+    }
+    if (timeFilter === 'yearly') {
+      return { start: `${now.getFullYear()}-01-01`, end: `${now.getFullYear()}-12-31` };
+    }
+    if (timeFilter === 'custom' && customDateRange[0] && customDateRange[1]) {
+      return { start: toYYYYMMDD(customDateRange[0]), end: toYYYYMMDD(customDateRange[1]) };
+    }
+    return { start: undefined, end: undefined };
+  }, [timeFilter, customDateRange]);
+
+  const { data: managerTargetsQueryData, isLoading: isLoadingManagerTargets } = useQuery({
+    queryKey: [
+      "manager-targets-dashboard",
+      // Supervisor managers fetch all targets (no ID filter), regular managers filter by own ID
+      isSupervisorManager ? "all" : (isManagerRoleUser ? userNum : "all"),
+      managerTargetsDateRange.start ?? null,
+      managerTargetsDateRange.end ?? null,
+    ],
+    queryFn: () => {
+      const { start, end } = managerTargetsDateRange;
+      // Regular (non-supervisor) manager: filter by their own manager ID
+      if (isManagerRoleUser && !isSupervisorManager && !Number.isNaN(userNum) && userNum > 0) {
+        return clientService.getManagerTargets(start, end, userNum);
+      }
+      // Admin, developer, director, or supervisor manager: fetch all targets
+      return clientService.getManagerTargets(start, end);
+    },
+    staleTime: 1000 * 60 * 2,
+    enabled: !!user && showManagerTargets && (timeFilter !== 'custom' || (!!customDateRange[0] && !!customDateRange[1])),
+  });
+
+  // Need manager names for: admin/director/developer roles AND supervisor managers
+  const { data: managersListData } = useQuery({
+    queryKey: ["managers"],
+    queryFn: () => clientService.getManagers(),
+    staleTime: 1000 * 60 * 5,
+    enabled: !!user && showManagerTargets && (!isManagerRoleUser || isSupervisorManager),
+  });
+
+  const managerTargetsList: any[] = managerTargetsQueryData?.data ?? [];
+
   // API returns { data: array, summary }; stats may return array or single object
   const leaderboardArray = leaderboardResponse && typeof leaderboardResponse === 'object' && Array.isArray(leaderboardResponse.data)
     ? leaderboardResponse.data
@@ -636,6 +699,7 @@ export default function Dashboard() {
 
   // Other Product breakdown expand/collapse (admin/manager)
   const [showAllOtherProductBreakdown, setShowAllOtherProductBreakdown] = useState(false);
+  const [expandedManagerIds, setExpandedManagerIds] = useState<Set<number>>(new Set());
 
   // Transform teamPerformance data for counsellor chart
   const teamPerformanceData = useMemo(() => {
@@ -1932,7 +1996,7 @@ export default function Dashboard() {
             <CardDescription>Top performing {canViewFinancials ? "team members" : "counselors"} this month</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            {isLoadingLeaderboard ? (
+            {(isLoadingLeaderboard || isLoadingManagerTargets) ? (
               <div className="space-y-4 p-6">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <div key={i} className="flex items-center p-3 rounded-lg">
@@ -1945,22 +2009,185 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-            ) : leaderboardForDisplay.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No leaderboard data available
-              </div>
             ) : (
               <>
-              <div className="max-h-[500px] overflow-y-auto p-6">
-                <div className="space-y-4">
-                  {leaderboardForDisplay.map((counselor: any, index: number) => {
-                    // Highlight if the logged-in user is this counsellor (regardless of role)
+              <div className="max-h-[500px] overflow-y-auto p-4 space-y-1">
+                {/* ── Manager rows first ── */}
+                {showManagerTargets && managerTargetsList.map((row: any) => {
+                  const apiAchieved = row.achieved;
+                  // Supervisor managers oversee all counsellors; their target is company-wide.
+                  // The manager-targets API only aggregates direct-report counsellors, so use
+                  // dashboard stats (which already scopes to the supervisor's full team) instead.
+                  const a = (isSupervisorManager && managerTargetsList.length === 1)
+                    ? {
+                        coreSale: {
+                          clients: Number((stats as any)?.coreSale?.number ?? apiAchieved?.coreSale?.clients ?? 0),
+                          revenue: parseFloat(String((stats as any)?.coreSale?.amount ?? "0")) || (apiAchieved?.coreSale?.revenue ?? 0),
+                        },
+                        coreProduct: {
+                          clients: Number((stats as any)?.coreProduct?.number ?? apiAchieved?.coreProduct?.clients ?? 0),
+                          revenue: parseFloat(String((stats as any)?.coreProduct?.amount ?? "0")) || (apiAchieved?.coreProduct?.revenue ?? 0),
+                        },
+                        otherProduct: {
+                          clients: Number((stats as any)?.otherProduct?.number ?? apiAchieved?.otherProduct?.clients ?? 0),
+                          revenue: parseFloat(String((stats as any)?.otherProduct?.amount ?? "0")) || (apiAchieved?.otherProduct?.revenue ?? 0),
+                        },
+                      }
+                    : apiAchieved;
+                  const totalRevenue =
+                    (a?.coreSale?.revenue ?? 0) +
+                    (a?.coreProduct?.revenue ?? 0) +
+                    (a?.otherProduct?.revenue ?? 0);
+                  const totalClients =
+                    (a?.coreSale?.clients ?? 0) +
+                    (a?.coreProduct?.clients ?? 0) +
+                    (a?.otherProduct?.clients ?? 0);
+                  const totalTargetClients =
+                    (row.core_sale_target_clients ?? 0) +
+                    (row.core_product_target_clients ?? 0) +
+                    (row.other_product_target_clients ?? 0);
+                  const overallProgress =
+                    totalTargetClients > 0 ? (totalClients / totalTargetClients) * 100 : 0;
+                  const rowId: number = row.id ?? row.manager_id;
+                  const isExpanded = expandedManagerIds.has(rowId);
+                  const managerIds = row.manager_ids?.length ? row.manager_ids : [row.manager_id];
+                  const managerName = isManagerRoleUser
+                    ? (userProfile?.fullname || user?.name || `Manager #${row.manager_id}`)
+                    : managerIds
+                        .map(
+                          (mid: number) =>
+                            managersListData?.find((m: any) => (m.id ?? m.userId) === mid)?.name ||
+                            managersListData?.find((m: any) => (m.id ?? m.userId) === mid)?.fullName ||
+                            `Manager #${mid}`
+                        )
+                        .join(", ");
+                  const fmtRev = (v: string | number) => {
+                    const n = typeof v === "string" ? parseFloat(v) || 0 : v;
+                    return `₹${n.toLocaleString("en-IN")}`;
+                  };
+                  return (
+                    <div key={rowId} className="rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left"
+                        onClick={() =>
+                          setExpandedManagerIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(rowId)) next.delete(rowId);
+                            else next.add(rowId);
+                            return next;
+                          })
+                        }
+                      >
+                        <div className="relative flex-shrink-0">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm border-2 border-background shadow-sm">
+                            {managerName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center bg-primary/20 border-2 border-background shadow-sm">
+                            <Target className="w-2.5 h-2.5 text-primary" />
+                          </div>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold truncate text-foreground">{managerName}</p>
+                            <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+                              Target:{" "}
+                              <span className="font-medium text-foreground">
+                                {totalClients} / {totalTargetClients}
+                              </span>
+                            </span>
+                          </div>
+                          <div className="mt-1.5 flex items-center gap-2 min-w-0">
+                            <Progress value={Math.min(100, overallProgress)} className="h-2 flex-1 min-w-0" indicatorClassName="bg-primary" />
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className={`text-xs font-semibold tabular-nums w-10 text-right ${overallProgress >= 100 ? "text-green-600" : "text-muted-foreground"}`}>
+                                {overallProgress.toFixed(1)}%
+                              </span>
+                              {isExpanded
+                                ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                                : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                              }
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div className="mx-3 mb-2 px-3 pb-3 pt-3 space-y-3 rounded-lg bg-muted/30 border border-border/40">
+                          <div className="flex items-stretch rounded-lg overflow-hidden bg-background/70 divide-x divide-border/50">
+                            {[
+                              { label: "Core sale", v: a?.coreSale?.clients ?? 0, t: row.core_sale_target_clients ?? 0 },
+                              { label: "Core product", v: a?.coreProduct?.clients ?? 0, t: row.core_product_target_clients ?? 0 },
+                              { label: "Other product", v: a?.otherProduct?.clients ?? 0, t: row.other_product_target_clients ?? 0 },
+                            ].map(({ label, v, t }) => (
+                              <div key={label} className="flex flex-col items-center justify-center flex-1 py-2 px-1">
+                                <span className="text-sm font-bold tabular-nums">
+                                  {v}<span className="text-muted-foreground font-normal text-xs">/{t}</span>
+                                </span>
+                                <span className="text-[10px] text-muted-foreground mt-0.5">{label}</span>
+                              </div>
+                            ))}
+                          </div>
+                          {[
+                            { label: "Core sale revenue", target: row.core_sale_target_revenue, achieved: a?.coreSale?.revenue ?? 0, color: "bg-blue-500", textColor: "text-blue-600" },
+                            { label: "Core product revenue", target: row.core_product_target_revenue, achieved: a?.coreProduct?.revenue ?? 0, color: "bg-emerald-500", textColor: "text-emerald-600" },
+                            { label: "Other product revenue", target: row.other_product_target_revenue, achieved: a?.otherProduct?.revenue ?? 0, color: "bg-amber-500", textColor: "text-amber-600" },
+                            { label: "Overall revenue", target: row.overall, achieved: totalRevenue, color: "bg-indigo-500", textColor: "text-indigo-600" },
+                          ].map(({ label, target, achieved, color, textColor }) => {
+                            const targetRev = parseFloat(String(target ?? "0")) || 0;
+                            const pct = targetRev > 0 ? (achieved / targetRev) * 100 : 0;
+                            const remaining = Math.max(0, targetRev - achieved);
+                            return (
+                              <div key={label} className="space-y-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-muted-foreground">{label}</span>
+                                  <span className={`text-xs font-semibold tabular-nums ${textColor}`}>{Math.round(pct)}%</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                                  <span>Achieved: <span className="font-medium text-foreground">{fmtRev(achieved)}</span></span>
+                                  <span>Remaining: <span className="font-medium text-foreground">{fmtRev(remaining)}</span></span>
+                                </div>
+                                <Progress value={Math.min(100, pct)} className="h-1.5" indicatorClassName={color} />
+                                <div className="text-xs text-muted-foreground">Target: {fmtRev(targetRev)}</div>
+                              </div>
+                            );
+                          })}
+                          <div className="space-y-1 pt-1 border-t border-border/40">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs text-muted-foreground">Overall progress (clients)</span>
+                              <span className="text-xs font-semibold text-primary tabular-nums">{Math.round(overallProgress)}%</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                              <span>Achieved: <span className="font-medium text-foreground">{totalClients}</span> clients</span>
+                              <span>Remaining: <span className="font-medium text-foreground">{Math.max(0, totalTargetClients - totalClients)}</span> clients</span>
+                            </div>
+                            <Progress value={Math.min(100, overallProgress)} className="h-1.5" indicatorClassName="bg-violet-500" />
+                            <div className="text-xs text-muted-foreground tabular-nums">Target: {totalTargetClients} clients</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* ── Thin divider between managers and counsellors ── */}
+                {showManagerTargets && managerTargetsList.length > 0 && leaderboardForDisplay.length > 0 && (
+                  <div className="flex items-center gap-2 py-2">
+                    <div className="flex-1 h-px bg-border/50" />
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Counsellors</span>
+                    <div className="flex-1 h-px bg-border/50" />
+                  </div>
+                )}
+
+                {/* ── Counsellor rows ── */}
+                {leaderboardForDisplay.length === 0 && !(showManagerTargets && managerTargetsList.length > 0) ? (
+                  <div className="text-center py-8 text-muted-foreground">No leaderboard data available</div>
+                ) : (
+                  leaderboardForDisplay.map((counselor: any, index: number) => {
                     const isHighlighted = counselor.isCurrentUser;
                     const counsellorId = (counselor as any).counsellorId;
                     const targetValue = Number(counselor.target) || 0;
                     const achievedValue = Number(counselor.achieved) || 0;
                     const rowProgress = targetValue > 0 ? Math.min((achievedValue / targetValue) * 100, 100) : 0;
-                    // Only admin/manager can open individual counsellor report; counsellor dashboard is display-only
                     const canOpenReport = canViewFinancials && counsellorId != null;
                     const reportHref = canOpenReport ? `/reports/counsellor/${counsellorId}` : null;
 
@@ -1971,12 +2198,10 @@ export default function Dashboard() {
                             {counselor.avatar}
                           </div>
                           <div
-                            className={`
-                              absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-background shadow-sm
+                            className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-background shadow-sm
                               ${index === 0 ? "bg-yellow-400 text-yellow-900" :
                                 index === 1 ? "bg-slate-300 text-slate-900" :
-                                  index === 2 ? "bg-orange-300 text-orange-900" : "bg-muted text-muted-foreground"}
-                            `}
+                                  index === 2 ? "bg-orange-300 text-orange-900" : "bg-muted text-muted-foreground"}`}
                           >
                             {index === 0 ? <Medal className="w-3 h-3" /> : index + 1}
                           </div>
@@ -1995,9 +2220,7 @@ export default function Dashboard() {
                           </div>
                           <div className="mt-1.5 flex items-center gap-2 min-w-0">
                             <Progress value={rowProgress} className="h-2 flex-1 min-w-0" />
-                            <span
-                              className={`text-xs font-semibold tabular-nums shrink-0 w-11 text-right ${rowProgress >= 100 ? "text-green-600" : "text-muted-foreground"}`}
-                            >
+                            <span className={`text-xs font-semibold tabular-nums shrink-0 w-11 text-right ${rowProgress >= 100 ? "text-green-600" : "text-muted-foreground"}`}>
                               {rowProgress.toFixed(1)}%
                             </span>
                           </div>
@@ -2030,11 +2253,11 @@ export default function Dashboard() {
                         {rowContent}
                       </div>
                     );
-                  })}
-                </div>
+                  })
+                )}
               </div>
-              {/* Total target = total achieved (all counsellors) — visible to admin, manager, counsellor */}
-              {(() => {
+              {/* Total counsellor target footer */}
+              {leaderboardForDisplay.length > 0 && (() => {
                 const totalTarget = leaderboardForDisplay.reduce((s: number, c: any) => s + (Number(c.target) || 0), 0);
                 const totalAchieved = leaderboardForDisplay.reduce((s: number, c: any) => s + (Number(c.achieved) || 0), 0);
                 return (
@@ -2056,7 +2279,237 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Manager Targets Section — now integrated into leaderboard card above */}
+      {showManagerTargets && false && (
+        <Card className="border-none shadow-card bg-card rounded-xl overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div>
+              <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+                <Target className="w-5 h-5 text-primary" />
+                {isManagerRoleUser ? "Your Targets" : "Manager Targets"}
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {isManagerRoleUser
+                  ? "Your performance against set targets"
+                  : "Manager performance against set targets"}
+              </CardDescription>
+            </div>
+            {!isManagerRoleUser && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation("/manager-leaderboard")}
+                className="gap-2 shrink-0"
+              >
+                <Trophy className="w-4 h-4" />
+                View Full Leaderboard
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            {isLoadingManagerTargets ? (
+              <div className="space-y-4">
+                {[1, 2].map((i) => (
+                  <div key={i} className="p-4 rounded-lg border bg-muted/30 animate-pulse space-y-3">
+                    <div className="h-5 w-48 bg-muted rounded" />
+                    <div className="h-2 bg-muted rounded" />
+                    <div className="h-2 bg-muted rounded" />
+                    <div className="h-2 bg-muted rounded" />
+                  </div>
+                ))}
+              </div>
+            ) : managerTargetsList.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No manager targets set
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {managerTargetsList.map((row: any) => {
+                  const a = row.achieved;
+                  const totalRevenue =
+                    (a?.coreSale?.revenue ?? 0) +
+                    (a?.coreProduct?.revenue ?? 0) +
+                    (a?.otherProduct?.revenue ?? 0);
+                  const totalClients =
+                    (a?.coreSale?.clients ?? 0) +
+                    (a?.coreProduct?.clients ?? 0) +
+                    (a?.otherProduct?.clients ?? 0);
+                  const totalTargetClients =
+                    (row.core_sale_target_clients ?? 0) +
+                    (row.core_product_target_clients ?? 0) +
+                    (row.other_product_target_clients ?? 0);
+                  const overallProgress =
+                    totalTargetClients > 0 ? (totalClients / totalTargetClients) * 100 : 0;
+                  const fmtRev = (v: string | number) => {
+                    const n = typeof v === "string" ? parseFloat(v) || 0 : v;
+                    return `₹${n.toLocaleString("en-IN")}`;
+                  };
 
+                  const managerIds = row.manager_ids?.length ? row.manager_ids : [row.manager_id];
+                  const managerName = isManagerRoleUser
+                    ? (userProfile?.fullname || user?.name || `Manager #${row.manager_id}`)
+                    : managerIds
+                        .map(
+                          (mid: number) =>
+                            managersListData?.find((m: any) => (m.id ?? m.userId) === mid)?.name ||
+                            managersListData?.find((m: any) => (m.id ?? m.userId) === mid)?.fullName ||
+                            `Manager #${mid}`
+                        )
+                        .join(", ");
+
+                  let dateLabel = "";
+                  if (row.start_date && row.end_date) {
+                    try {
+                      dateLabel = `${format(parseISO(row.start_date), "d MMM yyyy")} – ${format(parseISO(row.end_date), "d MMM yyyy")}`;
+                    } catch {
+                      dateLabel = `${row.start_date} – ${row.end_date}`;
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={row.id ?? `${row.manager_id}-${row.start_date}`}
+                      className="flex flex-col gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground font-semibold text-sm border border-border shrink-0">
+                            {managerName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold truncate">{managerName}</div>
+                            {dateLabel && (
+                              <div className="text-xs text-muted-foreground">{dateLabel}</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 w-full sm:w-auto sm:flex-1 text-center">
+                          <div className="flex flex-col justify-center p-2 rounded-lg bg-muted/30">
+                            <div className="text-base font-bold tabular-nums">
+                              {a?.coreSale?.clients ?? 0}
+                              <span className="text-muted-foreground font-normal text-xs">/{row.core_sale_target_clients ?? 0}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground">Core sale</div>
+                          </div>
+                          <div className="flex flex-col justify-center p-2 rounded-lg bg-muted/30">
+                            <div className="text-base font-bold tabular-nums">
+                              {a?.coreProduct?.clients ?? 0}
+                              <span className="text-muted-foreground font-normal text-xs">/{row.core_product_target_clients ?? 0}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground">Core product</div>
+                          </div>
+                          <div className="flex flex-col justify-center p-2 rounded-lg bg-muted/30">
+                            <div className="text-base font-bold tabular-nums">
+                              {a?.otherProduct?.clients ?? 0}
+                              <span className="text-muted-foreground font-normal text-xs">/{row.other_product_target_clients ?? 0}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground">Other product</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 border-t pt-3">
+                        {(() => {
+                          const targetRev = parseFloat(String(row.core_sale_target_revenue ?? "0")) || 0;
+                          const achievedRev = a?.coreSale?.revenue ?? 0;
+                          const pct = targetRev > 0 ? (achievedRev / targetRev) * 100 : 0;
+                          const remaining = Math.max(0, targetRev - achievedRev);
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-muted-foreground">Core sale revenue</span>
+                                <span className="text-xs font-semibold text-blue-600 tabular-nums">{Math.round(pct)}%</span>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                                <span>Achieved: <span className="font-medium text-foreground">{fmtRev(achievedRev)}</span></span>
+                                <span>Remaining: <span className="font-medium text-foreground">{fmtRev(remaining)}</span></span>
+                              </div>
+                              <Progress value={Math.min(100, pct)} className="h-2" indicatorClassName="bg-blue-500" />
+                              <div className="text-xs text-muted-foreground">Target: {fmtRev(targetRev)}</div>
+                            </div>
+                          );
+                        })()}
+                        {(() => {
+                          const targetRev = parseFloat(String(row.core_product_target_revenue ?? "0")) || 0;
+                          const achievedRev = a?.coreProduct?.revenue ?? 0;
+                          const pct = targetRev > 0 ? (achievedRev / targetRev) * 100 : 0;
+                          const remaining = Math.max(0, targetRev - achievedRev);
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-muted-foreground">Core product revenue</span>
+                                <span className="text-xs font-semibold text-emerald-600 tabular-nums">{Math.round(pct)}%</span>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                                <span>Achieved: <span className="font-medium text-foreground">{fmtRev(achievedRev)}</span></span>
+                                <span>Remaining: <span className="font-medium text-foreground">{fmtRev(remaining)}</span></span>
+                              </div>
+                              <Progress value={Math.min(100, pct)} className="h-2" indicatorClassName="bg-emerald-500" />
+                              <div className="text-xs text-muted-foreground">Target: {fmtRev(targetRev)}</div>
+                            </div>
+                          );
+                        })()}
+                        {(() => {
+                          const targetRev = parseFloat(String(row.other_product_target_revenue ?? "0")) || 0;
+                          const achievedRev = a?.otherProduct?.revenue ?? 0;
+                          const pct = targetRev > 0 ? (achievedRev / targetRev) * 100 : 0;
+                          const remaining = Math.max(0, targetRev - achievedRev);
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-muted-foreground">Other product revenue</span>
+                                <span className="text-xs font-semibold text-amber-600 tabular-nums">{Math.round(pct)}%</span>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                                <span>Achieved: <span className="font-medium text-foreground">{fmtRev(achievedRev)}</span></span>
+                                <span>Remaining: <span className="font-medium text-foreground">{fmtRev(remaining)}</span></span>
+                              </div>
+                              <Progress value={Math.min(100, pct)} className="h-2" indicatorClassName="bg-amber-500" />
+                              <div className="text-xs text-muted-foreground">Target: {fmtRev(targetRev)}</div>
+                            </div>
+                          );
+                        })()}
+                        {(() => {
+                          const targetRev = parseFloat(String(row.overall ?? "0")) || 0;
+                          const achievedRev = totalRevenue;
+                          const pct = targetRev > 0 ? (achievedRev / targetRev) * 100 : 0;
+                          const remaining = Math.max(0, targetRev - achievedRev);
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-muted-foreground">Overall revenue</span>
+                                <span className="text-xs font-semibold text-indigo-600 tabular-nums">{Math.round(pct)}%</span>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                                <span>Achieved: <span className="font-medium text-foreground">{fmtRev(achievedRev)}</span></span>
+                                <span>Remaining: <span className="font-medium text-foreground">{fmtRev(remaining)}</span></span>
+                              </div>
+                              <Progress value={Math.min(100, pct)} className="h-2" indicatorClassName="bg-indigo-500" />
+                              <div className="text-xs text-muted-foreground">Target: {fmtRev(targetRev)}</div>
+                            </div>
+                          );
+                        })()}
+                        <div className="space-y-1 border-t pt-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-muted-foreground">Overall progress (clients)</span>
+                            <span className="text-xs font-semibold text-primary tabular-nums">{Math.round(overallProgress)}%</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                            <span>Achieved: <span className="font-medium text-foreground">{totalClients}</span> clients</span>
+                            <span>Remaining: <span className="font-medium text-foreground">{Math.max(0, totalTargetClients - totalClients)}</span> clients</span>
+                          </div>
+                          <Progress value={Math.min(100, overallProgress)} className="h-2" indicatorClassName="bg-violet-500" />
+                          <div className="text-xs text-muted-foreground tabular-nums">Target: {totalTargetClients} clients</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Bottom Section */}
       {/* <div className="grid grid-cols-1">

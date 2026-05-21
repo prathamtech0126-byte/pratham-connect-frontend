@@ -113,13 +113,13 @@ export function DashboardDateFilter({
   };
 
   const handlePickerApply = (filter: string, startDate?: string, endDate?: string) => {
-    if (filter !== "custom") {
-      // presets like today/monthly/maximum — map to closest tab or treat as custom with no range
-      if (onTabChange) onTabChange("Custom");
-      if (onDateChange) onDateChange([null, null]);
-    } else if (startDate && endDate) {
+    if (filter === "custom" && startDate && endDate) {
       if (onTabChange) onTabChange("Custom");
       if (onDateChange) onDateChange([parseISO(startDate), parseISO(endDate)]);
+    } else if (filter !== "custom") {
+      // non-custom presets (today, monthly, maximum, etc.) — pass the filter value directly
+      if (onTabChange) onTabChange(filter);
+      if (onDateChange) onDateChange([null, null]);
     }
     _setIsOpen(false);
   };

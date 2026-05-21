@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
-import { Breadcrumbs } from "./Breadcrumbs";
+import { Breadcrumbs, type BreadcrumbItem } from "./Breadcrumbs";
 
 interface PageWrapperProps {
   title: string | React.ReactNode;
-  breadcrumbs?: { label: string; href?: string }[];
+  breadcrumbs?: BreadcrumbItem[];
   actions?: React.ReactNode;
   children: React.ReactNode;
   className?: string;

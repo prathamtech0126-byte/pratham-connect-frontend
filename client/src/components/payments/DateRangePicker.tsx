@@ -23,6 +23,7 @@ import type { PaymentsFilter } from "@/api/payments.api";
 export interface DateRangePickerProps {
   onApply: (filter: PaymentsFilter, startDate?: string, endDate?: string) => void;
   onCancel: () => void;
+  className?: string;
 }
 
 function toYMD(d: Date): string {
@@ -131,7 +132,7 @@ function MonthCalendar({ month, tempStart, tempEnd, hoverDate, onDayClick, onDay
 
 // ─── DateRangePicker ───────────────────────────────────────────────────────────
 
-export default function DateRangePicker({ onApply, onCancel }: DateRangePickerProps) {
+export default function DateRangePicker({ onApply, onCancel, className }: DateRangePickerProps) {
   const [leftMonth, setLeftMonth] = useState(() => startOfMonth(new Date()));
   const rightMonth = addMonths(leftMonth, 1);
 
@@ -223,10 +224,15 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
   const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
 
   return (
-    <div className="z-50 flex w-[min(96vw,760px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+    <div className={cn(
+      "z-50 flex w-[min(calc(100vw-1rem),480px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl",
+      "sm:w-[min(calc(100vw-1rem),520px)]",
+      "lg:w-[min(calc(100vw-5rem),760px)]",
+      className,
+    )}>
 
-      {/* ── Sidebar: preset list with radio buttons ── */}
-      <div className="flex w-44 shrink-0 flex-col overflow-y-auto border-r border-slate-200 py-3">
+      {/* ── Sidebar: preset list with radio buttons — hidden on small screens ── */}
+      <div className="hidden sm:flex w-40 lg:w-44 shrink-0 flex-col overflow-y-auto border-r border-slate-200 py-3">
         <div className="mb-1 px-4 text-[10px] font-bold uppercase tracking-wide text-slate-400">
           Presets
         </div>
@@ -294,7 +300,7 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
             </div>
 
             {/* Right month/year selects */}
-            <div className="hidden items-center gap-1 md:flex">
+            <div className="hidden items-center gap-1 lg:flex">
               <select
                 value={rightMonth.getMonth()}
                 onChange={(e) => handleMonthSelect("right", Number(e.target.value))}
@@ -326,8 +332,8 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
         </div>
 
         {/* Calendars */}
-        <div className="flex flex-col gap-4 px-4 pb-2 md:flex-row md:gap-0">
-          <div className="flex-1 pr-5">
+        <div className="flex flex-col gap-4 px-4 pb-2 lg:flex-row lg:gap-0">
+          <div className="flex-1 lg:pr-5">
             <MonthCalendar
               month={leftMonth}
               tempStart={tempStart}
@@ -338,8 +344,8 @@ export default function DateRangePicker({ onApply, onCancel }: DateRangePickerPr
             />
           </div>
           {/* Vertical divider */}
-          <div className="hidden w-px self-stretch bg-slate-200 md:block" />
-          <div className="hidden flex-1 pl-5 md:block">
+          <div className="hidden w-px self-stretch bg-slate-200 lg:block" />
+          <div className="hidden flex-1 pl-5 lg:block">
             <MonthCalendar
               month={rightMonth}
               tempStart={tempStart}

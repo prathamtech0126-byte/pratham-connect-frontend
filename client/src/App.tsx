@@ -15,6 +15,7 @@ import {
   BINDING_ALLOWED_ROLES,
   CLIENT_FOLDER_ALLOWED_ROLES,
   CX_ALLOWED_ROLES,
+  INCENTIVE_ROLES,
 } from "@/constants/roles";
 import { SocketProvider } from "@/context/socket-context";
 import { AlertProvider } from "@/context/alert-context";
@@ -54,6 +55,9 @@ const AddChecklistPage = lazy(() => import("@/pages/AddChecklistPage"));
 const TechSupportPage = lazy(() => import("@/pages/tech-support/TechSupportPage"));
 const DeviceInfoPage = lazy(() => import("@/pages/tech-support/DeviceInfo"));
 const PaymentsPage = lazy(() => import("@/pages/Reports/PaymentsPage"));
+const IncentivesPage = lazy(() => import("@/pages/IncentivesPage"))
+const IncentivesApprovedPage = lazy(() => import("@/pages/IncentivesApprovedPage"))
+const IncentiveRulesPage = lazy(() => import("@/pages/IncentiveRulesPage"))
 
 const LeadList = lazy(() => import("@/pages/Leads/LeadList"));
 const CounsellorLeadsPage = lazy(() => import("@/pages/Leads/CounsellorLeadsPage"));
@@ -75,6 +79,16 @@ const FrontDeskPortal = lazy(() => import("@/pages/FrontDesk/FrontDeskPortal"));
 const FrontDeskActivity = lazy(() => import("@/pages/FrontDesk/FrontDeskActivity"));
 const MarketingHeadDashboard = lazy(() => import("@/pages/Dashboard/MarketingHeadDashboard"));
 const MaintenanceSettingsPage = lazy(() => import("@/pages/MaintenanceSettingsPage"));
+
+// const ChecklistPage = lazy(() => import("@/pages/ChecklistPage"));
+// const AddChecklistPage = lazy(() => import("@/pages/AddChecklistPage"));
+// const LeadList = lazy(() => import("@/pages/Leads/LeadList"));
+// const LeadDetail = lazy(() => import("@/pages/Leads/LeadDetail"));
+// const LeadKanban = lazy(() => import("@/pages/Leads/LeadKanban"));
+// const LeadAutomation = lazy(() => import("@/pages/Leads/LeadAutomation"));
+// const LeadAutomationConfigure = lazy(() => import("@/pages/Leads/LeadAutomationConfigure"));
+// const LeadImport = lazy(() => import("@/pages/Leads/LeadImport"));
+// const LeadReports = lazy(() => import("@/pages/Leads/LeadReports"));
 
 // // CX module pages
 // const CxDashboardPage = lazy(() => import("@/modules/cx/pages/DashboardPage"));
@@ -276,7 +290,16 @@ function Router() {
 
       <Route path="/reports/payments">
           {params => <ProtectedRoute component={PaymentsPage} />}
-        </Route>  
+        </Route>
+        <Route path="/incentives">
+          {() => <ProtectedRoute component={IncentivesPage} allowedRoles={INCENTIVE_ROLES} />}
+        </Route>
+        <Route path="/incentives/approved">
+          {() => <ProtectedRoute component={IncentivesApprovedPage} allowedRoles={INCENTIVE_ROLES} />}
+        </Route>
+        <Route path="/incentives/rules">
+          {() => <ProtectedRoute component={IncentiveRulesPage} allowedRoles={INCENTIVE_ROLES} />}
+        </Route>
         <Route path="/reports">
           {params => <ProtectedRoute component={Reports} />}
         </Route>
@@ -460,13 +483,13 @@ function Router() {
           )}
         </Route>
 
-        {/* Checklist Routes
+        {/* Checklist Routes */}
         <Route path="/checklists">
           {params => <ProtectedRoute component={ChecklistPage} allowedRoles={["superadmin", "developer", "manager"]} />}
         </Route>
         <Route path="/add-checklist">
           {params => <ProtectedRoute component={AddChecklistPage} allowedRoles={["superadmin", "developer", "manager"]} />}
-        </Route> */}
+        </Route>
 
 
 

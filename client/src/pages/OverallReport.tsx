@@ -39,6 +39,7 @@ import { StatCard } from "@/components/cards/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type FilterTab = "Today" | "Weekly" | "Monthly" | "Yearly" | "Custom";
+type ApiFilter = "today" | "weekly" | "monthly" | "yearly" | "custom" | "maximum";
 const TAB_TO_API_FILTER: Record<FilterTab, "today" | "weekly" | "monthly" | "yearly" | "custom"> = {
   Today: "today",
   Weekly: "weekly",
@@ -189,6 +190,8 @@ export default function OverallReport() {
     endOfMonth(new Date()),
   ]);
   const [customPopoverOpen, setCustomPopoverOpen] = useState(false);
+  // Tracks raw picker filter values (e.g. "maximum") that don't map to a tab
+  const [pickerFilter, setPickerFilter] = useState<ApiFilter | null>(null);
   // Categories expand/collapse independently (multiple can stay open)
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<Record<number, boolean>>({});
   // Other product breakdown can be toggled independently
@@ -215,7 +218,7 @@ export default function OverallReport() {
     return dateRange[1] ?? endOfMonth(now);
   }, [periodTab, dateRange]);
 
-  const apiFilter = TAB_TO_API_FILTER[periodTab];
+  const apiFilter: ApiFilter = pickerFilter ?? TAB_TO_API_FILTER[periodTab];
   const startDate = toYMD(filterStart);
   const endDate = toYMD(filterEnd);
 
@@ -224,8 +227,7 @@ export default function OverallReport() {
     queryFn: () =>
       clientService.getSaleDashboard({
         filter: apiFilter,
-        startDate: apiFilter === "custom" ? startDate : undefined,
-        endDate: apiFilter === "custom" ? endDate : undefined,
+        ...(apiFilter === "custom" ? { startDate, endDate } : {}),
       }),
     placeholderData: keepPreviousData,
   });
@@ -249,8 +251,7 @@ export default function OverallReport() {
       const resp = await clientService.getSaleGraphReport({
         metric: trendSeries,
         filter: apiFilter,
-        startDate: apiFilter === "custom" ? startDate : undefined,
-        endDate: apiFilter === "custom" ? endDate : undefined,
+        ...(apiFilter === "custom" ? { startDate, endDate } : {}),
       });
 
       const useCount = trendSeries === "client";
@@ -313,6 +314,7 @@ export default function OverallReport() {
   }, [apiFilter, startDate, endDate, categoryCounts.length]);
 
   const handlePresetClick = (tab: Exclude<FilterTab, "Custom">) => {
+    setPickerFilter(null);
     setPeriodTab(tab);
     const now = new Date();
     if (tab === "Today") {
@@ -331,8 +333,12 @@ export default function OverallReport() {
     setDateRange([startOfYear(now), endOfYear(now)]);
   };
 
-  const handlePickerApply = (_filter: string, startDate?: string, endDate?: string) => {
-    if (startDate && endDate) {
+  const handlePickerApply = (filter: string, startDate?: string, endDate?: string) => {
+    if (filter === "maximum") {
+      setPickerFilter("maximum");
+      setPeriodTab("Custom");
+    } else if (startDate && endDate) {
+      setPickerFilter(null);
       setDateRange([parseISO(startDate), parseISO(endDate)]);
       setPeriodTab("Custom");
     }
@@ -381,9 +387,11 @@ export default function OverallReport() {
                     )}
                   >
                     <CalendarIcon className="h-3.5 w-3.5" />
-                    {periodTab === "Custom" && dateRange[0] && dateRange[1]
-                      ? `${format(dateRange[0], "dd MMM")} - ${format(dateRange[1], "dd MMM yyyy")}`
-                      : "Custom"}
+                    {pickerFilter === "maximum"
+                      ? "Maximum"
+                      : periodTab === "Custom" && dateRange[0] && dateRange[1]
+                        ? `${format(dateRange[0], "dd MMM")} - ${format(dateRange[1], "dd MMM yyyy")}`
+                        : "Custom"}
                     <ChevronDown className="h-3.5 w-3.5 opacity-70" />
                   </button>
                 </PopoverTrigger>

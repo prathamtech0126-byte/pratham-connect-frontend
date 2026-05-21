@@ -38,6 +38,7 @@ import {
   Headset,
   ConciergeBell,
   Wrench,
+  BadgeDollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,6 +51,7 @@ import { useState, useEffect } from "react";
 import lightLogoUrl from "@/assets/images/pratham-logo-light-mode.svg";
 import darkLogoUrl from "@/assets/images/pratham-logo-dark-mode.svg";
 import { useAuth, UserRole } from "@/context/auth-context";
+import { INCENTIVE_ROLES } from "@/constants/roles";
 import { useTheme } from "@/components/theme-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileDialog } from "@/components/profile-dialog";
@@ -96,6 +98,12 @@ const sidebarItems: SidebarItem[] = [
 
 
   {
+    icon: BadgeDollarSign,
+    label: "Incentives",
+    href: "/incentives",
+    roles: INCENTIVE_ROLES,
+  },
+  {
     icon: Headset,
     label: "IT Support",
     href: "/tech-support",
@@ -133,64 +141,15 @@ const sidebarItems: SidebarItem[] = [
   },
 
   
-   // {
-  //   icon: CheckSquare,
-  //   label: "Checklists",
-  //   href: "/checklists",
-  //   roles: ["superadmin", "developer", "manager"],
-  // },
+   {
+    icon: CheckSquare,
+    label: "Checklists",
+    href: "/checklists",
+    roles: ["superadmin", "developer", "manager"],
+  },
 
 ];
 
-// const sidebarItems: SidebarItem[] = [
-//   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-//   { icon: Users, label: "Clients", href: "/clients", roles: ["superadmin", "developer", "manager", "counsellor"] },
-// // { icon: Target, label: "Lead list", href: "/leads", roles: ["superadmin",  "developer","manager", "counsellor", "telecaller"] },
-//  // { icon: LayoutGrid, label: "Kanban", href: "/leads/kanban", roles: ["superadmin", "developer", "manager", "counsellor", "telecaller"] },
-//   // { icon: Zap, label: "Automation", href: "/leads/automation", roles: ["superadmin",  "developer","manager"] },
-//   // { icon: BarChart3, label: "Lead reports", href: "/leads/reports", roles: ["superadmin", "developer", "manager"] },
-//   {
-//     icon: Activity,
-//     label: "Activity Log",
-//     href: "/activity",
-//   },
-//   {
-//     icon: Megaphone,
-//     label: "Messages",
-//     href: "/messages",
-//   },
-//   { icon: PieChart, label: "Reports", href: "/reports" },
-//   {
-//     icon: Users,
-//     label: "Team",
-//     href: "/team",
-//     roles: ["superadmin", "developer", "director"],
-//   },
-//   {
-//     icon: Trophy,
-//     label: "Leaderboard",
-//     href: "/counsellor-leaderboard",
-//     roles: ["superadmin", "developer", "manager"],
-//   },
-//   {
-//     icon: FileText,
-//     label: "Additional Info",
-//     href: "/additional-info",
-//     roles: ["superadmin", "developer", "director"],
-//   },
-//   {
-//     icon: FileSpreadsheet,
-//     label: "University List",
-//     href: "/university-db",
-//     roles: ["superadmin", "developer", "manager", "counsellor"],
-//   },
-//   {
-//     icon: CheckSquare,
-//     label: "Checklists",
-//     href: "/checklists",
-//     roles: ["superadmin", "developer", "manager"],
-//   },
-// ];
 
 export function Sidebar({ className, isCollapsed }: { className?: string; isCollapsed?: boolean }) {
   const [location] = useLocation();
@@ -202,6 +161,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isLeadsOpen, setIsLeadsOpen] = useState(false);
+  const [isIncentivesOpen, setIsIncentivesOpen] = useState(false);
 
   // Determine if we're in dark mode and listen for system theme changes
   useEffect(() => {
@@ -326,6 +286,12 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
       location === "/telecaller-leaderboard"
     ) {
       setIsLeaderboardOpen(true);
+    }
+  }, [location]);
+
+  useEffect(() => {
+    if (location.startsWith("/incentives")) {
+      setIsIncentivesOpen(true);
     }
   }, [location]);
 
@@ -966,13 +932,92 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
               </Collapsible>
             );
           }
-          // Reports Dropdown sidebar
-          
 
-          const displayLabel =
+           const displayLabel =
             user?.role === "front_desk" && item.href === "/front-desk"
               ? "Dashboard"
               : item.label;
+
+
+
+                 if (item.label === "Incentives") {
+            const isIncentivesActive =
+              location === "/incentives" || location.startsWith("/incentives/");
+            return (
+              <Collapsible
+                key={item.href}
+                open={isIncentivesOpen}
+                onOpenChange={setIsIncentivesOpen}
+                className="space-y-1"
+              >
+                <div className="flex items-center gap-2">
+                  <CollapsibleTrigger asChild>
+                    <div
+                      className={cn(
+                        "flex flex-1 items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative cursor-pointer select-none",
+                        isCollapsed ? "px-2 justify-center" : "px-3",
+                        isIncentivesActive
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-primary/20"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      )}
+                    >
+                      <item.icon
+                        className={cn(
+                          "transition-transform group-hover:scale-110 shrink-0",
+                          "w-5 h-5",
+                          isIncentivesActive
+                            ? "text-sidebar-primary-foreground"
+                            : "text-muted-foreground group-hover:text-sidebar-primary",
+                        )}
+                      />
+                      {!isCollapsed && (
+                        <>
+                          <span className="flex-1">{item.label}</span>
+                          {isIncentivesOpen ? (
+                            <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 opacity-50 shrink-0" />
+                          )}
+                        </>
+                      )}
+                      {isIncentivesActive && !isIncentivesOpen && !isCollapsed && (
+                        <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white/50" />
+                      )}
+                    </div>
+                  </CollapsibleTrigger>
+                </div>
+                {!isCollapsed && (
+                  <CollapsibleContent className="pl-4 space-y-1 overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                    <Link
+                      href="/incentives"
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                        location === "/incentives"
+                          ? "border-primary text-primary font-medium bg-primary/5"
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                      )}
+                    >
+                      <BadgeDollarSign className="w-4 h-4" />
+                      <span className="truncate">Incentive</span>
+                    </Link>
+                    <Link
+                      href="/incentives/rules"
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                        location.startsWith("/incentives/rules")
+                          ? "border-primary text-primary font-medium bg-primary/5"
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                      )}
+                    >
+                      <ClipboardList className="w-4 h-4" />
+                      <span className="truncate">Incentive Rule</span>
+                    </Link>
+                  </CollapsibleContent>
+                )}
+              </Collapsible>
+            );
+          }
+
 
           return (
             <Link

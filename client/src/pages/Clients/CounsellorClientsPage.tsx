@@ -27,7 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { exportClientsToExcel } from "@/utils/excelExport";
 import { useAuth } from "@/context/auth-context";
 
-type FilterValue = "today" | "weekly" | "monthly" | "yearly" | "custom";
+type FilterValue = "today" | "weekly" | "monthly" | "yearly" | "custom" | "maximum";
 
 function transformRawToClient(client: any): Client {
   const clientId = client.id || client.clientId || client.client_id;
@@ -79,7 +79,7 @@ function transformRawToClient(client: any): Client {
 }
 
 function parseFilterParam(v: string | null): FilterValue {
-  const ok: FilterValue[] = ["today", "weekly", "monthly", "yearly", "custom"];
+  const ok: FilterValue[] = ["today", "weekly", "monthly", "yearly", "custom", "maximum"];
   if (v && ok.includes(v as FilterValue)) return v as FilterValue;
   return "monthly";
 }
@@ -471,6 +471,7 @@ export default function CounsellorClientsPage() {
                 ]}
                 onDateChange={(range) => {
                   const [s, e] = range;
+                  if (!s && !e) return;
                   mergeQuery((p) => {
                     p.set("filter", "custom");
                     if (s) p.set("start", format(s, "yyyy-MM-dd"));
@@ -486,9 +487,7 @@ export default function CounsellorClientsPage() {
                       ? "Weekly"
                       : filter === "monthly"
                         ? "Monthly"
-                        : filter === "yearly"
-                          ? "Yearly"
-                          : "Custom"
+                        : "Custom"
                 }
                 onTabChange={(tab) => {
                   const next =
@@ -501,6 +500,7 @@ export default function CounsellorClientsPage() {
                     }
                   });
                 }}
+                showYearly={false}
                 align="end"
               />
             </div>

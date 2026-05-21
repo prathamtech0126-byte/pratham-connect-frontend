@@ -28,6 +28,8 @@ export interface PaymentRecord {
   invoiceNo: string | null;
   remarks: string | null;
   source: "payment" | "product";
+  productType?: string | null;
+  saleType?: string | null;
 }
 
 export interface UpdatePaymentParams {

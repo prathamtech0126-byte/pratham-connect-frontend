@@ -31,7 +31,10 @@ interface ColFilters {
   date: string;
   clientName: string;
   paymentType: string;
+  productType: string;
+  saleType: string;
   amount: string;
+  invoiceNo: string;      
   clientOwner: string;
   addedBy: string;
   sharedClient: string;
@@ -58,7 +61,10 @@ export default function PaymentsTable({
     date: "",
     clientName: "",
     paymentType: "",
+    productType: "",
+    saleType: "",
     amount: "",
+    invoiceNo: "",          
     clientOwner: "",
     addedBy: "",
     sharedClient: "",
@@ -82,8 +88,11 @@ export default function PaymentsTable({
     const lc = (v: string) => v.trim().toLowerCase();
     return sortedData.filter((row) =>
       (!colFilters.date        || row.date.toLowerCase().includes(lc(colFilters.date))) &&
+      (!colFilters.invoiceNo   || row.invoiceNo?.toLowerCase().includes(lc(colFilters.invoiceNo))) &&
       (!colFilters.clientName  || row.clientName.toLowerCase().includes(lc(colFilters.clientName))) &&
       (!colFilters.paymentType || (row.paymentType ?? "").toLowerCase().includes(lc(colFilters.paymentType))) &&
+      (!colFilters.productType || (row.productType ?? "").toLowerCase().includes(lc(colFilters.productType))) &&
+      (!colFilters.saleType    || (row.saleType ?? "").toLowerCase().includes(lc(colFilters.saleType))) &&
       (!colFilters.amount      || row.amount.includes(colFilters.amount.trim())) &&
       (!colFilters.clientOwner || (row.clientOwner ?? "").toLowerCase().includes(lc(colFilters.clientOwner))) &&
       (!colFilters.addedBy     || (row.addedBy ?? "").toLowerCase().includes(lc(colFilters.addedBy))) &&
@@ -142,7 +151,10 @@ export default function PaymentsTable({
               </th>
               <th className={thCls}>Client Name</th>
               <th className={thCls}>Payment Type</th>
+              <th className={thCls}>Product Type</th>
+              <th className={thCls}>Sale Type</th>
               <th className={`${thCls} text-right`}>Amount</th>
+              <th className={thCls}>Invoice No</th>
               <th className={thCls}>Client Owner</th>
               <th className={thCls}>Added By</th>
               <th className={`${thCls} text-center`}>Shared Client</th>
@@ -164,9 +176,21 @@ export default function PaymentsTable({
                   onChange={(e) => setFilter("paymentType", e.target.value)} />
               </td>
               <td className="border border-slate-200 px-2 py-1">
+                <input className={searchInput} placeholder="Search..." value={colFilters.productType}
+                  onChange={(e) => setFilter("productType", e.target.value)} />
+              </td>
+              <td className="border border-slate-200 px-2 py-1">
+                <input className={searchInput} placeholder="Search..." value={colFilters.saleType}
+                  onChange={(e) => setFilter("saleType", e.target.value)} />
+              </td>
+              <td className="border border-slate-200 px-2 py-1">
                 <input className={`${searchInput} text-right`} placeholder="Search..." value={colFilters.amount}
                   onChange={(e) => setFilter("amount", e.target.value)} />
               </td>
+              <td className="border border-slate-200 px-2 py-1">
+                 <input className={searchInput} placeholder="Search..." value={colFilters.invoiceNo}
+                   onChange={(e) => setFilter("invoiceNo", e.target.value)}  />
+</td>
               <td className="border border-slate-200 px-2 py-1">
                 <input className={searchInput} placeholder="Search..." value={colFilters.clientOwner}
                   onChange={(e) => setFilter("clientOwner", e.target.value)} />
@@ -185,7 +209,7 @@ export default function PaymentsTable({
           <tbody>
             {filteredData.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                <td colSpan={11} className="py-8 text-center text-sm text-muted-foreground">
                   No results match your column filters.
                 </td>
               </tr>
@@ -210,12 +234,19 @@ export default function PaymentsTable({
                     )}
                   </td>
 
+
                   <td className={`${tdCls} text-slate-700`}>{row.paymentType || "-"}</td>
+
+                  <td className={`${tdCls} text-slate-700`}>{row.productType || "-"}</td>
+
+                  <td className={`${tdCls} text-slate-700`}>{row.saleType || "-"}</td>
 
                   <td className={`${tdCls} text-right font-mono font-semibold text-slate-800`}>
                     {formatAmount(row.amount)}
                   </td>
-
+                  <td className={`${tdCls} text-slate-600 font-mono text-xs`}>
+  {row.invoiceNo ?? <span className="text-slate-300">—</span>}
+</td>
                   {/* Client Owner — pencil opens counsellor assignment */}
                   <td className={`${tdCls} text-slate-600`}>
                     <span className="flex w-full items-center justify-between gap-2">

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface MainLayoutProps {
@@ -31,12 +32,22 @@ export function MainLayout({ children }: MainLayoutProps) {
         <Topbar />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
-          <div className="max-w-7xl mx-auto w-full animate-in fade-in duration-500 slide-in-from-bottom-4">
+          <div className="max-w-[min(100%,96rem)] mx-auto w-full animate-in fade-in duration-500 slide-in-from-bottom-4">
             {children}
           </div>
         </main>
       </div>
       <Toaster />
+      <SonnerToaster
+        theme="light"
+        position="top-right"
+        toastOptions={{
+          classNames: {
+            toast: '!bg-white !text-gray-900 !border !border-gray-200 !shadow-lg !rounded-xl',
+            icon: '!text-primary',
+          },
+        }}
+      />
     </div>
   );
 }

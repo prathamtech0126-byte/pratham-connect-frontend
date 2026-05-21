@@ -1218,13 +1218,13 @@ export const clientService = {
    * Get clients for a user (counsellor/manager/admin) with date filter and optional search.
    * POST /api/clients/counsellor-clients/filtered?filter=monthly&search=...&startDate=...&endDate=...
    * Body: { id: number, role: string } — the clicked user's id and role
-   * filter: today | weekly | monthly | yearly | custom (custom requires startDate & endDate, YYYY-MM-DD)
+   * filter: today | weekly | monthly | yearly | custom | maximum (custom requires startDate & endDate, YYYY-MM-DD)
    */
   getCounsellorClientsFiltered: async (
     userId: number,
     role: string,
     params: {
-      filter: "today" | "weekly" | "monthly" | "yearly" | "custom";
+      filter: "today" | "weekly" | "monthly" | "yearly" | "custom" | "maximum";
       search?: string;
       startDate?: string; // YYYY-MM-DD for custom
       endDate?: string;   // YYYY-MM-DD for custom
@@ -1310,7 +1310,7 @@ export const clientService = {
   // Reports API: GET /api/reports?filter=today|weekly|monthly|yearly[&saleTypeId=1]
   //            or GET /api/reports?filter=custom&afterDate=YYYY-MM-DD&beforeDate=YYYY-MM-DD[&saleTypeId=1]
   getReports: async (params: {
-    filter: "today" | "weekly" | "monthly" | "yearly" | "custom";
+    filter: "today" | "weekly" | "monthly" | "yearly" | "custom" | "maximum";
     afterDate?: string;
     beforeDate?: string;
     saleTypeId?: number | null;
@@ -1336,7 +1336,7 @@ export const clientService = {
 
   // Sale dashboard API: GET /api/reports/sale-dashboard?filter=today|weekly|monthly|yearly|custom
   getSaleDashboard: async (params: {
-    filter: "today" | "weekly" | "monthly" | "yearly" | "custom";
+    filter: "today" | "weekly" | "monthly" | "yearly" | "custom" | "maximum";
     startDate?: string;
     endDate?: string;
   }): Promise<SaleDashboardResponse> => {
@@ -1423,7 +1423,7 @@ export const clientService = {
     metric: "client" | "core_sale" | "core_product" | "other_product" | "overall_revenue";
     managerId?: number;
     /** Same period as sale-dashboard (Overall Report filter). Backend should scope the series to this range. */
-    filter?: "today" | "weekly" | "monthly" | "yearly" | "custom";
+    filter?: "today" | "weekly" | "monthly" | "yearly" | "custom" | "maximum";
     startDate?: string;
     endDate?: string;
   }): Promise<SaleGraphReportResponse> => {

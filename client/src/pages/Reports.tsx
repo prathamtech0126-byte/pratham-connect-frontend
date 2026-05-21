@@ -40,14 +40,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-const PERIOD_TABS = ["Today", "Weekly", "Monthly", "Yearly", "Custom"] as const;
+const PERIOD_TABS = ["Today", "Weekly", "Monthly", "Custom"] as const;
 type PeriodTab = (typeof PERIOD_TABS)[number];
 
-const PERIOD_TO_FILTER: Record<PeriodTab, "today" | "weekly" | "monthly" | "yearly" | "custom"> = {
+const PERIOD_TO_FILTER: Record<PeriodTab, "today" | "weekly" | "monthly" | "custom"> = {
   Today: "today",
   Weekly: "weekly",
   Monthly: "monthly",
-  Yearly: "yearly",
   Custom: "custom",
 };
 
@@ -84,11 +83,14 @@ export default function Reports() {
   const endYMD = toYMD(filterEnd);
   const apiFilter = PERIOD_TO_FILTER[periodTab];
 
+  // Tracks a raw filter value (e.g. "maximum") selected from the date picker that doesn't map to a tab
+  const [pickerFilter, setPickerFilter] = useState<string | null>(null);
+
   // When Custom is open but not yet applied, keep showing previous period's data (don't hide report)
-  const [lastNonCustomFilter, setLastNonCustomFilter] = useState<"today" | "weekly" | "monthly" | "yearly">("monthly");
+  const [lastNonCustomFilter, setLastNonCustomFilter] = useState<"today" | "weekly" | "monthly">("monthly");
   const [lastNonCustomStart, setLastNonCustomStart] = useState<string>(() => toYMD(startOfMonth(new Date())));
   const [lastNonCustomEnd, setLastNonCustomEnd] = useState<string>(() => toYMD(endOfMonth(new Date())));
-  const effectiveFilter = isCustom && appliedCustomRange ? "custom" : isCustom ? lastNonCustomFilter : apiFilter;
+  const effectiveFilter = pickerFilter ?? (isCustom && appliedCustomRange ? "custom" : isCustom ? lastNonCustomFilter : apiFilter);
   const effectiveStart = isCustom && appliedCustomRange ? startYMD : isCustom ? lastNonCustomStart : startYMD;
   const effectiveEnd = isCustom && appliedCustomRange ? endYMD : isCustom ? lastNonCustomEnd : endYMD;
   const canFetch = true;
@@ -116,7 +118,7 @@ export default function Reports() {
 ],  
  queryFn: () =>
       clientService.getReports({
-        filter: effectiveFilter as "today" | "weekly" | "monthly" | "yearly" | "custom",
+        filter: effectiveFilter as "today" | "weekly" | "monthly" | "yearly" | "custom" | "maximum",
         ...(effectiveFilter === "custom" && effectiveStart && effectiveEnd
           ? { afterDate: effectiveStart, beforeDate: effectiveEnd }
           : {}),
@@ -150,6 +152,7 @@ export default function Reports() {
 
   // Apply period presets when tab changes (except Custom)
   const handlePeriodChange = (tab: string) => {
+    setPickerFilter(null);
     setPeriodTab(tab as PeriodTab);
     if (tab === "Custom") {
       setCustomOpen(true);
@@ -167,18 +170,20 @@ export default function Reports() {
       start = new Date(now.getFullYear(), now.getMonth(), diff);
       end = new Date(start);
       end.setDate(end.getDate() + 6);
-    } else if (tab === "Monthly") {
+    } else {
       start = startOfMonth(now);
       end = endOfMonth(now);
-    } else {
-      start = new Date(now.getFullYear(), 0, 1);
-      end = new Date(now.getFullYear(), 11, 31);
     }
     setDateRange([start, end]);
   };
 
-  const handlePickerApply = (_filter: string, startDate?: string, endDate?: string) => {
-    if (startDate && endDate) {
+  const handlePickerApply = (filter: string, startDate?: string, endDate?: string) => {
+    if (filter === "maximum") {
+      setPickerFilter("maximum");
+      setAppliedCustomRange(null);
+      setPeriodTab("Custom");
+    } else if (startDate && endDate) {
+      setPickerFilter(null);
       const s = parseISO(startDate);
       const e = parseISO(endDate);
       setDateRange([s, e]);
@@ -257,11 +262,13 @@ export default function Reports() {
               >
                 <CalendarIcon className="h-4 w-4 shrink-0" aria-hidden />
                 <span className="truncate">
-                  {isCustom && appliedCustomRange
-                    ? `${format(appliedCustomRange[0], "d MMM yyyy")} – ${format(appliedCustomRange[1], "d MMM yyyy")}`
-                    : dateRange[0] && dateRange[1]
-                      ? `${format(dateRange[0], "d MMM yyyy")} – ${format(dateRange[1], "d MMM yyyy")}`
-                      : "Select dates"}
+                  {pickerFilter === "maximum"
+                    ? "Maximum"
+                    : isCustom && appliedCustomRange
+                      ? `${format(appliedCustomRange[0], "d MMM yyyy")} – ${format(appliedCustomRange[1], "d MMM yyyy")}`
+                      : dateRange[0] && dateRange[1]
+                        ? `${format(dateRange[0], "d MMM yyyy")} – ${format(dateRange[1], "d MMM yyyy")}`
+                        : "Select dates"}
                 </span>
               </div>
             </PopoverAnchor>

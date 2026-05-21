@@ -10,11 +10,13 @@ interface PaymentCardProps {
   amount: number;
   date?: string;
   status: 'Paid' | 'Pending' | 'Overdue';
+  productType?: string;
+  saleType?: string;
   className?: string;
   onPay?: () => void;
 }
 
-export function PaymentCard({ title, amount, date, status, className, onPay }: PaymentCardProps) {
+export function PaymentCard({ title, amount, date, status, productType, saleType, className, onPay }: PaymentCardProps) {
   return (
     <Card className={cn("border-l-4 shadow-sm", 
       status === 'Paid' ? "border-l-green-500" : 
@@ -39,6 +41,12 @@ export function PaymentCard({ title, amount, date, status, className, onPay }: P
         <div className="text-2xl font-bold tracking-tight">
           ₹ {amount.toLocaleString('en-IN')}
         </div>
+        {(productType || saleType) && (
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
+            {productType && <span><span className="font-medium text-slate-600">Product:</span> {productType}</span>}
+            {saleType && <span><span className="font-medium text-slate-600">Sale:</span> {saleType}</span>}
+          </div>
+        )}
         {date && (
           <div className="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
             <Calendar className="w-4 h-4" />
