@@ -86,7 +86,7 @@ import {
 } from "@/lib/lead-status-tags";
 import { consumeLeadListPatches, extractLeadFromSocketPayload } from "@/lib/lead-list-sync";
 import { listPatchFromLeadUpdate } from "@/lib/lead-progress-rules";
-import { getLeadSourceLabel, isInboundChannelLead } from "@/lib/lead-source-display";
+import { getLeadSourceLabel } from "@/lib/lead-source-display";
 import {
   getLeadReferenceDisplayLabel,
   leadHasReferenceSource,
@@ -419,14 +419,7 @@ export default function LeadList() {
         const patch = patches[String(row.id)];
         return patch ? mergeLeadRow(row, patch) : row;
       });
-      const visibleLeads =
-        isAdminBulk && !filterAssignmentStatus
-          ? merged.filter(
-              (lead) =>
-                lead.assignmentStatus !== "not_assigned" || isInboundChannelLead(lead)
-            )
-          : merged;
-      const sorted = sortLeadsForDisplay(visibleLeads);
+      const sorted = sortLeadsForDisplay(merged);
       setLeads(sorted);
       const total = sorted.length;
       const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -456,7 +449,6 @@ export default function LeadList() {
     pageSize,
     toast,
     isCounsellor,
-    isAdminBulk,
   ]);
 
 
