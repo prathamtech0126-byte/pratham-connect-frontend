@@ -1,228 +1,611 @@
-import { useState, useMemo } from "react";
-import { Link } from "wouter";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation, Redirect } from "wouter";
+import {
+  format,
+  startOfDay, endOfDay,
+  startOfWeek, endOfWeek,
+  startOfMonth, endOfMonth
+} from "date-fns";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
+
 import { PageWrapper } from "@/layout/PageWrapper";
 import { useAuth } from "@/context/auth-context";
 import { canAccessCustomReports } from "@/lib/lead-permissions";
-import { Redirect } from "wouter";
-import { DUMMY_LEADS, DUMMY_ASSIGNEE_OPTIONS } from "@/data/dummyLeads";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { StatCard } from "@/components/cards/StatCard";
+import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Users, UserCheck, Phone, Target, BarChart3 } from "lucide-react";
-import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval } from "date-fns";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Users, ArrowRightLeft, CheckCircle2, CalendarClock,
+  Trash2, Phone, Calendar, ChevronRight, PhoneOff
+} from "lucide-react";
 
-const STATUS_OPTIONS = [
-  { value: "all", label: "All statuses" },
-  { value: "new", label: "New" },
+import { fetchAllLeads, type LeadEntity } from "@/api/leads.api";
+import DateRangePicker from "@/components/payments/DateRangePicker";
+import api from "@/lib/api";
+import { cn } from "@/lib/utils";
+
+type DateFilterType = "all" | "today" | "weekly" | "monthly" | "custom";
+
+const DATE_LABELS: Record<DateFilterType, string> = {
+  all: "All", today: "Today", weekly: "Weekly", monthly: "Monthly", custom: "Custom",
+};
+
+const PROGRESS_OPTIONS = [
+  { value: "not_contacted", label: "Not Contacted" },
   { value: "contacted", label: "Contacted" },
-  { value: "qualified", label: "Qualified" },
+  { value: "follow_up", label: "Follow Up" },
+  { value: "interested", label: "Interested" },
   { value: "converted", label: "Converted" },
-  { value: "lost", label: "Lost" },
+  { value: "junk", label: "Junk" },
 ];
 
-function getDefaultDateRange(): [string, string] {
-  const start = startOfMonth(new Date());
-  const end = endOfMonth(new Date());
-  return [format(start, "yyyy-MM-dd"), format(end, "yyyy-MM-dd")];
+const ASSIGNMENT_OPTIONS = [
+  { value: "not_assigned", label: "Not Assigned" },
+  { value: "assigned", label: "Assigned" },
+  { value: "transferred", label: "Transferred" },
+  { value: "converted", label: "Converted" },
+];
+
+type UserLite = { id: number; fullName: string };
+
+function getDateBounds(f: DateFilterType, from?: string, to?: string) {
+  const now = new Date();
+  if (f === "all") return null;
+  if (f === "today") return { from: startOfDay(now), to: endOfDay(now) };
+  if (f === "weekly") return { from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) };
+  if (f === "monthly") return { from: startOfMonth(now), to: endOfMonth(now) };
+  if (f === "custom" && from && to) return { from: startOfDay(new Date(from)), to: endOfDay(new Date(to)) };
+  return null;
 }
 
 export default function LeadReports() {
   const { user } = useAuth();
-  const [dateRange, setDateRange] = useState<[string, string]>(getDefaultDateRange());
-  const [assigneeFilter, setAssigneeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [, setLocation] = useLocation();
 
-  if (!user || !canAccessCustomReports(user.role)) {
-    return <Redirect to="/" />;
-  }
+  if (!user || !canAccessCustomReports(user.role)) return <Redirect to="/" />;
 
+  // ── Filter state ──────────────────────────────────────
+  const [dateFilter, setDateFilter] = useState<DateFilterType>("monthly");
+  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>();
+  const [customDateTo, setCustomDateTo] = useState<string | undefined>();
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // ── Data state ────────────────────────────────────────
+  const [allLeads, setAllLeads] = useState<LeadEntity[]>([]);
+  const [telecallers, setTelecallers] = useState<UserLite[]>([]);
+  const [counsellors, setCounsellors] = useState<UserLite[]>([]);
+  const [leadTypes, setLeadTypes] = useState<any[]>([]);
+  const [saleTypes, setSaleTypes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [leadRes, tRes, cRes, ltRes, stRes] = await Promise.all([
+        fetchAllLeads({ isJunk: false }),
+        api.get("/api/users/telecallers"),
+        api.get("/api/users/counsellors"),
+        api.get("/api/lead-types"),
+        api.get("/api/sale-types"),
+      ]);
+      setAllLeads(leadRes);
+      setTelecallers(tRes?.data?.data || tRes?.data || []);
+      setCounsellors(cRes?.data?.data || cRes?.data || []);
+      setLeadTypes(ltRes?.data?.data || ltRes?.data || []);
+      setSaleTypes(stRes?.data?.data || stRes?.data || []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadData(); }, [loadData]);
+
+  // ── Filtered leads ────────────────────────────────────
   const filteredLeads = useMemo(() => {
-    let list = [...DUMMY_LEADS];
-    const [startStr, endStr] = dateRange;
-    const start = parseISO(startStr);
-    const end = parseISO(endStr);
-    list = list.filter((l) => {
-      const d = new Date(l.createdAt);
-      return isWithinInterval(d, { start, end });
-    });
-    if (assigneeFilter !== "all") list = list.filter((l) => l.assignedToId === assigneeFilter);
-    if (statusFilter !== "all") list = list.filter((l) => l.status === statusFilter);
-    return list;
-  }, [dateRange, assigneeFilter, statusFilter]);
+    const bounds = getDateBounds(dateFilter, customDateFrom, customDateTo);
+    let items = allLeads.filter((l) => !l.isJunk && l.progressStatus !== "junk");
+    if (bounds) {
+      items = items.filter(l => {
+        const d = new Date(l.createdAt);
+        return d >= bounds.from && d <= bounds.to;
+      });
+    }
+    return items;
+  }, [allLeads, dateFilter, customDateFrom, customDateTo]);
 
-  const summary = useMemo(() => {
-    const total = filteredLeads.length;
-    const byStatus = filteredLeads.reduce(
-      (acc, l) => {
-        acc[l.status] = (acc[l.status] ?? 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-    const converted = byStatus.converted ?? 0;
-    const contacted = byStatus.contacted ?? 0;
-    const qualified = byStatus.qualified ?? 0;
-    const newCount = byStatus.new ?? 0;
-    return { total, converted, contacted, qualified, new: newCount };
+  // ── Summary ───────────────────────────────────────────
+  const summary = useMemo(() => ({
+    assigned: filteredLeads.length,
+    contacted: filteredLeads.filter(l => ["contacted", "interested", "follow_up", "converted"].includes(l.progressStatus)).length,
+    notContacted: filteredLeads.filter(l => l.progressStatus === "not_contacted").length,
+    transferred: filteredLeads.filter(
+      (l) => l.assignmentStatus === "transferred" || l.currentCounsellorId != null
+    ).length,
+    converted: filteredLeads.filter(l => l.progressStatus === "converted" || l.assignmentStatus === "converted").length,
+    pendingFollowUp: filteredLeads.filter(l => l.progressStatus === "follow_up").length,
+    junk: filteredLeads.filter(l => l.isJunk || l.progressStatus === "junk").length,
+  }), [filteredLeads]);
+
+  const typeBreakdown = useMemo(() => {
+    const types = Array.from(new Set(filteredLeads.map(l => l.leadType || "Unknown")));
+    return types.map(t => {
+      const items = filteredLeads.filter(l => (l.leadType || "Unknown") === t);
+      return {
+        type: t,
+        assigned: items.length,
+        transferred: items.filter(l => ["transferred", "dropped"].includes(l.assignmentStatus)).length,
+        converted: items.filter(l => l.assignmentStatus === "converted").length,
+        junk: items.filter(l => l.isJunk || l.progressStatus === "junk").length,
+      };
+    }).sort((a, b) => b.assigned - a.assigned);
   }, [filteredLeads]);
+
+  const sourceBreakdown = useMemo(() => {
+    const sources = Array.from(new Set(filteredLeads.map(l => l.leadSource || "Unknown")));
+    return sources.map(s => {
+      const items = filteredLeads.filter(l => (l.leadSource || "Unknown") === s);
+      const alias = leadTypes.find((lt: any) => lt.leadType === s)?.displayAlias?.trim() || s.replace(/_/g, " ");
+      const assigned = items.length;
+      const transferred = items.filter(l => ["transferred", "dropped"].includes(l.assignmentStatus)).length;
+      const converted = items.filter(l => l.assignmentStatus === "converted").length;
+      return { source: alias, assigned, transferred, converted, barValue: assigned > 0 ? (transferred / assigned) * 100 : 0 };
+    }).sort((a, b) => b.assigned - a.assigned);
+  }, [filteredLeads, leadTypes]);
+
+  // Counsellor-wise stats (who received leads and what happened)
+  const counsellorBreakdown = useMemo(() => {
+    return counsellors
+      .map(c => {
+        const cLeads = filteredLeads.filter(l => l.currentCounsellorId === c.id);
+        if (cLeads.length === 0) return null;
+        return {
+          id: c.id,
+          name: c.fullName,
+          received: cLeads.length,
+          converted: cLeads.filter(l => l.assignmentStatus === "converted").length,
+          dropped: cLeads.filter(l => l.assignmentStatus === "dropped").length,
+          pending: cLeads.filter(l => !["converted", "dropped"].includes(l.assignmentStatus)).length,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b!.received - a!.received) as {
+        id: number; name: string; received: number;
+        converted: number; dropped: number; pending: number;
+      }[];
+  }, [filteredLeads, counsellors]);
+
+  // ── Per-telecaller stats ──────────────────────────────
+  const telecallerStats = useMemo(() => {
+    return telecallers
+      .map(t => {
+        const tLeads = filteredLeads.filter(l => l.currentTelecallerId === t.id);
+        return {
+          id: t.id,
+          name: t.fullName,
+          assigned: tLeads.length,
+          transferred: tLeads.filter(l => l.assignmentStatus === "transferred").length,
+          converted: tLeads.filter(l => l.progressStatus === "converted" || l.assignmentStatus === "converted").length,
+          totalFollowUp: tLeads.filter(l => !!l.nextFollowupAt).length,
+          pendingFollowUp: tLeads.filter(l => l.progressStatus === "follow_up").length,
+          junk: tLeads.filter(l => l.isJunk || l.progressStatus === "junk").length,
+        };
+      })
+      .filter(t => t.assigned > 0)
+      .sort((a, b) => b.transferred - a.transferred || b.assigned - a.assigned);
+  }, [filteredLeads, telecallers]);
+
+  const customLabel = dateFilter === "custom" && customDateFrom && customDateTo
+    ? `${format(new Date(customDateFrom), "d MMM")} – ${format(new Date(customDateTo), "d MMM yyyy")}`
+    : null;
+
+  const chartData = telecallerStats.slice(0, 15);
 
   return (
     <PageWrapper
-      title="Lead reports"
-      breadcrumbs={[
-        { label: "Leads", href: "/leads" },
-        { label: "Reports" },
-      ]}
+      title="Telecaller Lead Reports"
+      breadcrumbs={[{ label: "Leads", href: "/leads" }, { label: "Reports" }]}
     >
       <div className="space-y-6">
-        {/* Filters */}
-        <Card className="border-border/60 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Filters
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
-              <div className="space-y-2">
-                <Label className="text-xs">Date from</Label>
-                <Input
-                  type="date"
-                  value={dateRange[0]}
-                  onChange={(e) => setDateRange(([_, end]) => [e.target.value, end])}
-                  className="w-full sm:w-40"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Date to</Label>
-                <Input
-                  type="date"
-                  value={dateRange[1]}
-                  onChange={(e) => setDateRange(([start, _]) => [start, e.target.value])}
-                  className="w-full sm:w-40"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Assigned to</Label>
-                <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-                  <SelectTrigger className="w-full sm:w-44">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All assignees</SelectItem>
-                    {DUMMY_ASSIGNEE_OPTIONS.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Status</Label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-40">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+        {/* ── Filter Panel ──────────────────────────────── */}
+        <div className="rounded-xl border border-border bg-card shadow-sm p-4 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Created:</span>
+              <div className="flex rounded-lg border border-border bg-muted/30 p-0.5 gap-0.5">
+                {(["all", "today", "weekly", "monthly"] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => { setDateFilter(f); setCustomDateFrom(undefined); setCustomDateTo(undefined); }}
+                    className={cn(
+                      "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                      dateFilter === f ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-background"
+                    )}
+                  >{DATE_LABELS[f]}</button>
+                ))}
+                <button
+                  onClick={() => setShowDatePicker(true)}
+                  className={cn(
+                    "px-3 py-1 text-xs font-medium rounded-md flex items-center gap-1",
+                    dateFilter === "custom" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-background"
+                  )}
+                >
+                  {customLabel ?? "Custom"}<Calendar className="w-3 h-3" />
+                </button>
               </div>
             </div>
+            {!loading && (
+              <p className="text-xs text-muted-foreground">
+                Showing <span className="font-semibold text-foreground">{filteredLeads.length}</span> leads
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* ── Summary Cards ─────────────────────────────── */}
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+          {[
+            { label: "Assigned", value: summary.assigned, icon: Users, color: "text-blue-600" },
+            { label: "Contacted", value: summary.contacted, icon: Phone, color: "text-sky-600" },
+            { label: "Not Contacted", value: summary.notContacted, icon: PhoneOff, color: "text-slate-400" },
+            { label: "Transferred", value: summary.transferred, icon: ArrowRightLeft, color: "text-amber-600" },
+            { label: "Converted", value: summary.converted, icon: CheckCircle2, color: "text-emerald-600" },
+            { label: "Pending F/U", value: summary.pendingFollowUp, icon: CalendarClock, color: "text-violet-600" },
+          ].map(stat => (
+            <Card key={stat.label} className="shadow-sm border-none bg-card/50">
+              <CardContent className="p-5 flex flex-col items-center justify-center relative">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 text-center">{stat.label}</p>
+                <p className={cn("text-3xl font-extrabold tabular-nums text-center", stat.color)}>{stat.value}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* ── Chart + Ranked List ───────────────────────── */}
+        <div className="grid gap-6 lg:grid-cols-5">
+          
+
+          {/* Bar Chart */}
+          <Card className="lg:col-span-3 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Transfers per Telecaller</CardTitle>
+              <CardDescription className="text-xs">Sorted by transfer count descending</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">Loading…</div>
+              ) : chartData.length === 0 ? (
+                <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">No data for selected period</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={Math.max(chartData.length * 38, 180)}>
+                  <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 28, top: 4, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
+                    <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} axisLine={false} tickLine={false} />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={112}
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(v: string) => v.length > 14 ? v.slice(0, 13) + "…" : v}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const d = payload[0].payload;
+                        return (
+                          <div className="rounded-lg border bg-background shadow-md p-3 text-xs space-y-1 min-w-[140px]">
+                            <p className="font-semibold text-foreground">{d.name}</p>
+                            <p className="flex justify-between gap-4">Assigned <span className="font-bold">{d.assigned}</span></p>
+                            <p className="flex justify-between gap-4">Transferred <span className="font-bold text-blue-600">{d.transferred}</span></p>
+                            <p className="flex justify-between gap-4">Converted <span className="font-bold text-emerald-600">{d.converted}</span></p>
+                            <p className="flex justify-between gap-4">Junk <span className="font-bold text-red-500">{d.junk}</span></p>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar dataKey="transferred" fill="#2563EB" radius={[0, 4, 4, 0]} maxBarSize={20} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Ranked List */}
+          <Card className="lg:col-span-2 shadow-sm flex flex-col">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">All Telecallers (by transfer)</CardTitle>
+              <div className="flex justify-between text-[10px] text-muted-foreground font-medium uppercase tracking-wide mt-1 px-0.5">
+                <span>Telecaller</span>
+                <div className="flex gap-6">
+                  <span>Assigned</span>
+                  <span>Transferred</span>
+                  <span>Converted</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1 p-0">
+              <div className="divide-y max-h-[420px] overflow-y-auto">
+                {loading ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Loading…</p>
+                ) : telecallerStats.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">No data</p>
+                ) : (
+                  telecallerStats.map((t, i) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setLocation(`/leads/telecaller/${t.id}`)}
+                      className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/40 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-xs font-bold text-muted-foreground w-5 text-center shrink-0">{i + 1}</span>
+                        <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                          {t.name.charAt(0).toUpperCase()}
+                        </div>
+                        <p className="text-sm font-medium truncate">{t.name}</p>
+                      </div>
+                      <div className="flex items-center gap-6 text-xs tabular-nums shrink-0 ml-2">
+                        <span className="text-foreground font-medium w-12 text-center">{t.assigned}</span>
+                        <span className="font-bold text-blue-600 w-16 text-center">{t.transferred}</span>
+                        <span className="font-bold text-emerald-600 w-14 text-center">{t.converted}</span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Source + Type Breakdown Tables ───────────── */}
+        <div className="grid gap-6 lg:grid-cols-2">
+
+          {/* Lead Source breakdown */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Lead Source Breakdown</CardTitle>
+              <CardDescription className="text-xs">Assigned · Transferred · Converted per source</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-[340px] overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50 sticky top-0 z-10">
+                      <TableHead className="text-xs uppercase pl-4">Source</TableHead>
+                      <TableHead className="text-xs uppercase text-center">Assigned</TableHead>
+                      <TableHead className="text-xs uppercase text-center">Transferred</TableHead>
+                      <TableHead className="text-xs uppercase text-center pr-4">Converted</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow><TableCell colSpan={4} className="h-20 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+                    ) : sourceBreakdown.length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="h-20 text-center text-sm text-muted-foreground">No data.</TableCell></TableRow>
+                    ) : sourceBreakdown.map(row => {
+                      const pct = row.assigned > 0 ? ((row.transferred / row.assigned) * 100).toFixed(0) : "0";
+                      return (
+                        <TableRow key={row.source} className="hover:bg-muted/20">
+                          <TableCell className="pl-4 font-medium text-sm">{row.source}</TableCell>
+                          <TableCell className="text-center tabular-nums">{row.assigned}</TableCell>
+                          <TableCell className="text-center">
+                            <span className="font-bold text-blue-600 tabular-nums">{row.transferred}</span>
+                            <span className="text-[10px] text-muted-foreground ml-1">({pct}%)</span>
+                          </TableCell>
+                          <TableCell className="text-center pr-4">
+                            <span className="font-bold text-emerald-600 tabular-nums">{row.converted}</span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lead Type breakdown */}
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Lead Type Breakdown</CardTitle>
+              <CardDescription className="text-xs">Assigned · Transferred · Converted per type</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-[340px] overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50 sticky top-0 z-10">
+                      <TableHead className="text-xs uppercase pl-4">Lead Type</TableHead>
+                      <TableHead className="text-xs uppercase text-center">Assigned</TableHead>
+                      <TableHead className="text-xs uppercase text-center">Transferred</TableHead>
+                      <TableHead className="text-xs uppercase text-center">Converted</TableHead>
+                      <TableHead className="text-xs uppercase text-center pr-4">Junk</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow><TableCell colSpan={5} className="h-20 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+                    ) : typeBreakdown.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} className="h-20 text-center text-sm text-muted-foreground">No data.</TableCell></TableRow>
+                    ) : typeBreakdown.map(row => {
+                      const pct = row.assigned > 0 ? ((row.transferred / row.assigned) * 100).toFixed(0) : "0";
+                      return (
+                        <TableRow key={row.type} className="hover:bg-muted/20">
+                          <TableCell className="pl-4 font-medium text-sm capitalize">{row.type}</TableCell>
+                          <TableCell className="text-center tabular-nums">{row.assigned}</TableCell>
+                          <TableCell className="text-center">
+                            <span className="font-bold text-blue-600 tabular-nums">{row.transferred}</span>
+                            <span className="text-[10px] text-muted-foreground ml-1">({pct}%)</span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className="font-bold text-emerald-600 tabular-nums">{row.converted}</span>
+                          </TableCell>
+                          <TableCell className="text-center pr-4">
+                            <span className={cn("tabular-nums", row.junk > 0 ? "text-red-500 font-medium" : "text-muted-foreground")}>
+                              {row.junk}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Counsellor Received/Converted/Dropped Table ── */}
+        <Card className="shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold">Counsellor-wise Lead Outcome</CardTitle>
+            <CardDescription className="text-xs">Leads received by each counsellor — converted vs dropped vs pending</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="text-xs uppercase pl-4 w-12">Rank</TableHead>
+                  <TableHead className="text-xs uppercase">Counsellor</TableHead>
+                  <TableHead className="text-xs uppercase text-center">Received</TableHead>
+                  <TableHead className="text-xs uppercase text-center">Converted</TableHead>
+                  <TableHead className="text-xs uppercase text-center">Dropped</TableHead>
+                  <TableHead className="text-xs uppercase text-center">Pending</TableHead>
+                  <TableHead className="text-xs uppercase text-center pr-4">Conv. Rate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+                ) : counsellorBreakdown.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">No counsellor data for selected period.</TableCell></TableRow>
+                ) : counsellorBreakdown.map((c, i) => {
+                  const convRate = c.received > 0 ? ((c.converted / c.received) * 100).toFixed(0) : "0";
+                  return (
+                    <TableRow key={c.id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="pl-4">
+                        <span className={cn("text-sm font-bold",
+                          i === 0 ? "text-yellow-500" : i === 1 ? "text-slate-400" : i === 2 ? "text-amber-600" : "text-muted-foreground"
+                        )}>{i + 1}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-700 shrink-0">
+                            {c.name.charAt(0).toUpperCase()}
+                          </div>
+                          <p className="text-sm font-semibold">{c.name}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center tabular-nums font-medium">{c.received}</TableCell>
+                      <TableCell className="text-center">
+                        <span className="font-bold text-emerald-600 tabular-nums">{c.converted}</span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className={cn("tabular-nums", c.dropped > 0 ? "text-red-500 font-medium" : "text-muted-foreground")}>
+                          {c.dropped}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-amber-600 tabular-nums font-medium">{c.pending}</span>
+                      </TableCell>
+                      <TableCell className="text-center pr-4">
+                        <span className={cn("text-xs font-semibold tabular-nums px-1.5 py-0.5 rounded-full",
+                          Number(convRate) >= 50 ? "bg-emerald-100 text-emerald-700" :
+                          Number(convRate) >= 25 ? "bg-amber-100 text-amber-700" :
+                          "bg-slate-100 text-slate-600"
+                        )}>
+                          {convRate}%
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
 
-        {/* Summary cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Total leads"
-            value={summary.total}
-            icon={Users}
-            description="In selected period"
-          />
-          <StatCard
-            title="New"
-            value={summary.new}
-            icon={Target}
-            description="New status"
-          />
-          <StatCard
-            title="Contacted"
-            value={summary.contacted}
-            icon={Phone}
-            description="Contacted status"
-          />
-          <StatCard
-            title="Converted"
-            value={summary.converted}
-            icon={UserCheck}
-            description="Converted to client"
-          />
-        </div>
-
-        {/* Detail table */}
-        <Card className="border-border/60 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Lead detail</CardTitle>
-            <Link href="/leads">
-              <Button variant="outline" size="sm">View list</Button>
-            </Link>
+        {/* ── Performance Table ─────────────────────────── */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">Telecaller Performance</CardTitle>
+            <CardDescription className="text-xs">Click any row to view individual telecaller analysis</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="rounded-xl border border-border/60 overflow-hidden">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="text-xs uppercase">Name</TableHead>
-                    <TableHead className="text-xs uppercase">Email</TableHead>
-                    <TableHead className="text-xs uppercase">Status</TableHead>
-                    <TableHead className="text-xs uppercase">Stage</TableHead>
-                    <TableHead className="text-xs uppercase">Assigned to</TableHead>
-                    <TableHead className="text-xs uppercase">Created</TableHead>
+                    <TableHead className="text-xs uppercase w-12 pl-4">Rank</TableHead>
+                    <TableHead className="text-xs uppercase">Telecaller</TableHead>
+                    <TableHead className="text-xs uppercase text-center">Assigned</TableHead>
+                    <TableHead className="text-xs uppercase text-center">Transferred</TableHead>
+                    <TableHead className="text-xs uppercase text-center">Converted</TableHead>
+                    <TableHead className="text-xs uppercase text-center">Follow-ups</TableHead>
+                    <TableHead className="text-xs uppercase text-center">Pending F/U</TableHead>
+                    <TableHead className="text-xs uppercase text-center">Junk</TableHead>
+                    <TableHead className="w-8" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredLeads.length === 0 ? (
+                  {loading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center text-muted-foreground text-sm">
-                        No leads match the selected filters.
-                      </TableCell>
+                      <TableCell colSpan={9} className="h-24 text-center text-sm text-muted-foreground">Loading…</TableCell>
+                    </TableRow>
+                  ) : telecallerStats.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="h-24 text-center text-sm text-muted-foreground">No telecaller data for selected period.</TableCell>
                     </TableRow>
                   ) : (
-                    filteredLeads.map((lead) => (
-                      <TableRow key={lead.id} className="hover:bg-muted/30">
-                        <TableCell className="font-medium">{lead.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{lead.email}</TableCell>
-                        <TableCell className="capitalize">{lead.status}</TableCell>
-                        <TableCell>{lead.stage}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {lead.assignedToName ?? "—"}
+                    telecallerStats.map((t, i) => (
+                      <TableRow
+                        key={t.id}
+                        className="cursor-pointer hover:bg-muted/30 transition-colors"
+                        onClick={() => setLocation(`/leads/telecaller/${t.id}`)}
+                      >
+                        <TableCell className="pl-4">
+                          <span className={cn(
+                            "text-sm font-bold",
+                            i === 0 ? "text-yellow-500" : i === 1 ? "text-slate-400" : i === 2 ? "text-amber-600" : "text-muted-foreground"
+                          )}>{i + 1}</span>
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
-                          {format(new Date(lead.createdAt), "dd MMM yyyy")}
+                        <TableCell>
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                              {t.name.charAt(0).toUpperCase()}
+                            </div>
+                            <p className="text-sm font-semibold">{t.name}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center tabular-nums font-medium">{t.assigned}</TableCell>
+                        <TableCell className="text-center">
+                          <span className="font-bold text-blue-600 tabular-nums">{t.transferred}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="font-bold text-emerald-600 tabular-nums">{t.converted}</span>
+                        </TableCell>
+                        <TableCell className="text-center tabular-nums text-muted-foreground">{t.totalFollowUp}</TableCell>
+                        <TableCell className="text-center">
+                          <span className={cn("tabular-nums font-medium", t.pendingFollowUp > 0 ? "text-amber-600" : "text-muted-foreground")}>
+                            {t.pendingFollowUp}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className={cn("tabular-nums", t.junk > 0 ? "text-red-500 font-medium" : "text-muted-foreground")}>
+                            {t.junk}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         </TableCell>
                       </TableRow>
                     ))
@@ -233,6 +616,19 @@ export default function LeadReports() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={showDatePicker} onOpenChange={setShowDatePicker}>
+        <DialogContent className="p-0 max-w-[800px] overflow-hidden rounded-xl border-0">
+          <DialogTitle className="sr-only">Select Date Range</DialogTitle>
+          <DateRangePicker
+            onApply={(_, s, e) => {
+              if (s && e) { setCustomDateFrom(s); setCustomDateTo(e); setDateFilter("custom"); }
+              setShowDatePicker(false);
+            }}
+            onCancel={() => setShowDatePicker(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   );
 }

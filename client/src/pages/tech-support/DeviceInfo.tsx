@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { clientService } from "@/services/clientService";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -293,6 +293,7 @@ export default function DeviceInfo() {
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [isChangingDevice, setIsChangingDevice] = useState(false);
   const [isEditAccessoriesOnly, setIsEditAccessoriesOnly] = useState(false);
+  const [isEditRetainedAccessories, setIsEditRetainedAccessories] = useState(false);
 
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmDialogTitle, setConfirmDialogTitle] = useState("");
@@ -401,11 +402,33 @@ export default function DeviceInfo() {
       setAssignmentDetailDeviceId(null);
       setIsChangingDevice(false);
       setIsEditAccessoriesOnly(false);
+      setIsEditRetainedAccessories(false);
       await queryClient.refetchQueries({ queryKey: ["devices-inventory"] });
       await queryClient.refetchQueries({ queryKey: ["devices-assignable-users"] });
     },
     onError: (err: any) => {
       toast(getErrorToastPayload(err, "Operation failed", "Unable to complete the request. Please try again."));
+    },
+  });
+
+  const updateRetainedAccessoriesMutation = useMutation({
+    mutationFn: (payload: { userId: number; accessories: string | null }) =>
+      clientService.updateUserRetainedAccessories(payload.userId, payload.accessories),
+    onSuccess: async () => {
+      toast({ title: "Retained accessories updated" });
+      setAssignModalOpen(false);
+      setIsEditRetainedAccessories(false);
+      setAssignmentAccessories([]);
+      await queryClient.refetchQueries({ queryKey: ["devices-assignable-users"] });
+    },
+    onError: (err: any) => {
+      toast(
+        getErrorToastPayload(
+          err,
+          "Failed to update accessories",
+          "Unable to update retained accessories. Please try again."
+        )
+      );
     },
   });
 
@@ -486,6 +509,13 @@ export default function DeviceInfo() {
       return a.fullName.localeCompare(b.fullName);
     });
   }, [assignableUsers, devices]);
+
+  const getRetainedAccessoriesForUser = (userId: number): string | null => {
+    const u = assignableUsers.find((row: { id: number }) => row.id === userId) as
+      | { retainedAccessories?: string | null }
+      | undefined;
+    return u?.retainedAccessories ?? null;
+  };
 
   const selectedDetailDevice = useMemo(
     () => devices.find((d) => d.id === selectedDeviceDetailId) ?? null,
@@ -625,82 +655,122 @@ export default function DeviceInfo() {
                         <TableRow key={u.id} className="align-top">
                           <TableCell className="text-blue-700 font-medium pt-4">{u.fullName}</TableCell>
                           <TableCell>
-                            {assignedDevices.length === 0 ? (
-                              <span className="text-muted-foreground text-sm italic">No device assigned</span>
-                            ) : (
-                              <div className="flex flex-col gap-2">
-                                {assignedDevices.map((dev) => (
-                                  <div key={dev.id} className="flex items-start gap-2 bg-muted/30 rounded-md px-3 py-2">
-                                    <div
-                                      className="flex-1 min-w-0 cursor-pointer hover:opacity-70 transition-opacity"
-                                      title="View device details"
+                            <div className="flex flex-col gap-3">
+                              {assignedDevices.length === 0 ? (
+                                <span className="text-muted-foreground text-sm italic">No device assigned</span>
+                              ) : (
+                                <div className="flex flex-col gap-2">
+                                  {assignedDevices.map((dev) => (
+                                    <div key={dev.id} className="flex items-start gap-2 bg-muted/30 rounded-md px-3 py-2">
+                                      <div
+                                        className="flex-1 min-w-0 cursor-pointer hover:opacity-70 transition-opacity"
+                                        title="View device details"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedDeviceDetailId(dev.id);
+                                          setDetailPopupSource("assignment");
+                                        }}
+                                      >
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="font-medium text-sm text-blue-700 underline-offset-2 hover:underline">{dev.prathamProductCode || "—"}</span>
+                                          <span className="text-xs text-muted-foreground capitalize">{dev.deviceType}</span>
+                                        </div>
+                                        {renderAccessoryList(dev.assignmentAccessories)}
+                                      </div>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          title="Edit device accessories"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setAssignUserId(u.id);
+                                            setAssignmentDetailDeviceId(dev.id);
+                                            setAssignmentAccessories(parseAccessoriesList(dev.assignmentAccessories || ""));
+                                            setAssignmentAccessoryInput("");
+                                            setIsEditAccessoriesOnly(true);
+                                            setIsEditRetainedAccessories(false);
+                                            setIsChangingDevice(false);
+                                            setAssignModalOpen(true);
+                                          }}
+                                        >
+                                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                                        </Button>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          title="Reassign Device"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setAssignUserId(u.id);
+                                            setAssignmentDetailDeviceId(null);
+                                            setAssignmentAccessories(parseAccessoriesList(dev.assignmentAccessories || ""));
+                                            setAssignmentAccessoryInput("");
+                                            setIsChangingDevice(true);
+                                            setIsEditAccessoriesOnly(false);
+                                            setIsEditRetainedAccessories(false);
+                                            setAssignModalOpen(true);
+                                          }}
+                                        >
+                                          <RefreshCcw className="h-3.5 w-3.5 text-muted-foreground" />
+                                        </Button>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          title="Unassign Device"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setConfirmDialogTitle("Confirm Unassign");
+                                            setConfirmDialogDescription(
+                                              `Unassign ${dev.prathamProductCode || "this device"} from ${u.fullName}? Accessories will stay under Retained accessories.`
+                                            );
+                                            setConfirmDialogAction(() => () => unassignMutation.mutate(dev.id));
+                                            setConfirmDialogOpen(true);
+                                          }}
+                                          disabled={unassignMutation.isPending}
+                                        >
+                                          <X className="h-3.5 w-3.5 text-red-500" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {parseAccessoriesList(getRetainedAccessoriesForUser(u.id)).length > 0 && (
+                                <div className="rounded-md border border-amber-200/80 bg-amber-50/50 px-3 py-2">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-[10px] font-bold uppercase tracking-wide text-amber-800/80">
+                                        Retained accessories
+                                      </p>
+                                      {renderAccessoryList(getRetainedAccessoriesForUser(u.id))}
+                                    </div>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      title="Edit retained accessories"
+                                      className="shrink-0"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setSelectedDeviceDetailId(dev.id);
-                                        setDetailPopupSource("assignment");
+                                        setAssignUserId(u.id);
+                                        setAssignmentDetailDeviceId(null);
+                                        setAssignmentAccessories(
+                                          parseAccessoriesList(getRetainedAccessoriesForUser(u.id))
+                                        );
+                                        setAssignmentAccessoryInput("");
+                                        setIsEditRetainedAccessories(true);
+                                        setIsEditAccessoriesOnly(false);
+                                        setIsChangingDevice(false);
+                                        setAssignModalOpen(true);
                                       }}
                                     >
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <span className="font-medium text-sm text-blue-700 underline-offset-2 hover:underline">{dev.prathamProductCode || "—"}</span>
-                                        <span className="text-xs text-muted-foreground capitalize">{dev.deviceType}</span>
-                                      </div>
-                                      {renderAccessoryList(dev.assignmentAccessories || dev.accessories)}
-                                    </div>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        title="Edit Accessories"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setAssignUserId(u.id);
-                                          setAssignmentDetailDeviceId(dev.id);
-                                          setAssignmentAccessories(parseAccessoriesList(dev.assignmentAccessories || dev.accessories || ""));
-                                          setAssignmentAccessoryInput("");
-                                          setIsEditAccessoriesOnly(true);
-                                          setIsChangingDevice(false);
-                                          setAssignModalOpen(true);
-                                        }}
-                                      >
-                                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                                      </Button>
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        title="Reassign Device"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setAssignUserId(u.id);
-                                          setAssignmentDetailDeviceId(null);
-                                          setAssignmentAccessories(parseAccessoriesList(dev.assignmentAccessories || dev.accessories || ""));
-                                          setAssignmentAccessoryInput("");
-                                          setIsChangingDevice(true);
-                                          setIsEditAccessoriesOnly(false);
-                                          setAssignModalOpen(true);
-                                        }}
-                                      >
-                                        <RefreshCcw className="h-3.5 w-3.5 text-muted-foreground" />
-                                      </Button>
-                                      <Button
-                                        size="icon"
-                                        variant="ghost"
-                                        title="Unassign Device"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setConfirmDialogTitle("Confirm Unassign");
-                                          setConfirmDialogDescription(`Unassign ${dev.prathamProductCode || "this device"} from ${u.fullName}?`);
-                                          setConfirmDialogAction(() => () => unassignMutation.mutate(dev.id));
-                                          setConfirmDialogOpen(true);
-                                        }}
-                                        disabled={unassignMutation.isPending}
-                                      >
-                                        <X className="h-3.5 w-3.5 text-red-500" />
-                                      </Button>
-                                    </div>
+                                      <Pencil className="h-3.5 w-3.5 text-amber-700" />
+                                    </Button>
                                   </div>
-                                ))}
-                              </div>
-                            )}
+                                </div>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-right pt-4">
                             <Button
@@ -714,6 +784,7 @@ export default function DeviceInfo() {
                                 setAssignmentAccessoryInput("");
                                 setIsChangingDevice(false);
                                 setIsEditAccessoriesOnly(false);
+                                setIsEditRetainedAccessories(false);
                                 setAssignModalOpen(true);
                               }}
                             >
@@ -1295,11 +1366,27 @@ export default function DeviceInfo() {
         )}
 
 
-        <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
+        <Dialog
+          open={assignModalOpen}
+          onOpenChange={(open) => {
+            setAssignModalOpen(open);
+            if (!open) {
+              setIsEditRetainedAccessories(false);
+              setIsEditAccessoriesOnly(false);
+              setIsChangingDevice(false);
+            }
+          }}
+        >
           <DialogContent className="max-w-md px-4 sm:px-6">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold">
-                {isEditAccessoriesOnly ? "Edit Accessories" : isChangingDevice ? "Change Device" : "Assign Device"}
+                {isEditRetainedAccessories
+                  ? "Edit Retained Accessories"
+                  : isEditAccessoriesOnly
+                    ? "Edit Device Accessories"
+                    : isChangingDevice
+                      ? "Change Device"
+                      : "Assign Device"}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -1308,16 +1395,18 @@ export default function DeviceInfo() {
                 <div className="p-2 border rounded-md bg-muted/30 font-semibold">{assignableUsers.find(u => u.id === assignUserId)?.fullName || "—"}</div>
               </div>
 
-              {(isEditAccessoriesOnly || isChangingDevice) && (
+              {(isEditAccessoriesOnly || isChangingDevice) && !isEditRetainedAccessories && (
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Current Device</Label>
                   <div className="p-2 border rounded-md bg-orange-50 text-orange-800 font-medium">
-                    {devices.find(d => d.currentUserId === assignUserId)?.prathamProductCode || "Unknown"}
+                    {devices.find((d) => d.id === assignmentDetailDeviceId)?.prathamProductCode ||
+                      devices.find((d) => d.currentUserId === assignUserId)?.prathamProductCode ||
+                      "Unknown"}
                   </div>
                 </div>
               )}
 
-              {!isEditAccessoriesOnly && (
+              {!isEditAccessoriesOnly && !isEditRetainedAccessories && (
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Select New Pratham Device ID *</Label>
                   <Select value={assignmentDetailDeviceId != null ? String(assignmentDetailDeviceId) : undefined} onValueChange={(v) => setAssignmentDetailDeviceId(Number(v))}>
@@ -1340,7 +1429,9 @@ export default function DeviceInfo() {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Accessories in assignment</Label>
+                  <Label className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+                    {isEditRetainedAccessories ? "Retained accessories" : "Accessories in assignment"}
+                  </Label>
                   <span className="text-xs text-muted-foreground">{assignmentAccessories.length} item{assignmentAccessories.length === 1 ? "" : "s"}</span>
                 </div>
 
@@ -1395,20 +1486,52 @@ export default function DeviceInfo() {
                 <Button 
                   className="bg-blue-600 hover:bg-blue-700 text-white" 
                   onClick={() => {
-                    if (!assignmentDetailDeviceId && !isEditAccessoriesOnly) return toast({ title: "Please select a device" });
-                    
-                    const currentUserDevice = devices.find(d => d.currentUserId === assignUserId);
-                    
+                    if (!assignUserId) return;
+
+                    if (isEditRetainedAccessories) {
+                      updateRetainedAccessoriesMutation.mutate({
+                        userId: assignUserId,
+                        accessories:
+                          assignmentAccessories.length > 0
+                            ? formatAccessoriesList(assignmentAccessories)
+                            : null,
+                      });
+                      return;
+                    }
+
+                    if (!assignmentDetailDeviceId && !isEditAccessoriesOnly) {
+                      toast({ title: "Please select a device" });
+                      return;
+                    }
+
+                    const currentUserDevice = devices.find((d) => d.currentUserId === assignUserId);
+
                     assignDeviceMutation.mutate({
                       deviceId: assignmentDetailDeviceId!,
-                      userId: assignUserId!,
-                      accessories: assignmentAccessories.length > 0 ? formatAccessoriesList(assignmentAccessories) : null,
-                      oldDeviceId: isChangingDevice ? currentUserDevice?.id : null
+                      userId: assignUserId,
+                      accessories:
+                        assignmentAccessories.length > 0
+                          ? formatAccessoriesList(assignmentAccessories)
+                          : null,
+                      oldDeviceId: isChangingDevice ? currentUserDevice?.id : null,
                     });
                   }} 
-                  disabled={!assignUserId || (!assignmentDetailDeviceId && !isEditAccessoriesOnly) || assignDeviceMutation.isPending}
+                  disabled={
+                    !assignUserId ||
+                    updateRetainedAccessoriesMutation.isPending ||
+                    assignDeviceMutation.isPending ||
+                    (!isEditRetainedAccessories &&
+                      !assignmentDetailDeviceId &&
+                      !isEditAccessoriesOnly)
+                  }
                 >
-                  {assignDeviceMutation.isPending ? "Processing..." : isEditAccessoriesOnly ? "Update Accessories" : "Confirm Assignment"}
+                  {updateRetainedAccessoriesMutation.isPending || assignDeviceMutation.isPending
+                    ? "Processing..."
+                    : isEditRetainedAccessories
+                      ? "Save Retained Accessories"
+                      : isEditAccessoriesOnly
+                        ? "Update Accessories"
+                        : "Confirm Assignment"}
                 </Button>
               </div>
             </div>

@@ -36,6 +36,8 @@ import {
   GraduationCap,
   CheckSquare,
   Headset,
+  ConciergeBell,
+  Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,30 +71,9 @@ interface SidebarItem {
 // Updated sidebar items with more appropriate icons
 const sidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
+  { icon: Target, label: "Leads", href: "/leads", roles: ["superadmin", "developer", "manager", "counsellor", "telecaller", "marketing_head"] },
   { icon: Users, label: "Clients", href: "/clients", roles: ["superadmin", "developer", "manager", "counsellor"] },
-//   { icon: Target, label: "Lead list", href: "/leads", roles: ["superadmin", "developer", "manager", "counsellor", "telecaller"] },
-//  { icon: LayoutGrid, label: "Kanban", href: "/leads/kanban", roles: ["superadmin", "developer", "manager", "counsellor", "telecaller"] },
-//   { icon: Zap, label: "Automation", href: "/leads/automation", roles: ["superadmin", "developer", "manager"] },
-//   { icon: BarChart3, label: "Lead reports", href: "/leads/reports", roles: ["superadmin", "developer", "manager"] },
-
-  
-  {
-    icon: Activity,
-    label: "Activity Log",
-    href: "/activity",
-  },
-  {
-    icon: Megaphone,
-    label: "Messages",
-    href: "/messages",
-  },
   { icon: PieChart, label: "Reports", href: "/reports" },
-  {
-    icon: Users,
-    label: "Team",
-    href: "/team",
-    roles: ["superadmin", "developer", "director"],
-  },
   {
     icon: Trophy,
     label: "Leaderboard",
@@ -100,17 +81,19 @@ const sidebarItems: SidebarItem[] = [
     roles: ["superadmin", "developer", "manager"],
   },
   {
-    icon: Info, // or FileInfo, or CircleInfo
-    label: "Additional Info",
-    href: "/additional-info",
+    icon: Users,
+    label: "Team",
+    href: "/team",
     roles: ["superadmin", "developer", "director"],
   },
   {
-    icon: GraduationCap, // or Building2, or Library
-    label: "University List",
-    href: "/university-db",
-    roles: ["superadmin", "developer", "manager", "counsellor"],
+    icon: Megaphone,
+    label: "Messages",
+    href: "/messages",
   },
+  { icon: LayoutDashboard, label: "Front Desk", href: "/front-desk", roles: ["front_desk", "developer"] },
+  { icon: Activity, label: "Activity Log", href: "/front-desk/activity", roles: ["front_desk", "developer"] },
+
 
   {
     icon: Headset,
@@ -124,6 +107,32 @@ const sidebarItems: SidebarItem[] = [
     href: "/tech-support/device-info",
     roles: ["tech_support", "superadmin", "manager", "director"],
   },
+  {
+    icon: Activity,
+    label: "Activity Log",
+    href: "/activity",
+  },
+  
+  {
+    icon: Info, // or FileInfo, or CircleInfo
+    label: "Additional Info",
+    href: "/additional-info",
+    roles: ["superadmin", "developer", "director"],
+  },
+  {
+    icon: GraduationCap, // or Building2, or Library
+    label: "University List",
+    href: "/university-db",
+    roles: ["superadmin", "developer", "manager", "counsellor"],
+  },
+  {
+    icon: Wrench,
+    label: "Maintenance",
+    href: "/maintenance",
+    roles: ["developer"],
+  },
+
+  
    // {
   //   icon: CheckSquare,
   //   label: "Checklists",
@@ -192,6 +201,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isReportsOpen, setIsReportsOpen] = useState(false);
+  const [isLeadsOpen, setIsLeadsOpen] = useState(false);
 
   // Determine if we're in dark mode and listen for system theme changes
   useEffect(() => {
@@ -221,8 +231,18 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
 
 
   useEffect(() => {
-    if (location.startsWith("/reports") || location.startsWith("/overall-report")) {
+    if (location.startsWith("/reports") || location.startsWith("/overall-report") || location === "/leads/reports" || location === "/leads/daily-report") {
       setIsReportsOpen(true);
+    }
+  }, [location]);
+
+  useEffect(() => {
+    if (
+      location.startsWith("/leads") &&
+      location !== "/leads/reports" &&
+      !location.startsWith("/leads/telecaller/")
+    ) {
+      setIsLeadsOpen(true);
     }
   }, [location]);
 
@@ -248,12 +268,16 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
   // Filter items based on user role
   const filteredItems = sidebarItems.filter((item) => {
     if (user?.role === "tech_support") {
-      // Tech support should only see dashboard + device info.
       return ["/", "/tech-support/device-info"].includes(item.href);
+    }
+    if (user?.role === "front_desk") {
+      return ["/front-desk", "/front-desk/activity"].includes(item.href);
     }
     if (!item.roles) return true;
     return user && item.roles.includes(user.role);
   });
+
+
 
   // Logic to determine the active item based on specificity (longest matching path)
   const activeItem = filteredItems.reduce(
@@ -296,7 +320,11 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
 
   // Auto-expand leaderboard if we are on a leaderboard page
   useEffect(() => {
-    if (location === "/manager-leaderboard" || location === "/counsellor-leaderboard") {
+    if (
+      location === "/manager-leaderboard" ||
+      location === "/counsellor-leaderboard" ||
+      location === "/telecaller-leaderboard"
+    ) {
       setIsLeaderboardOpen(true);
     }
   }, [location]);
@@ -313,10 +341,12 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
       counsellor: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
       telecaller: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
       tech_support: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-800",
+      front_desk: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
       backend_manager: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-900/30 dark:text-fuchsia-300 dark:border-fuchsia-800",
       customer_experience: "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:border-cyan-800",
       binding_team: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800",
       application_team: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800",
+      marketing_head: "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/30 dark:text-pink-300 dark:border-pink-800",
     };
 
     const labels: Record<string, string> = {
@@ -328,10 +358,12 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
       counsellor: "Counsellor",
       telecaller: "Telecaller",
       tech_support: "Tech Support",
+      front_desk: "Front Desk",
       backend_manager: "Backend Manager",
       customer_experience: "CX Team",
       binding_team: "Binding Team",
       application_team: "Application Team",
+      marketing_head: "Marketing Head",
     };
 
     return (
@@ -512,6 +544,271 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
               </Collapsible>
             );
           }
+
+          if (item.label === "Reports") {
+            const isReportsActive =
+              location.startsWith("/reports") || location.startsWith("/overall-report") || location === "/leads/reports";
+
+            return (
+              <Collapsible
+                key="reports"
+                open={isReportsOpen}
+                onOpenChange={setIsReportsOpen}
+                className="space-y-1"
+              >
+                <div className="flex items-center gap-2">
+                  <CollapsibleTrigger asChild>
+                    <div
+                      className={cn(
+                        "flex flex-1 items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative cursor-pointer",
+                        isCollapsed ? "px-2 justify-center" : "px-3",
+                        isReportsActive
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent"
+                      )}
+                    >
+                      <PieChart className="w-5 h-5 shrink-0" />
+
+                      {!isCollapsed && (
+                        <>
+                          <span className="flex-1">Reports</span>
+                          {isReportsOpen ? (
+                            <ChevronDown className="w-4 h-4 opacity-50" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 opacity-50" />
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </CollapsibleTrigger>
+                </div>
+
+                {!isCollapsed && (
+                  <CollapsibleContent className="pl-4 space-y-1">
+
+                    {/* Individual Reports */}
+                    {user && !["telecaller", "marketing_head"].includes(user.role) && (
+                      <Link
+                        href="/reports"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
+                          location === "/reports" || location.startsWith("/reports/counsellor/")
+                            ? "border-primary text-primary bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
+                        )}
+                      >
+                        <FileText className="w-4 h-4" />
+                        Counsellor Reports
+                      </Link>
+                    )}
+
+                    {user && [ "developer"].includes(user.role) && (
+                       <Link
+                      href="/reports/payments"
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
+                        location === "/reports/payments"
+                          ? "border-primary text-primary bg-primary/5"
+                          : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
+                      )}
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                      Payments Report
+                    </Link>
+                    )}
+          
+
+                    {/* Overall Reports (restricted) */}
+                    {user && ["superadmin", "developer", "manager"].includes(user.role) && (
+                      <Link
+                        href="/overall-report"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
+                          location === "/overall-report"
+                            ? "border-primary text-primary bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
+                        )}
+                      >
+                        <FileBarChart className="w-4 h-4" />
+                        Sales Reports
+                      </Link>
+                    )}
+
+                    {user && ["superadmin", "developer", "manager", "telecaller", "marketing_head", "counsellor"].includes(user.role) && (
+                      <Link
+                        href={
+                          user.role === "telecaller"
+                            ? `/leads/telecaller/${user.id}`
+                            : user.role === "counsellor"
+                              ? "/leads/counsellor-report"
+                              : "/leads/reports"
+                        }
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
+                          (location === "/leads/reports" ||
+                            location.startsWith("/leads/telecaller/") ||
+                            location === "/leads/counsellor-report")
+                            ? "border-primary text-primary bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
+                        )}
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                        Lead Reports
+                      </Link>
+                    )}
+
+                    {user && ["manager", "marketing_head"].includes(user.role) && (
+                      <Link
+                        href="/leads/daily-report"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
+                          location === "/leads/daily-report"
+                            ? "border-primary text-primary bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
+                        )}
+                      >
+                        <FileBarChart className="w-4 h-4" />
+                        Daily Report
+                      </Link>
+                    )}
+
+                  </CollapsibleContent>
+                )}
+              </Collapsible>
+            );
+          }
+
+
+          if (item.label === "Leads") {
+            const isLeadsActive =
+              location.startsWith("/leads") &&
+              location !== "/leads/reports" &&
+              location !== "/leads/daily-report" &&
+              location !== "/leads/counsellor-report" &&
+              !location.startsWith("/leads/telecaller/");
+            return (
+              <Collapsible
+                key={item.href}
+                open={isLeadsOpen}
+                onOpenChange={setIsLeadsOpen}
+                className="space-y-1"
+              >
+                <div className="flex items-center gap-2">
+                  <CollapsibleTrigger asChild>
+                    <div
+                      className={cn(
+                        "flex flex-1 items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative cursor-pointer select-none",
+                        isCollapsed ? "px-2 justify-center" : "px-3",
+                        isLeadsActive
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md shadow-primary/20"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      )}
+                    >
+                      <item.icon
+                        className={cn(
+                          "transition-transform group-hover:scale-110 shrink-0",
+                          "w-5 h-5",
+                          isLeadsActive
+                            ? "text-sidebar-primary-foreground"
+                            : "text-muted-foreground group-hover:text-sidebar-primary",
+                        )}
+                      />
+                      {!isCollapsed && (
+                        <>
+                          <span className="flex-1">{item.label}</span>
+                          {isLeadsOpen ? (
+                            <ChevronDown className="w-4 h-4 opacity-50 shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 opacity-50 shrink-0" />
+                          )}
+                        </>
+                      )}
+                      {isLeadsActive && !isLeadsOpen && !isCollapsed && (
+                        <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white/50" />
+                      )}
+                    </div>
+                  </CollapsibleTrigger>
+                </div>
+
+                {!isCollapsed && (
+                  <CollapsibleContent className="pl-4 space-y-1 overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
+                    {/* My Leads — counsellor only */}
+                    {user?.role === "counsellor" && (
+                      <Link
+                        href="/leads/counsellor"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                          location === "/leads/counsellor"
+                            ? "border-primary text-primary font-medium bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                        )}
+                      >
+                        <List className="w-4 h-4" />
+                        <span className="truncate">My Leads</span>
+                      </Link>
+                    )}
+                    {/* Lead List — non-counsellor roles */}
+                    {user?.role !== "counsellor" && (
+                      <Link
+                        href="/leads"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                          location === "/leads"
+                            ? "border-primary text-primary font-medium bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                        )}
+                      >
+                        <List className="w-4 h-4" />
+                        <span className="truncate">Lead List</span>
+                      </Link>
+                    )}
+                    {user && ["superadmin", "manager", "backend_manager"].includes(user.role) && (
+                      <Link
+                        href="/leads/telecaller-wise"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                          location === "/leads/telecaller-wise"
+                            ? "border-primary text-primary font-medium bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                        )}
+                      >
+                        <Users className="w-4 h-4" />
+                        <span className="truncate">Telecaller Wise List</span>
+                      </Link>
+                    )}
+                    {/* Kanban — hidden for now
+                    <Link
+                      href="/leads/kanban"
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                        location === "/leads/kanban"
+                          ? "border-primary text-primary font-medium bg-primary/5"
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                      )}
+                    >
+                      <LayoutGrid className="w-4 h-4" />
+                      <span className="truncate">Kanban</span>
+                    </Link>
+                    */}
+                    {user && ["superadmin", "developer", "manager"].includes(user.role) && (
+                      <Link
+                        href="/leads/automation"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                          location === "/leads/automation"
+                            ? "border-primary text-primary font-medium bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                        )}
+                      >
+                        <Zap className="w-4 h-4" />
+                        <span className="truncate">Automation</span>
+                      </Link>
+                    )}
+                  </CollapsibleContent>
+                )}
+              </Collapsible>
+            );
+          }
           if (item.label === "Registered Client") {
             return (
               <Collapsible
@@ -577,7 +874,8 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
             const isLeaderboardActive =
               activeItem?.href === item.href ||
               location === "/manager-leaderboard" ||
-              location === "/counsellor-leaderboard";
+              location === "/counsellor-leaderboard" ||
+              location === "/telecaller-leaderboard";
             return (
               <Collapsible
                 key={item.href}
@@ -649,104 +947,32 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       <Trophy className="w-4 h-4" />
                       <span className="truncate">Counsellor Leaderboard</span>
                     </Link>
+                    {user && ["superadmin", "developer", "manager", "admin"].includes(user.role) && (
+                      <Link
+                        href="/telecaller-leaderboard"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                          location === "/telecaller-leaderboard"
+                            ? "border-primary text-primary font-medium bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                        )}
+                      >
+                        <Target className="w-4 h-4" />
+                        <span className="truncate">Telecaller Leaderboard</span>
+                      </Link>
+                    )}
                   </CollapsibleContent>
                 )}
               </Collapsible>
             );
           }
           // Reports Dropdown sidebar
-          if (item.label === "Reports") {
-            const isReportsActive =
-              location.startsWith("/reports") || location.startsWith("/overall-report");
-
-            return (
-              <Collapsible
-                key="reports"
-                open={isReportsOpen}
-                onOpenChange={setIsReportsOpen}
-                className="space-y-1"
-              >
-                <div className="flex items-center gap-2">
-                  <CollapsibleTrigger asChild>
-                    <div
-                      className={cn(
-                        "flex flex-1 items-center gap-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative cursor-pointer",
-                        isCollapsed ? "px-2 justify-center" : "px-3",
-                        isReportsActive
-                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent"
-                      )}
-                    >
-                      <PieChart className="w-5 h-5 shrink-0" />
-
-                      {!isCollapsed && (
-                        <>
-                          <span className="flex-1">Reports</span>
-                          {isReportsOpen ? (
-                            <ChevronDown className="w-4 h-4 opacity-50" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 opacity-50" />
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </CollapsibleTrigger>
-                </div>
-
-                {!isCollapsed && (
-                  <CollapsibleContent className="pl-4 space-y-1">
-
-                    {/* Individual Reports */}
-                    <Link
-                      href="/reports"
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
-                        location === "/reports" || location.startsWith("/reports/counsellor/")
-                          ? "border-primary text-primary bg-primary/5"
-                          : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
-                      )}
-                    >
-                      <FileText className="w-4 h-4" />
-                      Counsellor Reports
-                    </Link>     
-
-                    {user && [ "developer"].includes(user.role) && (
-                       <Link
-                      href="/reports/payments"
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
-                        location === "/reports/payments"
-                          ? "border-primary text-primary bg-primary/5"
-                          : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
-                      )}
-                    >
-                      <FileSpreadsheet className="w-4 h-4" />
-                      Payments Report
-                    </Link>
-                    )}
           
 
-                    {/* Overall Reports (restricted) */}
-                    {user && ["superadmin", "developer", "manager"].includes(user.role) && (
-                      <Link
-                        href="/overall-report"
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
-                          location === "/overall-report"
-                            ? "border-primary text-primary bg-primary/5"
-                            : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
-                        )}
-                      >
-                        <FileBarChart className="w-4 h-4" />
-                        Sales Reports
-                      </Link>
-                    )}
-
-                  </CollapsibleContent>
-                )}
-              </Collapsible>
-            );
-          }
+          const displayLabel =
+            user?.role === "front_desk" && item.href === "/front-desk"
+              ? "Dashboard"
+              : item.label;
 
           return (
             <Link
@@ -771,7 +997,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
               />
               {!isCollapsed && (
                 <>
-                  {item.label}
+                  {displayLabel}
                   {isActive && (
                     <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white/50" />
                   )}

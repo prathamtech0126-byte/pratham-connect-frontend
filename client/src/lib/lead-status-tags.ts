@@ -1,0 +1,251 @@
+import type { LeadEntity } from "@/api/leads.api";
+import type { LeadDetailMeta } from "@/api/leads.api";
+
+export type LeadDisplayTag = {
+  key: string;
+  label: string;
+  className: string;
+};
+
+export type LeadDisplayTagOptions = {
+  /** When false, do not show a follow-up progress tag even if progressStatus is follow_up. */
+  pendingFollowUp?: boolean;
+};
+
+export const isLeadJunk = (lead: LeadEntity) =>
+  Boolean(lead.isJunk) || lead.progressStatus === "junk";
+
+export const isLeadDropped = (lead: LeadEntity) =>
+  lead.assignmentStatus === "dropped" ||
+  (lead.eligibilityStatus === "not_eligible" &&
+    Boolean(lead.latestNote?.trim().toUpperCase().startsWith("[DROP]")));
+
+export const isLeadConverted = (lead: LeadEntity) =>
+  lead.progressStatus === "converted" || lead.assignmentStatus === "converted";
+
+export const hasPendingFollowUp = (
+  lead: LeadEntity,
+  options?: LeadDisplayTagOptions
+): boolean => {
+  if (options?.pendingFollowUp !== undefined) return options.pendingFollowUp;
+  if (lead.pendingFollowUp !== undefined) return lead.pendingFollowUp;
+  return lead.progressStatus === "follow_up";
+};
+
+function followUpProgressTag(): LeadDisplayTag {
+  return {
+    key: "follow_up",
+    label: "Follow Up",
+    className: "bg-amber-500 text-white border-0",
+  };
+}
+
+function progressTag(lead: LeadEntity, options?: LeadDisplayTagOptions): LeadDisplayTag | null {
+  if (hasPendingFollowUp(lead, options)) {
+    return followUpProgressTag();
+  }
+
+  if (lead.progressStatus === "contacted" || lead.progressStatus === "interested") {
+    return {
+      key: "contacted",
+      label: lead.progressStatus === "interested" ? "Interested" : "Contacted",
+      className: "bg-sky-600 text-white border-0",
+    };
+  }
+
+  if (lead.eligibilityStatus === "not_eligible" && !isLeadDropped(lead)) {
+    return {
+      key: "dropped",
+      label: "Drop",
+      className: "bg-red-600 text-white border-0",
+    };
+  }
+
+  if (lead.progressStatus === "not_contacted") {
+    return {
+      key: "not_contacted",
+      label: "Not contacted",
+      className: "bg-slate-500 text-white border-0",
+    };
+  }
+
+  return null;
+}
+
+function transferredToTag(_lead: LeadEntity): LeadDisplayTag {
+  return {
+    key: "transferred",
+    label: "Transferred",
+    className: "bg-indigo-600 text-white border-0",
+  };
+}
+
+function convertedTag(): LeadDisplayTag {
+  return {
+    key: "converted",
+    label: "Converted to client",
+    className: "bg-emerald-600 text-white border-0",
+  };
+}
+
+function clientDroppedTag(): LeadDisplayTag {
+  return {
+    key: "client_dropped",
+    label: "Drop",
+    className: "bg-red-600 text-white border-0",
+  };
+}
+
+function junkTag(): LeadDisplayTag {
+  return {
+    key: "junk",
+    label: "Junk",
+    className: "bg-orange-500 text-white border-0",
+  };
+}
+
+/** Counsellor: assignment tags + follow-up progress tag only when a follow-up is still pending. */
+function counsellorLeadTags(lead: LeadEntity, options?: LeadDisplayTagOptions): LeadDisplayTag[] {
+  if (isLeadJunk(lead)) {
+    return [junkTag()];
+  }
+
+  if (isLeadDropped(lead)) {
+    return [clientDroppedTag()];
+  }
+
+  if (isLeadConverted(lead)) {
+    return [convertedTag()];
+  }
+
+  if (hasPendingFollowUp(lead, options)) {
+    return [followUpProgressTag()];
+  }
+
+  return [];
+}
+
+/** Progress + assignment pills for list rows. */
+export function getLeadDisplayTags(
+  lead: LeadEntity,
+  role?: string | null,
+  options?: LeadDisplayTagOptions
+): LeadDisplayTag[] {
+  if (role === "counsellor") {
+    return counsellorLeadTags(lead, options);
+  }
+
+  if (isLeadJunk(lead)) {
+    return [junkTag()];
+  }
+
+  if (lead.assignmentStatus === "dropped" || isLeadDropped(lead)) {
+    return [clientDroppedTag()];
+  }
+
+  if (isLeadConverted(lead)) {
+    return [convertedTag()];
+  }
+
+  const tags: LeadDisplayTag[] = [];
+
+  const progress = progressTag(lead, options);
+  if (progress) tags.push(progress);
+  if (lead.assignmentStatus === "transferred") {
+    tags.push(transferredToTag(lead));
+  }
+
+  if (tags.length === 0) {
+    tags.push({
+      key: "not_contacted",
+      label: "Not contacted",
+      className: "bg-slate-500 text-white border-0",
+    });
+  }
+
+  return tags;
+}
+
+export const isLeadConvertedForRole = (lead: LeadEntity, role?: string | null) =>
+  role === "telecaller" && isLeadConverted(lead);
+
+/** Junk is read-only for everyone; converted is read-only for telecallers only. */
+export const isLeadReadOnly = (lead: LeadEntity, role?: string | null) =>
+  isLeadJunk(lead) ||
+  isLeadConvertedForRole(lead, role) ||
+  (role === "counsellor" && isLeadDropped(lead));
+
+export const isAdminLikeRole = (role?: string | null) =>
+  role === "superadmin" || role === "admin" || role === "developer" || role === "manager";
+
+export const isLeadTransferBlocked = (lead: LeadEntity) =>
+  isLeadConverted(lead) || isLeadJunk(lead) || isLeadDropped(lead);
+
+export function canTransferToCounsellor(
+  lead: LeadEntity,
+  meta?: LeadDetailMeta | null
+): boolean {
+  if (meta?.canReassignCounsellor) return true;
+  return (
+    !isLeadConverted(lead) &&
+    !isLeadJunk(lead) &&
+    !isLeadDropped(lead) &&
+    !hasPendingFollowUp(lead, meta ? { pendingFollowUp: meta.pendingFollowUp } : undefined) &&
+    !!lead.eligibilityStatus &&
+    !!lead.leadQuality &&
+    lead.assignmentStatus !== "transferred"
+  );
+}
+
+export function getTransferButtonLabel(
+  lead: LeadEntity,
+  meta?: LeadDetailMeta | null
+): string {
+  if (meta?.canReassignCounsellor || lead.assignmentStatus === "transferred") {
+    return "Transfer to another counsellor";
+  }
+  return "Transfer to counsellor";
+}
+
+const PROGRESS_SORT_RANK: Record<string, number> = {
+  not_contacted: 0,
+  contacted: 1,
+  follow_up: 2,
+  interested: 3,
+  not_interested: 4,
+  converted: 5,
+  junk: 6,
+};
+
+export const mergeLeadRow = (prev: LeadEntity, patch: Partial<LeadEntity>): LeadEntity => ({
+  ...prev,
+  ...patch,
+  id: prev.id,
+  telecallerName:
+    patch.telecallerName !== undefined && patch.telecallerName !== null
+      ? patch.telecallerName
+      : prev.telecallerName,
+  counsellorName:
+    patch.counsellorName !== undefined && patch.counsellorName !== null
+      ? patch.counsellorName
+      : prev.counsellorName,
+  pendingFollowUp:
+    patch.pendingFollowUp !== undefined ? patch.pendingFollowUp : prev.pendingFollowUp,
+});
+
+export const sortLeadsForDisplay = (items: LeadEntity[]): LeadEntity[] =>
+  [...items].sort((a, b) => {
+    const aJunk = isLeadJunk(a) ? 2 : 0;
+    const bJunk = isLeadJunk(b) ? 2 : 0;
+    if (aJunk !== bJunk) return aJunk - bJunk;
+
+    const aDone =
+      a.assignmentStatus === "transferred" || isLeadConverted(a) || isLeadDropped(a) ? 1 : 0;
+    const bDone =
+      b.assignmentStatus === "transferred" || isLeadConverted(b) || isLeadDropped(b) ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;
+    const aRank = PROGRESS_SORT_RANK[a.progressStatus] ?? 99;
+    const bRank = PROGRESS_SORT_RANK[b.progressStatus] ?? 99;
+    if (aRank !== bRank) return aRank - bRank;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });

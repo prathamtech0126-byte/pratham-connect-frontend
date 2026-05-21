@@ -1,1447 +1,1819 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Redirect } from "wouter";
-import { useAuth } from "@/context/auth-context";
-import { canAccessLeads, canAssignLead, canUseCsvImportExport } from "@/lib/lead-permissions";
-import { useToast } from "@/hooks/use-toast";
-import { Breadcrumbs } from "@/layout/Breadcrumbs";
-import { DUMMY_ASSIGNEE_OPTIONS, DUMMY_LEADS, LEAD_STAGES, type DummyLead, type LeadStage, type LeadStatus } from "@/data/dummyLeads";
-import { AddLead } from "@/components/add-lead";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useLeadSocketRefresh } from "@/hooks/use-lead-socket";
+import { useLocation, useSearch } from "wouter";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+
+import {
+  istCalendarYmd,
+  istMonthPresetYmds,
+  istMonthRangeIso,
+  istTodayRangeIso,
+  istWeekRangeIso,
+  istYmdInclusiveRangeIso,
+} from "@/lib/ist-date-range";
+
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/auth-context";
+
+import { Breadcrumbs } from "@/layout/Breadcrumbs";
+import { AddLead } from "@/components/add-lead";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Download, GripVertical, Loader2, MoreHorizontal, Plus, Target, X } from "lucide-react";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
+import {
+  clampFollowupDateTime,
+  getMinFollowupDateTime,
+  getTomorrowMorning1030,
+  isFollowupDateTimeAllowed,
+} from "@/lib/followup-datetime";
+import DateRangePicker from "@/components/payments/DateRangePicker";
 
-const UNASSIGNED_ID = "__unassigned__";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Phone,
+  Tag,
+  CalendarClock,
+  X,
+  Calendar,
+  Send,
+  Star,
+  UserCheck,
+  RotateCcw,
+} from "lucide-react";
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
+import api from "@/lib/api";
+import { cn } from "@/lib/utils";
 
-function statusBadgeVariant(status: LeadStatus): "default" | "secondary" | "outline" | "destructive" {
-  switch (status) {
-    case "new":
-      return "secondary";
-    case "contacted":
-      return "default";
-    case "qualified":
-      return "outline";
-    case "converted":
-      return "default";
-    case "lost":
-      return "destructive";
-    default:
-      return "secondary";
-  }
-}
+import {
+  fetchAllLeads,
+  assignLeadApi,
+  bulkAssignLeadsApi,
+  revertLeadJunkApi,
+  addLeadActivityApi,
+  updateLeadFieldsApi,
+  type LeadEntity,
+  type LeadEligibilityStatus,
+  type LeadQuality,
+} from "@/api/leads.api";
+import {
+  getLeadDisplayTags,
+  isLeadTransferBlocked,
+  isLeadReadOnly,
+  isLeadJunk,
+  sortLeadsForDisplay,
+  mergeLeadRow,
+  canTransferToCounsellor,
+} from "@/lib/lead-status-tags";
+import { consumeLeadListPatches, extractLeadFromSocketPayload } from "@/lib/lead-list-sync";
+import { listPatchFromLeadUpdate } from "@/lib/lead-progress-rules";
+import { getLeadSourceLabel, isInboundChannelLead } from "@/lib/lead-source-display";
+import {
+  getLeadReferenceDisplayLabel,
+  leadHasReferenceSource,
+} from "@/lib/lead-reference-display";
 
-function stageAccentClasses(stage: LeadStage) {
-  // Use primary accent with different opacity so the UI stays cohesive.
-  switch (stage) {
-    case "New":
-      return "bg-primary/10 text-primary border-primary/20";
-    case "Contacted":
-      return "bg-primary/10 text-primary border-primary/20";
-    case "Qualified":
-      return "bg-primary/15 text-primary border-primary/25";
-    case "Converted":
-      return "bg-primary/15 text-primary border-primary/25";
-  }
-}
+type Counsellor = { id: number; fullName: string };
+type LeadType = { id: number; leadType: string; displayAlias?: string | null };
 
-type SavedViewId = "all" | "new_contacted" | "my_leads" | "unassigned";
+type SaleType = { id: number; saleType: string };
+type DateFilterType = "all" | "today" | "weekly" | "monthly" | "custom";
 
-const SAVED_VIEWS: { id: SavedViewId; label: string }[] = [
-  { id: "all", label: "All leads" },
-  { id: "new_contacted", label: "New + Contacted" },
-  { id: "my_leads", label: "My leads" },
-  { id: "unassigned", label: "Unassigned" },
+const PROGRESS_STATUS_OPTIONS = [
+  { value: "not_contacted", label: "Not Contacted" },
+  { value: "contacted", label: "Contacted" },
+  { value: "follow_up", label: "Follow Up" },
+  { value: "junk", label: "Junk" },
 ];
 
-function LeadStatusBadge({ status }: { status: LeadStatus }) {
-  // Premium CRM-style status pill (light tinted background + readable text)
-  const map: Record<LeadStatus, { bg: string; text: string; border: string }> = {
-    new: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
-    contacted: { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200" },
-    qualified: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
-    converted: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-    lost: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
-  };
+const ASSIGNMENT_STATUS_OPTIONS_FULL = [
+  { value: "not_assigned", label: "Not Assigned" },
+  { value: "assigned", label: "Assigned" },
+  { value: "transferred", label: "Transferred" },
+  { value: "converted", label: "Converted" },
+  { value: "dropped", label: "Drop" },
+];
 
-  const theme = map[status];
+const ASSIGNMENT_STATUS_OPTIONS_TELECALLER = [
+  { value: "transferred", label: "Transferred" },
+  { value: "converted", label: "Converted" },
+];
 
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold capitalize whitespace-nowrap",
-        theme.bg,
-        theme.text,
-        theme.border
-      )}
-    >
-      {status}
-    </span>
-  );
-}
+const ASSIGNMENT_STATUS_OPTIONS_COUNSELLOR = [
+  { value: "assigned", label: "Assigned" },
+  { value: "transferred", label: "Transferred" },
+  { value: "converted", label: "Converted" },
+  { value: "follow_up", label: "Follow Up" },
+  { value: "dropped", label: "Drop" },
+];
 
-function StatusBadge({ status }: { status: LeadStatus }) {
-  return <LeadStatusBadge status={status} />;
-}
+const ELIGIBILITY_OPTIONS: { value: LeadEligibilityStatus; label: string }[] = [
+  { value: "eligible", label: "Eligible" },
+  { value: "not_eligible", label: "Not Eligible" },
+  { value: "future_prospect", label: "Future Prospect" },
+];
 
-type ChipMultiSelectOption = { value: string; label: string };
+const QUALITY_OPTIONS: { value: LeadQuality; label: string }[] = [
+  { value: "excellent", label: "Excellent" },
+  { value: "good", label: "Good" },
+  { value: "average", label: "Average" },
+  { value: "bad", label: "Bad" },
+];
 
-function ChipMultiSelect({
-  label,
-  options,
-  selectedValues,
-  onChangeSelected,
-}: {
-  label: string;
-  options: ChipMultiSelectOption[];
-  selectedValues: string[];
-  onChangeSelected: (nextSelected: string[]) => void;
-}) {
-  const selectedLabels = options
-    .filter((o) => selectedValues.includes(o.value))
-    .map((o) => o.label);
+const leadQualityLabel = (quality?: LeadQuality | null) =>
+  QUALITY_OPTIONS.find((option) => option.value === quality)?.label ?? "—";
 
-  const chipText = selectedValues.length === 0 ? `All ${label}` : selectedLabels.join(", ");
+const SEARCH_MIN_LENGTH = 3;
+const SEARCH_DEBOUNCE_MS = 400;
 
-  const toggleValue = (value: string, checked: boolean) => {
-    if (checked) {
-      if (selectedValues.includes(value)) return;
-      onChangeSelected([...selectedValues, value]);
-      return;
-    }
-    onChangeSelected(selectedValues.filter((v) => v !== value));
-  };
+const DATE_FILTER_LABELS: Record<DateFilterType, string> = {
+  all: "All",
+  today: "Today",
+  weekly: "Weekly",
+  monthly: "Monthly",
+  custom: "Custom",
+};
 
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="h-9 rounded-full px-3 justify-start gap-2"
-        >
-          <span className="text-muted-foreground text-sm">{label}</span>
-          <span className="text-sm font-medium truncate max-w-[220px]">{chipText}</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[320px]">
-        <DropdownMenuLabel>{label}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {options.map((opt) => (
-          <DropdownMenuCheckboxItem
-            key={opt.value}
-            checked={selectedValues.includes(opt.value)}
-            onCheckedChange={(checked) => toggleValue(opt.value, Boolean(checked))}
-          >
-            {opt.label}
-          </DropdownMenuCheckboxItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function LeadStagePill({ stage }: { stage: LeadStage }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
-        stageAccentClasses(stage)
-      )}
-    >
-      {stage}
-    </span>
-  );
-}
-
-function LeadCard({
-  lead,
-  canDrag,
-  isUpdating,
-  onOpen,
-  onDragStart,
-  onDragEnd,
-  onMoveToNext,
-}: {
-  lead: DummyLead;
-  canDrag: boolean;
-  isUpdating: boolean;
-  onOpen: () => void;
-  onDragStart?: (e: React.DragEvent) => void;
-  onDragEnd?: (e: React.DragEvent) => void;
-  onMoveToNext?: () => void;
-}) {
-  const dragSuppressedRef = useRef(false);
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      draggable={canDrag}
-      onDragStart={(e) => {
-        dragSuppressedRef.current = true;
-        onDragStart?.(e);
-      }}
-      onDragEnd={(e) => {
-        onDragEnd?.(e);
-        // reset after browser has had chance to dispatch click
-        window.setTimeout(() => {
-          dragSuppressedRef.current = false;
-        }, 0);
-      }}
-      onClick={() => {
-        if (dragSuppressedRef.current) return;
-        onOpen();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onOpen();
-      }}
-      className={cn(
-        "group rounded-xl border border-border/60 bg-background p-3 shadow-sm",
-        canDrag && "cursor-grab active:cursor-grabbing",
-        "transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30",
-        "focus:outline-none focus:ring-2 focus:ring-primary/20"
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <div className="shrink-0 mt-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-          <GripVertical className="h-4 w-4" />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="font-semibold text-sm truncate">{lead.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{lead.email}</p>
-            </div>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenuItem onSelect={onOpen}>View details</DropdownMenuItem>
-                {onMoveToNext && (
-                  <DropdownMenuItem onSelect={onMoveToNext}>Move to next stage</DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          <div className="flex items-center gap-2 mt-2">
-            <StatusBadge status={lead.status} />
-            <LeadStagePill stage={lead.stage} />
-          </div>
-
-          <div className="flex items-center gap-2 mt-3">
-            {lead.assignedToName ? (
-              <>
-                <Avatar className="h-7 w-7">
-                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                    {getInitials(lead.assignedToName)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground truncate">Assigned to</p>
-                  <p className="text-xs font-medium truncate">{lead.assignedToName}</p>
-                </div>
-              </>
-            ) : (
-              <div className="text-xs text-muted-foreground italic">Unassigned</div>
-            )}
-          </div>
-        </div>
-
-        {isUpdating && (
-          <div className="shrink-0">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function LeadDetailSheet({
-  open,
-  lead,
-  canAssign,
-  onOpenChange,
-  onUpdateLead,
-  onMoveToNextStage,
-}: {
-  open: boolean;
-  lead: DummyLead | null;
-  canAssign: boolean;
-  onOpenChange: (nextOpen: boolean) => void;
-  onUpdateLead: (next: Partial<DummyLead>) => void;
-  onMoveToNextStage: () => void;
-}) {
-  const [status, setStatus] = useState<LeadStatus>("new");
-  const [stage, setStage] = useState<LeadStage>("New");
-  const [assigneeId, setAssigneeId] = useState<string>(UNASSIGNED_ID);
-
-  useEffect(() => {
-    if (!lead) return;
-    setStatus(lead.status);
-    setStage(lead.stage);
-    setAssigneeId(lead.assignedToId ?? UNASSIGNED_ID);
-  }, [lead]);
-
-  const handleSave = () => {
-    if (!lead) return;
-    const nextAssignee =
-      assigneeId === UNASSIGNED_ID
-        ? { assignedToId: null as string | null, assignedToName: null as string | null }
-        : (() => {
-            const opt = DUMMY_ASSIGNEE_OPTIONS.find((u) => u.id === assigneeId);
-            return {
-              assignedToId: assigneeId,
-              assignedToName: opt?.name ?? null,
-            };
-          })();
-
-    onUpdateLead({
-      status,
-      stage,
-      ...nextAssignee,
-    });
-  };
-
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="p-0 [&>button]:top-3 [&>button]:right-3">
-        <div className="p-4 sm:p-6 pt-10 sm:pt-12 overflow-y-auto">
-          {!lead ? (
-            <div className="text-sm text-muted-foreground">No lead selected.</div>
-          ) : (
-            <>
-              <SheetHeader className="space-y-2">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="text-[12px] bg-primary/10 text-primary">
-                          {getInitials(lead.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <SheetTitle className="text-xl leading-tight">{lead.name}</SheetTitle>
-                        <SheetDescription className="text-sm">
-                          {lead.phone}
-                        </SheetDescription>
-                        <p className="text-sm text-muted-foreground">{lead.source}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-start">
-                    <Button variant="outline" size="sm" onClick={onMoveToNextStage}>
-                      Next stage
-                    </Button>
-                  </div>
-                </div>
-              </SheetHeader>
-
-              <Separator className="my-5" />
-
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusBadge status={status} />
-                  <LeadStagePill stage={stage} />
-                </div>
-
-                <div className="grid gap-4">
-                  <Card className="shadow-none border-border/60">
-                    <CardContent className="p-4 space-y-3">
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="text-sm font-medium break-words">{lead.email}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Last follow-up</p>
-                        <p className="text-sm font-medium">
-                          {lead.lastFollowupAt ? format(new Date(lead.lastFollowupAt), "dd MMM yyyy") : "—"}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Created</p>
-                        <p className="text-sm font-medium">
-                          {format(new Date(lead.createdAt), "dd MMM yyyy")}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="shadow-none border-border/60">
-                    <CardContent className="p-4 space-y-3">
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Assigned to</p>
-                        <p className="text-sm font-medium break-words">
-                          {lead.assignedToName ?? "Unassigned"}
-                        </p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">Update</p>
-
-                        <div className="grid gap-3">
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Status</p>
-                            <Select value={status} onValueChange={(v) => setStatus(v as LeadStatus)} disabled={!canAssign}>
-                              <SelectTrigger className="h-10">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="new">New</SelectItem>
-                                <SelectItem value="contacted">Contacted</SelectItem>
-                                <SelectItem value="qualified">Qualified</SelectItem>
-                                <SelectItem value="converted">Converted</SelectItem>
-                                <SelectItem value="lost">Lost</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Stage</p>
-                            <Select value={stage} onValueChange={(v) => setStage(v as LeadStage)} disabled={!canAssign}>
-                              <SelectTrigger className="h-10">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {LEAD_STAGES.map((s) => (
-                                  <SelectItem key={s} value={s}>
-                                    {s}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground">Assignee</p>
-                            <Select value={assigneeId} onValueChange={setAssigneeId} disabled={!canAssign}>
-                              <SelectTrigger className="h-10">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value={UNASSIGNED_ID}>Unassigned</SelectItem>
-                                {DUMMY_ASSIGNEE_OPTIONS.map((u) => (
-                                  <SelectItem key={u.id} value={u.id}>
-                                    {u.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {canAssign ? (
-                            <Button onClick={handleSave}>
-                              Save changes
-                            </Button>
-                          ) : (
-                            <div className="text-xs text-muted-foreground">You don’t have permission to edit this lead.</div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="sticky bottom-0 bg-background border-t border-border/60 pt-3 mt-4 flex flex-wrap items-center gap-2 justify-between">
-                  <Button variant="outline" onClick={() => window.open(`/leads/${lead.id}`, "_self")}>
-                    Open full page
-                  </Button>
-
-                  <Button variant="ghost" className="text-muted-foreground" onClick={() => onOpenChange(false)}>
-                    Close
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function LeadCardSkeleton() {
-  return (
-    <div className="rounded-xl border border-border/60 bg-background p-3 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="h-4 w-4 rounded bg-muted animate-pulse" />
-        <div className="flex-1 min-w-0 space-y-3">
-          <div className="h-4 w-36 rounded bg-muted animate-pulse" />
-          <div className="h-3 w-52 rounded bg-muted animate-pulse" />
-          <div className="flex items-center gap-2">
-            <div className="h-5 w-16 rounded-full bg-muted animate-pulse" />
-            <div className="h-5 w-20 rounded-full bg-muted animate-pulse" />
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-full bg-muted animate-pulse" />
-            <div className="h-3 w-32 rounded bg-muted animate-pulse" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LeadRow({
-  lead,
-  canEdit,
-  onOpen,
-  onMoveStage,
-  onDelete,
-}: {
-  lead: DummyLead;
-  canEdit: boolean;
-  onOpen: () => void;
-  onMoveStage: () => void;
-  onDelete: () => void;
-}) {
-  const assigned = lead.assignedToName ?? "Unassigned";
-  const lastActivity = lead.lastFollowupAt ? format(new Date(lead.lastFollowupAt), "dd MMM yyyy") : "—";
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onOpen();
-      }}
-      className={cn(
-        "rounded-xl border border-border/60 bg-background shadow-sm p-4",
-        "transition-all hover:shadow-md hover:bg-muted/20 cursor-pointer"
-      )}
-    >
-      {/* Mobile: stacked */}
-      <div className="sm:hidden flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="font-semibold text-sm truncate">{lead.name}</div>
-            <div className="text-xs text-muted-foreground truncate">{lead.email}</div>
-          </div>
-
-          <div onClick={(e) => e.stopPropagation()}>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0 rounded-lg">
-                  <span className="text-xl leading-none">⋯</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    onOpen();
-                  }}
-                >
-                  View
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={!canEdit || lead.stage === "Converted"}
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    onMoveStage();
-                  }}
-                >
-                  Move stage
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={!canEdit}
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    onDelete();
-                  }}
-                >
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <StatusBadge status={lead.status} />
-          <span className="text-xs text-muted-foreground font-medium">{lead.stage}</span>
-        </div>
-
-        <div className="grid grid-cols-1 gap-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-xs text-muted-foreground">Assigned to</div>
-            <div className="text-xs font-medium text-foreground truncate">{assigned}</div>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-xs text-muted-foreground">Last Activity</div>
-            <div className="text-xs font-medium text-foreground truncate">{lastActivity}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop: grid */}
-      <div className="hidden sm:grid sm:grid-cols-12 sm:items-center sm:gap-4">
-        <div className="col-span-4 min-w-0">
-          <div className="font-semibold text-sm truncate">{lead.name}</div>
-          <div className="text-xs text-muted-foreground truncate">{lead.email}</div>
-        </div>
-
-        <div className="col-span-2">
-          <StatusBadge status={lead.status} />
-        </div>
-
-        <div className="col-span-2">
-          <span className="text-sm text-muted-foreground font-medium truncate block">{lead.stage}</span>
-        </div>
-
-        <div className="col-span-2 min-w-0">
-          <span className="text-sm text-muted-foreground truncate block">{assigned}</span>
-        </div>
-
-        <div className="col-span-1">
-          <span className="text-sm text-muted-foreground truncate block">{lastActivity}</span>
-        </div>
-
-        <div className="col-span-1 flex justify-end" onClick={(e) => e.stopPropagation()}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0 rounded-lg">
-                <span className="text-xl leading-none">⋯</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  e.preventDefault();
-                  onOpen();
-                }}
-              >
-                View
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!canEdit || lead.stage === "Converted"}
-                onSelect={(e) => {
-                  e.preventDefault();
-                  onMoveStage();
-                }}
-              >
-                Move stage
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!canEdit}
-                onSelect={(e) => {
-                  e.preventDefault();
-                  onDelete();
-                }}
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LeadsList({
-  leads,
-  canEdit,
-  onOpenLead,
-  onMoveStage,
-  onDeleteLead,
-}: {
-  leads: DummyLead[];
-  canEdit: boolean;
-  onOpenLead: (leadId: string) => void;
-  onMoveStage: (leadId: string) => void;
-  onDeleteLead: (leadId: string) => void;
-}) {
-  return (
-    <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
-      {/* Sticky header (desktop) */}
-      <div className="hidden md:block sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
-        <div className="px-4 py-3">
-          <div className="grid grid-cols-12 gap-4 text-xs uppercase font-semibold tracking-wider text-muted-foreground">
-            <div className="col-span-4">Name</div>
-            <div className="col-span-2">Status</div>
-            <div className="col-span-2">Stage</div>
-            <div className="col-span-2">Assigned To</div>
-            <div className="col-span-1">Last Activity</div>
-            <div className="col-span-1 text-right">Actions</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-3 space-y-3">
-        {leads.map((lead) => (
-          <LeadRow
-            key={lead.id}
-            lead={lead}
-            canEdit={canEdit}
-            onOpen={() => onOpenLead(lead.id)}
-            onMoveStage={() => onMoveStage(lead.id)}
-            onDelete={() => onDeleteLead(lead.id)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function stageColumnTheme(stage: LeadStage) {
-  // Distinct per-stage palette so columns are instantly recognizable.
-  // These use Tailwind default color scales.
-  switch (stage) {
-    case "New":
-      return {
-        icon: "🆕",
-        text: "text-blue-700",
-        border: "border-blue-500/60",
-        headerBg: "bg-blue-500/10",
-        bodyBg: "bg-blue-500/5",
-        dot: "bg-blue-500",
-      };
-    case "Contacted":
-      return {
-        icon: "📞",
-        text: "text-violet-700",
-        border: "border-violet-500/60",
-        headerBg: "bg-violet-500/10",
-        bodyBg: "bg-violet-500/5",
-        dot: "bg-violet-500",
-      };
-    case "Qualified":
-      return {
-        icon: "✅",
-        text: "text-orange-700",
-        border: "border-orange-500/60",
-        headerBg: "bg-orange-500/10",
-        bodyBg: "bg-orange-500/5",
-        dot: "bg-orange-500",
-      };
-    case "Converted":
-      return {
-        icon: "🎉",
-        text: "text-emerald-700",
-        border: "border-emerald-500/60",
-        headerBg: "bg-emerald-500/10",
-        bodyBg: "bg-emerald-500/5",
-        dot: "bg-emerald-500",
-      };
-  }
-}
-
-function StageColumn({
-  title,
-  stage,
-  count,
-  leads,
-  isLoading,
-  isDropTarget,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-  onDragStart,
-  onDragEnd,
-  isUpdatingLeadId,
-  onOpenLead,
-  onMoveToNext,
-}: {
-  title: string;
-  stage: LeadStage;
-  count: number;
-  leads: DummyLead[];
-  isLoading?: boolean;
-  isDropTarget: boolean;
-  onDragOver?: (e: React.DragEvent) => void;
-  onDragLeave?: (e: React.DragEvent) => void;
-  onDrop?: (e: React.DragEvent) => void;
-  onDragStart?: (e: React.DragEvent, lead: DummyLead) => void;
-  onDragEnd?: (e: React.DragEvent) => void;
-  isUpdatingLeadId: string | null;
-  onOpenLead: (leadId: string) => void;
-  onMoveToNext?: (leadId: string) => void;
-}) {
-  const theme = stageColumnTheme(stage);
-
-  return (
-    <div
-      className={cn(
-        "w-[360px] shrink-0 rounded-2xl border shadow-sm transition-all",
-        theme.bodyBg,
-        isDropTarget ? "ring-1 ring-primary/30 border-primary/50 -translate-y-[1px]" : "border-border/60"
-      )}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-    >
-      {/* Stage Header */}
-      <div
-        className={cn(
-          "p-4 flex items-center justify-between gap-3 rounded-t-2xl border-l-4 pl-5",
-          theme.headerBg,
-          theme.border
-        )}
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center", theme.dot + " text-white")}>
-            <span aria-hidden="true" className="text-sm">
-              {theme.icon}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <p className={cn("font-semibold text-base truncate", theme.text)}>{title}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Pipeline stage</p>
-          </div>
-        </div>
-
-        <span
-          className={cn(
-            "text-xs font-medium rounded-full px-2.5 py-1 border bg-background/50 whitespace-nowrap",
-            theme.border,
-            theme.text
-          )}
-        >
-          {count}
-        </span>
-      </div>
-
-      {/* Cards */}
-      <div className="p-4 min-h-[420px] flex flex-col gap-3">
-        {isLoading ? (
-          <>
-            <LeadCardSkeleton />
-            <LeadCardSkeleton />
-          </>
-        ) : leads.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 p-4 text-center">
-            <p className="text-xs text-muted-foreground">No leads in this stage</p>
-            <p className="text-xs text-muted-foreground mt-1">Drag a lead here or create a new one.</p>
-          </div>
-        ) : (
-          leads.map((lead) => (
-            <LeadCard
-              key={lead.id}
-              lead={lead}
-              canDrag
-              isUpdating={isUpdatingLeadId === lead.id}
-              onOpen={() => onOpenLead(lead.id)}
-              onDragStart={(e) => onDragStart?.(e, lead)}
-              onDragEnd={onDragEnd}
-              onMoveToNext={onMoveToNext ? () => onMoveToNext(lead.id) : undefined}
-            />
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
+const statusColors: Record<string, string> = {
+  not_contacted: "bg-slate-100 text-slate-600",
+  contacted: "bg-blue-100 text-blue-700",
+  follow_up: "bg-amber-100 text-amber-700",
+  interested: "bg-green-100 text-green-700",
+  not_interested: "bg-red-100 text-red-600",
+  converted: "bg-emerald-100 text-emerald-700",
+  junk: "bg-red-200 text-red-700",
+};
 
 export default function LeadList() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
+  const searchStr = useSearch();
   const { toast } = useToast();
 
-  const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [leads, setLeads] = useState<LeadEntity[]>([]);
+  const [loading, setLoading] = useState(false);
+  const MAX_LEADS_PER_PAGE = 500;
 
-  const [leads, setLeads] = useState<DummyLead[]>(DUMMY_LEADS);
-  const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [perPagePreset, setPerPagePreset] = useState<"20" | "50" | "100" | "custom">("50");
+  /** Applied limit when preset is Custom (avoids refetch on every keystroke). */
+  const [customPerPageCommitted, setCustomPerPageCommitted] = useState(50);
+  const [customPerPageDraft, setCustomPerPageDraft] = useState("50");
+  const pageSize = useMemo(() => {
+    if (perPagePreset !== "custom") return Number(perPagePreset);
+    return Math.min(MAX_LEADS_PER_PAGE, Math.max(1, customPerPageCommitted));
+  }, [perPagePreset, customPerPageCommitted]);
 
+  const applyCustomPerPage = useCallback(() => {
+    const n = parseInt(String(customPerPageDraft).trim(), 10);
+    if (!Number.isFinite(n) || n < 1) {
+      setCustomPerPageDraft(String(customPerPageCommitted));
+      return;
+    }
+    const clamped = Math.min(MAX_LEADS_PER_PAGE, n);
+    setCustomPerPageCommitted(clamped);
+    setCustomPerPageDraft(String(clamped));
+    setPage(1);
+  }, [customPerPageDraft, customPerPageCommitted]);
+
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 100,
+    total: 0,
+    totalPages: 1,
+  });
+
+  // Filters
   const [search, setSearch] = useState("");
-  const [selectedStatuses, setSelectedStatuses] = useState<LeadStatus[]>([]);
-  const [selectedStages, setSelectedStages] = useState<LeadStage[]>([]);
-  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
-  const [sortKey, setSortKey] = useState<"created_desc" | "created_asc" | "name_asc" | "followup_desc">("created_desc");
-  const [savedView, setSavedView] = useState<SavedViewId>("all");
+  /** Debounced term sent to API (only when length >= SEARCH_MIN_LENGTH). */
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filterLeadSource, setFilterLeadSource] = useState("");
+  const [filterLeadType, setFilterLeadType] = useState("");
+  const [filterProgressStatus, setFilterProgressStatus] = useState("");
+  const [filterAssignmentStatus, setFilterAssignmentStatus] = useState("");
+  const [filterEligibility, setFilterEligibility] = useState("");
+  const [filterQuality, setFilterQuality] = useState("");
 
-  const [dragOverStage, setDragOverStage] = useState<LeadStage | null>(null);
-  const [isUpdatingLeadId, setIsUpdatingLeadId] = useState<string | null>(null);
+  // Date filter
+  const [dateFilter, setDateFilter] = useState<DateFilterType>("weekly");
+  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>();
+  const [customDateTo, setCustomDateTo] = useState<string | undefined>();
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const canEdit = Boolean(user && canAssignLead(user.role));
-  const canExport = Boolean(user && canUseCsvImportExport(user.role));
+  const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
+
+  const [transferLead, setTransferLead] = useState<LeadEntity | null>(null);
+  const [followupLead, setFollowupLead] = useState<LeadEntity | null>(null);
+
+  const [eligibilityLead, setEligibilityLead] = useState<LeadEntity | null>(null);
+  const [eligibilityValue, setEligibilityValue] = useState<LeadEligibilityStatus | "">("");
+
+  const [qualityLead, setQualityLead] = useState<LeadEntity | null>(null);
+  const [qualityValue, setQualityValue] = useState<LeadQuality | "">("");
+
+  const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
+  const [leadTypes, setLeadTypes] = useState<LeadType[]>([]);
+  const [saleTypes, setSaleTypes] = useState<SaleType[]>([]);
+  const [selectedCounsellorId, setSelectedCounsellorId] = useState("");
+
+  const [followupDateTime, setFollowupDateTime] = useState<Date | null>(null);
+  const [dateTimePickerOpen, setDateTimePickerOpen] = useState(false);
+  const [followupNote, setFollowupNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const [filterTelecaller, setFilterTelecaller] = useState("");
+  const [telecallers, setTelecallers] = useState<Counsellor[]>([]);
+  const [filterCounsellor, setFilterCounsellor] = useState("");
+
+  /**
+   * Authoritative current-user id, fetched directly from `/api/users/me`.
+   * `user?.id` from auth-context can fall back to a hardcoded mock value
+   * for some users, which causes "self" to leak into the telecaller-transfer
+   * dropdown. We compare against this id first.
+   */
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      setIsLoading(false);
-    }, 450);
-    return () => window.clearTimeout(t);
+    let cancelled = false;
+    api
+      .get("/api/users/me")
+      .then((res) => {
+        if (cancelled) return;
+        const id = res?.data?.userId;
+        if (id != null) setCurrentUserId(String(id));
+      })
+      .catch(() => { /* ignore — fall back to user?.id */ });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    const params = new URLSearchParams(searchStr);
+    const telecallerId = params.get("telecallerId");
+    const date = params.get("date");
+    const followupToday = params.get("followupToday");
 
-    // Apply saved views as a UX shortcut.
-    if (savedView === "all") {
-      setSelectedStatuses([]);
-      setSelectedStages([]);
-      setSelectedAssignees([]);
-      return;
+    if (telecallerId) setFilterTelecaller(telecallerId);
+    if (date === "all") setDateFilter("all");
+    if (followupToday === "1") {
+      setDateFilter("today");
+      setFilterProgressStatus("follow_up");
     }
+  }, [searchStr]);
 
-    if (savedView === "new_contacted") {
-      setSelectedStatuses([]);
-      setSelectedStages(["New", "Contacted"]);
-      setSelectedAssignees([]);
-      return;
+  // ── Telecaller-to-telecaller transfer ──────────────────────────
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(new Set());
+  const [ttModalOpen, setTtModalOpen] = useState(false);
+  const [ttLeadIds, setTtLeadIds] = useState<number[]>([]);
+  const [ttTargetId, setTtTargetId] = useState("");
+  const [ttConfirm, setTtConfirm] = useState(false);
+  const [ttSubmitting, setTtSubmitting] = useState(false);
+
+  const [adminTransferOpen, setAdminTransferOpen] = useState(false);
+  const [adminTargetTelecallerId, setAdminTargetTelecallerId] = useState("");
+  const [adminTargetCounsellorId, setAdminTargetCounsellorId] = useState("");
+  const [adminTransferConfirm, setAdminTransferConfirm] = useState(false);
+  const [adminTransferSubmitting, setAdminTransferSubmitting] = useState(false);
+
+  const canBulkSelect =
+    user?.role === "telecaller" ||
+    ["admin", "superadmin", "developer", "manager"].includes(user?.role ?? "");
+  const isAdminBulk = ["admin", "superadmin", "developer", "manager"].includes(user?.role ?? "");
+  const isCounsellor = user?.role === "counsellor";
+  const isTelecaller = user?.role === "telecaller";
+  const isAdminJunkRestoreMode = isAdminBulk && filterProgressStatus === "junk";
+  const progressStatusOptions = isCounsellor
+    ? PROGRESS_STATUS_OPTIONS.filter((o) => o.value !== "junk")
+    : PROGRESS_STATUS_OPTIONS;
+
+  /**
+   * ISO bounds for the active date filter (full IST calendar days, inclusive).
+   *
+   * The same range is sent as `nextFollowupFrom/To` when the user is filtering by
+   * the "Follow Up" progress status (so the date picker targets the scheduled
+   * follow-up date), and as `createdFrom/To` otherwise (default: filter by lead
+   * creation date).
+   */
+  const dateRangeParams = useMemo((): {
+    createdFrom?: string;
+    createdTo?: string;
+    nextFollowupFrom?: string;
+    nextFollowupTo?: string;
+  } => {
+    if (dateFilter === "all") return {};
+    const now = new Date();
+    let range: { createdFrom: string; createdTo: string } | undefined;
+    if (dateFilter === "today") range = istTodayRangeIso(now);
+    else if (dateFilter === "weekly") range = istWeekRangeIso(now);
+    else if (dateFilter === "monthly") range = istMonthRangeIso(now);
+    else if (dateFilter === "custom" && customDateFrom && customDateTo) {
+      range = istYmdInclusiveRangeIso(customDateFrom, customDateTo);
     }
+    if (!range) return {};
 
-    if (savedView === "my_leads") {
-      setSelectedStatuses([]);
-      setSelectedStages([]);
-      setSelectedAssignees(user.id ? [user.id] : []);
-      return;
+    if (filterProgressStatus === "follow_up") {
+      return { nextFollowupFrom: range.createdFrom, nextFollowupTo: range.createdTo };
     }
+    return range;
+  }, [dateFilter, customDateFrom, customDateTo, filterProgressStatus]);
 
-    if (savedView === "unassigned") {
-      setSelectedStatuses([]);
-      setSelectedStages([]);
-      setSelectedAssignees([UNASSIGNED_ID]);
-      return;
+  useEffect(() => {
+    const trimmed = search.trim();
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(trimmed.length >= SEARCH_MIN_LENGTH ? trimmed : "");
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  const searchQuery =
+    debouncedSearch.length >= SEARCH_MIN_LENGTH ? debouncedSearch : undefined;
+  const searchTooShort =
+    search.trim().length > 0 && search.trim().length < SEARCH_MIN_LENGTH;
+  const searchTyping =
+    search.trim().length >= SEARCH_MIN_LENGTH && search.trim() !== debouncedSearch;
+
+  useLayoutEffect(() => {
+    setPage(1);
+  }, [
+    debouncedSearch,
+    filterProgressStatus,
+    filterAssignmentStatus,
+    filterEligibility,
+    filterQuality,
+    filterLeadSource,
+    filterLeadType,
+    filterTelecaller,
+    filterCounsellor,
+    dateFilter,
+    customDateFrom,
+    customDateTo,
+    pageSize,
+  ]);
+
+  const activeFilterCount = [
+    debouncedSearch ? "search" : "",
+    filterLeadSource,
+    filterLeadType,
+    filterProgressStatus,
+    filterAssignmentStatus,
+    filterEligibility,
+    filterQuality,
+    filterTelecaller,
+    filterCounsellor,
+    // "weekly" is the default => not counted as an active filter
+    dateFilter !== "weekly" && dateFilter !== "all" ? "date" : "",
+  ].filter(Boolean).length;
+
+  // ── Data loading ───────────────────────────────────────────────
+  const loadLeads = useCallback(async () => {
+    try {
+      setLoading(true);
+      let assignmentStatusParam = filterAssignmentStatus || undefined;
+      let progressStatusParam = filterProgressStatus || undefined;
+      let isJunkParam: boolean | undefined = false;
+      if (isCounsellor) {
+        progressStatusParam = undefined;
+        if (filterAssignmentStatus === "follow_up") {
+          progressStatusParam = "follow_up";
+          assignmentStatusParam = undefined;
+        }
+      }
+      if (filterProgressStatus === "junk") {
+        progressStatusParam = undefined;
+        isJunkParam = true;
+      }
+      const items = await fetchAllLeads({
+        search: searchQuery,
+        progressStatus: progressStatusParam,
+        assignmentStatus: assignmentStatusParam,
+        eligibilityStatus: filterEligibility || undefined,
+        leadQuality: filterQuality || undefined,
+        currentTelecallerId: filterTelecaller ? Number(filterTelecaller) : undefined,
+        currentCounsellorId: filterCounsellor ? Number(filterCounsellor) : undefined,
+        isJunk: isJunkParam,
+        leadSource: filterLeadSource || undefined,
+        leadType: filterLeadType || undefined,
+        ...dateRangeParams,
+      });
+      const patches = consumeLeadListPatches();
+      const merged = items.map((row) => {
+        const patch = patches[String(row.id)];
+        return patch ? mergeLeadRow(row, patch) : row;
+      });
+      const visibleLeads =
+        isAdminBulk && !filterAssignmentStatus
+          ? merged.filter(
+              (lead) =>
+                lead.assignmentStatus !== "not_assigned" || isInboundChannelLead(lead)
+            )
+          : merged;
+      const sorted = sortLeadsForDisplay(visibleLeads);
+      setLeads(sorted);
+      const total = sorted.length;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      setPagination({
+        page: Math.min(page, totalPages),
+        limit: pageSize,
+        total,
+        totalPages,
+      });
+    } catch {
+      toast({ title: "Error", description: "Failed to load leads", variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-  }, [savedView, user]);
+  }, [
+    searchQuery,
+    filterProgressStatus,
+    filterAssignmentStatus,
+    filterEligibility,
+    filterQuality,
+    filterLeadSource,
+    filterLeadType,
+    filterTelecaller,
+    filterCounsellor,
+    dateRangeParams,
+    page,
+    pageSize,
+    toast,
+    isCounsellor,
+    isAdminBulk,
+  ]);
 
-  if (!user || !canAccessLeads(user.role)) {
-    return <Redirect to="/" />;
+
+const loadCounsellors = useCallback(async () => {
+  try {
+    const [cRes, tRes] = await Promise.all([
+      api.get("/api/users/counsellors"),
+      api.get("/api/users/telecallers"),
+    ]);
+    // Safety check for data nesting
+    setCounsellors(cRes?.data?.data || cRes?.data || []);
+    setTelecallers(tRes?.data?.data || tRes?.data || []);
+  } catch (err) {
+    console.error("Fetch error:", err);
+    setCounsellors([]);
+    setTelecallers([]);
   }
+}, []);
 
-  const activeLead = useMemo(() => {
-    if (!activeLeadId) return null;
-    return leads.find((l) => l.id === activeLeadId) ?? null;
-  }, [activeLeadId, leads]);
+const loadLeadTypes = useCallback(async () => {
+  try {
+    const [ltRes, stRes] = await Promise.all([
+      api.get("/api/lead-types"),
+      api.get("/api/sale-types"),
+    ]);
+    setLeadTypes(ltRes?.data?.data || ltRes?.data || []);
+    setSaleTypes(stRes?.data?.data || stRes?.data || []);
+  } catch (err) {
+    console.error("Fetch error:", err);
+    setLeadTypes([]);
+    setSaleTypes([]);
+  }
+}, []);
 
-  const handleLeadAdded = (lead: DummyLead) => {
-    setLeads((prev) => [lead, ...prev]);
-    toast({ title: "Lead added", description: `${lead.name} was added successfully.` });
-  };
+  useEffect(() => { void loadLeads(); }, [loadLeads]);
+  useEffect(() => { void loadCounsellors(); void loadLeadTypes(); }, [loadCounsellors, loadLeadTypes]);
 
-  const handleExportCsv = () => {
-    toast({
-      title: "Export CSV",
-      description: "Export will be available when backend is connected. (Dummy action.)",
-    });
-  };
+  useLeadSocketRefresh({
+    enabled: !!user?.id,
+    queryKeys: [
+      ["leads"],
+      ["telecaller-dashboard-leads-all"],
+      ["telecaller-dashboard-leads-period"],
+      ["current-telecaller-target"],
+    ],
+    onLeadEvent: (_event, payload) => {
+      const row = extractLeadFromSocketPayload(payload);
+      if (row?.id) {
+        setLeads((prev) => {
+          if (!prev.some((l) => l.id === row.id)) return prev;
+          return sortLeadsForDisplay(
+            prev.map((l) => (l.id === row.id ? mergeLeadRow(l, row) : l))
+          );
+        });
+      }
+      void loadLeads();
+    },
+  });
 
-  const handleClearFilters = () => {
+  const displayLeads = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return leads.slice(start, start + pageSize);
+  }, [leads, page, pageSize]);
+
+  // ── Filter helpers ─────────────────────────────────────────────
+  const clearFilters = () => {
+    setFilterLeadSource("");
+    setFilterLeadType("");
+    setFilterProgressStatus("");
+    setFilterAssignmentStatus("");
+    setFilterEligibility("");
+    setFilterQuality("");
+    setFilterTelecaller("");
     setSearch("");
-    setSelectedStatuses([]);
-    setSelectedStages([]);
-    setSelectedAssignees([]);
-    setSortKey("created_desc");
-    setSavedView("all");
+    setDebouncedSearch("");
+    setDateFilter("weekly");
+    setCustomDateFrom(undefined);
+    setCustomDateTo(undefined);
+    setFilterCounsellor("");
   };
 
-  const filteredLeads = useMemo(() => {
-    const q = search.trim().toLowerCase();
+  const closeTransferModal = () => { setTransferLead(null); setSelectedCounsellorId(""); };
+  const closeFollowupModal = () => {
+    setFollowupLead(null);
+    setFollowupDateTime(null);
+    setFollowupNote("");
+    setDateTimePickerOpen(false);
+  };
 
-    const matchesAssignee = (lead: DummyLead) => {
-      if (selectedAssignees.length === 0) return true; // all
-      const wantsUnassigned = selectedAssignees.includes(UNASSIGNED_ID);
-      const hasAssignee = Boolean(lead.assignedToId);
+  // ── Eligibility / Quality modal helpers ────────────────────────
+  const openEligibilityModal = (e: React.MouseEvent, lead: LeadEntity) => {
+    e.stopPropagation();
+    setEligibilityLead(lead);
+    setEligibilityValue((lead.eligibilityStatus as LeadEligibilityStatus | null | undefined) ?? "");
+  };
+  const closeEligibilityModal = () => {
+    setEligibilityLead(null);
+    setEligibilityValue("");
+  };
 
-      if (wantsUnassigned && !hasAssignee) return true;
-      if (lead.assignedToId && selectedAssignees.includes(lead.assignedToId)) return true;
-      return false;
-    };
+  const openQualityModal = (e: React.MouseEvent, lead: LeadEntity) => {
+    e.stopPropagation();
+    setQualityLead(lead);
+    setQualityValue((lead.leadQuality as LeadQuality | null | undefined) ?? "");
+  };
+  const closeQualityModal = () => {
+    setQualityLead(null);
+    setQualityValue("");
+  };
 
-    const matches = (lead: DummyLead) => {
-      if (q) {
-        const matchesText =
-          lead.name.toLowerCase().includes(q) ||
-          lead.email.toLowerCase().includes(q) ||
-          lead.phone.toLowerCase().includes(q);
-        if (!matchesText) return false;
-      }
-      if (selectedStatuses.length > 0 && !selectedStatuses.includes(lead.status)) return false;
-      if (selectedStages.length > 0 && !selectedStages.includes(lead.stage)) return false;
-      if (!matchesAssignee(lead)) return false;
-      return true;
-    };
-
-    return leads.filter(matches);
-  }, [leads, search, selectedAssignees, selectedStages, selectedStatuses]);
-
-  const sortedLeads = useMemo(() => {
-    const list = [...filteredLeads];
-    const dir = sortKey;
-
-    list.sort((a, b) => {
-      if (dir === "name_asc") return a.name.localeCompare(b.name);
-      if (dir === "created_asc") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-      if (dir === "followup_desc") {
-        const av = a.lastFollowupAt ? new Date(a.lastFollowupAt).getTime() : 0;
-        const bv = b.lastFollowupAt ? new Date(b.lastFollowupAt).getTime() : 0;
-        return bv - av;
-      }
-      // created_desc
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-
-    return list;
-  }, [filteredLeads, sortKey]);
-
-  const displayedStages = selectedStages.length === 0 ? LEAD_STAGES : selectedStages;
-
-  const leadsByStage = useMemo(() => {
-    const byStage: Record<LeadStage, DummyLead[]> = {
-      New: [],
-      Contacted: [],
-      Qualified: [],
-      Converted: [],
-    };
-    for (const lead of sortedLeads) {
-      if (byStage[lead.stage]) byStage[lead.stage].push(lead);
+  const handleEligibilitySubmit = async () => {
+    if (!eligibilityLead || !eligibilityValue) {
+      toast({ title: "Select eligibility", description: "Please choose an eligibility status", variant: "destructive" });
+      return;
     }
-    return byStage;
-  }, [sortedLeads]);
-
-  const handleDragStart = (e: React.DragEvent, lead: DummyLead) => {
-    e.dataTransfer.setData("leadId", lead.id);
-    e.dataTransfer.setData("fromStage", lead.stage);
-    e.dataTransfer.effectAllowed = "move";
-    setDragOverStage(lead.stage);
-  };
-
-  const handleDragEnd = () => {
-    setDragOverStage(null);
-    setIsUpdatingLeadId(null);
-  };
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent, newStage: LeadStage) => {
-      e.preventDefault();
-      const leadId = e.dataTransfer.getData("leadId");
-      const fromStage = e.dataTransfer.getData("fromStage") as LeadStage;
-      setDragOverStage(null);
-      if (!leadId || fromStage === newStage) return;
-
-      const lead = leads.find((l) => l.id === leadId);
-      if (!lead) return;
-
-      setIsUpdatingLeadId(leadId);
+    const targetId = eligibilityLead.id;
+    const newValue = eligibilityValue as LeadEligibilityStatus;
+    try {
+      setSubmitting(true);
+      const updated = await updateLeadFieldsApi(targetId, { eligibilityStatus: newValue });
+      const rowPatch = listPatchFromLeadUpdate(
+        updated,
+        { eligibilityStatus: newValue },
+        eligibilityLead.progressStatus
+      );
       setLeads((prev) =>
-        prev.map((l) =>
-          l.id === leadId ? { ...l, stage: newStage, status: stageToStatusMap[newStage] } : l
+        sortLeadsForDisplay(
+          prev.map((l) => (l.id === targetId ? mergeLeadRow(l, rowPatch) : l))
         )
       );
-      setIsUpdatingLeadId(null);
+      toast({ title: "Eligibility updated" });
+      closeEligibilityModal();
+    } catch {
+      toast({ title: "Error", description: "Failed to update eligibility", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
+  const handleQualitySubmit = async () => {
+    if (!qualityLead || !qualityValue) {
+      toast({ title: "Select quality", description: "Please choose a lead quality", variant: "destructive" });
+      return;
+    }
+    const targetId = qualityLead.id;
+    const newValue = qualityValue as LeadQuality;
+    try {
+      setSubmitting(true);
+      const updated = await updateLeadFieldsApi(targetId, { leadQuality: newValue });
+      const rowPatch = listPatchFromLeadUpdate(
+        updated,
+        { leadQuality: newValue },
+        qualityLead.progressStatus
+      );
+      setLeads((prev) =>
+        sortLeadsForDisplay(
+          prev.map((l) => (l.id === targetId ? mergeLeadRow(l, rowPatch) : l))
+        )
+      );
+      toast({ title: "Lead quality updated" });
+      closeQualityModal();
+    } catch {
+      toast({ title: "Error", description: "Failed to update quality", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ── Action handlers ────────────────────────────────────────────
+  const handleTransferSubmit = async () => {
+    if (!transferLead || !selectedCounsellorId) {
+      toast({ title: "Select counsellor", description: "Please choose a counsellor", variant: "destructive" });
+      return;
+    }
+    if (!canTransferToCounsellor(transferLead)) {
       toast({
-        title: "Stage updated",
-        description: `${lead.name} moved to ${newStage}.`,
+        title: "Cannot transfer",
+        description: "Set eligibility and lead quality before transferring to counsellor.",
+        variant: "destructive",
       });
-    },
-    [leads, toast]
-  );
-
-  const getNextStage = (stage: LeadStage): LeadStage => {
-    const idx = LEAD_STAGES.indexOf(stage);
-    const next = LEAD_STAGES[idx + 1];
-    return next ?? stage;
+      return;
+    }
+    const targetId = transferLead.id;
+    const counsellorIdNum = Number(selectedCounsellorId);
+    const counsellorName =
+      counsellors.find((c) => c.id === counsellorIdNum)?.fullName ?? null;
+    try {
+      setSubmitting(true);
+      const updated = await assignLeadApi(targetId, { counsellorId: counsellorIdNum });
+      setLeads((prev) =>
+        sortLeadsForDisplay(
+          prev.map((l) =>
+            l.id === targetId
+              ? mergeLeadRow(l, {
+                  ...updated,
+                  currentCounsellorId: counsellorIdNum,
+                  assignmentStatus: "transferred",
+                  counsellorName: updated.counsellorName ?? counsellorName,
+                })
+              : l
+          )
+        )
+      );
+      toast({ title: "Lead transferred successfully" });
+      closeTransferModal();
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Failed to transfer lead";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const moveLeadToNextStage = (leadId: string) => {
-    const lead = leads.find((l) => l.id === leadId);
-    if (!lead) return;
-    const nextStage = getNextStage(lead.stage);
-    if (nextStage === lead.stage) return;
-
-    setIsUpdatingLeadId(leadId);
-    setLeads((prev) =>
-      prev.map((l) =>
-        l.id === leadId ? { ...l, stage: nextStage, status: stageToStatusMap[nextStage] } : l
-      )
-    );
-    setIsUpdatingLeadId(null);
-    toast({ title: "Moved", description: `${lead.name} moved to ${nextStage}.` });
+  const handleFollowupSubmit = async () => {
+    if (!followupLead) return;
+    if (!followupDateTime) {
+      toast({ title: "Date required", description: "Please select follow-up date & time", variant: "destructive" });
+      return;
+    }
+    const targetId = followupLead.id;
+    const scheduled = clampFollowupDateTime(followupDateTime);
+    if (!isFollowupDateTimeAllowed(scheduled)) {
+      toast({
+        title: "Invalid date & time",
+        description: "Follow-up must be today or later, and not in the past.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const followupIso = scheduled.toISOString();
+    try {
+      setSubmitting(true);
+      await addLeadActivityApi(targetId, {
+        activityType: "followup",
+        message: followupNote.trim() || undefined,
+        followupAt: followupIso,
+        status: "pending",
+      });
+      // Optimistic local update — backend also flips progressStatus to "follow_up"
+      setLeads((prev) =>
+        sortLeadsForDisplay(
+          prev.map((l) =>
+            l.id === targetId
+              ? mergeLeadRow(l, { nextFollowupAt: followupIso, progressStatus: "follow_up" })
+              : l
+          )
+        )
+      );
+      toast({ title: "Follow-up scheduled" });
+      closeFollowupModal();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.response?.data?.message || "Failed to schedule follow-up",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const updateLead = (leadId: string, next: Partial<DummyLead>) => {
-    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, ...next } : l)));
-    toast({ title: "Saved", description: "Lead updated successfully." });
+  // ── DateRangePicker apply callback ─────────────────────────────
+  const handleDateRangeApply = (filter: any, startDate?: string, endDate?: string) => {
+    if (filter === "today") {
+      const d = istCalendarYmd(new Date());
+      setCustomDateFrom(d);
+      setCustomDateTo(d);
+    } else if (filter === "monthly") {
+      const { from, to } = istMonthPresetYmds(new Date());
+      setCustomDateFrom(from);
+      setCustomDateTo(to);
+    } else if (startDate && endDate) {
+      setCustomDateFrom(startDate);
+      setCustomDateTo(endDate);
+    }
+    setDateFilter("custom");
+    setShowDatePicker(false);
   };
 
-  const deleteLead = (leadId: string) => {
-    const lead = leads.find((l) => l.id === leadId);
-    if (!lead) return;
+  // ── Derived label for custom date ──────────────────────────────
+  const customLabel =
+    dateFilter === "custom" && customDateFrom && customDateTo
+      ? `${format(new Date(`${customDateFrom}T12:00:00+05:30`), "d MMM")} – ${format(new Date(`${customDateTo}T12:00:00+05:30`), "d MMM yyyy")}`
+      : null;
 
-    setLeads((prev) => prev.filter((l) => l.id !== leadId));
-    if (activeLeadId === leadId) setActiveLeadId(null);
-
-    toast({ title: "Deleted", description: `${lead.name} removed from leads.` });
+  // ── Telecaller-to-telecaller transfer handlers ─────────────────
+  const toggleLeadSelection = (id: number) => {
+    const lead = leads.find((item) => item.id === id);
+    if (isAdminJunkRestoreMode && lead && !isLeadJunk(lead)) {
+      toast({
+        title: "Only junk leads can be restored",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (isAdminBulk && !isAdminJunkRestoreMode && lead && isLeadTransferBlocked(lead)) {
+      toast({
+        title: "Lead cannot be transferred",
+        description: "Transferred or converted leads cannot be reassigned.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSelectedLeadIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
-  const statusOptions: ChipMultiSelectOption[] = [
-    { value: "new", label: "New" },
-    { value: "contacted", label: "Contacted" },
-    { value: "qualified", label: "Qualified" },
-    { value: "converted", label: "Converted" },
-    { value: "lost", label: "Lost" },
-  ];
-
-  const stageOptions: ChipMultiSelectOption[] = LEAD_STAGES.map((s) => ({ value: s, label: s }));
-
-  const stageToStatusMap: Record<LeadStage, LeadStatus> = {
-    New: "new",
-    Contacted: "contacted",
-    Qualified: "qualified",
-    Converted: "converted",
+  const openTtModalBulk = () => {
+    setTtLeadIds(Array.from(selectedLeadIds));
+    setTtTargetId("");
+    setTtConfirm(false);
+    setTtModalOpen(true);
   };
 
-  const assigneeOptions: ChipMultiSelectOption[] = [
-    { value: UNASSIGNED_ID, label: "Unassigned" },
-    ...DUMMY_ASSIGNEE_OPTIONS.map((u) => ({ value: u.id, label: u.name })),
-  ];
+  const openAdminTransferModal = () => {
+    setAdminTargetTelecallerId("");
+    setAdminTargetCounsellorId("");
+    setAdminTransferConfirm(false);
+    setAdminTransferOpen(true);
+  };
 
-  const totalCounts = useMemo(() => {
-    const counts: Record<LeadStage, number> = { New: 0, Contacted: 0, Qualified: 0, Converted: 0 };
-    for (const l of leads) counts[l.stage] += 1;
-    return counts;
-  }, [leads]);
+  const closeAdminTransferModal = () => {
+    setAdminTransferOpen(false);
+    setAdminTargetTelecallerId("");
+    setAdminTargetCounsellorId("");
+    setAdminTransferConfirm(false);
+  };
 
-  if (errorMessage) {
-    return (
-      <div className="space-y-4">
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-destructive">Error loading leads</p>
-                <p className="text-sm text-muted-foreground mt-1">{errorMessage}</p>
-              </div>
-              <Button variant="outline" onClick={() => setErrorMessage(null)}>
-                Retry
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const closeTtModal = () => {
+    setTtModalOpen(false);
+    setTtLeadIds([]);
+    setTtTargetId("");
+    setTtConfirm(false);
+  };
 
-  const headerSubtitle = "Track pipeline, assign owners, and move leads through stages—without losing context.";
+  const handleTtTransferSubmit = async () => {
+    if (!ttTargetId) return;
+    if (!ttConfirm) { setTtConfirm(true); return; }
+    const transferredIds = [...ttLeadIds];
+    try {
+      setTtSubmitting(true);
+      await Promise.all(
+        transferredIds.map((id) =>
+          assignLeadApi(id, {
+            telecallerId: Number(ttTargetId),
+            isTelecallerTransfer: true,
+          })
+        )
+      );
+      // Optimistic local update — these leads no longer belong to the current telecaller,
+      // so drop them from the list and the pagination total instantly.
+      const removedSet = new Set(transferredIds);
+      setLeads((prev) => prev.filter((l) => !removedSet.has(l.id)));
+      setPagination((prev) => ({
+        ...prev,
+        total: Math.max(0, prev.total - transferredIds.length),
+      }));
+      toast({ title: `${transferredIds.length} lead${transferredIds.length > 1 ? "s" : ""} transferred` });
+      closeTtModal();
+      setIsSelectMode(false);
+      setSelectedLeadIds(new Set());
+    } catch {
+      toast({ title: "Transfer failed", variant: "destructive" });
+    } finally {
+      setTtSubmitting(false);
+    }
+  };
+
+  const handleAdminTransferSubmit = async () => {
+    if (!adminTargetTelecallerId && !adminTargetCounsellorId) {
+      toast({
+        title: "Select assignee",
+        description: "Choose a telecaller or counsellor to transfer the selected leads.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!adminTransferConfirm) {
+      setAdminTransferConfirm(true);
+      return;
+    }
+
+    const leadIds = Array.from(selectedLeadIds);
+    try {
+      setAdminTransferSubmitting(true);
+      const assigneePayload = adminTargetCounsellorId
+        ? { counsellorId: Number(adminTargetCounsellorId) }
+        : { telecallerId: Number(adminTargetTelecallerId) };
+      const result = isAdminJunkRestoreMode
+        ? {
+            updated: await Promise.all(leadIds.map((id) => revertLeadJunkApi(id, assigneePayload))),
+            blocked: [],
+            missing: [],
+          }
+        : await bulkAssignLeadsApi({
+            leadIds,
+            ...assigneePayload,
+          });
+
+      const updatedMap = new Map(result.updated.map((lead) => [lead.id, lead]));
+      setLeads((prev) => {
+        if (isAdminJunkRestoreMode) {
+          return prev.filter((lead) => !updatedMap.has(lead.id));
+        }
+        return prev.map((lead) => (updatedMap.has(lead.id) ? { ...lead, ...updatedMap.get(lead.id)! } : lead));
+      });
+      if (isAdminJunkRestoreMode) {
+        setPagination((prev) => ({
+          ...prev,
+          total: Math.max(0, prev.total - result.updated.length),
+        }));
+      }
+
+      if (result.blocked.length > 0) {
+        toast({
+          title: `${result.updated.length} lead${result.updated.length === 1 ? "" : "s"} transferred`,
+          description: `${result.blocked.length} lead${result.blocked.length === 1 ? "" : "s"} skipped because they are transferred or converted.`,
+        });
+      } else {
+        toast({
+          title: `${result.updated.length} lead${result.updated.length === 1 ? "" : "s"} ${isAdminJunkRestoreMode ? "restored and assigned" : "transferred"}`,
+        });
+      }
+
+      closeAdminTransferModal();
+      setIsSelectMode(false);
+      setSelectedLeadIds(new Set());
+    } catch {
+      toast({ title: "Transfer failed", variant: "destructive" });
+    } finally {
+      setAdminTransferSubmitting(false);
+    }
+  };
+
+  const ttTargetName = telecallers.find((t) => String(t.id) === ttTargetId)?.fullName ?? "";
+  const adminTargetName =
+    counsellors.find((c) => String(c.id) === adminTargetCounsellorId)?.fullName ??
+    telecallers.find((t) => String(t.id) === adminTargetTelecallerId)?.fullName ??
+    "";
+
+  const eligibilityLabel = (v?: string | null) =>
+    ELIGIBILITY_OPTIONS.find((o) => o.value === v)?.label;
+  const qualityLabel = (v?: string | null) =>
+    QUALITY_OPTIONS.find((o) => o.value === v)?.label;
 
   return (
-    <div className="space-y-6">
-      <Breadcrumbs
-        items={[
-          { label: "Leads", href: "/leads" },
-          { label: "Management" },
-        ]}
-      />
+    <div className="space-y-5">
+      <Breadcrumbs items={[{ label: "Leads", href: "/leads" }, { label: "Management" }]} />
 
       {/* Header */}
-      <Card className="border-border/60 shadow-sm">
-        <CardContent className="p-4 sm:p-5 space-y-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl border border-border/60 bg-muted/20 p-3 shadow-sm">
-                <Target className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight">Leads</h1>
-                <p className="text-sm text-muted-foreground mt-1">{headerSubtitle}</p>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Button variant="default" className="shadow-md shadow-primary/20" onClick={() => setIsAddLeadOpen(true)}>
-                Add Lead
-              </Button>
-              {canExport && (
-                <Button variant="outline" onClick={handleExportCsv}>
-                  Export CSV
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <h1 className="text-2xl font-bold">Leads Management</h1>
+        <div className="flex items-center gap-2">
+          {/* Telecaller-only: select + bulk transfer */}
+          {canBulkSelect && (
+            <>
+              {isSelectMode && selectedLeadIds.size > 0 && (
+                <Button
+                  size="sm"
+                  onClick={isAdminBulk ? openAdminTransferModal : openTtModalBulk}
+                  className="gap-1.5"
+                >
+                  {isAdminJunkRestoreMode ? (
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  {isAdminJunkRestoreMode ? "Restore & Assign" : "Transfer"} ({selectedLeadIds.size})
                 </Button>
               )}
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {LEAD_STAGES.map((s) => (
-              <div
-                key={s}
-                className={cn(
-                  "rounded-xl border px-3 py-3 shadow-sm bg-background",
-                  s === "New" && "border-blue-200/80",
-                  s === "Contacted" && "border-violet-200/80",
-                  s === "Qualified" && "border-orange-200/80",
-                  s === "Converted" && "border-emerald-200/80"
-                )}
+              <Button
+                variant={isSelectMode ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => { setIsSelectMode((v) => !v); setSelectedLeadIds(new Set()); }}
               >
-                <p
-                  className={cn(
-                    "text-base font-bold leading-tight",
-                    s === "New" && "text-blue-700",
-                    s === "Contacted" && "text-violet-700",
-                    s === "Qualified" && "text-orange-700",
-                    s === "Converted" && "text-emerald-700"
-                  )}
-                >
-                  In {s}
-                </p>
-                <p
-                  className={cn(
-                    "text-2xl font-bold leading-tight mt-1",
-                    s === "New" && "text-blue-700",
-                    s === "Contacted" && "text-violet-700",
-                    s === "Qualified" && "text-orange-700",
-                    s === "Converted" && "text-emerald-700"
-                  )}
-                >
-                  {totalCounts[s]}
-                </p>
-              </div>
+                {isSelectMode ? "Cancel" : "Select Leads"}
+              </Button>
+            </>
+          )}
+          <Button onClick={() => setIsAddLeadOpen(true)}>Add New Lead</Button>
+        </div>
+      </div>
+
+     {/* ── Filter Panel ─────────────────────────────────────── */}
+<div className="rounded-xl border border-border bg-card shadow-sm p-4 space-y-4">
+
+  {/* Row 1: Search + Date Filter */}
+  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+
+    {/* Left: Search */}
+    <div className="flex flex-wrap gap-2 items-start">
+      <div className="w-full sm:w-72 space-y-1">
+        <div className="relative">
+        <Input
+          placeholder={`Search by name, phone, email… (min ${SEARCH_MIN_LENGTH} chars)`}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-9 pr-7"
+          aria-describedby="lead-search-hint"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => {
+                setSearch("");
+                setDebouncedSearch("");
+              }}
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+        </div>
+        {(searchTooShort || searchTyping) && (
+        <p id="lead-search-hint" className="text-[11px] text-muted-foreground w-full sm:w-72">
+          {searchTooShort
+            ? `Type at least ${SEARCH_MIN_LENGTH} characters to search within the selected date range`
+            : "Searching…"}
+        </p>
+      )}
+      </div>
+
+      {activeFilterCount > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={clearFilters}
+          className="h-9 gap-1.5 text-muted-foreground"
+        >
+          <X className="w-3.5 h-3.5" />
+          Clear
+          <Badge variant="secondary" className="ml-0.5 text-xs px-1.5">
+            {activeFilterCount}
+          </Badge>
+        </Button>
+      )}
+    </div>
+
+    {/* Right: Date Filter */}
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-medium text-muted-foreground">
+        {filterProgressStatus === "follow_up" ? "Follow-up:" : "Created:"}
+      </span>
+
+      <div className="flex rounded-lg border border-border bg-muted/30 p-0.5 gap-0.5">
+        {(["all", "today", "weekly", "monthly"] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => {
+              setDateFilter(f);
+              setCustomDateFrom(undefined);
+              setCustomDateTo(undefined);
+            }}
+            className={cn(
+              "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+              dateFilter === f
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-background"
+            )}
+          >
+            {DATE_FILTER_LABELS[f]}
+          </button>
+        ))}
+
+        <button
+          onClick={() => setShowDatePicker(true)}
+          className={cn(
+            "px-3 py-1 text-xs font-medium rounded-md flex items-center gap-1",
+            dateFilter === "custom"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-background"
+          )}
+        >
+          {customLabel ?? "Custom"}
+          <Calendar className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {/* Row 2: Filters */}
+  <div className="flex flex-wrap gap-2">
+
+    {/* Counsellor + Telecaller — hidden for telecaller role */}
+    {user?.role !== "telecaller" && (
+      <>
+        <Select value={filterCounsellor} onValueChange={setFilterCounsellor}>
+          <SelectTrigger className="h-9 w-44 text-xs">
+            <SelectValue placeholder="Counsellor" />
+          </SelectTrigger>
+          <SelectContent className="max-h-64 overflow-y-auto">
+            {counsellors.map((c) => (
+              <SelectItem key={c.id} value={String(c.id)}>{c.fullName}</SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filterTelecaller} onValueChange={setFilterTelecaller}>
+          <SelectTrigger className="h-9 w-44 text-xs">
+            <SelectValue placeholder="Telecaller" />
+          </SelectTrigger>
+          <SelectContent className="max-h-64 overflow-y-auto">
+            {telecallers.map((t) => (
+              <SelectItem key={t.id} value={String(t.id)}>{t.fullName}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </>
+    )}
+
+    {/* Lead Source (from /api/lead-types) */}
+    <Select value={filterLeadSource} onValueChange={setFilterLeadSource}>
+      <SelectTrigger className="h-9 w-40 text-xs">
+        <SelectValue placeholder="Lead Source" />
+      </SelectTrigger>
+      <SelectContent className="max-h-64 overflow-y-auto">
+        {leadTypes.map((lt) => (
+          <SelectItem key={lt.id} value={lt.leadType}>
+            {getLeadSourceLabel(lt.leadType, leadTypes)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+
+    {/* Lead Type (from /api/sale-types) */}
+    <Select value={filterLeadType} onValueChange={setFilterLeadType}>
+      <SelectTrigger className="h-9 w-40 text-xs">
+        <SelectValue placeholder="Lead Type" />
+      </SelectTrigger>
+      <SelectContent className="max-h-64 overflow-y-auto">
+        {saleTypes.map((st) => (
+          <SelectItem key={st.id} value={st.saleType}>{st.saleType}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+
+    {/* Assignment — role-specific options (counsellor includes follow-up + drop) */}
+    <Select value={filterAssignmentStatus} onValueChange={setFilterAssignmentStatus}>
+      <SelectTrigger className="h-9 w-40 text-xs">
+        <SelectValue placeholder="Assignment" />
+      </SelectTrigger>
+      <SelectContent>
+        {(isCounsellor
+          ? ASSIGNMENT_STATUS_OPTIONS_COUNSELLOR
+          : user?.role === "telecaller"
+            ? ASSIGNMENT_STATUS_OPTIONS_TELECALLER
+            : ASSIGNMENT_STATUS_OPTIONS_FULL
+        ).map((o) => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+
+    {/* Progress — hidden for counsellor (use Assignment filter instead) */}
+    {!isCounsellor ? (
+    <Select value={filterProgressStatus} onValueChange={setFilterProgressStatus}>
+      <SelectTrigger className="h-9 w-40 text-xs">
+        <SelectValue placeholder="Progress" />
+      </SelectTrigger>
+      <SelectContent>
+        {progressStatusOptions.map((o) => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+    ) : null}
+
+    {/* Eligibility */}
+    <Select value={filterEligibility} onValueChange={setFilterEligibility}>
+      <SelectTrigger className="h-9 w-40 text-xs">
+        <SelectValue placeholder="Eligibility" />
+      </SelectTrigger>
+      <SelectContent>
+        {ELIGIBILITY_OPTIONS.map((o) => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+
+    {/* Quality */}
+    <Select value={filterQuality} onValueChange={setFilterQuality}>
+      <SelectTrigger className="h-9 w-40 text-xs">
+        <SelectValue placeholder="Quality" />
+      </SelectTrigger>
+      <SelectContent>
+        {QUALITY_OPTIONS.map((o) => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+
+  {/* Result count + leads per page */}
+  {!loading && (
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+      <p className="text-xs text-muted-foreground">
+        Showing{" "}
+        {pagination.total === 0 ? (
+          "0 leads"
+        ) : (
+          <>
+            <span className="font-semibold text-foreground">
+              {(pagination.page - 1) * pagination.limit + 1}–
+              {Math.min(pagination.page * pagination.limit, pagination.total)}
+            </span>{" "}
+            of <span className="font-semibold text-foreground">{pagination.total}</span> lead
+            {pagination.total !== 1 ? "s" : ""}
+          </>
+        )}
+        {activeFilterCount > 0 ? " (filtered)" : ""}
+        {debouncedSearch && (
+          <>
+            {" "}
+            · matching “<span className="font-medium text-foreground">{debouncedSearch}</span>”
+          </>
+        )}
+      </p>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-muted-foreground whitespace-nowrap">Leads per page</span>
+        <Select
+          value={perPagePreset}
+          onValueChange={(v) => {
+            const next = v as typeof perPagePreset;
+            setPerPagePreset(next);
+            setPage(1);
+            if (next !== "custom") return;
+            setCustomPerPageDraft(String(customPerPageCommitted));
+          }}
+        >
+          <SelectTrigger className="h-8 w-[120px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="20">20</SelectItem>
+            <SelectItem value="50">50</SelectItem>
+            <SelectItem value="100">100</SelectItem>
+            <SelectItem value="custom">Custom…</SelectItem>
+          </SelectContent>
+        </Select>
+        {perPagePreset === "custom" && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Input
+              type="number"
+              min={1}
+              max={MAX_LEADS_PER_PAGE}
+              inputMode="numeric"
+              className="h-8 w-20 text-xs"
+              value={customPerPageDraft}
+              onChange={(e) => setCustomPerPageDraft(e.target.value)}
+              onBlur={() => applyCustomPerPage()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyCustomPerPage();
+              }}
+              placeholder="N"
+              aria-label="Custom leads per page"
+            />
+            <Button type="button" variant="secondary" size="sm" className="h-8 text-xs px-2" onClick={applyCustomPerPage}>
+              Apply
+            </Button>
+            <span className="text-[10px] text-muted-foreground">max {MAX_LEADS_PER_PAGE}</span>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Toolbar */}
-      <Card className="border-border/60 shadow-sm">
-        <CardContent className="p-4 sm:p-5 space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative flex-1 min-w-[240px]">
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search leads by name, email, or phone…"
-                className="pr-3"
-              />
-              {search.trim().length > 0 && (
-                <button
-                  type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setSearch("")}
-                  aria-label="Clear search"
-                >
-                  Clear
-                </button>
+        )}
+      </div>
+    </div>
+  )}
+</div>
+      {/* ── Lead Table ─────────────────────────────────────────── */}
+      <div>
+        {loading ? (
+          <Card>
+            <CardContent className="p-6 text-sm text-muted-foreground">
+              Loading leads…
+            </CardContent>
+          </Card>
+        ) : displayLeads.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center text-sm text-muted-foreground">
+              {searchQuery ? (
+                <>
+                  No leads match &quot;<span className="font-medium text-foreground">{searchQuery}</span>&quot;
+                  {activeFilterCount > 1 ? " with the current filters" : ""}
+                  <button
+                    onClick={() => setSearch("")}
+                    className="block mx-auto mt-2 text-primary hover:underline text-xs"
+                  >
+                    Clear search
+                  </button>
+                </>
+              ) : (
+                <>
+                  No leads found
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={clearFilters}
+                      className="block mx-auto mt-2 text-primary hover:underline text-xs"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </>
               )}
-            </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <div className="overflow-hidden">
+              <Table className="table-fixed w-full border-separate border-spacing-y-2 [&_td]:overflow-hidden [&_td]:py-3 [&_th]:h-8">
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    {canBulkSelect && isSelectMode && <TableHead className="w-10" />}
+                    <TableHead className="w-[22%]">Name</TableHead>
+                    <TableHead className="w-[17%]">Mobile Number</TableHead>
+                    <TableHead className="w-[15%]">Lead Type</TableHead>
+                    <TableHead className="w-[15%]">Lead Source</TableHead>
+                    {isAdminBulk && (
+                      <>
+                        <TableHead className="w-[16%]">Current Telecaller</TableHead>
+                        <TableHead className="w-[16%]">Current Counsellor</TableHead>
+                      </>
+                    )}
+                    {isTelecaller && <TableHead className="w-[18%]">Assigned Counsellor</TableHead>}
+                    {isCounsellor && (
+                      <>
+                        <TableHead className="w-[12%]">Quality</TableHead>
+                        <TableHead className="w-[18%]">Transferred From</TableHead>
+                      </>
+                    )}
+                    <TableHead className="w-[14%] text-right">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayLeads.map((lead) => {
+                    const inSelectMode = canBulkSelect && isSelectMode;
+                    const isSelected = selectedLeadIds.has(lead.id);
+                    const transferBlocked = isAdminBulk && !isAdminJunkRestoreMode && isLeadTransferBlocked(lead);
+                    const readOnly = isLeadReadOnly(lead, user?.role);
+                    const junk = isLeadJunk(lead);
+                    const statusTags = getLeadDisplayTags(lead, user?.role, {
+                      pendingFollowUp: lead.pendingFollowUp,
+                    });
 
-            <div className="flex items-center gap-2 flex-wrap">
-              <Select value={savedView} onValueChange={(v) => setSavedView(v as SavedViewId)}>
-                <SelectTrigger className="w-[190px] rounded-full">
-                  <SelectValue placeholder="Saved views" />
+                    return (
+                      <TableRow
+                        key={lead.id}
+                        className={cn(
+                          "cursor-pointer border-0 transition-colors [&>td]:border-y [&>td]:bg-card [&>td:first-child]:rounded-l-xl [&>td:first-child]:border-l [&>td:last-child]:rounded-r-xl [&>td:last-child]:border-r",
+                          junk
+                            ? "[&>td]:bg-red-50/60 hover:[&>td]:bg-red-50"
+                            : readOnly
+                              ? "[&>td]:bg-emerald-50/60 hover:[&>td]:bg-emerald-50"
+                              : lead.assignmentStatus === "transferred"
+                                ? "[&>td]:bg-slate-50/80 hover:[&>td]:bg-slate-100/80"
+                                : "hover:[&>td]:bg-muted/40",
+                          inSelectMode && isSelected && "[&>td]:bg-primary/5 ring-1 ring-inset ring-primary/40",
+                          inSelectMode && transferBlocked && "opacity-60"
+                        )}
+                        onClick={() => {
+                          if (inSelectMode) {
+                            toggleLeadSelection(lead.id);
+                            return;
+                          }
+                          setLocation(`/leads/${lead.id}`);
+                        }}
+                      >
+                        {inSelectMode && (
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              readOnly
+                              className="h-4 w-4 accent-primary pointer-events-none"
+                            />
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                              {lead.fullName?.charAt(0)?.toUpperCase() || "L"}
+                            </div>
+                            <span
+                              className="font-semibold text-foreground truncate block min-w-0"
+                              title={lead.fullName || undefined}
+                            >
+                              {lead.fullName || "—"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="flex min-w-0 items-center gap-1 text-sm" title={lead.phone || undefined}>
+                            <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <span className="block min-w-0 truncate">{lead.phone || "—"}</span>
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="flex min-w-0 items-center gap-1 text-sm" title={lead.leadType || undefined}>
+                            <Tag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <span className="block min-w-0 truncate">{lead.leadType || "—"}</span>
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="min-w-0">
+                            <span
+                              className="flex min-w-0 items-center gap-1 text-sm"
+                              title={getLeadSourceLabel(lead.leadSource, leadTypes)}
+                            >
+                              <Send className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              <span className="block min-w-0 truncate">
+                                {getLeadSourceLabel(lead.leadSource, leadTypes)}
+                              </span>
+                            </span>
+                            {leadHasReferenceSource(lead) && getLeadReferenceDisplayLabel(lead) && (
+                              <span
+                                className="block min-w-0 truncate text-[11px] text-muted-foreground mt-0.5 pl-5"
+                                title={getLeadReferenceDisplayLabel(lead) ?? undefined}
+                              >
+                                {getLeadReferenceDisplayLabel(lead)}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        {isAdminBulk && (
+                          <>
+                            <TableCell>
+                              <span
+                                className="block truncate"
+                                title={lead.telecallerName || (lead.currentTelecallerId ? `Telecaller #${lead.currentTelecallerId}` : undefined)}
+                              >
+                                {lead.telecallerName || (lead.currentTelecallerId ? `Telecaller #${lead.currentTelecallerId}` : "—")}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className="block truncate"
+                                title={lead.counsellorName || (lead.currentCounsellorId ? `Counsellor #${lead.currentCounsellorId}` : undefined)}
+                              >
+                                {lead.counsellorName || (lead.currentCounsellorId ? `Counsellor #${lead.currentCounsellorId}` : "—")}
+                              </span>
+                            </TableCell>
+                          </>
+                        )}
+                        {isTelecaller && (
+                          <TableCell>
+                            <span
+                              className="flex min-w-0 items-center gap-1 text-sm text-foreground"
+                              title={lead.counsellorName || (lead.currentCounsellorId ? `Counsellor #${lead.currentCounsellorId}` : undefined)}
+                            >
+                              <UserCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              <span className="block min-w-0 truncate">
+                                {lead.counsellorName || (lead.currentCounsellorId ? `Counsellor #${lead.currentCounsellorId}` : "—")}
+                              </span>
+                            </span>
+                          </TableCell>
+                        )}
+                        {isCounsellor && (
+                          <>
+                            <TableCell>
+                              <span className="flex min-w-0 items-center gap-1 text-sm" title={leadQualityLabel(lead.leadQuality)}>
+                                <Star className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <span className="block min-w-0 truncate">{leadQualityLabel(lead.leadQuality)}</span>
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className="block truncate"
+                                title={lead.telecallerName || (lead.currentTelecallerId ? `Telecaller #${lead.currentTelecallerId}` : undefined)}
+                              >
+                                {lead.telecallerName || (lead.currentTelecallerId ? `Telecaller #${lead.currentTelecallerId}` : "—")}
+                              </span>
+                            </TableCell>
+                          </>
+                        )}
+                        <TableCell className="text-right">
+                          <div className="flex min-w-0 items-center justify-end gap-1.5 overflow-hidden">
+                            {statusTags.map((tag) => (
+                              <Badge
+                                key={tag.key}
+                                variant="secondary"
+                                className={cn("h-5 max-w-full truncate border-0 text-[10px] font-normal", tag.className)}
+                                title={tag.label}
+                              >
+                                {tag.label}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {!loading && pagination.total > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-center gap-3 px-1">
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <span className="text-xs text-muted-foreground tabular-nums px-2">
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1"
+              disabled={page >= pagination.totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Transfer Modal ────────────────────────────────────── */}
+      <Dialog open={!!transferLead} onOpenChange={(open) => { if (!open) closeTransferModal(); }}>
+  <DialogContent className="sm:max-w-md">
+    <DialogHeader>
+      <DialogTitle>Transfer Lead to Counsellor</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-2 py-4">
+      <Label>Select Counsellor</Label>
+      <Select value={selectedCounsellorId} onValueChange={setSelectedCounsellorId}>
+        <SelectTrigger>
+          <SelectValue placeholder="Choose counsellor" />
+        </SelectTrigger>
+        {/* The fix is right here in the SelectContent */}
+        <SelectContent className="max-h-[300px] overflow-y-auto">
+          {counsellors?.map((item) => (
+            <SelectItem key={item.id} value={String(item.id)}>
+              {item.fullName}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+    <DialogFooter>
+      <Button variant="outline" onClick={closeTransferModal}>Cancel</Button>
+      <Button disabled={submitting || !selectedCounsellorId} onClick={handleTransferSubmit}>
+        {submitting ? "Processing..." : "Confirm Transfer"}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
+      {/* ── Follow-up Modal ───────────────────────────────────── */}
+      <Dialog open={!!followupLead} onOpenChange={(open) => { if (!open) closeFollowupModal(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Follow-up</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-2">
+              <Label>Date & Time</Label>
+              <button
+                type="button"
+                onClick={() => setDateTimePickerOpen(true)}
+                className="flex h-9 w-full items-center rounded-md border border-input bg-background px-3 py-1 text-sm text-left shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                {followupDateTime
+                  ? followupDateTime.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
+                  : <span className="text-muted-foreground">Pick a date & time…</span>
+                }
+              </button>
+            </div>
+            <div className="grid gap-2">
+              <Label>Follow-up Note</Label>
+              <Input
+                placeholder="What was discussed?"
+                value={followupNote}
+                onChange={(e) => setFollowupNote(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeFollowupModal}>Cancel</Button>
+            <Button disabled={submitting} onClick={handleFollowupSubmit}>
+              Save Follow-up
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Date-time picker (outside follow-up dialog to avoid nesting) */}
+      <DateTimePicker
+        open={dateTimePickerOpen}
+        onOpenChange={setDateTimePickerOpen}
+        value={followupDateTime}
+        minDateTime={getMinFollowupDateTime()}
+        onPickTomorrowMorning={() => {
+          setFollowupDateTime(getTomorrowMorning1030());
+          setDateTimePickerOpen(false);
+        }}
+        onChange={(date) => setFollowupDateTime(clampFollowupDateTime(date))}
+      />
+
+      {/* ── Date Range Picker Dialog ──────────────────────────── */}
+      <Dialog open={showDatePicker} onOpenChange={setShowDatePicker}>
+        <DialogContent className="p-0 max-w-[800px] overflow-hidden rounded-xl border-0">
+          <DialogTitle className="sr-only">Select Date Range</DialogTitle>
+          <DateRangePicker
+            onApply={handleDateRangeApply}
+            onCancel={() => setShowDatePicker(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Telecaller → Telecaller Transfer Modal ───────────────── */}
+      <Dialog open={ttModalOpen} onOpenChange={(open) => { if (!open) closeTtModal(); }}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Transfer to Telecaller</DialogTitle>
+    </DialogHeader>
+
+    {!ttConfirm ? (
+      <div className="space-y-4 py-4">
+        <p className="text-sm text-muted-foreground">
+          Transferring <span className="font-semibold text-foreground">{ttLeadIds.length}</span> lead{ttLeadIds.length > 1 ? "s" : ""} to another telecaller.
+        </p>
+        <div className="grid gap-2">
+          <Label>Select Telecaller</Label>
+          <Select value={ttTargetId} onValueChange={setTtTargetId}>
+            <SelectTrigger>
+              <SelectValue placeholder={telecallers.length > 0 ? "Choose telecaller…" : "Loading telecallers..."} />
+            </SelectTrigger>
+            
+            {/* SCROLLABLE FIX: max-h-[300px] allows ~7.5 items visible */}
+            <SelectContent className="max-h-[300px] overflow-y-auto">
+  {(() => {
+    // Robust "is self" check — prefer the authoritative id from /api/users/me,
+    // fall back to auth-context's user.id, and finally fall back to a case-insensitive
+    // fullName match against the auth-context user.name (last-resort safety net).
+    const selfId = currentUserId ?? (user?.id != null ? String(user.id) : null);
+    const selfName = user?.name?.trim().toLowerCase() ?? "";
+    const others = telecallers.filter((t) => {
+      const tid = String(t.id);
+      if (selfId && tid === selfId) return false;
+      if (selfName && t.fullName?.trim().toLowerCase() === selfName) return false;
+      return true;
+    });
+    if (others.length === 0) {
+      return <SelectItem value="none" disabled>No other telecallers found</SelectItem>;
+    }
+    return others.map((t) => (
+      <SelectItem key={t.id} value={String(t.id)}>{t.fullName}</SelectItem>
+    ));
+  })()}
+</SelectContent>
+          </Select>
+        </div>
+      </div>
+    ) : (
+      <div className="py-6 text-center space-y-2">
+        <p className="text-sm text-muted-foreground">Confirm transfer of</p>
+        <p className="text-lg font-bold">{ttLeadIds.length} lead{ttLeadIds.length > 1 ? "s" : ""}</p>
+        <p className="text-sm text-muted-foreground">to</p>
+        <p className="text-base font-semibold text-primary">{ttTargetName}</p>
+      </div>
+    )}
+
+    <DialogFooter>
+      <Button variant="outline" onClick={ttConfirm ? () => setTtConfirm(false) : closeTtModal}>
+        {ttConfirm ? "Back" : "Cancel"}
+      </Button>
+      <Button
+        disabled={!ttTargetId || ttSubmitting}
+        onClick={handleTtTransferSubmit}
+      >
+        {ttSubmitting ? "Transferring…" : ttConfirm ? "Confirm Transfer" : "Next →"}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
+      <Dialog open={adminTransferOpen} onOpenChange={(open) => { if (!open) closeAdminTransferModal(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isAdminJunkRestoreMode ? "Restore & Assign Junk Leads" : "Transfer Selected Leads"}</DialogTitle>
+          </DialogHeader>
+
+          {!adminTransferConfirm ? (
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                {isAdminJunkRestoreMode ? "Restoring" : "Transferring"}{" "}
+                <span className="font-semibold text-foreground">{selectedLeadIds.size}</span> lead{selectedLeadIds.size > 1 ? "s" : ""}. Choose one telecaller or one counsellor.
+              </p>
+              <div className="grid gap-2">
+                <Label>Telecaller</Label>
+                <Select
+                  value={adminTargetTelecallerId}
+                  onValueChange={(value) => {
+                    setAdminTargetTelecallerId(value);
+                    setAdminTargetCounsellorId("");
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={telecallers.length > 0 ? "Choose telecaller…" : "Loading telecallers..."} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px] overflow-y-auto">
+                    {telecallers.map((t) => (
+                      <SelectItem key={t.id} value={String(t.id)}>{t.fullName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label>Counsellor</Label>
+                <Select
+                  value={adminTargetCounsellorId}
+                  onValueChange={(value) => {
+                    setAdminTargetCounsellorId(value);
+                    setAdminTargetTelecallerId("");
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={counsellors.length > 0 ? "Choose counsellor…" : "Loading counsellors..."} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px] overflow-y-auto">
+                    {counsellors.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.fullName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          ) : (
+            <div className="py-6 text-center space-y-2">
+              <p className="text-sm text-muted-foreground">Confirm {isAdminJunkRestoreMode ? "restore and assignment of" : "transfer of"}</p>
+              <p className="text-lg font-bold">{selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? "s" : ""}</p>
+              <p className="text-sm text-muted-foreground">to</p>
+              <p className="text-base font-semibold text-primary">{adminTargetName}</p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={adminTransferConfirm ? () => setAdminTransferConfirm(false) : closeAdminTransferModal}>
+              {adminTransferConfirm ? "Back" : "Cancel"}
+            </Button>
+            <Button
+              disabled={(!adminTargetTelecallerId && !adminTargetCounsellorId) || adminTransferSubmitting}
+              onClick={handleAdminTransferSubmit}
+            >
+              {adminTransferSubmitting
+                ? isAdminJunkRestoreMode ? "Restoring…" : "Transferring…"
+                : adminTransferConfirm
+                  ? isAdminJunkRestoreMode ? "Confirm Restore" : "Confirm Transfer"
+                  : "Next →"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Eligibility Modal ─────────────────────────────────── */}
+      <Dialog open={!!eligibilityLead} onOpenChange={(open) => { if (!open) closeEligibilityModal(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {eligibilityLead?.eligibilityStatus ? "Update Eligibility" : "Set Eligibility"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {eligibilityLead && (
+              <p className="text-xs text-muted-foreground">
+                Lead: <span className="font-medium text-foreground">{eligibilityLead.fullName}</span>
+              </p>
+            )}
+            <div className="grid gap-2">
+              <Label>Eligibility Status</Label>
+              <Select
+                value={eligibilityValue}
+                onValueChange={(v) => setEligibilityValue(v as LeadEligibilityStatus)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose eligibility" />
                 </SelectTrigger>
                 <SelectContent>
-                  {SAVED_VIEWS.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.label}
-                    </SelectItem>
+                  {ELIGIBILITY_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeEligibilityModal}>Cancel</Button>
+            <Button
+              disabled={submitting || !eligibilityValue || eligibilityValue === eligibilityLead?.eligibilityStatus}
+              onClick={handleEligibilitySubmit}
+            >
+              {submitting ? "Saving…" : "Save Eligibility"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-              <Select value={sortKey} onValueChange={(v) => setSortKey(v as any)}>
-                <SelectTrigger className="w-[190px] rounded-full">
-                  <SelectValue placeholder="Sort" />
+      {/* ── Quality Modal ─────────────────────────────────────── */}
+      <Dialog open={!!qualityLead} onOpenChange={(open) => { if (!open) closeQualityModal(); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {qualityLead?.leadQuality ? "Update Lead Quality" : "Set Lead Quality"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {qualityLead && (
+              <p className="text-xs text-muted-foreground">
+                Lead: <span className="font-medium text-foreground">{qualityLead.fullName}</span>
+              </p>
+            )}
+            <div className="grid gap-2">
+              <Label>Quality</Label>
+              <Select
+                value={qualityValue}
+                onValueChange={(v) => setQualityValue(v as LeadQuality)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose quality" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="created_desc">Created (newest)</SelectItem>
-                  <SelectItem value="created_asc">Created (oldest)</SelectItem>
-                  <SelectItem value="followup_desc">Last follow-up</SelectItem>
-                  <SelectItem value="name_asc">Name (A-Z)</SelectItem>
+                  {QUALITY_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-
-              {(search.trim() !== "" || selectedStatuses.length > 0 || selectedStages.length > 0 || selectedAssignees.length > 0 || savedView !== "all") && (
-                <Button variant="ghost" className="rounded-full px-3 text-muted-foreground" onClick={handleClearFilters}>
-                  Clear
-                </Button>
-              )}
             </div>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <ChipMultiSelect
-              label="Status"
-              options={statusOptions}
-              selectedValues={selectedStatuses}
-              onChangeSelected={(next) => setSelectedStatuses(next as LeadStatus[])}
-            />
-
-            <ChipMultiSelect
-              label="Stage"
-              options={stageOptions}
-              selectedValues={selectedStages}
-              onChangeSelected={(next) => setSelectedStages(next as LeadStage[])}
-            />
-
-            <ChipMultiSelect
-              label="Assignee"
-              options={assigneeOptions}
-              selectedValues={selectedAssignees}
-              onChangeSelected={setSelectedAssignees}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Content */}
-      {isLoading ? (
-        <div className="p-3 space-y-3">
-          {Array.from({ length: 7 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-xl border border-border/60 bg-background p-4 animate-pulse"
+          <DialogFooter>
+            <Button variant="outline" onClick={closeQualityModal}>Cancel</Button>
+            <Button
+              disabled={submitting || !qualityValue || qualityValue === qualityLead?.leadQuality}
+              onClick={handleQualitySubmit}
             >
-              <div className="h-4 w-2/5 rounded bg-muted" />
-              <div className="mt-2 h-3 w-3/5 rounded bg-muted" />
-              <div className="mt-4 grid grid-cols-12 gap-4">
-                <div className="col-span-2 h-6 rounded bg-muted" />
-                <div className="col-span-2 h-6 rounded bg-muted" />
-                <div className="col-span-2 h-6 rounded bg-muted" />
-                <div className="col-span-2 h-6 rounded bg-muted" />
-                <div className="col-span-2 h-6 rounded bg-muted" />
-                <div className="col-span-2 h-6 rounded bg-muted" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : sortedLeads.length === 0 ? (
-        <div className="mt-6">
-          <Card className="border-border/60 shadow-sm">
-            <CardContent className="p-8">
-              <div className="flex flex-col items-center text-center space-y-3">
-                <div className="h-12 w-12 rounded-full bg-muted animate-pulse" />
-                <p className="text-base font-semibold">No leads match your filters</p>
-                <p className="text-sm text-muted-foreground max-w-md">
-                  Try clearing filters or add a new lead to start your pipeline.
-                </p>
-                <div className="flex gap-2 flex-wrap justify-center">
-                  <Button variant="default" onClick={() => setIsAddLeadOpen(true)}>
-                    Add Lead
-                  </Button>
-                  <Button variant="outline" onClick={handleClearFilters}>
-                    Clear filters
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      ) : (
-        <LeadsList
-          leads={sortedLeads}
-          canEdit={canEdit}
-          onOpenLead={(leadId) => setActiveLeadId(leadId)}
-          onMoveStage={(leadId) => moveLeadToNextStage(leadId)}
-          onDeleteLead={(leadId) => deleteLead(leadId)}
-        />
-      )}
+              {submitting ? "Saving…" : "Save Quality"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <AddLead open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen} onLeadAdded={handleLeadAdded} />
-
-      <LeadDetailSheet
-        open={Boolean(activeLeadId)}
-        lead={activeLead}
-        canAssign={canEdit}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) setActiveLeadId(null);
-        }}
-        onMoveToNextStage={() => {
-          if (!activeLead) return;
-          moveLeadToNextStage(activeLead.id);
-        }}
-        onUpdateLead={(next) => {
-          if (!activeLead) return;
-          updateLead(activeLead.id, next);
-        }}
-      />
-    </div>
-  );
-}
-
-function MobileBoard({
-  leadsByStage,
-  displayedStages,
-  isUpdatingLeadId,
-  onOpenLead,
-  onMoveToNext,
-}: {
-  leadsByStage: Record<LeadStage, DummyLead[]>;
-  displayedStages: LeadStage[];
-  isUpdatingLeadId: string | null;
-  onOpenLead: (leadId: string) => void;
-  onMoveToNext: (leadId: string) => void;
-}) {
-  const [activeStage, setActiveStage] = useState<LeadStage>(displayedStages[0] ?? "New");
-
-  useEffect(() => {
-    if (displayedStages.length === 0) return;
-    if (!displayedStages.includes(activeStage)) setActiveStage(displayedStages[0]);
-  }, [displayedStages, activeStage]);
-
-  return (
-    <div className="space-y-3">
-      <Tabs value={activeStage} onValueChange={(v) => setActiveStage(v as LeadStage)}>
-        <TabsList className="w-full justify-start overflow-x-auto">
-          {displayedStages.map((stage) => (
-            <TabsTrigger key={stage} value={stage}>
-              {stage}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {displayedStages.map((stage) => (
-          <TabsContent key={stage} value={stage} className="pt-3">
-            <div className="space-y-3">
-              {(leadsByStage[stage] ?? []).length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 p-5 text-center">
-                  <p className="text-sm font-medium">No leads</p>
-                  <p className="text-xs text-muted-foreground mt-1">Adjust filters to see more.</p>
-                </div>
-              ) : (
-                (leadsByStage[stage] ?? []).map((lead) => (
-                  <LeadCard
-                    key={lead.id}
-                    lead={lead}
-                    canDrag={false}
-                    isUpdating={isUpdatingLeadId === lead.id}
-                    onOpen={() => onOpenLead(lead.id)}
-                    onMoveToNext={lead.stage !== "Converted" ? () => onMoveToNext(lead.id) : undefined}
-                  />
-                ))
-              )}
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
+      <AddLead open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen} onLeadAdded={loadLeads} />
     </div>
   );
 }

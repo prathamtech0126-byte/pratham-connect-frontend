@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useSocket } from "@/context/socket-context";
 import { useToast } from "@/hooks/use-toast";
-import { Monitor, Smartphone, Laptop, Mouse, CreditCard, HardDrive, Hash, User, Loader2 } from "lucide-react";
+import { Monitor, Smartphone, Laptop, Mouse, CreditCard, HardDrive, Loader2 } from "lucide-react";
 
 type BoardType = "tickets" | "device_requests" | "recharge_requests" | "all";
 type ColumnKey = "pending" | "in_progress" | "resolved";
@@ -930,47 +930,35 @@ export function TechSupportBoard({
           </DialogHeader>
 
           {selectedDevice && (
-            <div className="mt-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Pratham ID</p>
-                  <p className="text-sm font-semibold">{selectedDevice.prathamProductCode || "N/A"}</p>
-                </div>
-                <div className="space-y-1">
+            <div className="mt-4">
+              <p className="text-xs text-muted-foreground mb-3">
+                {selectedDevice.prathamProductCode || "—"}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div className="min-w-0">
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Type</p>
-                  <Badge variant="outline" className="capitalize">{selectedDevice.deviceType}</Badge>
+                  <p className="font-medium capitalize">{selectedDevice.deviceType || "—"}</p>
                 </div>
-              </div>
-
-              <div className="space-y-3 py-3 border-t border-b border-slate-100">
-                <div className="flex items-center gap-2 text-sm">
-                  <Laptop className="h-4 w-4 text-slate-400" />
-                  <span className="text-slate-500 w-24">Name:</span>
-                  <span className="font-medium">{selectedDevice.deviceName || "N/A"}</span>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Device Name</p>
+                  <p className="font-medium">{selectedDevice.deviceName || "—"}</p>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Hash className="h-4 w-4 text-slate-400" />
-                  <span className="text-slate-500 w-24">Serial No:</span>
-                  <span className="font-medium font-mono">{selectedDevice.serialNumber || "N/A"}</span>
+                <div className="min-w-0 sm:col-span-2">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Hardware Details</p>
+                  <p className="font-medium">{selectedDevice.hardwareDetail || "—"}</p>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <HardDrive className="h-4 w-4 text-slate-400" />
-                  <span className="text-slate-500 w-24">Hardware:</span>
-                  <span className="font-medium">{selectedDevice.hardwareDetail || "N/A"}</span>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Serial Number</p>
+                  <p className="font-medium font-mono">{selectedDevice.serialNumber || "—"}</p>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-slate-400" />
-                  <span className="text-slate-500 w-24">Vendor:</span>
-                  <span className="font-medium">{selectedDevice.vendorName || "N/A"}</span>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Product Number</p>
+                  <p className="font-medium">{selectedDevice.productNumber || "—"}</p>
                 </div>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-lg flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Assignment Status</p>
-                  <p className="text-xs text-slate-600 mt-0.5">Assigned to {activeModalTicket?.counsellorNameSnapshot || activeModalTicket?.requesterNameSnapshot}</p>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase">Company Type</p>
+                  <p className="font-medium">{selectedDevice.companyType || "—"}</p>
                 </div>
-                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none">Active</Badge>
               </div>
             </div>
           )}

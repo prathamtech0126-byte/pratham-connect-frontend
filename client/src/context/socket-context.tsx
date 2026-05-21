@@ -59,22 +59,24 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     // Get counsellorId from user.id (convert string to number) - only for counsellors
     const isCounsellor = user.role === 'counsellor';
+    const isTelecaller = user.role === 'telecaller';
     const rawCounsellorId = isCounsellor ? Number(user.id) : null;
     const counsellorId = Number.isFinite(rawCounsellorId as number) ? (rawCounsellorId as number) : null;
 
     // Admin users (superadmin, manager, director) can also connect to socket for real-time updates
     const isAdmin = user.role === 'superadmin' || user.role === 'manager' || user.role === 'director';
     const isTechSupport = user.role === 'tech_support';
-   
+    const isBroadcastRecipient =
+      user.role === 'front_desk' || user.role === 'marketing_head';
 
-    // Connect if user is counsellor, admin, or tech_support
-    if (!isCounsellor && !isAdmin && !isTechSupport) {
+    // Connect if user needs real-time updates or broadcast messages
+    if (!isCounsellor && !isAdmin && !isTechSupport && !isTelecaller && !isBroadcastRecipient) {
       return;
     }
 
     // Check if we need to reconnect (only skip if already connected to the SAME user)
     // IMPORTANT: We need to reconnect if user changes or if role rooms aren't joined
-    const currentUserId = user.id;
+    const currentUserId = user.id; // eslint-disable-line @typescript-eslint/no-unused-vars
     const shouldReconnect = !socketRef.current?.connected ||
                            (socketRef.current?.connected && socketRef.current.id && !isConnected);
 
@@ -209,6 +211,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             newSocket.emit('join:user', userId);
           }, 150);
         }
+      } else if (isTelecaller) {
+        newSocket.emit('join:role', 'telecaller');
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          newSocket.emit('join:user', userId);
+        }
+      } else if (isBroadcastRecipient) {
+        newSocket.emit('join:role', user.role);
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          newSocket.emit('join:user', userId);
+        }
       } else if (isTechSupport) {
         // Tech support users need role + user rooms for request/ticket updates
         newSocket.emit('join:role', 'tech_support');
@@ -283,6 +297,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         if (!isNaN(userId)) {
           newSocket.emit('join:user', userId);
         }
+      } else if (isTelecaller) {
+        newSocket.emit('join:role', 'telecaller');
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          newSocket.emit('join:user', userId);
+        }
+      } else if (user.role === 'front_desk' || user.role === 'marketing_head') {
+        newSocket.emit('join:role', user.role);
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          newSocket.emit('join:user', userId);
+        }
       } else if (isTechSupport) {
         newSocket.emit('join:role', 'tech_support');
         const userId = Number(user.id);
@@ -307,6 +333,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     newSocket.on('reconnect_failed', () => {
       setConnectionStatus('error');
+    });
+
+    newSocket.on('maintenance:changed', (data: {
+      isActive: boolean;
+      armed?: boolean;
+      startTime?: string | null;
+      endTime?: string | null;
+      isScheduled?: boolean;
+    }) => {
+      window.dispatchEvent(new CustomEvent('maintenance:changed', { detail: data }));
     });
 
     socketRef.current = newSocket;
@@ -339,10 +375,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     const socket = socketRef.current;
     const isCounsellor = user.role === 'counsellor';
+    const isTelecaller2 = user.role === 'telecaller';
     const rawCounsellorId = isCounsellor ? Number(user.id) : null;
     const counsellorId = Number.isFinite(rawCounsellorId as number) ? (rawCounsellorId as number) : null;
     const isAdmin = user.role === 'superadmin' || user.role === 'manager' || user.role === 'director';
     const isTechSupport = user.role === 'tech_support';
+    const isBroadcastRecipient2 =
+      user.role === 'front_desk' || user.role === 'marketing_head';
 
     // Ensure role rooms are joined for message system (with delay to ensure socket is ready)
     // This is a safety mechanism that runs whenever socket connects
@@ -360,10 +399,22 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         if (!isNaN(userId)) {
           socket.emit('join:user', userId);
         }
+      } else if (isTelecaller2) {
+        socket.emit('join:role', 'telecaller');
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          socket.emit('join:user', userId);
+        }
+      } else if (isBroadcastRecipient2) {
+        socket.emit('join:role', user.role);
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          socket.emit('join:user', userId);
+        }
       } else if (isAdmin) {
         // ALWAYS join role room for any admin role
         socket.emit('join:role', user.role);
-        
+
         const userId = Number(user.id);
         if (!isNaN(userId)) {
           socket.emit('join:user', userId);

@@ -175,7 +175,13 @@ export default function LeadAutomation() {
                             Not Connected
                           </span>
                         )}
-                        <Link href={`/leads/automation/configure/${source.id}`}>
+                        <Link
+                          href={
+                            source.id === "facebook"
+                              ? "/leads/automation/facebook"
+                              : `/leads/automation/configure/${source.id}`
+                          }
+                        >
                           <Button variant="link" className="h-auto p-0 text-primary gap-0.5 text-sm">
                             {source.status === "not_connected" ? "Connect" : "Configure"}
                             <ChevronRight className="h-4 w-4" />
@@ -224,7 +230,13 @@ export default function LeadAutomation() {
                         {auto.description}
                       </p>
                       <div className="mt-4">
-                        <Link href={`/leads/automation/configure/${auto.id}`}>
+                        <Link
+                          href={
+                            auto.id === "meta-conversions"
+                              ? "/leads/automation/meta-conversions"
+                              : `/leads/automation/configure/${auto.id}`
+                          }
+                        >
                           <Button variant="link" className="h-auto p-0 text-primary gap-0.5 text-sm">
                             Configure
                             <ChevronRight className="h-4 w-4" />

@@ -237,6 +237,10 @@ export default function LeadAutomationConfigure() {
 
   const config = id ? CONFIGURE_MAP[id] : null;
 
+  if (id === "meta-conversions") {
+    return <Redirect to="/leads/automation/meta-conversions" />;
+  }
+
   if (!config) {
     return (
       <PageWrapper

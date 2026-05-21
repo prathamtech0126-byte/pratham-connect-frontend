@@ -1935,6 +1935,16 @@ export const clientService = {
     return Array.isArray(data) ? data : [];
   },
 
+  updateUserRetainedAccessories: async (
+    userId: number,
+    accessories: string | null
+  ): Promise<{ userId: number; retainedAccessories: string | null }> => {
+    const res = await api.patch(`/api/tech-support/users/${userId}/retained-accessories`, {
+      accessories,
+    });
+    return res.data?.data ?? res.data;
+  },
+
   assignDeviceInventory: async (deviceId: number, userId: number, assignmentAccessories?: string | null): Promise<any> => {
     const res = await api.post(`/api/tech-support/devices/${deviceId}/assign`, { userId, assignmentAccessories });
     return res.data?.data ?? res.data;

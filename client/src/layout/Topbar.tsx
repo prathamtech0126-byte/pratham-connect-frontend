@@ -69,18 +69,25 @@ export function Topbar() {
     refetchOnWindowFocus: false,
   });
 
-  // Check if pending alert targets this user
-  const hasRelevantPendingAlert = pendingAlert && user && (
-    pendingAlert.targetRoles.includes('all') ||
-    pendingAlert.targetRoles.includes(user.role) ||
-    user.role === 'superadmin' ||
-    user.role === 'director'
-  );
+  const isMaintenancePending =
+    pendingAlert?.type === "maintenance_scheduled" ||
+    pendingAlert?.type === "maintenance_live";
+
+  const hasRelevantPendingAlert =
+    pendingAlert &&
+    user &&
+    (pendingAlert.targetRoles.includes("all") ||
+      pendingAlert.targetRoles.includes(user.role) ||
+      (isMaintenancePending && user.role !== "developer") ||
+      (!isMaintenancePending &&
+        (user.role === "superadmin" || user.role === "director")));
 
   const getAlertIcon = (type: AlertType) => {
     switch(type) {
       case 'emergency': return <AlertTriangle className="w-4 h-4 text-red-600" />;
       case 'good_news': return <PartyPopper className="w-4 h-4 text-green-600" />;
+      case 'maintenance_live': return <AlertTriangle className="w-4 h-4 text-amber-700" />;
+      case 'maintenance_scheduled': return <Megaphone className="w-4 h-4 text-blue-600" />;
       default: return <Megaphone className="w-4 h-4 text-blue-600" />;
     }
   };
@@ -89,6 +96,8 @@ export function Topbar() {
     switch(type) {
       case 'emergency': return "bg-red-200 hover:bg-red-300";
       case 'good_news': return "bg-green-200 hover:bg-green-300";
+      case 'maintenance_live': return "bg-amber-200 hover:bg-amber-300";
+      case 'maintenance_scheduled': return "bg-blue-200 hover:bg-blue-300";
       default: return "bg-blue-200 hover:bg-blue-300";
     }
   };
@@ -309,7 +318,7 @@ export function Topbar() {
 
         <ModeToggle />
 
-        <ConnectionStatus />
+        {user?.role !== "front_desk" && <ConnectionStatus />}
 
         {(user?.role === 'superadmin' || user?.role === 'director') && (
           <BroadcastDialog>
