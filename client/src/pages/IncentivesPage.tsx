@@ -342,8 +342,10 @@ export default function IncentivesPage() {
     return list.sort((a, b) => a.localeCompare(b))
   }, [rows])
 
-  const invalidate = () =>
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['incentives-report'] })
+    queryClient.invalidateQueries({ queryKey: ['incentives-report-all'] })
+  }
 
   const approveMutation = useMutation({
     mutationFn: ({
@@ -362,7 +364,8 @@ export default function IncentivesPage() {
       overrideOtherProducts?: number | null
     }) =>
       approveOrRejectIncentive({
-        incentive_record_id: Number(row.incentiveRecordId),
+        clientId: Number(row.clientId),
+        incentive_record_id: row.incentiveRecordId,
         action: 'APPROVE',
         remark,
         overrideAmount,
@@ -387,7 +390,8 @@ export default function IncentivesPage() {
       remark: string
     }) =>
       approveOrRejectIncentive({
-        incentive_record_id: Number(row.incentiveRecordId),
+        clientId: Number(row.clientId),
+        incentive_record_id: row.incentiveRecordId,
         action: 'REJECT',
         remark,
       }),

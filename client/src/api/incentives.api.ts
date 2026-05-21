@@ -18,13 +18,16 @@ export interface ReportCoreSaleItem {
 
 export interface RuleDetail {
   ruleName: string
-  ruleType: 'slab' | 'budget'
+  ruleType: 'slab' | 'budget' | 'budget_threshold_slab'
   // slab-specific
   teamCount?: number
+  enrolledCount?: number
   slabRange?: string
   // budget-specific
   counsellorTotal?: number
   thresholdMet?: number
+  clientAmount?: number
+  incentiveBlocker?: string
   /** When set (e.g. by API), shown after "Incentive Eligible Amount" — e.g. ["Initial", "Before Visa"] */
   basisPayments?: string[]
   // common
@@ -37,6 +40,7 @@ export interface ReportCoreSale {
   eligible: boolean
   incentive: number
   ruleDetail?: RuleDetail
+  qualifyingCombination?: string[] | string | null
 }
 
 export interface ReportAllFinance {
@@ -138,7 +142,7 @@ function normalizeReportOtherProducts(raw: ApiReportOtherProducts | undefined | 
 
 export interface IncentiveRow {
   id: string
-  incentiveRecordId: number
+  incentiveRecordId: number | null
   clientId: string
   clientName: string
   counsellorId: string
@@ -155,6 +159,7 @@ export interface IncentiveRow {
   remark?: string | null
   eligible: boolean
   amount: number
+  clientTotalPayment?: number
   incentiveAmount: number
   overrideByUserId?: number | null
   /** Per-section override amounts from the backend — present when an admin has manually edited a section. */
@@ -178,6 +183,7 @@ export interface ReportRow {
   saleTypeCategoryId?: number
   eligible: boolean
   receivedAmount: number
+  clientTotalPayment?: number
   incentiveAmount: number
   overrideByUserId?: number | null
   overrideCoreSale?: number | null
@@ -471,9 +477,7 @@ function mapReportRow(row: ReportRowInput): IncentiveRow {
         ? row.incentiveRecordId
         : typeof row.incentive_record_id === 'number'
           ? row.incentive_record_id
-          : typeof row.id === 'number'
-            ? row.id
-            : Number(row.clientId),
+          : null,
     clientId: String(row.clientId),
     clientName: row.clientName,
     counsellorId: '',
@@ -486,6 +490,7 @@ function mapReportRow(row: ReportRowInput): IncentiveRow {
     isSharedClient: row.isSharedClient === true || undefined,
     eligible: row.eligible,
     amount: row.receivedAmount,
+    clientTotalPayment: typeof row.clientTotalPayment === 'number' ? row.clientTotalPayment : undefined,
     incentiveAmount: row.incentiveAmount,
     overrideByUserId:
       typeof row.overrideByUserId === 'number'
@@ -656,7 +661,8 @@ export async function fetchIncentivesReport(params: {
 }
 
 export interface ApproveOrRejectIncentivePayload {
-  incentive_record_id: number
+  clientId: number
+  incentive_record_id?: number | null
   action: 'APPROVE' | 'REJECT'
   remark?: string
   overrideAmount?: number
@@ -670,7 +676,7 @@ export async function approveOrRejectIncentive(
 ): Promise<IncentiveActionResponse> {
   const requestBody = {
     ...payload,
-    clientId: payload.incentive_record_id,
+    clientId: payload.clientId,
     allowApprovedEdit: true,
   }
   const res = await api.post<IncentiveActionResponse>('/api/incentives/action', requestBody)
