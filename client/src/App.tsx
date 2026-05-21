@@ -28,6 +28,7 @@ import { LoadingScreen } from "@/components/ui/loading-screen";
 // Lazy-load route components so initial bundle is smaller and first paint is faster
 const NotFound = lazy(() => import("@/pages/not-found"));
 const Dashboard = lazy(() => import("@/pages/Dashboard/Dashboard"));
+const TelecalerDashbord = lazy(() => import("@/pages/Dashboard/TelecalerDashbord"));
 const ClientList = lazy(() => import("@/pages/Clients/ClientList"));
 const CounsellorClientsPage = lazy(() => import("@/pages/Clients/CounsellorClientsPage"));
 const AllCounsellorClientsPage = lazy(() => import("@/pages/Clients/AllCounsellorClientsPage"));
@@ -44,15 +45,43 @@ const Messages = lazy(() => import("@/pages/Messages"));
 const CalendarDemo = lazy(() => import("@/pages/CalendarDemo"));
 const ChangePassword = lazy(() => import("@/pages/ChangePassword"));
 const CounsellorLeaderboard = lazy(() => import("@/pages/CounsellorLeaderboard/CounsellorLeaderboard"));
+const TelecallerLeaderboard = lazy(() => import("@/pages/TelecallerLeaderboard/TelecallerLeaderboard"));
 const ManagerLeaderboard = lazy(() => import("@/pages/ManagerLeaderboard/ManagerLeaderboard"));
 const Reports = lazy(() => import("@/pages/Reports"));
 const CounsellorReportPage = lazy(() => import("@/pages/Reports/CounsellorReportPage"));
+
+const ChecklistPage = lazy(() => import("@/pages/ChecklistPage"));
+const AddChecklistPage = lazy(() => import("@/pages/AddChecklistPage"));
+const TechSupportPage = lazy(() => import("@/pages/tech-support/TechSupportPage"));
+const DeviceInfoPage = lazy(() => import("@/pages/tech-support/DeviceInfo"));
 const PaymentsPage = lazy(() => import("@/pages/Reports/PaymentsPage"));
 const IncentivesPage = lazy(() => import("@/pages/IncentivesPage"))
 const IncentivesApprovedPage = lazy(() => import("@/pages/IncentivesApprovedPage"))
 const IncentiveRulesPage = lazy(() => import("@/pages/IncentiveRulesPage"))
-const ChecklistPage = lazy(() => import("@/pages/ChecklistPage"));
-const AddChecklistPage = lazy(() => import("@/pages/AddChecklistPage"));
+
+const LeadList = lazy(() => import("@/pages/Leads/LeadList"));
+const CounsellorLeadsPage = lazy(() => import("@/pages/Leads/CounsellorLeadsPage"));
+const LeadDetail = lazy(() => import("@/pages/Leads/LeadDetail"));
+const LeadKanban = lazy(() => import("@/pages/Leads/LeadKanban"));
+const LeadAutomation = lazy(() => import("@/pages/Leads/LeadAutomation"));
+const LeadAutomationConfigure = lazy(() => import("@/pages/Leads/LeadAutomationConfigure"));
+const FacebookLeadAutomation = lazy(() => import("@/pages/Leads/FacebookLeadAutomation"));
+const MetaConversionsPage = lazy(() => import("@/pages/Leads/MetaConversionsPage"));
+const FacebookManualDistribution = lazy(() => import("@/pages/Leads/FacebookManualDistribution"));
+const FacebookMasterDistribution = lazy(() => import("@/pages/Leads/FacebookMasterDistribution"));
+const LeadImport = lazy(() => import("@/pages/Leads/LeadImport"));
+const LeadReports = lazy(() => import("@/pages/Leads/LeadReports"));
+const DailyLeadReport = lazy(() => import("@/pages/Leads/DailyLeadReport"));
+const IndividualTelecallerAnalysis = lazy(() => import("@/pages/Leads/IndividualTelecallerAnalysis"));
+const CounsellorLeadReport = lazy(() => import("@/pages/Leads/CounsellorLeadReport"));
+const TelecallerWiseLead = lazy(() => import("@/pages/Leads/TelecallerWiseLead"));
+const FrontDeskPortal = lazy(() => import("@/pages/FrontDesk/FrontDeskPortal"));
+const FrontDeskActivity = lazy(() => import("@/pages/FrontDesk/FrontDeskActivity"));
+const MarketingHeadDashboard = lazy(() => import("@/pages/Dashboard/MarketingHeadDashboard"));
+const MaintenanceSettingsPage = lazy(() => import("@/pages/MaintenanceSettingsPage"));
+
+// const ChecklistPage = lazy(() => import("@/pages/ChecklistPage"));
+// const AddChecklistPage = lazy(() => import("@/pages/AddChecklistPage"));
 // const LeadList = lazy(() => import("@/pages/Leads/LeadList"));
 // const LeadDetail = lazy(() => import("@/pages/Leads/LeadDetail"));
 // const LeadKanban = lazy(() => import("@/pages/Leads/LeadKanban"));
@@ -119,9 +148,67 @@ const PageLoadFallback = () => <LoadingScreen message="Loading..." />;
 
 function Router() {
   const { user } = useAuth();
+  const { isActive: isMaintenanceLive, armed, startTime, endTime } = useMaintenance();
+  const { isActive: isBlockingAlertActive } = useAlert();
+  const isTechSupportOnlyUser = user?.role === "tech_support";
+  const isFrontDeskUser = user?.role === "front_desk";
+  const isMarketingHeadUser = user?.role === "marketing_head";
+
+  const liveSessionKey = buildMaintenanceSessionKey(armed, true, startTime, endTime);
+
+  // After user acknowledges the live maintenance alert, show the full maintenance screen.
+  if (
+    user &&
+    user.role !== "developer" &&
+    isMaintenanceLive &&
+    !isBlockingAlertActive &&
+    hasAcknowledgedMaintenanceSession(liveSessionKey)
+  ) {
+    return <MaintenancePage />;
+  }
 
   return (
     <Suspense fallback={<PageLoadFallback />}>
+      {isFrontDeskUser ? (
+        <Switch>
+          <Route path="/login">
+            {() => <Redirect to="/front-desk" />}
+          </Route>
+          <Route path="/front-desk/activity">
+            {() => <ProtectedRoute component={FrontDeskActivity} allowedRoles={["front_desk", "developer", "superadmin"] as UserRole[]} />}
+          </Route>
+          <Route path="/front-desk">
+            {() => <ProtectedRoute component={FrontDeskPortal} allowedRoles={["front_desk", "developer"] as UserRole[]} />}
+          </Route>
+          <Route path="/change-password">
+            {params => <ProtectedRoute component={ChangePassword} />}
+          </Route>
+          <Route>
+            {() => <Redirect to="/front-desk" />}
+          </Route>
+        </Switch>
+      ) : isTechSupportOnlyUser ? (
+        <Switch>
+          <Route path="/login">
+            {() => <Redirect to="/tech-support" />}
+          </Route>
+          <Route path="/">
+            {params => <ProtectedRoute component={Dashboard} />}
+          </Route>
+          <Route path="/dashboard">
+            {params => <Redirect to="/" />}
+          </Route>
+          <Route path="/tech-support">
+            {params => <ProtectedRoute component={TechSupportPage} />}
+          </Route>
+          <Route path="/tech-support/device-info">
+            {params => <ProtectedRoute component={DeviceInfoPage} />}
+          </Route>
+          <Route>
+            {() => <Redirect to="/tech-support" />}
+          </Route>
+        </Switch>
+      ) : (
       <Switch>
         {/* ✅ If user is logged in and tries to access /login, redirect to dashboard */}
         <Route path="/login">
@@ -134,11 +221,19 @@ function Router() {
         </Route>
 
         <Route path="/">
-          {params => <ProtectedRoute component={Dashboard} />}
+          {params => <ProtectedRoute component={user?.role === "telecaller" ? TelecalerDashbord : user?.role === "marketing_head" ? MarketingHeadDashboard : Dashboard} />}
         </Route>
 
         <Route path="/dashboard">
           {params => <Redirect to="/" />}
+        </Route>
+
+        <Route path="/telecaller-dashboard">
+          {params => <ProtectedRoute component={TelecalerDashbord} allowedRoles={["telecaller"] as UserRole[]} />}
+        </Route>
+
+        <Route path="/marketing-dashboard">
+          {params => <ProtectedRoute component={MarketingHeadDashboard} allowedRoles={["marketing_head", "superadmin", "developer"] as UserRole[]} />}
         </Route>
 
         <Route path="/activity">
@@ -216,6 +311,22 @@ function Router() {
           {params => <ProtectedRoute component={Messages} />}
         </Route>
 
+        <Route path="/tech-support">
+          {params => <ProtectedRoute component={TechSupportPage} />}
+        </Route>
+
+        <Route
+          path="/tech-support/device-info"
+          // Admin and tech support users can view device inventory details.
+        >
+          {params => (
+            <ProtectedRoute
+              component={DeviceInfoPage}
+              allowedRoles={["tech_support", "superadmin", "manager", "director"] as UserRole[]}
+            />
+          )}
+        </Route>
+
         <Route path="/calendar">
           {params => <ProtectedRoute component={CalendarDemo} />}
         </Route>
@@ -253,11 +364,31 @@ function Router() {
           {params => <ProtectedRoute component={ClientView} params={params} />}
         </Route>
 
-        {/* <Route path="/leads/kanban">
+        <Route path="/leads/counsellor">
+          {() => (
+            <ProtectedRoute
+              component={CounsellorLeadsPage}
+              allowedRoles={["counsellor"] as UserRole[]}
+            />
+          )}
+        </Route>
+        <Route path="/leads/kanban">
           {() => <ProtectedRoute component={LeadKanban} />}
         </Route>
         <Route path="/leads/automation/configure/:id">
           {(params) => <ProtectedRoute component={LeadAutomationConfigure} params={params} />}
+        </Route>
+        <Route path="/leads/automation/meta-conversions">
+          {() => <ProtectedRoute component={MetaConversionsPage} />}
+        </Route>
+        <Route path="/leads/automation/facebook/master-distribution">
+          {() => <ProtectedRoute component={FacebookMasterDistribution} />}
+        </Route>
+        <Route path="/leads/automation/facebook/manual-distribution">
+          {() => <ProtectedRoute component={FacebookManualDistribution} />}
+        </Route>
+        <Route path="/leads/automation/facebook">
+          {() => <ProtectedRoute component={FacebookLeadAutomation} />}
         </Route>
         <Route path="/leads/automation">
           {() => <ProtectedRoute component={LeadAutomation} />}
@@ -268,12 +399,51 @@ function Router() {
         <Route path="/leads/reports">
           {() => <ProtectedRoute component={LeadReports} />}
         </Route>
+        <Route path="/leads/counsellor-report">
+          {() => (
+            <ProtectedRoute
+              component={CounsellorLeadReport}
+              allowedRoles={["counsellor"] as UserRole[]}
+            />
+          )}
+        </Route>
+        <Route path="/leads/daily-report">
+          {() => <ProtectedRoute component={DailyLeadReport} allowedRoles={["manager", "marketing_head"] as UserRole[]} />}
+        </Route>
+        <Route path="/leads/telecaller-wise">
+          {() => (
+            <ProtectedRoute
+              component={TelecallerWiseLead}
+              allowedRoles={["superadmin", "manager", "backend_manager"] as UserRole[]}
+            />
+          )}
+        </Route>
+        <Route path="/leads/telecaller/:id">
+          {(params) => <ProtectedRoute component={IndividualTelecallerAnalysis} params={params} />}
+        </Route>
         <Route path="/leads/:id">
           {(params) => <ProtectedRoute component={LeadDetail} params={params} />}
         </Route>
         <Route path="/leads">
           {() => <ProtectedRoute component={LeadList} />}
-        </Route> */}
+        </Route>
+
+        <Route path="/front-desk/activity">
+          {() => (
+            <ProtectedRoute
+              component={FrontDeskActivity}
+              allowedRoles={["front_desk", "developer", "superadmin"] as UserRole[]}
+            />
+          )}
+        </Route>
+        <Route path="/front-desk">
+          {() => (
+            <ProtectedRoute
+              component={FrontDeskPortal}
+              allowedRoles={["front_desk", "developer"] as UserRole[]}
+            />
+          )}
+        </Route>
 
         <Route path="/overall-report">
           {params => <ProtectedRoute component={OverallReport} />}
@@ -288,12 +458,29 @@ function Router() {
         <Route path="/counsellor-leaderboard">
           {params => <ProtectedRoute component={CounsellorLeaderboard} />}
         </Route>
+        <Route path="/telecaller-leaderboard">
+          {params => (
+            <ProtectedRoute
+              component={TelecallerLeaderboard}
+              allowedRoles={["superadmin", "developer", "manager", "admin"] as UserRole[]}
+            />
+          )}
+        </Route>
         <Route path="/additional-info">
           {params => <ProtectedRoute component={AdditionalInfo} />}
         </Route>
 
         <Route path="/university-db">
           {params => <ProtectedRoute component={UniversityDatabase} />}
+        </Route>
+
+        <Route path="/maintenance">
+          {() => (
+            <ProtectedRoute
+              component={MaintenanceSettingsPage}
+              allowedRoles={["developer"] as UserRole[]}
+            />
+          )}
         </Route>
 
         {/* Checklist Routes */}
@@ -312,6 +499,7 @@ function Router() {
 
         <Route component={NotFound} />
       </Switch>
+      )}
     </Suspense>
   );
 }
@@ -319,6 +507,14 @@ function Router() {
 import { ThemeProvider } from "@/components/theme-provider"
 import { FaviconUpdater } from "@/components/favicon-updater"
 import OverallReport from "./pages/OverallReport";
+import { MaintenanceProvider, useMaintenance } from "@/context/maintenance-context";
+import MaintenancePage from "@/pages/MaintenancePage";
+import { MaintenanceAlertSync } from "@/components/maintenance-alert-sync";
+import { useAlert } from "@/context/alert-context";
+import {
+  buildMaintenanceSessionKey,
+  hasAcknowledgedMaintenanceSession,
+} from "@/lib/maintenance-alert";
 
 /** In production: fetch deployed version and reload if newer so users don't stay on cached old build. */
 function useVersionCheck() {
@@ -353,17 +549,20 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AuthProvider>
+            <MaintenanceProvider>
             <SocketProvider>
               <AlertProvider>
                 <MessageErrorBoundary>
                   <MessageProvider>
                     <EmergencyAlert />
+                    <MaintenanceAlertSync />
                     <Router />
                     <Toaster />
                   </MessageProvider>
                 </MessageErrorBoundary>
               </AlertProvider>
             </SocketProvider>
+            </MaintenanceProvider>
           </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>

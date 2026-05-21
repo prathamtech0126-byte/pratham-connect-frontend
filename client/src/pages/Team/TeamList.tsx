@@ -17,6 +17,17 @@ import api from "@/lib/api";
 
 export default function TeamList() {
   const { toast } = useToast();
+  const roleToApiValue = (role: string) => {
+    if (role === "IT Support") return "tech_support";
+    return role.toLowerCase().trim().replace(/\s+/g, "_");
+  };
+  const apiRoleToLabel = (role?: string) => {
+    const normalized = (role || "").toLowerCase();
+    if (normalized === "tech_support") return "IT Support";
+    if (normalized === "superadmin") return "Superadmin";
+    if (!normalized) return "";
+    return normalized.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  };
 
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,7 +45,7 @@ export default function TeamList() {
           id: u.id,
           name: u.fullName || u.name,
           email: u.email,
-          role: u.role,
+          role: apiRoleToLabel(u.role),
           status: u.status === true ? "Active" : "Inactive",
           assignedTo: u.managerId ? "Assigned" : "",
           emp_id: u.empId || u.emp_id || u.empID,
@@ -206,9 +217,9 @@ export default function TeamList() {
         const payload = {
           ...newMember,
           email: newMember.email.toLowerCase().trim(),
-          role: newMember.role.toLowerCase(),
-          managerId: (newMember.role.toLowerCase() === "counsellor" || newMember.role.toLowerCase() === "telecaller") ? Number(newMember.managerId) : undefined,
-          isSupervisor: newMember.role.toLowerCase() === "manager" ? newMember.isSupervisor : undefined,
+          role: roleToApiValue(newMember.role),
+          managerId: (roleToApiValue(newMember.role) === "counsellor" || roleToApiValue(newMember.role) === "telecaller") ? Number(newMember.managerId) : undefined,
+          isSupervisor: roleToApiValue(newMember.role) === "manager" ? newMember.isSupervisor : undefined,
           status: newMember.status === "Active"
         };
 
@@ -226,9 +237,9 @@ export default function TeamList() {
         const payload = {
           ...newMember,
           email: newMember.email.toLowerCase().trim(),
-          role: newMember.role.toLowerCase(),
-          managerId: (newMember.role.toLowerCase() === "counsellor" || newMember.role.toLowerCase() === "telecaller") ? Number(newMember.managerId) : undefined,
-          isSupervisor: newMember.role.toLowerCase() === "manager" ? newMember.isSupervisor : false,
+          role: roleToApiValue(newMember.role),
+          managerId: (roleToApiValue(newMember.role) === "counsellor" || roleToApiValue(newMember.role) === "telecaller") ? Number(newMember.managerId) : undefined,
+          isSupervisor: roleToApiValue(newMember.role) === "manager" ? newMember.isSupervisor : false,
           status: newMember.status === "Active"
         };
 
@@ -322,7 +333,7 @@ export default function TeamList() {
   const openEditMember = (member: any) => {
     setEditingId(member.id);
     // Ensure role is mapped correctly for the Select component (capitalized)
-    const displayRole = member.role ? member.role.charAt(0).toUpperCase() + member.role.slice(1).toLowerCase() : "Counsellor";
+    const displayRole = apiRoleToLabel(member.role) || "Counsellor";
 
     setNewMember({
       fullName: member.fullName || member.name || "",
@@ -498,7 +509,7 @@ export default function TeamList() {
                   <Select
                     value={newMember.role}
                     onValueChange={(value) => {
-                      setNewMember({ ...newMember, role: value, managerId: value === "Manager" ? "" : newMember.managerId });
+                      setNewMember({ ...newMember, role: value, managerId: value === "Counsellor" || value === "Telecaller" ? newMember.managerId : "" });
                       if (errors.role) setErrors(prev => { const { role, ...rest } = prev; return rest; });
                     }}
                   >
@@ -509,7 +520,10 @@ export default function TeamList() {
                       <SelectItem value="Manager">Manager</SelectItem>
                       <SelectItem value="Counsellor">Counsellor</SelectItem>
                       <SelectItem value="Telecaller">Telecaller</SelectItem>
-                       <SelectItem value="Developer">Developer</SelectItem>
+                      <SelectItem value="Marketing Head">Marketing Head</SelectItem>
+                      <SelectItem value="Front Desk">Front Desk</SelectItem>
+                      <SelectItem value="IT Support">IT Support</SelectItem>
+                      <SelectItem value="Developer">Developer</SelectItem>
                     </SelectContent>
                   </Select>
                   {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
@@ -623,7 +637,10 @@ export default function TeamList() {
                   <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="counsellor">Counsellor</SelectItem>
                   <SelectItem value="telecaller">Telecaller</SelectItem>
+                  <SelectItem value="marketing head">Marketing Head</SelectItem>
+                  <SelectItem value="it support">IT Support</SelectItem>
                   <SelectItem value="developer">Developer</SelectItem>
+
                 </SelectContent>
               </Select>
             </div>

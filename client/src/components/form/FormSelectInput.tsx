@@ -28,6 +28,7 @@ interface FormSelectInputProps<TFieldValues extends FieldValues> {
   options: Option[] | OptionGroup[];
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 const isGrouped = (options: any[]): options is OptionGroup[] => {
@@ -41,6 +42,7 @@ export function FormSelectInput<T extends FieldValues>({
   options,
   placeholder,
   className,
+  disabled,
 }: FormSelectInputProps<T>) {
   return (
     <Controller
@@ -49,7 +51,7 @@ export function FormSelectInput<T extends FieldValues>({
       render={({ field, fieldState: { error } }) => (
         <div className={cn("space-y-2", className)}>
           <Label className={cn(error && "text-destructive")}>{label}</Label>
-          <Select onValueChange={field.onChange} value={field.value || ""}>
+          <Select onValueChange={field.onChange} value={field.value || ""} disabled={disabled}>
             <SelectTrigger className={cn(error && "border-destructive")}>
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>

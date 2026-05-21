@@ -19,8 +19,10 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
   // Check if user is admin (superadmin/director should NOT see blocking modals)
   // Managers and counsellors SHOULD see blocking modals
   const isAdmin = user?.role === 'superadmin' || user?.role === 'director';
-  // Only managers and counsellors should see blocking modals (not admins)
-  const shouldShowBlockingModal = user && (user.role === 'counsellor' || user.role === 'manager');
+  // Operational roles see blocking broadcast modals (maintenance alerts, emergency broadcasts)
+  const shouldShowBlockingModal =
+    user &&
+    ['counsellor', 'manager', 'telecaller', 'front_desk', 'marketing_head'].includes(user.role);
 
   // Helper to add message to queue (prevents duplicates)
   const addMessageToQueue = (msg: any) => {

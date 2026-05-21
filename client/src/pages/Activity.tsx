@@ -4,7 +4,7 @@ import { DataTable } from "@/components/table/DataTable";
 import { TableToolbar } from "@/components/table/TableToolbar";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { format } from "date-fns";
+import { formatCrmTimestamp } from "@/lib/format-crm-timestamp";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -98,6 +98,8 @@ const mapActionToType = (action: string): ActivityLogItem["type"] => {
     case "PAYMENT_DELETED":
     case "PRODUCT_DELETED":
       return "deleted";
+    case "STATUS_CHANGE":
+      return "status_change";
     case "UPDATE":
     case "PAYMENT_UPDATED":
     case "PRODUCT_UPDATED":
@@ -440,8 +442,8 @@ export default function Activity() {
       header: "Date & Time",
       cell: (item: ActivityLogItem) => (
         <div className="flex flex-col">
-          <span className="text-sm">{format(new Date(item.timestamp), "MMM d, yyyy")}</span>
-          <span className="text-xs text-muted-foreground">{format(new Date(item.timestamp), "h:mm a")}</span>
+          <span className="text-sm">{formatCrmTimestamp(item.timestamp, "date")}</span>
+          <span className="text-xs text-muted-foreground">{formatCrmTimestamp(item.timestamp, "time")}</span>
         </div>
       ),
       className: "w-[150px] text-right"
@@ -684,7 +686,7 @@ export default function Activity() {
                     <div className="flex-1">
                       <p className="font-medium text-sm">{selectedActivity?.user.name}</p>
                       <p className="text-xs text-muted-foreground capitalize">
-                        {selectedActivity?.user.role.replace('_', ' ')} • {selectedActivity && format(new Date(selectedActivity.timestamp), "MMM d, yyyy h:mm a")}
+                        {selectedActivity?.user.role.replace('_', ' ')} • {selectedActivity && formatCrmTimestamp(selectedActivity.timestamp, "datetime")}
                       </p>
                       {selectedActivity?.clientName && (
                         <p className="text-xs text-blue-600 mt-1">Client: {selectedActivity.clientName}</p>

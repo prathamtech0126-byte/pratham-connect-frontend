@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { Breadcrumbs, type BreadcrumbItem } from "./Breadcrumbs";
 
 interface PageWrapperProps {
-  title: string;
+  title: string | React.ReactNode;
   breadcrumbs?: BreadcrumbItem[];
   actions?: React.ReactNode;
   children: React.ReactNode;
@@ -26,3 +26,4 @@ export function PageWrapper({ title, breadcrumbs, actions, children, className }
     </div>
   );
 }
+

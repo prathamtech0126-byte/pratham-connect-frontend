@@ -46,6 +46,19 @@ export function Topbar() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+  const [techSupportSeenAt, setTechSupportSeenAt] = useState<Record<"tickets" | "devices" | "recharge", number>>(() => {
+    if (typeof window === "undefined") return { tickets: 0, devices: 0, recharge: 0 };
+    const readSeen = (key: string) => {
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? Number(raw) : 0;
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    return {
+      tickets: readSeen("tech-support-seen-tickets-at"),
+      devices: readSeen("tech-support-seen-devices-at"),
+      recharge: readSeen("tech-support-seen-recharge-at"),
+    };
+  });
 
   // Fetch real user profile data
   const { data: userProfile, isLoading: isLoadingProfile } = useQuery({
@@ -56,18 +69,25 @@ export function Topbar() {
     refetchOnWindowFocus: false,
   });
 
-  // Check if pending alert targets this user
-  const hasRelevantPendingAlert = pendingAlert && user && (
-    pendingAlert.targetRoles.includes('all') ||
-    pendingAlert.targetRoles.includes(user.role) ||
-    user.role === 'superadmin' ||
-    user.role === 'director'
-  );
+  const isMaintenancePending =
+    pendingAlert?.type === "maintenance_scheduled" ||
+    pendingAlert?.type === "maintenance_live";
+
+  const hasRelevantPendingAlert =
+    pendingAlert &&
+    user &&
+    (pendingAlert.targetRoles.includes("all") ||
+      pendingAlert.targetRoles.includes(user.role) ||
+      (isMaintenancePending && user.role !== "developer") ||
+      (!isMaintenancePending &&
+        (user.role === "superadmin" || user.role === "director")));
 
   const getAlertIcon = (type: AlertType) => {
     switch(type) {
       case 'emergency': return <AlertTriangle className="w-4 h-4 text-red-600" />;
       case 'good_news': return <PartyPopper className="w-4 h-4 text-green-600" />;
+      case 'maintenance_live': return <AlertTriangle className="w-4 h-4 text-amber-700" />;
+      case 'maintenance_scheduled': return <Megaphone className="w-4 h-4 text-blue-600" />;
       default: return <Megaphone className="w-4 h-4 text-blue-600" />;
     }
   };
@@ -76,12 +96,15 @@ export function Topbar() {
     switch(type) {
       case 'emergency': return "bg-red-200 hover:bg-red-300";
       case 'good_news': return "bg-green-200 hover:bg-green-300";
+      case 'maintenance_live': return "bg-amber-200 hover:bg-amber-300";
+      case 'maintenance_scheduled': return "bg-blue-200 hover:bg-blue-300";
       default: return "bg-blue-200 hover:bg-blue-300";
     }
   };
 
   // Fetch pending approvals count (for admin/manager)
   const canViewApprovals = user?.role === "superadmin" || user?.role === "director" || user?.role === "manager";
+  const isTechSupportUser = user?.role === "tech_support";
   const { data: pendingApprovals = [], isLoading: isLoadingApprovals, error: approvalsError } = useQuery({
     queryKey: ["pending-all-finance-approvals"],
     queryFn: clientService.getPendingAllFinanceApprovals,
@@ -89,6 +112,52 @@ export function Topbar() {
     refetchInterval: 30000, // Refetch every 30 seconds
     retry: 1,
   });
+
+  const { data: techSupportBoard } = useQuery({
+    queryKey: ["topbar-tech-support-board"],
+    queryFn: clientService.getTechSupportBoard,
+    enabled: isTechSupportUser,
+    refetchInterval: 30000,
+    retry: 1,
+  });
+
+  const { data: techSupportRequests = [] } = useQuery({
+    queryKey: ["topbar-tech-support-requests"],
+    queryFn: clientService.getAllTechSupportRequests,
+    enabled: isTechSupportUser,
+    refetchInterval: 30000,
+    retry: 1,
+  });
+
+  const pendingTicketCount = isTechSupportUser ? Number(techSupportBoard?.pending?.length || 0) : 0;
+  const pendingDeviceRequestCount = isTechSupportUser
+    ? techSupportRequests.filter((req: any) => req.requestType === "device_request" && req.status === "pending").length
+    : 0;
+  const pendingRechargeRequestCount = isTechSupportUser
+    ? techSupportRequests.filter((req: any) => req.requestType === "recharge_sim_request" && req.status === "pending").length
+    : 0;
+
+  const unreadTicketCount = isTechSupportUser
+    ? (techSupportBoard?.pending ?? []).filter((item: any) => {
+        const t = new Date(item.createdAt).getTime();
+        return Number.isFinite(t) && t > techSupportSeenAt.tickets;
+      }).length
+    : 0;
+  const unreadDeviceCount = isTechSupportUser
+    ? techSupportRequests.filter((req: any) => {
+        if (req.requestType !== "device_request" || req.status !== "pending") return false;
+        const t = new Date(req.createdAt).getTime();
+        return Number.isFinite(t) && t > techSupportSeenAt.devices;
+      }).length
+    : 0;
+  const unreadRechargeCount = isTechSupportUser
+    ? techSupportRequests.filter((req: any) => {
+        if (req.requestType !== "recharge_sim_request" || req.status !== "pending") return false;
+        const t = new Date(req.createdAt).getTime();
+        return Number.isFinite(t) && t > techSupportSeenAt.recharge;
+      }).length
+    : 0;
+  const unreadTechSupportCount = unreadTicketCount + unreadDeviceCount + unreadRechargeCount;
 
   useEffect(() => {
     // console.log("[Topbar] Pending approvals check:", {
@@ -110,6 +179,20 @@ export function Topbar() {
       setPendingApprovalCount(0);
     }
   }, [pendingApprovals, user?.role, canViewApprovals, isConnected, isLoadingApprovals, approvalsError]);
+
+  const openTechSupportTab = (tab: "tickets" | "devices" | "recharge") => {
+    const now = Date.now();
+    setTechSupportSeenAt((prev) => ({ ...prev, [tab]: now }));
+    const key =
+      tab === "tickets"
+        ? "tech-support-seen-tickets-at"
+        : tab === "devices"
+          ? "tech-support-seen-devices-at"
+          : "tech-support-seen-recharge-at";
+    localStorage.setItem(key, String(now));
+    sessionStorage.setItem("tech-support-active-tab", tab);
+    setLocation("/dashboard");
+  };
 
   // Socket listeners for all finance approval/rejection events
   useEffect(() => {
@@ -176,9 +259,26 @@ export function Topbar() {
     };
 
     // Register event listeners
+    const handleTechSupportTicketCreated = () => {
+      queryClient.invalidateQueries({ queryKey: ["topbar-tech-support-board"] });
+    };
+    const handleTechSupportTicketMoved = () => {
+      queryClient.invalidateQueries({ queryKey: ["topbar-tech-support-board"] });
+    };
+    const handleTechSupportRequestCreated = () => {
+      queryClient.invalidateQueries({ queryKey: ["topbar-tech-support-requests"] });
+    };
+    const handleTechSupportRequestUpdated = () => {
+      queryClient.invalidateQueries({ queryKey: ["topbar-tech-support-requests"] });
+    };
+
     socket.on("allFinance:pending", handleAllFinancePending);
     socket.on("allFinance:approved", handleAllFinanceApproved);
     socket.on("allFinance:rejected", handleAllFinanceRejected);
+    socket.on("techSupport:ticketCreated", handleTechSupportTicketCreated);
+    socket.on("techSupport:ticketMoved", handleTechSupportTicketMoved);
+    socket.on("techSupport:requestCreated", handleTechSupportRequestCreated);
+    socket.on("techSupport:requestUpdated", handleTechSupportRequestUpdated);
 
     // console.log("[Topbar] Socket listeners registered for allFinance events");
 
@@ -187,6 +287,10 @@ export function Topbar() {
       socket.off("allFinance:pending", handleAllFinancePending);
       socket.off("allFinance:approved", handleAllFinanceApproved);
       socket.off("allFinance:rejected", handleAllFinanceRejected);
+      socket.off("techSupport:ticketCreated", handleTechSupportTicketCreated);
+      socket.off("techSupport:ticketMoved", handleTechSupportTicketMoved);
+      socket.off("techSupport:requestCreated", handleTechSupportRequestCreated);
+      socket.off("techSupport:requestUpdated", handleTechSupportRequestUpdated);
     };
   }, [socket, isConnected, toast, queryClient]);
 
@@ -214,7 +318,7 @@ export function Topbar() {
 
         <ModeToggle />
 
-        <ConnectionStatus />
+        {user?.role !== "front_desk" && <ConnectionStatus />}
 
         {(user?.role === 'superadmin' || user?.role === 'director') && (
           <BroadcastDialog>
@@ -233,8 +337,9 @@ export function Topbar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full transition-colors w-10 h-10">
               <Bell className="w-5 h-5" />
-              {(hasRelevantPendingAlert || pendingApprovalCount > 0) && (
+              {(hasRelevantPendingAlert || pendingApprovalCount > 0 || unreadTechSupportCount > 0) && (
                 <span className={`absolute top-2.5 right-2.5 w-2 h-2 rounded-full border-2 border-background animate-pulse ${
+                  unreadTechSupportCount > 0 ? 'bg-blue-500' :
                   pendingApprovalCount > 0 ? 'bg-orange-500' :
                   pendingAlert?.type === 'good_news' ? 'bg-green-500' :
                   pendingAlert?.type === 'announcement' ? 'bg-blue-500' : 'bg-red-500'
@@ -285,7 +390,62 @@ export function Topbar() {
                   </div>
                 </DropdownMenuItem>
               )}
-              {!hasRelevantPendingAlert && pendingApprovalCount === 0 && (
+              {isTechSupportUser && (
+                <>
+                  <DropdownMenuItem
+                    className="p-3 cursor-pointer bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg focus:bg-blue-100 mb-2"
+                    onClick={() => openTechSupportTab("tickets")}
+                  >
+                    <div className="flex gap-3 items-start w-full">
+                      <div className="p-2 rounded-full mt-1 bg-blue-200">
+                        <Bell className="w-4 h-4 text-blue-700" />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className="font-semibold text-slate-900 text-sm">Raised Tickets Pending</p>
+                        <p className="text-xs text-slate-700 leading-relaxed">
+                          {pendingTicketCount} ticket{pendingTicketCount === 1 ? "" : "s"} waiting to resolve
+                          {unreadTicketCount > 0 ? ` • ${unreadTicketCount} new` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="p-3 cursor-pointer bg-violet-50 hover:bg-violet-100 border border-violet-100 rounded-lg focus:bg-violet-100 mb-2"
+                    onClick={() => openTechSupportTab("devices")}
+                  >
+                    <div className="flex gap-3 items-start w-full">
+                      <div className="p-2 rounded-full mt-1 bg-violet-200">
+                        <Bell className="w-4 h-4 text-violet-700" />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className="font-semibold text-slate-900 text-sm">New Device Requests</p>
+                        <p className="text-xs text-slate-700 leading-relaxed">
+                          {pendingDeviceRequestCount} pending device request{pendingDeviceRequestCount === 1 ? "" : "s"}
+                          {unreadDeviceCount > 0 ? ` • ${unreadDeviceCount} new` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="p-3 cursor-pointer bg-cyan-50 hover:bg-cyan-100 border border-cyan-100 rounded-lg focus:bg-cyan-100"
+                    onClick={() => openTechSupportTab("recharge")}
+                  >
+                    <div className="flex gap-3 items-start w-full">
+                      <div className="p-2 rounded-full mt-1 bg-cyan-200">
+                        <Bell className="w-4 h-4 text-cyan-700" />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className="font-semibold text-slate-900 text-sm">New Recharge / SIM Requests</p>
+                        <p className="text-xs text-slate-700 leading-relaxed">
+                          {pendingRechargeRequestCount} pending recharge request{pendingRechargeRequestCount === 1 ? "" : "s"}
+                          {unreadRechargeCount > 0 ? ` • ${unreadRechargeCount} new` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                </>
+              )}
+              {!hasRelevantPendingAlert && pendingApprovalCount === 0 && (!isTechSupportUser || (pendingTicketCount + pendingDeviceRequestCount + pendingRechargeRequestCount) === 0) && (
                 <div className="p-8 text-center text-muted-foreground text-sm">
                   No new notifications
                 </div>

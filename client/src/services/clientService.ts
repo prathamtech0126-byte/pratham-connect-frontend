@@ -281,6 +281,39 @@ export interface SaleGraphReportResponse {
   series: SaleGraphReportPoint[];
 }
 
+export interface TechSupportTicketPayload {
+  deviceType:
+    | "laptop"
+    | "desktop"
+    | "mouse"
+    | "keyboard"
+    | "network-wifi"
+    | "printer"
+    | "scanner"
+    | "monitor"
+    | "webcam"
+    | "headset"
+    | "other";
+  issueCategory: string;
+  customDeviceType?: string;
+  description: string;
+  priority: "low" | "medium" | "high" | "critical";
+  attachments?: Array<{ name: string; url?: string; mimeType?: string }>;
+}
+
+export interface TechSupportRequestPayload {
+  requestType: "device_request" | "recharge_sim_request";
+  deviceType?: "laptop" | "desktop" | "mouse" | "keyboard" | "network-wifi" | "printer" | "scanner" | "monitor" | "webcam" | "headset" | "other";
+  deviceRequestType?: "new" | "replacement";
+  phoneNumber?: string;
+  rechargeRequestType?: "recharge" | "new_sim";
+  currentRechargeExpiryDate?: string;
+  amountOrPlan?: string;
+  reason?: string;
+  priority: "low" | "medium" | "high" | "critical";
+  attachments?: Array<{ name: string; url?: string; mimeType?: string }>;
+}
+
 // Mock Data
 let clients: Client[] = [
   {
@@ -1746,5 +1779,208 @@ export const clientService = {
       console.error(`[clientService] Error response:`, err?.response);
       throw err;
     }
-  }
+  },
+
+  createTechSupportTicket: async (payload: TechSupportTicketPayload): Promise<any> => {
+    const res = await api.post("/api/tech-support/tickets", payload);
+    return res.data?.data ?? res.data;
+  },
+
+  getMyTechSupportTickets: async (): Promise<any[]> => {
+    const res = await api.get("/api/tech-support/tickets/my");
+    const data = res.data?.data ?? res.data ?? [];
+    return Array.isArray(data) ? data : [];
+  },
+
+  getTechSupportBoard: async (): Promise<{
+    pending: any[];
+    in_progress: any[];
+    resolved: any[];
+  }> => {
+    const res = await api.get("/api/tech-support/board");
+    return (
+      res.data?.data ?? {
+        pending: [],
+        in_progress: [],
+        resolved: [],
+      }
+    );
+  },
+
+  claimTechSupportTicket: async (ticketId: number): Promise<any> => {
+    const res = await api.post(`/api/tech-support/tickets/${ticketId}/claim`);
+    return res.data?.data ?? res.data;
+  },
+
+  updateTechSupportTicketStatus: async (
+    ticketId: number,
+    status: "pending" | "in_progress" | "waiting_for_approval" | "resolved",
+    note?: string,
+  ): Promise<any> => {
+    const res = await api.patch(`/api/tech-support/tickets/${ticketId}/status`, { status, note });
+    return res.data ?? {};
+  },
+
+  getTechSupportTicketDetails: async (ticketId: number): Promise<any> => {
+    const res = await api.get(`/api/tech-support/tickets/${ticketId}`);
+    return res.data?.data ?? res.data;
+  },
+
+  createTechSupportRequest: async (payload: TechSupportRequestPayload): Promise<any> => {
+    const res = await api.post("/api/tech-support/requests", payload);
+    return res.data?.data ?? res.data;
+  },
+
+  getMyTechSupportRequests: async (): Promise<any[]> => {
+    const res = await api.get("/api/tech-support/requests/my");
+    const data = res.data?.data ?? res.data ?? [];
+    return Array.isArray(data) ? data : [];
+  },
+
+  getAllTechSupportRequests: async (): Promise<any[]> => {
+    const res = await api.get("/api/tech-support/requests");
+    const data = res.data?.data ?? res.data ?? [];
+    return Array.isArray(data) ? data : [];
+  },
+
+  reviewTechSupportRequest: async (
+    requestId: number,
+    payload: {
+      status: "pending" | "approved" | "rejected" | "in_progress" | "waiting_for_approval" | "completed";
+      reviewComment?: string;
+      expectedCompletionAt?: string;
+    },
+  ): Promise<any> => {
+    const res = await api.patch(`/api/tech-support/requests/${requestId}/review`, payload);
+    return res.data ?? {};
+  },
+  
+  approveTechSupportResolution: async (id: number, type: "ticket" | "request"): Promise<any> => {
+    const res = await api.post(`/api/tech-support/approve/${id}`, { type });
+    return res.data?.data ?? res.data;
+  },
+
+  // Upload images for a ticket (max 2)
+  uploadTicketImages: async (ticketId: number, files: File[]): Promise<any> => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append("images", file));
+    const res = await api.post(`/api/tech-support/tickets/${ticketId}/images`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data?.data ?? res.data;
+  },
+
+  // Delete a ticket image
+  deleteTicketImage: async (ticketId: number, filename: string): Promise<any> => {
+    const res = await api.delete(`/api/tech-support/tickets/${ticketId}/images/${filename}`);
+    return res.data?.data ?? res.data;
+  },
+
+  getTechSupportAnalyticsOverview: async (startDate?: string, endDate?: string): Promise<any> => {
+    let url = "/api/tech-support/analytics/overview";
+    if (startDate && endDate) {
+      url += `?startDate=${startDate}&endDate=${endDate}`;
+    }
+    const res = await api.get(url);
+    return res.data?.data ?? res.data;
+  },
+
+  // =========================
+  // Device inventory (Tech Support)
+  // =========================
+  createDeviceInventory: async (payload: {
+    deviceType: string;
+    deviceName?: string | null;
+    prathamProductCode?: string | null;
+    product?: string | null;
+    accessories?: string | null;
+    hardwareDetail?: string | null;
+    serialNumber?: string | null;
+    vendorName?: string | null;
+    invoice?: string | null;
+    invoiceDate?: string | null;
+    price?: string | null;
+    productNumber?: string | null;
+    companyType?: string | null;
+  }): Promise<any> => {
+    const res = await api.post("/api/tech-support/devices", payload);
+    return res.data?.data ?? res.data;
+  },
+
+  createBulkDeviceInventory: async (payload: {
+    baseFormData: Record<string, any>;
+    quantity: number;
+    startingPrathamProductCode: string;
+  }): Promise<any> => {
+    const res = await api.post("/api/tech-support/devices/bulk", payload);
+    return res.data?.data ?? res.data;
+  },
+
+  getDeviceInventory: async (): Promise<any[]> => {
+    const res = await api.get("/api/tech-support/devices");
+    const data = res.data?.data ?? res.data ?? [];
+    return Array.isArray(data) ? data : [];
+  },
+
+  getAvailableDeviceInventory: async (deviceType?: string | null): Promise<any[]> => {
+    const qs = deviceType ? `?deviceType=${encodeURIComponent(deviceType)}` : "";
+    const res = await api.get(`/api/tech-support/devices/available${qs}`);
+    const data = res.data?.data ?? res.data ?? [];
+    return Array.isArray(data) ? data : [];
+  },
+
+  getTechAssignableUsers: async (): Promise<any[]> => {
+    const res = await api.get("/api/tech-support/devices/assignable-users");
+    const data = res.data?.data ?? res.data ?? [];
+    return Array.isArray(data) ? data : [];
+  },
+
+  updateUserRetainedAccessories: async (
+    userId: number,
+    accessories: string | null
+  ): Promise<{ userId: number; retainedAccessories: string | null }> => {
+    const res = await api.patch(`/api/tech-support/users/${userId}/retained-accessories`, {
+      accessories,
+    });
+    return res.data?.data ?? res.data;
+  },
+
+  assignDeviceInventory: async (deviceId: number, userId: number, assignmentAccessories?: string | null): Promise<any> => {
+    const res = await api.post(`/api/tech-support/devices/${deviceId}/assign`, { userId, assignmentAccessories });
+    return res.data?.data ?? res.data;
+  },
+
+  unassignDeviceInventory: async (deviceId: number): Promise<any> => {
+    const res = await api.post(`/api/tech-support/devices/${deviceId}/unassign`, {});
+    return res.data?.data ?? res.data;
+  },
+
+  getDeviceAssignmentHistory: async (args: { deviceId: number; userId?: number | null }): Promise<any[]> => {
+    const { deviceId, userId } = args;
+    const qs = userId != null ? `?deviceId=${deviceId}&userId=${userId}` : `?deviceId=${deviceId}`;
+    const res = await api.get(`/api/tech-support/devices/assignment-history${qs}`);
+    const data = res.data?.data ?? res.data ?? [];
+    return Array.isArray(data) ? data : [];
+  },
+
+  toggleDeviceRepairStatus: async (deviceId: number, onRepair: boolean): Promise<any> => {
+    const res = await api.patch(`/api/tech-support/devices/${deviceId}/repair`, { onRepair });
+    return res.data?.data ?? res.data;
+  },
+
+  deleteDeviceInventory: async (deviceId: number): Promise<any> => {
+    const res = await api.delete(`/api/tech-support/devices/${deviceId}`);
+    return res.data?.data ?? res.data;
+  },
+
+  getAssignedDeviceByUserId: async (userId: number): Promise<any> => {
+    const res = await api.get(`/api/tech-support/devices/assigned-to/${userId}`);
+    return res.data?.data ?? null;
+  },
+
+  updateDeviceInventory: async (deviceId: number, payload: Record<string, any>): Promise<any> => {
+    const res = await api.patch(`/api/tech-support/devices/${deviceId}`, payload);
+    return res.data?.data ?? res.data;
+  },
 };
+

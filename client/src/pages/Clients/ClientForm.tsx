@@ -12,7 +12,7 @@ import { useForm, useWatch, useFieldArray, Control } from "react-hook-form";
 import { Trash2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useLocation, useParams } from "wouter";
+import { useLocation, useParams, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { clientService } from "@/services/clientService";
 import { useAuth } from "@/context/auth-context";
@@ -42,6 +42,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/api";
 import { fetchChecklists, fetchCategories, type ChecklistSummary } from "@/api/checklist.api";
+import { getLeadDetail, updateLeadApi } from "@/api/leads.api";
 
 // --- Schema Definitions ---
 
@@ -491,6 +492,13 @@ export default function ClientForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const { id: clientIdFromUrl } = useParams<{ id: string }>();
+  const searchStr = useSearch();
+  const fromLeadId = useMemo(() => {
+    const p = new URLSearchParams(searchStr);
+    const v = p.get("fromLead");
+    return v ? Number(v) : null;
+  }, [searchStr]);
+  const [fromLeadConverted, setFromLeadConverted] = useState(false);
 
   // Socket listeners for all finance approval/rejection events
   useEffect(() => {
@@ -2036,6 +2044,31 @@ export default function ClientForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientIdFromUrl]);
 
+  // Pre-fill form from lead when navigated from lead convert flow
+  useEffect(() => {
+    if (!fromLeadId || clientIdFromUrl) return;
+    let cancelled = false;
+    const prefill = async () => {
+      try {
+        const res = await getLeadDetail(fromLeadId);
+        if (cancelled) return;
+        const lead = res.lead;
+        const todayYmd = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        const [y, m, d] = todayYmd.split("-");
+        const enrollmentDate = `${d}-${m}-${y}`;
+        const passport = res.profile?.passportNumber?.trim() ?? "";
+        form.setValue("name", lead.fullName ?? "", { shouldDirty: true });
+        form.setValue("enrollmentDate", enrollmentDate, { shouldDirty: true });
+        if (passport) form.setValue("passportDetails", passport, { shouldDirty: true });
+        if (lead.leadSource) form.setValue("leadSource", lead.leadSource, { shouldDirty: true });
+      } catch {
+        // non-critical
+      }
+    };
+    void prefill();
+    return () => { cancelled = true; };
+  }, [fromLeadId, clientIdFromUrl, form]);
+
   // Ensure client data is loaded into form after form is ready
   useEffect(() => {
     if (clientDataToLoad && isEditMode) {
@@ -2661,6 +2694,19 @@ export default function ClientForm() {
           }
 
           toast({ title: "Success", description: "Client created successfully!" });
+
+          // Mark the originating lead as converted if navigated from lead convert flow
+          if (fromLeadId && !fromLeadConverted) {
+            try {
+              await updateLeadApi(fromLeadId, {
+                progressStatus: "converted",
+                assignmentStatus: "converted",
+              });
+              setFromLeadConverted(true);
+            } catch {
+              // non-critical — lead status update failure should not block client creation
+            }
+          }
         } else {
           throw new Error("Failed to create client");
         }
@@ -2675,9 +2721,9 @@ export default function ClientForm() {
       if (showProductSection) {
         await saveProductData();
       }
- 
+
       toast({ title: "Success", description: "All data saved successfully!" });
-     
+
     setTimeout(() => { window.location.href = "/clients"; }, 150);
     } catch (error: any) {
       console.error("Failed to save data:", error);
@@ -3187,14 +3233,16 @@ export default function ClientForm() {
           control={control}
           label="Passport Details"
           placeholder="e.g. A12345678"
+          disabled={!!fromLeadId}
         />
         <FormSelectInput
           name="leadSource"
           control={control}
           label="Lead Source"
           placeholder="Select Lead Source"
+          disabled={!!fromLeadId}
           options={leadTypes.map((lt: any) => ({
-            label: lt.leadType,
+            label: lt.displayAlias?.trim() || lt.leadType,
             value: lt.leadType,
           }))}
         />

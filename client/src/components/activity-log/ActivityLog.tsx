@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { formatCrmTimestamp } from "@/lib/format-crm-timestamp";
 import {
   Activity,
   UserPlus,
@@ -107,7 +107,7 @@ export function ActivityLog({ activities, className, maxHeight = "400px", varian
                     {activity.title}
                   </p>
                   <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {format(new Date(activity.timestamp), "MMM d, h:mm a")}
+                    {formatCrmTimestamp(activity.timestamp, "datetime")}
                   </span>
                 </div>
                 {activity.description && (
@@ -137,7 +137,7 @@ export function ActivityLog({ activities, className, maxHeight = "400px", varian
                 <p className="text-sm font-medium truncate">{activity.title}</p>
               </div>
               <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {format(new Date(activity.timestamp), "h:mm a")}
+                {formatCrmTimestamp(activity.timestamp, "time")}
               </span>
             </div>
           ))}
@@ -160,7 +160,7 @@ export function ActivityLog({ activities, className, maxHeight = "400px", varian
                  <span className="text-sm text-foreground">{activity.title}</span>
                </div>
                <div className="text-xs text-muted-foreground font-mono">
-                 {format(new Date(activity.timestamp), "MMM d, h:mm a")}
+                 {formatCrmTimestamp(activity.timestamp, "datetime")}
                </div>
             </div>
           ))}
@@ -187,7 +187,7 @@ export function ActivityLog({ activities, className, maxHeight = "400px", varian
                 {activity.title}
               </p>
               <span className="text-xs text-muted-foreground whitespace-nowrap bg-muted px-2 py-1 rounded-md">
-                {format(new Date(activity.timestamp), "MMM d, h:mm a")}
+                {formatCrmTimestamp(activity.timestamp, "datetime")}
               </span>
             </div>
           </div>

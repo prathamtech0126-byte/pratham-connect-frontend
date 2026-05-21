@@ -831,7 +831,8 @@
 //           <Table>
 //             <TableHeader>
 //               <TableRow>
-//                 <TableHead>Lead Type</TableHead>
+//                 <TableHead>Display name</TableHead>
+                <TableHead>Stored slug</TableHead>
 //                 <TableHead className="text-right">Actions</TableHead>
 //               </TableRow>
 //             </TableHeader>
@@ -1291,6 +1292,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Trash2, Plus, Pencil, ArrowRight, Loader2, X } from "lucide-react";
@@ -1303,6 +1314,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import api from "@/lib/api";
+import { normalizeLeadTypeSlug } from "@/lib/lead-type-slug";
 import { clientService } from "@/services/clientService";
 
 export default function AdditionalInfo() {
@@ -1321,11 +1333,24 @@ export default function AdditionalInfo() {
   const [editingLeadTypeId, setEditingLeadTypeId] = useState<number | null>(null);
   const [leadTypeFormData, setLeadTypeFormData] = useState({
     leadType: "",
+    displayAlias: "",
   });
 
   const [leadTypeFieldErrors, setLeadTypeFieldErrors] = useState<{
     leadType?: string;
+    displayAlias?: string;
   }>({});
+
+  /** Pending delete — confirmed via AlertDialog */
+  const [leadTypeDeleteTarget, setLeadTypeDeleteTarget] = useState<{
+    id: number;
+    label: string;
+  } | null>(null);
+
+  const leadTypeSlugPreview = useMemo(
+    () => normalizeLeadTypeSlug(leadTypeFormData.leadType),
+    [leadTypeFormData.leadType]
+  );
 
   // Visa Category (sale-type-categories) state
   const [visaCategories, setVisaCategories] = useState<any[]>([]);
@@ -1579,7 +1604,7 @@ export default function AdditionalInfo() {
   const openAddLeadTypeDialog = () => {
     setLeadTypeMode("add");
     setEditingLeadTypeId(null);
-    setLeadTypeFormData({ leadType: "" });
+    setLeadTypeFormData({ leadType: "", displayAlias: "" });
     setLeadTypeFieldErrors({});
     setIsLeadTypeDialogOpen(true);
   };
@@ -1589,7 +1614,8 @@ export default function AdditionalInfo() {
     const id = item.id || item.leadTypeId;
     setEditingLeadTypeId(id);
     setLeadTypeFormData({
-      leadType: item.leadType || "",
+      leadType: item.displayAlias || item.leadType || "",
+      displayAlias: item.displayAlias || "",
     });
     setLeadTypeFieldErrors({});
     setIsLeadTypeDialogOpen(true);
@@ -1599,23 +1625,30 @@ export default function AdditionalInfo() {
     // Clear previous errors
     setLeadTypeFieldErrors({});
 
-    if (!leadTypeFormData.leadType.trim()) {
+    const canonical = normalizeLeadTypeSlug(leadTypeFormData.leadType);
+    if (!canonical) {
       setLeadTypeFieldErrors({ leadType: "Lead type is required" });
       return;
     }
 
+    const rawLabel = leadTypeFormData.leadType.trim();
+
     try {
       setIsSavingLeadType(true);
       const payload = {
-        leadType: leadTypeFormData.leadType.trim(),
+        leadType: canonical,
+        displayAlias: leadTypeFormData.displayAlias.trim() || rawLabel,
       };
 
       if (leadTypeMode === "edit" && editingLeadTypeId !== null) {
         const response = await api.put(`/api/lead-types/${editingLeadTypeId}`, payload);
         if (response.data.success) {
           toast({
-            title: "Updated",
-            description: "Lead type updated successfully",
+            title: "Lead type updated",
+            description:
+              rawLabel !== canonical
+                ? `Saved as “${canonical}” (normalized from your input).`
+                : `Saved as “${canonical}”.`,
           });
           setIsLeadTypeDialogOpen(false);
           setEditingLeadTypeId(null);
@@ -1628,8 +1661,11 @@ export default function AdditionalInfo() {
         const response = await api.post("/api/lead-types", payload);
         if (response.data.success) {
           toast({
-            title: "Added",
-            description: "Lead type added successfully",
+            title: "Lead type added",
+            description:
+              rawLabel !== canonical
+                ? `Saved as “${canonical}” (normalized from your input).`
+                : `Saved as “${canonical}”.`,
           });
           setIsLeadTypeDialogOpen(false);
           setEditingLeadTypeId(null);
@@ -1662,15 +1698,22 @@ export default function AdditionalInfo() {
     }
   };
 
-  const handleDeleteLeadType = async (id: number) => {
+  const confirmDeleteLeadType = async () => {
+    if (!leadTypeDeleteTarget) return;
+    const { id, label } = leadTypeDeleteTarget;
+    setLeadTypeDeleteTarget(null);
     try {
       await api.delete(`/api/lead-types/${id}`);
+      // Archived rows are hidden from the active list — drop locally without a refetch.
       setLeadTypes((prev) => prev.filter((x) => (x.id || x.leadTypeId) !== id));
-      toast({ title: "Deleted", description: "Lead type removed" });
+      toast({
+        title: "Lead type archived",
+        description: `"${label}" is now archived and hidden from the lead-source dropdown.`,
+      });
     } catch (err: any) {
       toast({
-        title: "Error",
-        description: err.response?.data?.message || "Delete failed",
+        title: "Couldn't archive lead type",
+        description: err.response?.data?.message || "Archive failed",
         variant: "destructive",
       });
     }
@@ -2083,12 +2126,14 @@ export default function AdditionalInfo() {
       <Card className="mt-6">
         <CardHeader className="flex flex-row justify-between items-center">
           <div>
-            <CardTitle>Lead Types</CardTitle>
-            <CardDescription>Manage lead types</CardDescription>
+            <CardTitle>Lead Sources</CardTitle>
+            <CardDescription>
+              Display aliases show in the UI (e.g. Walk In). Stored slug is normalized (e.g. walk_in).
+            </CardDescription>
           </div>
           <Button size="sm" onClick={openAddLeadTypeDialog}>
             <Plus className="w-4 h-4 mr-2" />
-            Add Lead Type
+            Add Lead Source
           </Button>
         </CardHeader>
 
@@ -2096,7 +2141,8 @@ export default function AdditionalInfo() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Lead Type</TableHead>
+                <TableHead>Display name</TableHead>
+                <TableHead>Stored slug</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -2104,13 +2150,13 @@ export default function AdditionalInfo() {
             <TableBody>
               {isLoadingLeadTypes ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center">
+                  <TableCell colSpan={3} className="text-center">
                     <Loader2 className="animate-spin mx-auto" />
                   </TableCell>
                 </TableRow>
               ) : leadTypes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center text-muted-foreground">
+                  <TableCell colSpan={3} className="text-center text-muted-foreground">
                     No lead types found. Click "Add Lead Type" to create one.
                   </TableCell>
                 </TableRow>
@@ -2119,7 +2165,8 @@ export default function AdditionalInfo() {
                   const itemId = item.id || item.leadTypeId;
                   return (
                     <TableRow key={itemId}>
-                      <TableCell>{item.leadType}</TableCell>
+                      <TableCell>{item.displayAlias || item.leadType}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{item.leadType}</TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
@@ -2132,7 +2179,12 @@ export default function AdditionalInfo() {
                           variant="ghost"
                           size="icon"
                           className="text-destructive"
-                          onClick={() => handleDeleteLeadType(itemId)}
+                          onClick={() =>
+                            setLeadTypeDeleteTarget({
+                              id: itemId,
+                              label: String(item.leadType ?? ""),
+                            })
+                          }
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -2155,20 +2207,24 @@ export default function AdditionalInfo() {
             </DialogTitle>
             <DialogDescription>
               {leadTypeMode === "edit"
-                ? "Update existing lead type"
-                : "Create new lead type"}
+                ? "Update the label; it will be stored using the same slug rules as new types."
+                : "Enter any label — it is normalized to a lowercase slug for the database (spaces and hyphens become underscores)."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="leadType">Lead Type</Label>
+              <Label htmlFor="leadType">Display name</Label>
               <Input
                 id="leadType"
-                placeholder="e.g. Referral, Website, Social Media"
+                placeholder='e.g. "Walk In", "Facebook", referral'
                 value={leadTypeFormData.leadType}
                 onChange={(e) => {
-                  setLeadTypeFormData({ ...leadTypeFormData, leadType: e.target.value });
+                  setLeadTypeFormData({
+                    ...leadTypeFormData,
+                    leadType: e.target.value,
+                    displayAlias: e.target.value,
+                  });
                   // Clear error when user starts typing
                   if (leadTypeFieldErrors.leadType) {
                     setLeadTypeFieldErrors({ leadType: undefined });
@@ -2176,6 +2232,17 @@ export default function AdditionalInfo() {
                 }}
                 className={leadTypeFieldErrors.leadType ? "border-destructive" : ""}
               />
+              {leadTypeSlugPreview ? (
+                <p className="text-xs text-muted-foreground">
+                  Stored in database as:{" "}
+                  <span className="font-mono font-medium text-foreground">{leadTypeSlugPreview}</span>
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Slug preview appears as you type. List above is loaded from{" "}
+                  <span className="font-mono">/api/lead-types</span>.
+                </p>
+              )}
               {leadTypeFieldErrors.leadType && (
                 <p className="text-sm text-destructive mt-1">{leadTypeFieldErrors.leadType}</p>
               )}
@@ -2193,6 +2260,41 @@ export default function AdditionalInfo() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!leadTypeDeleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setLeadTypeDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this lead type?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {leadTypeDeleteTarget ? (
+                <>
+                  This will archive{" "}
+                  <span className="font-mono font-medium text-foreground">
+                    {leadTypeDeleteTarget.label}
+                  </span>{" "}
+                  so it no longer appears in the lead-source dropdown. The row stays in the database
+                  and can be unarchived later. If the slug is currently used by any lead it cannot
+                  be archived.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void confirmDeleteLeadType()}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Visa Category Section (sale-type-categories API) */}
       <Card className="mt-6">

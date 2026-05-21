@@ -10,10 +10,13 @@ export type UserRole =
   | 'counsellor'
   | 'director'
   | 'telecaller'
+  | 'tech_support'
+  | 'front_desk'
   | 'backend_manager'
   | 'application_team'
   | 'customer_experience'
-  | 'binding_team';
+  | 'binding_team'
+  | 'marketing_head';
 
 interface User {
   id: string;
@@ -76,6 +79,18 @@ const MOCK_USERS: Record<UserRole, User> = {
     role: 'telecaller',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
   },
+  tech_support: {
+    id: '11',
+    username: 'tech_support',
+    name: 'Tech Support',
+    role: 'tech_support',
+  },
+  front_desk: {
+    id: '12',
+    username: 'front_desk',
+    name: 'Front Desk',
+    role: 'front_desk',
+  },
   backend_manager: {
     id: '7',
     username: 'backend_manager',
@@ -99,6 +114,12 @@ const MOCK_USERS: Record<UserRole, User> = {
     username: 'binding_team',
     name: 'Binding Team',
     role: 'binding_team',
+  },
+  marketing_head: {
+    id: '13',
+    username: 'marketing_head',
+    name: 'Marketing Head',
+    role: 'marketing_head',
   },
 };
 
@@ -129,6 +150,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Returns: { success: boolean, isAuthError: boolean }
   // isAuthError = true means real auth failure (401/403), should logout
   // isAuthError = false means network/timeout error, should NOT logout
+  const fetchProfileName = async (): Promise<{ userId?: number; name?: string; username?: string } | null> => {
+    try {
+      const meRes = await api.get("/api/users/me");
+      const data = meRes.data ?? {};
+      const fullname = data.fullname ?? data.fullName ?? data.name;
+      return {
+        userId: data.userId ?? data.id,
+        name: typeof fullname === "string" && fullname.trim() ? fullname.trim() : undefined,
+        username: data.username ?? data.email,
+      };
+    } catch {
+      return null;
+    }
+  };
+
   const refreshToken = async (): Promise<{ success: boolean; isAuthError: boolean }> => {
     try {
       // ✅ Increased timeout for deployed backend (Render.com free tier may be slow)
@@ -196,20 +232,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const newCsrf = csrf ?? csrfSnake ?? null;
               if (newCsrf) setCsrfToken(newCsrf);
 
-              // Fetch real userId from /me since refresh may not return it
-              let resolvedUserId = userId;
-              if (!resolvedUserId) {
-                try {
-                  const meRes = await api.get("/api/users/me");
-                  resolvedUserId = meRes.data.userId;
-                } catch {}
-              }
+              const profile = await fetchProfileName();
+              const resolvedUserId = profile?.userId ?? userId ?? userData.id;
+              const resolvedName =
+                profile?.name || name || userData.name || profile?.username || userData.username;
 
               const mappedRole = (role === "admin" ? "superadmin" : role) as UserRole;
               const verifiedUserData: User = {
                 id: String(resolvedUserId || userData.id || '1'),
-                username: username || userData.username || 'user',
-                name: name || userData.name || 'User',
+                username: username || profile?.username || userData.username || 'user',
+                name: resolvedName || 'User',
                 role: mappedRole,
                 isSupervisor: mappedRole === 'manager' ? (isSupervisor || false) : undefined,
               };
@@ -241,20 +273,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const newCsrf = csrf ?? csrfSnake ?? null;
         if (newCsrf) setCsrfToken(newCsrf);
 
-        // Fetch real userId from /me since refresh may not return it
-        let resolvedUserId = userId;
-        if (!resolvedUserId) {
-          try {
-            const meRes = await api.get("/api/users/me");
-            resolvedUserId = meRes.data.userId;
-          } catch {}
-        }
+        const profile = await fetchProfileName();
+        const resolvedUserId = profile?.userId ?? userId;
+        const resolvedName = profile?.name || name || profile?.username;
 
         const mappedRole = (role === "admin" ? "superadmin" : role) as UserRole;
         const userData: User = {
           id: String(resolvedUserId || '1'),
-          username: username || 'user',
-          name: name || 'User',
+          username: username || profile?.username || 'user',
+          name: resolvedName || 'User',
           role: mappedRole,
           isSupervisor: mappedRole === 'manager' ? (isSupervisor || false) : undefined,
         };

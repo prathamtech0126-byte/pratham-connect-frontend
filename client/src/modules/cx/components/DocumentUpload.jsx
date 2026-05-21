@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useUploadDocument } from "../hooks/useUploadDocument";
 
 export default function DocumentUpload({ clientId }) {
   const [documentName, setDocumentName] = useState("");
   const [file, setFile] = useState(null);
+  const fileInputRef = useRef(null);
   const uploadMutation = useUploadDocument(clientId);
 
   const handleSubmit = async (e) => {
@@ -12,6 +13,9 @@ export default function DocumentUpload({ clientId }) {
     await uploadMutation.mutateAsync({ documentName, file });
     setDocumentName("");
     setFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -26,6 +30,7 @@ export default function DocumentUpload({ clientId }) {
           className="rounded-md border border-slate-300 px-3 py-2 text-sm"
         />
         <input
+          ref={fileInputRef}
           type="file"
           onChange={(e) => setFile(e.target.files?.[0] || null)}
           className="rounded-md border border-slate-300 px-3 py-2 text-sm"

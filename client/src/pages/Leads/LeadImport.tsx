@@ -6,21 +6,29 @@ import { canUseCsvImportExport } from "@/lib/lead-permissions";
 import { Redirect } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, FileSpreadsheet, CheckCircle2, XCircle, Loader2, ArrowRight } from "lucide-react";
+import {
+  Upload,
+  FileSpreadsheet,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  ArrowRight,
+  Download,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-export interface ImportResult {
-  created: number;
-  failed: number;
-  errors?: { row: number; message: string }[];
-}
+import {
+  downloadLeadImportTemplate,
+  importLeadsCsvApi,
+  type CsvImportResult,
+} from "@/api/leads.api";
 
 export default function LeadImport() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
+  const [result, setResult] = useState<CsvImportResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   if (!user || !canUseCsvImportExport(user.role)) {
@@ -50,6 +58,27 @@ export default function LeadImport() {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      setIsDownloadingTemplate(true);
+      const blob = await downloadLeadImportTemplate();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "lead-import-template.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({
+        title: "Download failed",
+        description: "Could not download the template.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingTemplate(false);
+    }
+  };
+
   const handleUpload = async () => {
     if (!file) {
       toast({ title: "No file", description: "Select a CSV file first.", variant: "destructive" });
@@ -58,22 +87,19 @@ export default function LeadImport() {
     setIsUploading(true);
     setResult(null);
     try {
-      // Simulate API: POST /api/leads/import with file
-      await new Promise((r) => setTimeout(r, 1500));
-      const simulated: ImportResult = {
-        created: 3,
-        failed: 1,
-        errors: [{ row: 2, message: "Invalid email format" }],
-      };
-      setResult(simulated);
+      const data = await importLeadsCsvApi(file);
+      setResult(data);
       toast({
         title: "Import complete",
-        description: `${simulated.created} created, ${simulated.failed} failed.`,
+        description: `${data.created} created, ${data.failed} failed.`,
       });
-    } catch {
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Something went wrong. Try again.";
       toast({
         title: "Import failed",
-        description: "Something went wrong. Try again.",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -103,10 +129,27 @@ export default function LeadImport() {
               Upload CSV
             </CardTitle>
             <CardDescription>
-              Upload a CSV file with columns: name, email, phone, source. Only .csv files are accepted.
+              Columns: full_name (or name), phone, email, city, whatsapp, lead_source, lead_type,
+              latest_note. Max 500 rows per file.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={isDownloadingTemplate}
+              onClick={() => void handleDownloadTemplate()}
+            >
+              {isDownloadingTemplate ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Download template
+            </Button>
+
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <input
                 ref={inputRef}
@@ -116,11 +159,7 @@ export default function LeadImport() {
                 className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground file:transition-colors hover:file:bg-primary/90"
               />
               <div className="flex gap-2 shrink-0">
-                <Button
-                  onClick={handleUpload}
-                  disabled={!file || isUploading}
-                  className="gap-2"
-                >
+                <Button onClick={() => void handleUpload()} disabled={!file || isUploading} className="gap-2">
                   {isUploading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -137,7 +176,8 @@ export default function LeadImport() {
             </div>
             {file && (
               <p className="text-sm text-muted-foreground">
-                Selected: <span className="font-medium text-foreground">{file.name}</span> ({(file.size / 1024).toFixed(1)} KB)
+                Selected: <span className="font-medium text-foreground">{file.name}</span> (
+                {(file.size / 1024).toFixed(1)} KB)
               </p>
             )}
           </CardContent>
@@ -162,14 +202,14 @@ export default function LeadImport() {
                   </div>
                 )}
               </div>
-              {result.errors && result.errors.length > 0 && (
+              {result.errors.length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-foreground mb-2">Errors by row</p>
-                  <ul className="rounded-lg border border-border/60 divide-y divide-border/60 text-sm">
+                  <ul className="rounded-lg border border-border/60 divide-y divide-border/60 text-sm max-h-64 overflow-y-auto">
                     {result.errors.map((err, i) => (
                       <li key={i} className="px-3 py-2 flex justify-between gap-4">
-                        <span className="text-muted-foreground">Row {err.row}</span>
-                        <span className="text-destructive font-medium">{err.message}</span>
+                        <span className="text-muted-foreground shrink-0">Row {err.row}</span>
+                        <span className="text-destructive font-medium text-right">{err.message}</span>
                       </li>
                     ))}
                   </ul>
@@ -199,21 +239,29 @@ import { canUseCsvImportExport } from "@/lib/lead-permissions";
 import { Redirect } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, FileSpreadsheet, CheckCircle2, XCircle, Loader2, ArrowRight } from "lucide-react";
+import {
+  Upload,
+  FileSpreadsheet,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  ArrowRight,
+  Download,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-export interface ImportResult {
-  created: number;
-  failed: number;
-  errors?: { row: number; message: string }[];
-}
+import {
+  downloadLeadImportTemplate,
+  importLeadsCsvApi,
+  type CsvImportResult,
+} from "@/api/leads.api";
 
 export default function LeadImport() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
+  const [result, setResult] = useState<CsvImportResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   if (!user || !canUseCsvImportExport(user.role)) {
@@ -243,6 +291,27 @@ export default function LeadImport() {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      setIsDownloadingTemplate(true);
+      const blob = await downloadLeadImportTemplate();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "lead-import-template.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({
+        title: "Download failed",
+        description: "Could not download the template.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingTemplate(false);
+    }
+  };
+
   const handleUpload = async () => {
     if (!file) {
       toast({ title: "No file", description: "Select a CSV file first.", variant: "destructive" });
@@ -251,22 +320,19 @@ export default function LeadImport() {
     setIsUploading(true);
     setResult(null);
     try {
-      // Simulate API: POST /api/leads/import with file
-      await new Promise((r) => setTimeout(r, 1500));
-      const simulated: ImportResult = {
-        created: 3,
-        failed: 1,
-        errors: [{ row: 2, message: "Invalid email format" }],
-      };
-      setResult(simulated);
+      const data = await importLeadsCsvApi(file);
+      setResult(data);
       toast({
         title: "Import complete",
-        description: `${simulated.created} created, ${simulated.failed} failed.`,
+        description: `${data.created} created, ${data.failed} failed.`,
       });
-    } catch {
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Something went wrong. Try again.";
       toast({
         title: "Import failed",
-        description: "Something went wrong. Try again.",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -296,10 +362,27 @@ export default function LeadImport() {
               Upload CSV
             </CardTitle>
             <CardDescription>
-              Upload a CSV file with columns: name, email, phone, source. Only .csv files are accepted.
+              Columns: full_name (or name), phone, email, city, whatsapp, lead_source, lead_type,
+              latest_note. Max 500 rows per file.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={isDownloadingTemplate}
+              onClick={() => void handleDownloadTemplate()}
+            >
+              {isDownloadingTemplate ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Download template
+            </Button>
+
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <input
                 ref={inputRef}
@@ -309,11 +392,7 @@ export default function LeadImport() {
                 className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground file:transition-colors hover:file:bg-primary/90"
               />
               <div className="flex gap-2 shrink-0">
-                <Button
-                  onClick={handleUpload}
-                  disabled={!file || isUploading}
-                  className="gap-2"
-                >
+                <Button onClick={() => void handleUpload()} disabled={!file || isUploading} className="gap-2">
                   {isUploading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -330,7 +409,8 @@ export default function LeadImport() {
             </div>
             {file && (
               <p className="text-sm text-muted-foreground">
-                Selected: <span className="font-medium text-foreground">{file.name}</span> ({(file.size / 1024).toFixed(1)} KB)
+                Selected: <span className="font-medium text-foreground">{file.name}</span> (
+                {(file.size / 1024).toFixed(1)} KB)
               </p>
             )}
           </CardContent>
@@ -355,14 +435,14 @@ export default function LeadImport() {
                   </div>
                 )}
               </div>
-              {result.errors && result.errors.length > 0 && (
+              {result.errors.length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-foreground mb-2">Errors by row</p>
-                  <ul className="rounded-lg border border-border/60 divide-y divide-border/60 text-sm">
+                  <ul className="rounded-lg border border-border/60 divide-y divide-border/60 text-sm max-h-64 overflow-y-auto">
                     {result.errors.map((err, i) => (
                       <li key={i} className="px-3 py-2 flex justify-between gap-4">
-                        <span className="text-muted-foreground">Row {err.row}</span>
-                        <span className="text-destructive font-medium">{err.message}</span>
+                        <span className="text-muted-foreground shrink-0">Row {err.row}</span>
+                        <span className="text-destructive font-medium text-right">{err.message}</span>
                       </li>
                     ))}
                   </ul>

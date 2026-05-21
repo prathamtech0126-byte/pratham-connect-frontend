@@ -417,8 +417,21 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
-import type { DummyLead, LeadStatus, LeadStage } from "@/data/dummyLeads";
+import type { DummyLead } from "@/data/dummyLeads";
 import api from "@/lib/api";
+import { createLeadApi, searchLeadReferenceClientsApi } from "@/api/leads.api";
+import { useAuth } from "@/context/auth-context";
+import {
+  getLeadSourceLabel,
+  isClientReferenceSourceSlug,
+  isInternalReferenceSourceSlug,
+} from "@/lib/lead-source-display";
+
+const BLOCKED_SOURCE_SLUGS_FOR_FIELD_ROLES = ["instagram", "facebook","walkin","website"];
+function isBlockedForFieldRole(slug: string): boolean {
+  const n = slug.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  return BLOCKED_SOURCE_SLUGS_FOR_FIELD_ROLES.some((b) => n.includes(b));
+}
 
 interface AddLeadProps {
   open: boolean;
@@ -430,6 +443,35 @@ interface LeadType {
   id: number;
   leadType: string;
   leadTypeId?: number;
+  displayAlias?: string | null;
+}
+
+type ReferenceSelection = {
+  kind: "client" | "internal" | "self";
+  id: number;
+  name: string;
+  memberRole?: string | null;
+  isManual?: boolean;
+  counsellorId?: number | null;
+  counsellorName?: string | null;
+};
+
+function formatReferenceRoleLabel(role: string | null | undefined): string {
+  if (!role) return "";
+  const r = role.toLowerCase();
+  if (r === "telecaller") return "Telecaller";
+  if (r === "counsellor" || r === "counselor") return "Counsellor";
+  if (r === "self") return "Self";
+  return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function referenceSubtitle(ref: ReferenceSelection): string {
+  if (ref.kind === "self") return "Self reference";
+  if (ref.kind === "internal") {
+    return formatReferenceRoleLabel(ref.memberRole) || "Team member";
+  }
+  if (ref.isManual) return "Manual client entry";
+  return "Existing client";
 }
 
 interface SaleType {
@@ -445,10 +487,9 @@ interface FormState {
   name: string;
   email: string;
   phone: string;
+  city: string;
   source: string;
   visaCategory: string;
-  status: LeadStatus;
-  stage: LeadStage;
   notes: string;
 }
 
@@ -456,40 +497,163 @@ const INITIAL_FORM: FormState = {
   name: "",
   email: "",
   phone: "",
+  city: "",
   source: "",
   visaCategory: "",
-  status: "new",
-  stage: "New",
   notes: "",
 };
 
 export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
+  const { user } = useAuth();
+  const isFieldRole = user?.role === "telecaller" || user?.role === "counsellor";
+
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // Lead Types state
   const [leadTypes, setLeadTypes] = useState<LeadType[]>([]);
   const [isLoadingLeadTypes, setIsLoadingLeadTypes] = useState(false);
 
-  // 🔴 CHANGE HERE: Sale Types state instead of Visa Categories
   const [saleTypes, setSaleTypes] = useState<SaleType[]>([]);
   const [isLoadingSaleTypes, setIsLoadingSaleTypes] = useState(false);
 
-  // Fetch lead types and sale types when dialog opens
+  const [counsellors, setCounsellors] = useState<{ id: number; fullName: string }[]>([]);
+
+  const [referenceSearch, setReferenceSearch] = useState("");
+  const [referenceOptions, setReferenceOptions] = useState<
+    { id: number; label: string; kind: "client" | "internal"; memberRole?: string | null }[]
+  >([]);
+  const [selectedReference, setSelectedReference] = useState<ReferenceSelection | null>(null);
+  const [isLoadingReference, setIsLoadingReference] = useState(false);
+  const [showReferenceList, setShowReferenceList] = useState(false);
+  const [showManualClientInput, setShowManualClientInput] = useState(false);
+  const [manualClientName, setManualClientName] = useState("");
+  const [manualClientCounsellorId, setManualClientCounsellorId] = useState("");
+
   useEffect(() => {
     if (open) {
       fetchLeadTypes();
-      fetchSaleTypes(); // 🔴 CHANGE HERE: Call fetchSaleTypes
+      fetchSaleTypes();
+      api.get("/api/users/counsellors").then((r) => {
+        setCounsellors(r.data?.data || r.data || []);
+      }).catch(() => setCounsellors([]));
     }
   }, [open]);
+
+  const selectedSourceSlug = leadTypes.find(
+    (lt) => String(lt.id || lt.leadTypeId) === form.source
+  )?.leadType;
+
+  const needsClientReference = selectedSourceSlug
+    ? isClientReferenceSourceSlug(selectedSourceSlug)
+    : false;
+  const needsInternalReference = selectedSourceSlug
+    ? isInternalReferenceSourceSlug(selectedSourceSlug)
+    : false;
+  const needsReferencePick = needsClientReference || needsInternalReference;
+
+  useEffect(() => {
+    if (!open) {
+      setReferenceSearch("");
+      setReferenceOptions([]);
+      setSelectedReference(null);
+      setShowReferenceList(false);
+      setShowManualClientInput(false);
+      setManualClientName("");
+      setManualClientCounsellorId("");
+    }
+  }, [open]);
+
+  useEffect(() => {
+    setSelectedReference(null);
+    setReferenceSearch("");
+    setReferenceOptions([]);
+    setShowManualClientInput(false);
+    setManualClientName("");
+    setManualClientCounsellorId("");
+  }, [form.source]);
+
+  useEffect(() => {
+    const term = referenceSearch.trim();
+    if (!needsReferencePick || term.length < 3) {
+      setReferenceOptions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsLoadingReference(true);
+      try {
+        if (needsClientReference) {
+          const rows = await searchLeadReferenceClientsApi(term);
+          setReferenceOptions(
+            rows.map((c) => ({
+              id: Number(c.id),
+              label: String(c.fullName ?? `Client #${c.id}`),
+              kind: "client" as const,
+            }))
+          );
+        } else {
+          const [tcRes, coRes] = await Promise.all([
+            api.get("/api/users/telecallers"),
+            api.get("/api/users/counsellors"),
+          ]);
+          const telecallers = (tcRes.data?.data || tcRes.data || []) as {
+            id: number;
+            fullName: string;
+          }[];
+          const counsellors = (coRes.data?.data || coRes.data || []) as {
+            id: number;
+            fullName: string;
+          }[];
+          const lower = term.toLowerCase();
+          const team = [
+            ...telecallers.map((m) => ({
+              id: m.id,
+              fullName: m.fullName,
+              memberRole: "telecaller" as const,
+            })),
+            ...counsellors.map((m) => ({
+              id: m.id,
+              fullName: m.fullName,
+              memberRole: "counsellor" as const,
+            })),
+          ];
+          setReferenceOptions(
+            team
+              .filter((m) => m.fullName?.toLowerCase().includes(lower))
+              .slice(0, 20)
+              .map((m) => ({
+                id: m.id,
+                label: m.fullName,
+                kind: "internal" as const,
+                memberRole: m.memberRole,
+              }))
+          );
+        }
+      } catch {
+        setReferenceOptions([]);
+      } finally {
+        setIsLoadingReference(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [referenceSearch, needsReferencePick, needsClientReference]);
 
   const fetchLeadTypes = async () => {
     try {
       setIsLoadingLeadTypes(true);
       const res = await api.get("/api/lead-types");
-      const data = res.data.data || [];
-      setLeadTypes(data);
+      const data = (res.data.data || []) as LeadType[];
+      const normalized = [...data].sort((a, b) => {
+        const aName = (a.leadType || "").trim().toLowerCase();
+        const bName = (b.leadType || "").trim().toLowerCase();
+        if (aName === "other") return 1;
+        if (bName === "other") return -1;
+        return aName.localeCompare(bName);
+      });
+      setLeadTypes(normalized);
     } catch (err: any) {
       console.error("Failed to fetch lead types:", err);
       setLeadTypes([]);
@@ -533,8 +697,19 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       next.email = "Enter a valid email address";
     }
-    if (!form.phone.trim()) next.phone = "Phone number is required";
+    if (!form.phone.trim()) {
+      next.phone = "Phone number is required";
+    } else if (form.phone.trim().replace(/\D/g, "").length < 10) {
+      next.phone = "Phone must be at least 10 digits";
+    }
     if (!form.source) next.source = "Lead source is required";
+    if (needsClientReference && !selectedReference && !manualClientName.trim()) {
+      next.source = "Select a client from the list, or enter the client name manually below";
+    }
+    if (needsInternalReference && !selectedReference) {
+      next.source =
+        "Select a team member, use Self reference, or search and choose from the list";
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -543,40 +718,81 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
     if (!validate()) return;
     setIsSubmitting(true);
 
-    // Get the selected lead type label
-    const selectedLeadType = leadTypes.find(
-      (lt) => String(lt.id || lt.leadTypeId) === form.source
-    );
-    const sourceLabel = selectedLeadType?.leadType || form.source;
+    try {
+      const selectedLeadType = leadTypes.find(
+        (lt) => String(lt.id || lt.leadTypeId) === form.source
+      );
+      const sourceLabel = selectedLeadType?.leadType || form.source;
 
-    const newLead: DummyLead = {
-      id: `lead_${Date.now()}`,
-      name: form.name.trim(),
-      email: form.email.trim().toLowerCase(),
-      phone: form.phone.trim(),
-      source: sourceLabel,
-      visaCategory: form.visaCategory || undefined,
-      status: form.status,
-      stage: form.stage,
-      assignedToId: null,
-      assignedToName: null,
-      lastFollowupAt: null,
-      createdAt: new Date().toISOString(),
-    };
+      const manualCounsellor = counsellors.find((c) => String(c.id) === manualClientCounsellorId);
+      const created = await createLeadApi({
+        fullName: form.name.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim().toLowerCase(),
+        city: form.city.trim() || undefined,
+        leadSource: sourceLabel,
+        leadType: form.visaCategory || undefined,
+        latestNote: form.notes || undefined,
+        referenceMeta: selectedReference
+          ? {
+              kind: selectedReference.kind,
+              id: selectedReference.id,
+              name: selectedReference.name,
+              memberRole: selectedReference.memberRole ?? null,
+              isManual: selectedReference.isManual,
+              counsellorId: selectedReference.counsellorId ?? null,
+              counsellorName: selectedReference.counsellorName ?? null,
+            }
+          : needsClientReference && manualClientName.trim()
+            ? {
+                kind: "client" as const,
+                id: 0,
+                name: manualClientName.trim(),
+                isManual: true,
+                counsellorId: manualCounsellor?.id ?? null,
+                counsellorName: manualCounsellor?.fullName ?? null,
+              }
+            : undefined,
+      });
 
-    await new Promise((r) => setTimeout(r, 300));
+      const newLead: DummyLead = {
+        id: String(created.id),
+        name: created.fullName,
+        email: created.email || "",
+        phone: created.phone,
+        source: sourceLabel,
+        visaCategory: created.leadType || undefined,
+        status: "new",
+        stage: "New",
+        assignedToId: created.currentTelecallerId ? String(created.currentTelecallerId) : null,
+        assignedToName: null,
+        lastFollowupAt: created.nextFollowupAt || null,
+        // Use backend-created timestamp (now aligned with IST on create path).
+        createdAt: created.createdAt,
+      };
 
-    onLeadAdded(newLead);
-    setForm(INITIAL_FORM);
-    setErrors({});
-    setIsSubmitting(false);
-    onOpenChange(false);
+      onLeadAdded(newLead);
+      setForm(INITIAL_FORM);
+      setErrors({});
+      onOpenChange(false);
+    } catch (err: any) {
+      const message = err?.response?.data?.message ?? "Failed to create lead";
+      console.error("Failed to create lead:", err);
+      setErrors((prev) => ({ ...prev, name: message }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
     if (isSubmitting) return;
     setForm(INITIAL_FORM);
     setErrors({});
+    setSelectedReference(null);
+    setReferenceSearch("");
+    setShowManualClientInput(false);
+    setManualClientName("");
+    setManualClientCounsellorId("");
     onOpenChange(false);
   };
 
@@ -607,7 +823,7 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
               {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
             </div>
 
-            {/* Email & Phone - Responsive grid */}
+            {/* Email & Phone */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="lead-email" className={errors.email ? "text-destructive" : ""}>
@@ -639,6 +855,17 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
               </div>
             </div>
 
+            {/* City */}
+            <div className="space-y-1.5">
+              <Label htmlFor="lead-city">City</Label>
+              <Input
+                id="lead-city"
+                placeholder="e.g. Mumbai"
+                value={form.city}
+                onChange={(e) => set("city")(e.target.value)}
+              />
+            </div>
+
             {/* Lead Source */}
             <div className="space-y-1.5">
               <Label className={errors.source ? "text-destructive" : ""}>
@@ -662,23 +889,169 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
                       No lead types found. Please add lead types in Additional Info page.
                     </div>
                   ) : (
-                    leadTypes.map((type) => {
-                      const typeId = String(type.id || type.leadTypeId);
-                      const typeName = type.leadType;
-                      return (
-                        <SelectItem key={typeId} value={typeId}>
-                          {typeName}
-                        </SelectItem>
-                      );
-                    })
+                    leadTypes
+                      .filter((type) => !(isFieldRole && isBlockedForFieldRole(type.leadType)))
+                      .map((type) => {
+                        const typeId = String(type.id || type.leadTypeId);
+                        return (
+                          <SelectItem key={typeId} value={typeId}>
+                            {getLeadSourceLabel(type.leadType, leadTypes)}
+                          </SelectItem>
+                        );
+                      })
                   )}
                 </SelectContent>
               </Select>
               {errors.source && <p className="text-xs text-destructive">{errors.source}</p>}
             </div>
 
-            {/* Visa Category, Status, Stage */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {needsReferencePick && (
+              <div className="space-y-1.5">
+                <Label>
+                  {needsClientReference ? "Client reference" : "Internal reference"}{" "}
+                  <span className="text-destructive">*</span>
+                </Label>
+                {selectedReference ? (
+                  <div className="rounded-md border px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{selectedReference.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {referenceSubtitle(selectedReference)}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { setSelectedReference(null); setReferenceSearch(""); }}
+                      >
+                        Change
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                  {needsInternalReference && user?.id && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        const uid = Number(user.id);
+                        if (!Number.isFinite(uid)) return;
+                        setSelectedReference({
+                          kind: "self",
+                          id: uid,
+                          name: user.name?.trim() || "Self",
+                          memberRole: user.role ?? "self",
+                        });
+                        setReferenceSearch("");
+                        setShowReferenceList(false);
+                      }}
+                    >
+                      Self reference (refer yourself)
+                    </Button>
+                  )}
+
+                  {!showManualClientInput && (
+                    <div className="relative">
+                      <Input
+                        placeholder="Type at least 3 characters to search…"
+                        value={referenceSearch}
+                        onChange={(e) => {
+                          setReferenceSearch(e.target.value);
+                          setShowReferenceList(true);
+                        }}
+                        onFocus={() => setShowReferenceList(true)}
+                      />
+                
+                      {showReferenceList && referenceSearch.trim().length >= 3 && (
+                        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+                          {isLoadingReference ? (
+                            <div className="p-3 flex justify-center">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            </div>
+                          ) : referenceOptions.length === 0 ? (
+                            <p className="p-3 text-sm text-muted-foreground">
+                              No matches found
+                            </p>
+                          ) : (
+                            referenceOptions.map((opt) => (
+                              <button
+                                key={`${opt.kind}-${opt.id}`}
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
+                                onClick={() => {
+                                  setSelectedReference({
+                                    kind: opt.kind,
+                                    id: opt.id,
+                                    name: opt.label,
+                                    memberRole:
+                                      opt.kind === "internal" ? opt.memberRole ?? null : null,
+                                  });
+                                  setReferenceSearch(opt.label);
+                                  setShowReferenceList(false);
+                                }}
+                              >
+                                <span>{opt.label}</span>
+                                {opt.kind === "internal" && opt.memberRole && (
+                                  <span className="block text-[10px] text-muted-foreground">
+                                    {formatReferenceRoleLabel(opt.memberRole)}
+                                  </span>
+                                )}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )} 
+
+                    {needsClientReference && (
+                      <div>
+                        <button
+                          type="button"
+                          className="text-xs text-primary hover:underline"
+                          onClick={() => setShowManualClientInput((v) => !v)}
+                        >
+                          {showManualClientInput ? "Hide manual entry" : "Client not in system? Enter manually"}
+                        </button>
+                        {showManualClientInput && (
+                          <div className="mt-2 space-y-2 rounded-md border border-dashed p-3 bg-muted/20">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Client name</Label>
+                              <Input
+                                placeholder="e.g. Rahul Sharma"
+                                value={manualClientName}
+                                onChange={(e) => setManualClientName(e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Their counsellor (optional)</Label>
+                              <Select value={manualClientCounsellorId} onValueChange={setManualClientCounsellorId}>
+                                <SelectTrigger className="h-9 text-sm">
+                                  <SelectValue placeholder="Select counsellor…" />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-56 overflow-y-auto">
+                                  {counsellors.map((c) => (
+                                    <SelectItem key={c.id} value={String(c.id)}>{c.fullName}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Visa Category */}
+            <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
               {/* 🔴 CHANGE HERE: Visa Category dropdown showing saleType values */}
               <div className="space-y-1.5">
                 <Label>Visa Category</Label>
@@ -711,38 +1084,6 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
                 </Select>
               </div>
 
-              {/* Status */}
-              <div className="space-y-1.5">
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={set("status")}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">New</SelectItem>
-                    <SelectItem value="contacted">Contacted</SelectItem>
-                    <SelectItem value="qualified">Qualified</SelectItem>
-                    <SelectItem value="converted">Converted</SelectItem>
-                    <SelectItem value="lost">Lost</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Stage */}
-              <div className="space-y-1.5">
-                <Label>Stage</Label>
-                <Select value={form.stage} onValueChange={set("stage")}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="New">New</SelectItem>
-                    <SelectItem value="Contacted">Contacted</SelectItem>
-                    <SelectItem value="Qualified">Qualified</SelectItem>
-                    <SelectItem value="Converted">Converted</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
             {/* Notes */}

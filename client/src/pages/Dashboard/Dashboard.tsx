@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useLocation, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { DUMMY_LEADS, DUMMY_ASSIGNEE_OPTIONS, LEAD_VISA_CATEGORIES, LEAD_SOURCES, type DummyLead } from "@/data/dummyLeads";
+import { LEAD_VISA_CATEGORIES, LEAD_SOURCES, type DummyLead } from "@/data/dummyLeads";
 import { getTargetForUser, getAchievedForUser, DUMMY_TELECALLER_TARGETS } from "@/data/telecallerTargets";
 import {
   Select,
@@ -56,6 +56,9 @@ const counselorTargets = [
 import { format, parseISO } from "date-fns";
 import { RevenueChart } from "@/components/charts/RevenueChart";
 import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
+import { ITSupportKanbanDashboard } from "@/pages/tech-support/ITSupportKanbanDashboard";
+import { assignLeadApi, getLeads, type LeadEntity } from "@/api/leads.api";
+import api from "@/lib/api";
 
 const counselorRevenue = [
   { name: "Priya Singh", revenue: 1250000, clients: 12, avatar: "P" },
@@ -77,6 +80,7 @@ function hasAchievedTarget(data: { achieved?: number; target?: number; targetSta
 export default function Dashboard() {
   const { user } = useAuth();
   const isCounsellor = user?.role === "counsellor";
+  const isTechSupport = user?.role === "tech_support";
   /** Full-screen canvas so confetti renders above layout/sidebar (default confetti can sit behind). */
   const confettiCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [, setLocation] = useLocation();
@@ -144,7 +148,7 @@ export default function Dashboard() {
     },
     retry: 1,
     staleTime: 1000 * 60 * 2, // Cache for 2 minutes
-    enabled: !!user && user.role !== 'telecaller' && (timeFilter !== 'custom' || (!!customDateRange[0] && !!customDateRange[1])),
+    enabled: !!user && user.role !== 'telecaller' && user.role !== "tech_support" && (timeFilter !== 'custom' || (!!customDateRange[0] && !!customDateRange[1])),
   });
 
   // Label for monthly chart: "Jan - Feb (Today 2 Feb 2026)". For custom: "1 Jan 2026 - 5 Feb 2026"
@@ -164,7 +168,7 @@ export default function Dashboard() {
   // All roles (admin, manager, counsellor) use POST filtered API; no GET /api/clients/counsellor-clients
   const userId = user?.id ?? (user as any)?.userId ?? (user as any)?.user_id;
   const userNum = typeof userId === "number" ? userId : parseInt(String(userId), 10);
-  const hasUserForFiltered = !!user?.role && !Number.isNaN(userNum) && userNum > 0 && user.role !== "telecaller";
+  const hasUserForFiltered = !!user?.role && !Number.isNaN(userNum) && userNum > 0 && user.role !== "telecaller" && user.role !== "tech_support";
 
   const { data: recentClientsRaw } = useQuery({
     queryKey: ["recent-clients", "filtered", userNum, user?.role, "monthly"],
@@ -185,6 +189,7 @@ export default function Dashboard() {
     queryFn: clientService.getRecentActivities
   });
 
+
   // Fetch user profile to get the actual fullname (user.name might be generic "User")
   const { data: userProfile } = useQuery({
     queryKey: ['user-profile'],
@@ -196,6 +201,93 @@ export default function Dashboard() {
   const canViewFinancials = user?.role === 'superadmin' ||user?.role === 'developer' || user?.role === 'director' || user?.role === 'manager';
   const canApprovePayments = user?.role === 'superadmin' || user?.role === 'developer' ||user?.role === 'director' || user?.role === 'manager';
   const [processingApproval, setProcessingApproval] = useState<number | null>(null);
+
+  const { data: telecallerLeadItems = [], isLoading: isTelecallerLeadsLoading } = useQuery({
+    queryKey: ["telecaller-dashboard-leads", user?.id],
+    queryFn: async () => {
+      const res = await getLeads({ limit: 500, currentTelecallerId: user?.id ? Number(user.id) : undefined });
+      return res.items || [];
+    },
+    enabled: !!user && user.role === "telecaller",
+    staleTime: 1000 * 30,
+  });
+
+  // Telecaller leaderboard — all telecallers' performance
+  const { data: telecallerLeaderboard = [] } = useQuery({
+    queryKey: ["telecaller-leaderboard"],
+    queryFn: async () => {
+      const res = await api.get("/api/leads/leaderboard/telecallers");
+      return Array.isArray(res.data?.data) ? res.data.data : [];
+    },
+    enabled: !!user && user.role === "telecaller",
+    staleTime: 1000 * 60,
+  });
+
+  // Real-time: telecaller socket listener — refetch leads on any lead event
+  useEffect(() => {
+    if (!socket || !isConnected || user?.role !== "telecaller") return;
+    const refresh = () => {
+      queryClient.invalidateQueries({ queryKey: ["telecaller-dashboard-leads"] });
+    };
+    socket.on("lead:created", refresh);
+    socket.on("lead:updated", refresh);
+    socket.on("lead:assigned", refresh);
+    socket.on("lead:junked", refresh);
+    socket.on("lead:followup", refresh);
+    return () => {
+      socket.off("lead:created", refresh);
+      socket.off("lead:updated", refresh);
+      socket.off("lead:assigned", refresh);
+      socket.off("lead:junked", refresh);
+      socket.off("lead:followup", refresh);
+    };
+  }, [socket, isConnected, user?.role, queryClient]);
+
+  const { data: telecallerCounsellors = [] } = useQuery({
+    queryKey: ["telecaller-dashboard-counsellors"],
+    queryFn: async () => {
+      const res = await api.get("/api/users/counsellors");
+      return Array.isArray(res?.data?.data) ? res.data.data : [];
+    },
+    enabled: !!user && user.role === "telecaller",
+    staleTime: 1000 * 60,
+  });
+
+  const telecallerLeads: DummyLead[] = useMemo(() => {
+    const toStage = (progress: string): DummyLead["stage"] => {
+      if (progress === "converted") return "Converted";
+      if (progress === "interested" || progress === "follow_up") return "Qualified";
+      if (progress === "contacted") return "Contacted";
+      return "New";
+    };
+
+    const toStatus = (progress: string): DummyLead["status"] => {
+      if (progress === "converted") return "converted";
+      if (progress === "interested" || progress === "follow_up") return "qualified";
+      if (progress === "contacted") return "contacted";
+      if (progress === "junk" || progress === "not_interested") return "lost";
+      return "new";
+    };
+
+    return (telecallerLeadItems as LeadEntity[]).map((l) => ({
+      id: String(l.id),
+      name: l.fullName,
+      email: l.email || "",
+      phone: l.phone || "",
+      source: l.leadType || "Other",
+      status: toStatus(l.progressStatus),
+      stage: toStage(l.progressStatus),
+      assignedToId: l.currentTelecallerId ? String(l.currentTelecallerId) : null,
+      assignedToName: l.currentTelecallerId ? `User #${l.currentTelecallerId}` : null,
+      lastFollowupAt: l.nextFollowupAt || null,
+      createdAt: l.createdAt,
+      visaCategory: l.leadType || undefined,
+      transferredAt: l.assignmentStatus === "transferred" ? l.updatedAt : null,
+      transferredByTelecallerId: l.assignmentStatus === "transferred" && l.currentTelecallerId
+        ? String(l.currentTelecallerId)
+        : null,
+    }));
+  }, [telecallerLeadItems]);
 
   // Fetch pending approvals (for admin/manager)
   const { data: pendingApprovals = [], refetch: refetchPendingApprovals } = useQuery({
@@ -307,7 +399,8 @@ export default function Dashboard() {
     queryKey: ['leaderboard', leaderboardPeriod.month, leaderboardPeriod.year],
     queryFn: () => clientService.getLeaderboard(leaderboardPeriod.month, leaderboardPeriod.year),
     staleTime: 1000 * 60 * 2, // Cache for 2 minutes
-    enabled: !!user && !apiLeaderboard, // Only fetch if not in stats
+    // Skip leaderboard API call for tech support users (403 forbidden for them)
+    enabled: !!user && !apiLeaderboard && user?.role !== 'tech_support',
   });
 
   const isManagerRoleUser = user?.role === "manager";
@@ -907,7 +1000,7 @@ export default function Dashboard() {
   }
 
   // Show loading state (skip for telecaller - they don't use stats)
-  if (user?.role !== 'telecaller' && isLoading && !stats) {
+  if (user?.role !== 'telecaller' && user?.role !== "tech_support" && isLoading && !stats) {
     return (
       <PageWrapper title="Dashboard" breadcrumbs={[{ label: "Dashboard" }]}>
         <div className="space-y-4">
@@ -919,20 +1012,33 @@ export default function Dashboard() {
     );
   }
 
+  if (isTechSupport) {
+    return <ITSupportKanbanDashboard />;
+  }
+
   // Telecaller view: full dashboard per system requirements
   if (user?.role === 'telecaller') {
     const displayName = userProfile?.fullname || user?.name || 'Telecaller';
-    const assignedLeads = DUMMY_LEADS.filter((l) => l.assignedToId === user.id);
+    const assignedLeads = telecallerLeads;
     const target = getTargetForUser(user.id);
 
     // Overview stats (for cards)
     const totalAssigned = assignedLeads.length;
     const uncontactedCount = assignedLeads.filter((l) => l.stage === "New" && !l.lastFollowupAt).length;
-    const contactedCount = assignedLeads.filter((l) => l.lastFollowupAt && l.stage !== "Converted").length;
-    const followUpCount = assignedLeads.filter((l) => l.stage === "Contacted" || (l.lastFollowupAt && l.stage === "Qualified")).length;
-    const interestedCount = assignedLeads.filter((l) => l.stage === "Qualified" && !l.transferredAt).length;
-    const transferredCount = DUMMY_LEADS.filter((l) => l.transferredByTelecallerId === user.id).length;
-    const convertedCount = DUMMY_LEADS.filter((l) => l.stage === "Converted" && (l.transferredByTelecallerId === user.id || l.assignedToId === user.id)).length;
+    const contactedCount = assignedLeads.filter((l) => l.stage === "Contacted").length;
+    const followUpCount = assignedLeads.filter((l) => !!l.lastFollowupAt && l.stage !== "Converted").length;
+    // Qualified = interested/qualified stage OR transferred to counsellor (same thing)
+    const qualifiedCount = assignedLeads.filter((l) => l.stage === "Qualified" || !!l.transferredAt).length;
+    const convertedCount = assignedLeads.filter((l) => l.stage === "Converted").length;
+
+    // Today's follow-ups
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+    const todayFollowUps = assignedLeads.filter((l) => {
+      if (!l.lastFollowupAt) return false;
+      const d = new Date(l.lastFollowupAt);
+      return d >= todayStart && d <= todayEnd;
+    });
 
     // Lead category overview (by visa category)
     const categoryCounts = LEAD_VISA_CATEGORIES.map((cat) => ({
@@ -980,10 +1086,6 @@ export default function Dashboard() {
       return null;
     };
     const dateRange = getTelecallerDateRange();
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
 
     let filteredAssignedLeads = assignedLeads;
     if (dateRange) {
@@ -1012,13 +1114,18 @@ export default function Dashboard() {
     const progressPercentage = target && target.monthlyEnrollmentTarget > 0 && achieved
       ? (achieved.monthlyEnrollmentAchieved / target.monthlyEnrollmentTarget) * 100
       : 0;
-    const counsellorOptions = DUMMY_ASSIGNEE_OPTIONS.filter((u) => u.role === 'counsellor');
+    const counsellorOptions = (telecallerCounsellors as any[]).map((u) => ({
+      id: String(u.id),
+      name: u.fullName || u.name || `Counsellor #${u.id}`,
+      role: "counsellor",
+    }));
 
     const handleTransferSubmit = async () => {
       if (!transferLead || !transferToId) return;
       setIsTransferring(true);
       try {
-        await new Promise((r) => setTimeout(r, 500));
+        await assignLeadApi(Number(transferLead.id), { counsellorId: Number(transferToId) });
+        await queryClient.invalidateQueries({ queryKey: ["telecaller-dashboard-leads"] });
         const to = counsellorOptions.find((c) => c.id === transferToId);
         toast({ title: "Lead transferred", description: `${transferLead.name} transferred to ${to?.name ?? 'Counsellor'}.` });
         setTransferLead(null);
@@ -1142,13 +1249,18 @@ export default function Dashboard() {
         </div>
 
         {/* Overview Section – quick statistics */}
+        {isTelecallerLeadsLoading ? (
+          <Card className="border-border/60 shadow-sm">
+            <CardContent className="p-4 text-sm text-muted-foreground">Loading telecaller dashboard data...</CardContent>
+          </Card>
+        ) : null}
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-3">Lead overview</h2>
           <p className="text-sm text-muted-foreground mb-4">Quick statistics of your leads</p>
-          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
             <Card className="border-border/60 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Leads Assigned</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Assigned</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-foreground">{totalAssigned}</p>
@@ -1172,7 +1284,7 @@ export default function Dashboard() {
             </Card>
             <Card className="border-border/60 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Follow-up Leads</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Follow-up</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-foreground">{followUpCount}</p>
@@ -1180,26 +1292,10 @@ export default function Dashboard() {
             </Card>
             <Card className="border-border/60 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Interested</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">Qualified / Transferred</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-foreground">{interestedCount}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-border/60 shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Transferred to Counsellor</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-foreground">{transferredCount}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-border/60 shadow-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Converted to Client</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-foreground">{convertedCount}</p>
+                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{qualifiedCount}</p>
               </CardContent>
             </Card>
           </div>
@@ -1402,6 +1498,10 @@ export default function Dashboard() {
         </Dialog>
       </div>
     );
+  }
+
+  if (isTechSupport) {
+    return <ITSupportKanbanDashboard />;
   }
 
   return (
