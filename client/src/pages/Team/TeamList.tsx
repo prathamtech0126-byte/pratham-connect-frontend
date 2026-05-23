@@ -351,13 +351,27 @@ export default function TeamList() {
     setIsAddMemberOpen(true);
   };
 
-  const filteredMembers = teamMembers.filter(member => {
-    const matchesRole = roleFilter === "all" || member.role.toLowerCase() === roleFilter.toLowerCase();
-    const nameToSearch = member.name || member.fullName || "";
-    const matchesSearch = nameToSearch.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         member.email.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesRole && matchesSearch;
-  });
+  const ROLE_ORDER: Record<string, number> = {
+    "manager": 0,
+    "counsellor": 1,
+    "telecaller": 2,
+    "developer": 3,
+    "it support": 4,
+  };
+
+  const filteredMembers = teamMembers
+    .filter(member => {
+      const matchesRole = roleFilter === "all" || member.role.toLowerCase() === roleFilter.toLowerCase();
+      const nameToSearch = member.name || member.fullName || "";
+      const matchesSearch = nameToSearch.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           member.email.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesRole && matchesSearch;
+    })
+    .sort((a, b) => {
+      const aOrder = ROLE_ORDER[a.role.toLowerCase()] ?? 99;
+      const bOrder = ROLE_ORDER[b.role.toLowerCase()] ?? 99;
+      return aOrder - bOrder;
+    });
 
   const handleDeleteMember = async () => {
     if (!deleteId) return;
@@ -675,59 +689,71 @@ export default function TeamList() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredMembers.map((member) => (
-                    <TableRow key={member.id}>
-                      <TableCell className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-muted text-xs">
-                            {member.name.split(' ').map((n: any) => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-sm">{member.name}</span>
-                          <span className="text-xs text-muted-foreground">{member.email}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="font-normal">
-                            {member.role}
-                          </Badge>
-                          {member.role?.toLowerCase() === "manager" && member.isSupervisor && (
-                            <Badge variant="default" className="font-normal text-xs">
-                              Supervisor
+                  filteredMembers.map((member, index) => {
+                    const isNewRole = index === 0 || member.role !== filteredMembers[index - 1].role;
+                    return (
+                      <>
+                        {isNewRole && (
+                          <TableRow key={`role-header-${member.role}`} className="bg-muted/50 hover:bg-muted/50">
+                            <TableCell colSpan={4} className="py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                              {member.role}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        <TableRow key={member.id}>
+                          <TableCell className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="bg-muted text-xs">
+                                {member.name.split(' ').map((n: any) => n[0]).join('')}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-sm">{member.name}</span>
+                              <span className="text-xs text-muted-foreground">{member.email}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="font-normal">
+                                {member.role}
+                              </Badge>
+                              {member.role?.toLowerCase() === "manager" && member.isSupervisor && (
+                                <Badge variant="default" className="font-normal text-xs">
+                                  Supervisor
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={member.status === "Active" ? "default" : "secondary"}
+                              className={member.status === "Inactive" ? "bg-red-100 text-red-700 hover:bg-red-300" : ""}
+                            >
+                              {member.status}
                             </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={member.status === "Active" ? "default" : "secondary"}
-                          className={member.status === "Inactive" ? "bg-red-100 text-red-700 hover:bg-red-300" : ""}
-                        >
-                          {member.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 mr-1 text-muted-foreground hover:text-primary"
-                          onClick={() => openEditMember(member)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => confirmDelete(member)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 mr-1 text-muted-foreground hover:text-primary"
+                              onClick={() => openEditMember(member)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => confirmDelete(member)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      </>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
