@@ -80,7 +80,8 @@ export function FormDateInput<T extends FieldValues>({
                       const dateStr = field.value.includes("T")
                         ? field.value
                         : `${field.value}T00:00:00`;
-                      return new Date(dateStr);
+                      const d = new Date(dateStr);
+                      return isNaN(d.getTime()) ? undefined : d;
                     } catch {
                       return undefined;
                     }

@@ -2081,9 +2081,8 @@ export default function ClientForm() {
         const res = await getLeadDetail(fromLeadId);
         if (cancelled) return;
         const lead = res.lead;
-        const todayYmd = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-        const [y, m, d] = todayYmd.split("-");
-        const enrollmentDate = `${d}-${m}-${y}`;
+        // en-CA locale produces YYYY-MM-DD — the format FormDateInput expects
+        const enrollmentDate = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
         const passport = res.profile?.passportNumber?.trim() ?? "";
         form.setValue("name", lead.fullName ?? "", { shouldDirty: true });
         form.setValue("enrollmentDate", enrollmentDate, { shouldDirty: true });
