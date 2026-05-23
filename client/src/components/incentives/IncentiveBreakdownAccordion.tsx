@@ -50,6 +50,7 @@ interface ClientBreakdown {
   remark?: string | null
   /** Report `receivedAmount` when `coreSale.items` is empty */
   receivedAmount: number
+  clientTotalPayment?: number
   status: string
   totalIncentive: number
   /** Positive amount additionally added over section-wise computed sum. */
@@ -142,6 +143,7 @@ function buildGroups(rows: IncentiveRow[]): CounsellorGroup[] {
       isSharedClient: row.isSharedClient || undefined,
       remark: row.remark ?? null,
       receivedAmount: row.amount,
+      clientTotalPayment: row.clientTotalPayment,
       status: row.status,
       totalIncentive: row.incentiveAmount,
       extraAddedAmount,
@@ -389,6 +391,7 @@ function BreakdownCard({
   onInfo,
   onEdit,
   footerAddon,
+  headerAddon,
 }: {
   title: string
   icon: React.ReactNode
@@ -399,6 +402,7 @@ function BreakdownCard({
   onInfo?: () => void
   onEdit?: () => void
   footerAddon?: React.ReactNode
+  headerAddon?: React.ReactNode
 }) {
   return (
     <div className="flex-1 min-w-[200px] rounded-xl border border-border bg-card shadow-sm flex flex-col">
@@ -408,6 +412,7 @@ function BreakdownCard({
           {icon}
         </span>
         <span className="text-xs font-semibold text-foreground uppercase tracking-wide flex-1">{title}</span>
+        {headerAddon}
         {onInfo && (
           <button
             type="button"
@@ -980,6 +985,13 @@ function ClientRow({
               eligible={client.coreSale.eligible}
               onEdit={onEditAmount ? () => setEditSection('coreSale') : undefined}
               onInfo={() => setInfoCard('coreSale')}
+              headerAddon={
+                client.clientTotalPayment != null ? (
+                  <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary tabular-nums border border-primary/20">
+                    Total Fees : {fmt(client.clientTotalPayment)}
+                  </span>
+                ) : undefined
+              }
             >
               {client.coreSale.items.length > 0 ? (
                 client.coreSale.items.map((item, idx) => (
@@ -1164,7 +1176,15 @@ function ClientRow({
               <InfoRow label="Rule Type" value={<span className="capitalize">{client.coreSale.ruleDetail.ruleType}</span>} />
               {client.coreSale.ruleDetail.ruleType === 'slab' && (
                 <>
-                  <InfoRow label="Team Count" value={`${client.coreSale.ruleDetail.teamCount} clients`} highlight />
+                  <InfoRow
+                    label="Team Count"
+                    value={
+                      client.coreSale.ruleDetail.enrolledCount != null
+                        ? `${client.coreSale.ruleDetail.teamCount} qualifying / ${client.coreSale.ruleDetail.enrolledCount} enrolled`
+                        : `${client.coreSale.ruleDetail.teamCount} clients`
+                    }
+                    highlight
+                  />
                   <InfoRow label="Matched Slab" value={client.coreSale.ruleDetail.slabRange ?? '—'} />
                   {(() => {
                     const basis = coreIncentiveEligibleBasis(
@@ -1206,8 +1226,19 @@ function ClientRow({
           ) : null}
 
           {/* Incentive total */}
-          <div className="border-t border-border/50 pt-3">
+          <div className="border-t border-border/50 pt-3 space-y-2">
             <InfoRow label="Incentive Earned" value={fmt(client.coreSale.incentive)} highlight={client.coreSale.incentive > 0} />
+            {client.coreSale.qualifyingCombination != null && (
+              <InfoRow
+                label="Qualifying Combination"
+                value={
+                  Array.isArray(client.coreSale.qualifyingCombination)
+                    ? client.coreSale.qualifyingCombination.join(', ')
+                    : String(client.coreSale.qualifyingCombination)
+                }
+                highlight
+              />
+            )}
           </div>
 
           {/* Reason sentence */}
@@ -1274,11 +1305,18 @@ function ClientRow({
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Rule Applied</p>
               <InfoRow label="Rule Name" value={client.allFinance.ruleDetail.ruleName} />
               <InfoRow label="Rule Type" value={<span className="capitalize">{client.allFinance.ruleDetail.ruleType}</span>} />
-              {client.allFinance.ruleDetail.ruleType === 'slab' && (
+              {(client.allFinance.ruleDetail.ruleType === 'slab' || client.allFinance.ruleDetail.ruleType === 'budget_threshold_slab') && (
                 <>
-                  <InfoRow label="Team Count" value={`${client.allFinance.ruleDetail.teamCount} clients`} highlight />
-                  <InfoRow label="Matched Slab" value={client.allFinance.ruleDetail.slabRange ?? '—'} />
-                  {(() => {
+                  {client.allFinance.ruleDetail.teamCount != null && (
+                    <InfoRow label="Team Count" value={`${client.allFinance.ruleDetail.teamCount} clients`} highlight />
+                  )}
+                  {client.allFinance.ruleDetail.slabRange && (
+                    <InfoRow label="Matched Slab" value={client.allFinance.ruleDetail.slabRange} />
+                  )}
+                  {client.allFinance.ruleDetail.clientAmount != null && (
+                    <InfoRow label="Client Finance Amount" value={fmt(client.allFinance.ruleDetail.clientAmount)} highlight={client.allFinance.ruleDetail.clientAmount > 0} />
+                  )}
+                  {client.allFinance.ruleDetail.ruleType === 'slab' && (() => {
                     const basis = financeIncentiveEligibleBasis(client.allFinance.ruleDetail, client.allFinance)
                     if (basis == null) return null
                     return (
@@ -1309,7 +1347,9 @@ function ClientRow({
                   <InfoRow label="Threshold" value={`≥ ${fmt(client.allFinance.ruleDetail.thresholdMet ?? 0)}`} />
                 </>
               )}
-              <InfoRow label="Rate per Client" value={fmt(client.allFinance.ruleDetail.ratePerClient)} highlight />
+              {client.allFinance.ruleDetail.ratePerClient > 0 && (
+                <InfoRow label="Rate per Client" value={fmt(client.allFinance.ruleDetail.ratePerClient)} highlight />
+              )}
             </div>
           ) : null}
 

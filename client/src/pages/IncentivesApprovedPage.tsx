@@ -136,6 +136,7 @@ export default function IncentivesApprovedPage() {
     queryKey: ['incentives-report-all', startDate, endDate],
     queryFn: () => fetchIncentivesReportAll({ startDate, endDate }),
     enabled: hasReportPeriods,
+    staleTime: 0,
   })
 
   const rows = reportData?.data ?? []
