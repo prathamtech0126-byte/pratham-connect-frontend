@@ -440,8 +440,11 @@ export const getMetaConversionsStatus = async () => {
   return res.data.data as MetaConversionsStatus;
 };
 
-export const sendMetaConversionsEvents = async (leadIds: number[]) => {
-  const res = await api.post("/api/automation/meta-conversions/send", { leadIds });
+export const sendMetaConversionsEvents = async (
+  leadIds: number[],
+  sendMode: "progress" | "quality" = "progress"
+) => {
+  const res = await api.post("/api/automation/meta-conversions/send", { leadIds, sendMode });
   return res.data.data as MetaConversionsSendResult;
 };
 

@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import type { LeadEntity } from "@/api/leads.api";
 import type { LeadDetailMeta } from "@/api/leads.api";
 
@@ -32,23 +33,54 @@ export const hasPendingFollowUp = (
   return lead.progressStatus === "follow_up";
 };
 
-function followUpProgressTag(): LeadDisplayTag {
+function followUpProgressTag(lead: LeadEntity): LeadDisplayTag {
+  const when = lead.nextFollowupAt
+    ? format(new Date(lead.nextFollowupAt), "dd MMM, hh:mm a")
+    : null;
   return {
     key: "follow_up",
-    label: "Follow Up",
+    label: when ? `Follow Up · ${when}` : "Follow Up",
     className: "bg-amber-500 text-white border-0",
   };
 }
 
+function inProgressTag(): LeadDisplayTag {
+  return {
+    key: "in_progress",
+    label: "In Progress",
+    className: "bg-indigo-600 text-white border-0",
+  };
+}
+
+function notContactedTag(): LeadDisplayTag {
+  return {
+    key: "not_contacted",
+    label: "Not contacted",
+    className: "bg-slate-500 text-white border-0",
+  };
+}
+
+/** Counsellor-facing label for progress field on detail/overview. */
+export function getCounsellorProgressLabel(progressStatus?: string | null): string {
+  if (progressStatus === "follow_up") return "Follow Up";
+  if (progressStatus === "contacted") return "In Progress";
+  if (progressStatus === "converted") return "Converted";
+  if (progressStatus === "junk") return "Junk";
+  if (progressStatus === "not_contacted") return "Not contacted";
+  return progressStatus
+    ? progressStatus.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "—";
+}
+
 function progressTag(lead: LeadEntity, options?: LeadDisplayTagOptions): LeadDisplayTag | null {
   if (hasPendingFollowUp(lead, options)) {
-    return followUpProgressTag();
+    return followUpProgressTag(lead);
   }
 
-  if (lead.progressStatus === "contacted" || lead.progressStatus === "interested") {
+  if (lead.progressStatus === "contacted") {
     return {
       key: "contacted",
-      label: lead.progressStatus === "interested" ? "Interested" : "Contacted",
+      label: "Contacted",
       className: "bg-sky-600 text-white border-0",
     };
   }
@@ -118,11 +150,19 @@ function counsellorLeadTags(lead: LeadEntity, options?: LeadDisplayTagOptions): 
     return [convertedTag()];
   }
 
-  if (hasPendingFollowUp(lead, options)) {
-    return [followUpProgressTag()];
+  if (hasPendingFollowUp(lead, options) || lead.progressStatus === "follow_up") {
+    return [followUpProgressTag(lead)];
   }
 
-  return [];
+  if (lead.progressStatus === "contacted") {
+    return [inProgressTag()];
+  }
+
+  if (lead.progressStatus === "not_contacted") {
+    return [notContactedTag()];
+  }
+
+  return [notContactedTag()];
 }
 
 /** Progress + assignment pills for list rows. */
@@ -178,8 +218,12 @@ export const isLeadReadOnly = (lead: LeadEntity, role?: string | null) =>
 export const isAdminLikeRole = (role?: string | null) =>
   role === "superadmin" || role === "admin" || role === "developer" || role === "manager";
 
+/** Admin bulk transfer: skip transferred, converted, junk, and dropped. Assigned & follow-up may transfer. */
 export const isLeadTransferBlocked = (lead: LeadEntity) =>
-  isLeadConverted(lead) || isLeadJunk(lead) || isLeadDropped(lead);
+  isLeadConverted(lead) ||
+  isLeadJunk(lead) ||
+  isLeadDropped(lead) ||
+  lead.assignmentStatus === "transferred";
 
 export function canTransferToCounsellor(
   lead: LeadEntity,

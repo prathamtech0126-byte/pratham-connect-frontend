@@ -613,7 +613,8 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                           "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
                           (location === "/leads/reports" ||
                             location.startsWith("/leads/telecaller/") ||
-                            location === "/leads/counsellor-report")
+                            location === "/leads/counsellor-report" ||
+                            location.startsWith("/leads/counsellor-report/"))
                             ? "border-primary text-primary bg-primary/5"
                             : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
                         )}
@@ -651,6 +652,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
               location !== "/leads/reports" &&
               location !== "/leads/daily-report" &&
               location !== "/leads/counsellor-report" &&
+              !location.startsWith("/leads/counsellor-report/") &&
               !location.startsWith("/leads/telecaller/");
             return (
               <Collapsible

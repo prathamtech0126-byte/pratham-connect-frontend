@@ -53,6 +53,7 @@ import {
 import { pushLeadListPatch } from "@/lib/lead-list-sync";
 import { resolvePerformerDisplayName } from "@/lib/lead-performer";
 import { listPatchFromLeadUpdate } from "@/lib/lead-progress-rules";
+import { shouldIncludeLeadTimelineActivity } from "@/lib/lead-activity-display";
 import {
   clampFollowupDateTime,
   getMinFollowupDateTime,
@@ -323,6 +324,7 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       ...(updatedLead as LeadEntity),
       nextFollowupAt: scheduled.toISOString(),
       progressStatus: "follow_up",
+      pendingFollowUp: true,
     });
 
     setLead((prev) =>
@@ -874,17 +876,7 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
   const noteActivities = activities.filter(isNoteActivity);
   const followupActivities = activities.filter((a) => a.activityType === "followup");
-  const timelineItems = [...activities]
-    .filter((a) =>
-      ["lead_update", "lead_created", "followup", "assignment_change", "counselor_assign", "call_log"].includes(
-        a.activityType
-      )
-    )
-    .sort((a, b) => {
-      const byTime = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      if (byTime !== 0) return byTime;
-      return Number(b.id) - Number(a.id);
-    });
+  const timelineItems = activities.filter(shouldIncludeLeadTimelineActivity);
 
   const openTransfer = () => {
     if (!canTransferToCounsellor(lead, leadMeta) && !leadMeta?.canReassignCounsellor) {

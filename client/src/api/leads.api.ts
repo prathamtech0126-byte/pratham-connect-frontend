@@ -203,6 +203,7 @@ export interface LeadEntity {
   referenceDisplayName?: string | null;
   reference?: LeadReferencePayload | null;
   referenceMeta?: LeadReferencePayload | null;
+  sentToMeta?: boolean;
 }
 
 export interface LeadActivityEntity {
@@ -254,7 +255,23 @@ export interface LeadListParams {
   limit?: number;
   sortBy?: "created_at" | "updated_at" | "next_followup_at";
   sortOrder?: "asc" | "desc";
-  counsellorListFilter?: "in_progress" | "follow_up" | "converted" | "dropped";
+  counsellorListFilter?:
+    | "not_contacted"
+    | "in_progress"
+    | "follow_up"
+    | "converted"
+    | "dropped";
+  /** Include converted/dropped on counsellor-scoped lists (e.g. lead report). */
+  forReport?: boolean;
+  withoutTelecaller?: boolean;
+  withTelecaller?: boolean;
+  sentToMeta?: boolean;
+  /** Restrict to leads that have a facebook_lead record (covers both FB and Instagram). */
+  metaLeadsOnly?: boolean;
+  /** true = only leads with quality set; false = only leads without quality */
+  hasQuality?: boolean;
+  /** Only show leads with assignmentStatus in (transferred, dropped, converted) or progressStatus = junk */
+  excludeUnassigned?: boolean;
 }
 
 export const getLeads = async (
@@ -350,16 +367,18 @@ export const getTelecallerIndividualReport = async (
   return res.data.data as TelecallerIndividualReport;
 };
 
-export interface CounsellorIndividualReport {
-  stats: {
-    total: number;
-    inProgress: number;
-    followUp: number;
-    converted: number;
-    dropped: number;
-    notContacted: number;
-    contacted: number;
-  };
+export type CounsellorReportStats = {
+  total: number;
+  inProgress: number;
+  followUp: number;
+  converted: number;
+  dropped: number;
+  notContacted: number;
+  contacted: number;
+};
+
+export type CounsellorReportSegment = {
+  stats: CounsellorReportStats;
   typeBreakdown: Array<{
     type: string;
     assigned: number;
@@ -372,6 +391,26 @@ export interface CounsellorIndividualReport {
     converted: number;
     dropped: number;
   }>;
+};
+
+export type CounsellorTelecallerBreakdownRow = {
+  telecallerId: number;
+  assigned: number;
+  inProgress: number;
+  followUp: number;
+  converted: number;
+  dropped: number;
+  notContacted: number;
+  contacted: number;
+};
+
+export interface CounsellorIndividualReport {
+  stats: CounsellorReportStats;
+  typeBreakdown: CounsellorReportSegment["typeBreakdown"];
+  sourceBreakdown: CounsellorReportSegment["sourceBreakdown"];
+  direct: CounsellorReportSegment;
+  viaTelecaller: CounsellorReportSegment;
+  telecallerBreakdown: CounsellorTelecallerBreakdownRow[];
 }
 
 export const getCounsellorIndividualReport = async (
@@ -557,6 +596,10 @@ export const bulkAssignLeadsApi = async (payload: {
   leadIds: number[];
   telecallerId?: number;
   counsellorId?: number;
+  /** When assigning to telecaller: clear counsellor assignment if true */
+  removeFromCounsellor?: boolean;
+  /** When assigning to counsellor: clear telecaller assignment if true */
+  removeFromTelecaller?: boolean;
 }) => {
   const res = await api.post("/api/leads/bulk-assign", payload);
   return res.data.data as {

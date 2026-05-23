@@ -86,6 +86,8 @@ export default function IndividualTelecallerAnalysis() {
     telecallerId !== null &&
     String(telecallerId) !== String(user.id);
 
+  const isAdminView = user?.role !== "telecaller";
+
   const rangeParams = useMemo(
     () => leadDateRangeParams(dateFilter, customDateFrom, customDateTo),
     [dateFilter, customDateFrom, customDateTo]
@@ -202,25 +204,48 @@ export default function IndividualTelecallerAnalysis() {
   return (
     <PageWrapper
       title={
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => setLocation("/leads/reports")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-2xl font-bold">{telecallerName || "Telecaller Analysis"}</span>
-        </div>
+        <span className="text-2xl font-bold">
+          {isAdminView
+            ? `${telecallerName || "Telecaller"} — Lead Report`
+            : telecallerName || "My Lead Report"}
+        </span>
       }
-      breadcrumbs={[
-        { label: "Leads", href: "/leads" },
-        { label: "Reports", href: "/leads/reports" },
-        { label: telecallerName || "Analysis" },
-      ]}
+      breadcrumbs={
+        isAdminView
+          ? [
+              { label: "Leads", href: "/leads" },
+              { label: "Reports", href: "/leads/reports" },
+              { label: telecallerName || "Analysis" },
+            ]
+          : [
+              { label: "Leads", href: "/leads" },
+              { label: telecallerName || "My Report" },
+            ]
+      }
     >
       <div className="space-y-6">
+        {isAdminView && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-ml-2 h-8 px-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setLocation("/leads/reports")}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1.5" />
+            Back to reports
+          </Button>
+        )}
 
-        {/* ── Date + Source/Type Filters ─── */}
         <div className="rounded-xl border bg-card shadow-sm p-4 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">Telecaller · ID #{telecallerId}</p>
+            <div className="flex flex-col gap-1">
+              <p className="text-sm font-semibold text-foreground">
+                {telecallerName || "Telecaller"}
+              </p>
+              <Badge variant="secondary" className="w-fit text-[10px] font-medium capitalize">
+                Telecaller
+              </Badge>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground">Period:</span>
               <div className="flex rounded-lg border border-border bg-muted/30 p-0.5 gap-0.5">

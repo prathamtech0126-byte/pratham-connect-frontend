@@ -1,6 +1,8 @@
 import { format } from "date-fns";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowUpDown,
   CalendarClock,
   Check,
   CheckCircle2,
@@ -44,8 +46,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { getUnmatchedCustomAnswerKeys } from "@/lib/lead-custom-answers";
-import { getLeadDisplayTags } from "@/lib/lead-status-tags";
-import { formatLeadActivityDisplay } from "@/lib/lead-activity-display";
+import { getCounsellorProgressLabel, getLeadDisplayTags } from "@/lib/lead-status-tags";
+import { formatLeadActivityDisplay, sortTimelineActivities } from "@/lib/lead-activity-display";
 import type { LeadEntity } from "@/api/leads.api";
 import type { LeadDetailMeta } from "@/api/leads.api";
 
@@ -154,6 +156,11 @@ export type LeadDetailLayoutProps = {
 };
 
 export function LeadDetailLayout(props: LeadDetailLayoutProps) {
+  const [timelineNewestFirst, setTimelineNewestFirst] = useState(true);
+  const mainColumnRef = useRef<HTMLDivElement>(null);
+  const assignmentRef = useRef<HTMLDivElement>(null);
+  const [sidebarHeightPx, setSidebarHeightPx] = useState<number | null>(null);
+
   const {
     lead,
     leadMeta,
@@ -203,11 +210,45 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
     personalSection,
   } = props;
 
+  const sortedTimelineItems = sortTimelineActivities(timelineItems, timelineNewestFirst);
+
   const customAnswers =
     lead.customAnswers && typeof lead.customAnswers === "object" && !Array.isArray(lead.customAnswers)
       ? (lead.customAnswers as Record<string, unknown>)
       : {};
   const formKeys = getUnmatchedCustomAnswerKeys(customAnswers, lead);
+
+  useEffect(() => {
+    const main = mainColumnRef.current;
+    if (!main) return;
+
+    const syncHeights = () => {
+      const isWide = window.matchMedia("(min-width: 1024px)").matches;
+      if (!isWide) {
+        setSidebarHeightPx(null);
+        return;
+      }
+      setSidebarHeightPx(main.getBoundingClientRect().height);
+    };
+
+    const ro = new ResizeObserver(syncHeights);
+    ro.observe(main);
+    const assignment = assignmentRef.current;
+    if (assignment) ro.observe(assignment);
+
+    syncHeights();
+    window.addEventListener("resize", syncHeights);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", syncHeights);
+    };
+  }, [
+    timelineItems.length,
+    noteActivities.length,
+    followupActivities.length,
+    isEditing,
+    formKeys.length,
+  ]);
 
   const readOnlyLabel = isJunk
     ? "Read only — junk"
@@ -376,9 +417,9 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
         </>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <Tabs defaultValue="overview" className="w-full">
+      <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
+        <div ref={mainColumnRef} className="lg:col-span-2 min-w-0 overflow-hidden">
+          <Tabs defaultValue="overview" className="w-full min-w-0">
             <TabsList className="w-full justify-start h-auto p-1 bg-muted/40 rounded-lg">
               <TabsTrigger value="overview" className="px-6 py-2">
                 Overview
@@ -395,7 +436,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
             </TabsList>
 
             <TabsContent value="overview" className="mt-4 space-y-4">
-              <Card className="shadow-sm border-border/60">
+              <Card className="shadow-sm border-border/60 min-w-0 overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between py-4">
                   <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Lead information
@@ -417,8 +458,8 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                     ))}
                 </CardHeader>
                 <Separator />
-                <CardContent className="p-6 space-y-6">
-                  <div className="grid gap-6 sm:grid-cols-2">
+                <CardContent className="p-6 space-y-6 min-w-0 overflow-hidden">
+                  <div className="grid gap-6 sm:grid-cols-2 min-w-0">
                     <div className="space-y-4">
                       {(
                         [
@@ -515,13 +556,15 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                           Progress
                         </p>
                         <Badge variant="outline" className={cn("capitalize border", progressBadgeClass(lead.progressStatus))}>
-                          {humanizeEnum(lead.progressStatus)}
+                          {isCounsellor
+                            ? getCounsellorProgressLabel(lead.progressStatus)
+                            : humanizeEnum(lead.progressStatus)}
                         </Badge>
                       </div>
                     </div>
                   </div>
 
-                  <div>
+                  <div className="min-w-0 max-w-full">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
                       Lead note
                     </p>
@@ -530,10 +573,10 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                         value={editForm.latestNote ?? ""}
                         onChange={(e) => setEditForm({ ...editForm, latestNote: e.target.value })}
                         rows={3}
-                        className="resize-y"
+                        className="resize-y max-w-full"
                       />
                     ) : (
-                      <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm whitespace-pre-wrap">
+                      <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm whitespace-pre-wrap break-words break-all min-w-0 max-w-full overflow-hidden [overflow-wrap:anywhere]">
                         {lead.latestNote?.trim() || "No note yet."}
                       </div>
                     )}
@@ -612,7 +655,9 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
               {noteActivities.map((n) => (
                 <Card key={n.id} className="border-border/50">
                   <CardContent className="p-4 flex justify-between gap-4">
-                    <p className="text-sm flex-1 break-words min-w-0">{n.message}</p>
+                    <p className="text-sm flex-1 break-words break-all min-w-0 [overflow-wrap:anywhere]">
+                      {n.message}
+                    </p>
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                       {formatDateTime(n.createdAt)}
                     </span>
@@ -628,12 +673,12 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
               {followupActivities.map((f) => {
                 const isPending = f.status === "pending";
                 return (
-                  <Card key={f.id}>
-                    <CardContent className="p-4 flex justify-between gap-4">
-                      <div className="flex gap-3">
+                  <Card key={f.id} className="overflow-hidden">
+                    <CardContent className="p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="flex gap-3 min-w-0 flex-1">
                         <div
                           className={cn(
-                            "p-1.5 rounded-full h-fit",
+                            "p-1.5 rounded-full h-fit shrink-0",
                             isPending ? "bg-amber-50" : "bg-emerald-50"
                           )}
                         >
@@ -643,16 +688,20 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                           )}
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold">{formatDateTime(f.followupAt)}</p>
-                          {f.message && <p className="text-sm text-muted-foreground mt-0.5">{f.message}</p>}
+                          {f.message && (
+                            <p className="text-sm text-muted-foreground mt-0.5 break-words break-all whitespace-pre-wrap">
+                              {f.message}
+                            </p>
+                          )}
                         </div>
                       </div>
                       {isPending && !readOnly && (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-emerald-600 shrink-0"
+                          className="text-emerald-600 shrink-0 self-end sm:self-auto"
                           onClick={() => onCompleteFollowUp(f.id)}
                         >
                           Done
@@ -666,9 +715,15 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
           </Tabs>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-4">
-          <Card className="shadow-sm">
+        {/* Sidebar height locked to main column on lg; timeline scrolls inside only */}
+        <div
+          className={cn(
+            "flex flex-col gap-4 min-h-0",
+            sidebarHeightPx != null && "lg:overflow-hidden"
+          )}
+          style={sidebarHeightPx != null ? { height: sidebarHeightPx } : undefined}
+        >
+          <Card ref={assignmentRef} className="shadow-sm shrink-0">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Assignment
@@ -711,18 +766,29 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm flex-1">
-            <CardHeader className="pb-2">
+          <Card className="shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden max-lg:max-h-80">
+            <CardHeader className="pb-2 shrink-0 flex flex-row items-center justify-between gap-2 space-y-0">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Timeline
               </CardTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-[10px] gap-1 text-muted-foreground"
+                title={timelineNewestFirst ? "Newest first — swap to oldest first" : "Oldest first — swap to newest first"}
+                onClick={() => setTimelineNewestFirst((v) => !v)}
+              >
+                <ArrowUpDown className="h-3.5 w-3.5" />
+                Swap
+              </Button>
             </CardHeader>
-            <CardContent className="p-0">
-              <div className="max-h-80 overflow-y-auto px-4 pb-4 space-y-4">
-                {timelineItems.length === 0 ? (
+            <CardContent className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-0">
+              <div className="px-4 pb-4 pt-1 space-y-4">
+                {sortedTimelineItems.length === 0 ? (
                   <p className="text-xs text-muted-foreground py-2">No activity yet.</p>
                 ) : (
-                  timelineItems.map((item) => {
+                  sortedTimelineItems.map((item) => {
                     const isNote = item.activityType === "note";
                     const isFollowup = item.activityType === "followup";
                     const followupCompleted = isFollowup && item.status === "completed";
@@ -758,10 +824,15 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                             <CheckCircle2 className="h-3.5 w-3.5" />
                           )}
                         </div>
-                        <div className="min-w-0 border-l-2 border-muted pl-3 pb-1">
-                          <p className="text-xs font-semibold leading-snug">{formatted.title}</p>
+                        <div className="min-w-0 flex-1 border-l-2 border-muted pl-3 pb-1 overflow-hidden [overflow-wrap:anywhere]">
+                          <p className="text-xs font-semibold leading-snug break-words break-all">
+                            {formatted.title}
+                          </p>
                           {formatted.details.map((line, idx) => (
-                            <p key={idx} className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                            <p
+                              key={idx}
+                              className="text-[11px] text-muted-foreground mt-0.5 leading-snug break-words break-all"
+                            >
                               {line}
                             </p>
                           ))}

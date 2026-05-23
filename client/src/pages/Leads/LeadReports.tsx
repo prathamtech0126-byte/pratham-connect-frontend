@@ -468,7 +468,7 @@ export default function LeadReports() {
         <Card className="shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold">Counsellor-wise Lead Outcome</CardTitle>
-            <CardDescription className="text-xs">Leads received by each counsellor — converted vs dropped vs pending</CardDescription>
+            <CardDescription className="text-xs">Click a counsellor to open their full lead report</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
@@ -491,7 +491,11 @@ export default function LeadReports() {
                 ) : counsellorBreakdown.map((c, i) => {
                   const convRate = c.received > 0 ? ((c.converted / c.received) * 100).toFixed(0) : "0";
                   return (
-                    <TableRow key={c.id} className="hover:bg-muted/30 transition-colors">
+                    <TableRow
+                      key={c.id}
+                      className="hover:bg-muted/30 transition-colors cursor-pointer"
+                      onClick={() => setLocation(`/leads/counsellor-report/${c.id}`)}
+                    >
                       <TableCell className="pl-4">
                         <span className={cn("text-sm font-bold",
                           i === 0 ? "text-yellow-500" : i === 1 ? "text-slate-400" : i === 2 ? "text-amber-600" : "text-muted-foreground"

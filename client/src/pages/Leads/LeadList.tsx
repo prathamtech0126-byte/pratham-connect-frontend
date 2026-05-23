@@ -38,6 +38,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import {
   clampFollowupDateTime,
@@ -86,7 +87,7 @@ import {
 } from "@/lib/lead-status-tags";
 import { consumeLeadListPatches, extractLeadFromSocketPayload } from "@/lib/lead-list-sync";
 import { listPatchFromLeadUpdate } from "@/lib/lead-progress-rules";
-import { getLeadSourceLabel, isInboundChannelLead } from "@/lib/lead-source-display";
+import { getLeadSourceLabel } from "@/lib/lead-source-display";
 import {
   getLeadReferenceDisplayLabel,
   leadHasReferenceSource,
@@ -291,7 +292,14 @@ export default function LeadList() {
   const [adminTransferOpen, setAdminTransferOpen] = useState(false);
   const [adminTargetTelecallerId, setAdminTargetTelecallerId] = useState("");
   const [adminTargetCounsellorId, setAdminTargetCounsellorId] = useState("");
-  const [adminTransferConfirm, setAdminTransferConfirm] = useState(false);
+  const [adminTransferStep, setAdminTransferStep] = useState<"assignee" | "reassign" | "confirm">(
+    "assignee"
+  );
+  const [adminReassignCount, setAdminReassignCount] = useState(0);
+  const [adminReassignFromRole, setAdminReassignFromRole] = useState<"counsellor" | "telecaller" | null>(
+    null
+  );
+  const [adminRemoveFromPreviousAssignee, setAdminRemoveFromPreviousAssignee] = useState(false);
   const [adminTransferSubmitting, setAdminTransferSubmitting] = useState(false);
 
   const canBulkSelect =
@@ -419,14 +427,7 @@ export default function LeadList() {
         const patch = patches[String(row.id)];
         return patch ? mergeLeadRow(row, patch) : row;
       });
-      const visibleLeads =
-        isAdminBulk && !filterAssignmentStatus
-          ? merged.filter(
-              (lead) =>
-                lead.assignmentStatus !== "not_assigned" || isInboundChannelLead(lead)
-            )
-          : merged;
-      const sorted = sortLeadsForDisplay(visibleLeads);
+      const sorted = sortLeadsForDisplay(merged);
       setLeads(sorted);
       const total = sorted.length;
       const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -456,7 +457,6 @@ export default function LeadList() {
     pageSize,
     toast,
     isCounsellor,
-    isAdminBulk,
   ]);
 
 
@@ -776,10 +776,21 @@ const loadLeadTypes = useCallback(async () => {
     setTtModalOpen(true);
   };
 
+  const getAdminTransferableLeads = useCallback(
+    () =>
+      leads.filter(
+        (l) => selectedLeadIds.has(l.id) && !isAdminJunkRestoreMode && !isLeadTransferBlocked(l)
+      ),
+    [leads, selectedLeadIds, isAdminJunkRestoreMode]
+  );
+
   const openAdminTransferModal = () => {
     setAdminTargetTelecallerId("");
     setAdminTargetCounsellorId("");
-    setAdminTransferConfirm(false);
+    setAdminTransferStep("assignee");
+    setAdminReassignCount(0);
+    setAdminReassignFromRole(null);
+    setAdminRemoveFromPreviousAssignee(false);
     setAdminTransferOpen(true);
   };
 
@@ -787,7 +798,10 @@ const loadLeadTypes = useCallback(async () => {
     setAdminTransferOpen(false);
     setAdminTargetTelecallerId("");
     setAdminTargetCounsellorId("");
-    setAdminTransferConfirm(false);
+    setAdminTransferStep("assignee");
+    setAdminReassignCount(0);
+    setAdminReassignFromRole(null);
+    setAdminRemoveFromPreviousAssignee(false);
   };
 
   const closeTtModal = () => {
@@ -831,25 +845,70 @@ const loadLeadTypes = useCallback(async () => {
   };
 
   const handleAdminTransferSubmit = async () => {
-    if (!adminTargetTelecallerId && !adminTargetCounsellorId) {
-      toast({
-        title: "Select assignee",
-        description: "Choose a telecaller or counsellor to transfer the selected leads.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!adminTransferConfirm) {
-      setAdminTransferConfirm(true);
+    if (adminTransferStep === "assignee") {
+      if (!adminTargetTelecallerId && !adminTargetCounsellorId) {
+        toast({
+          title: "Select assignee",
+          description: "Choose a telecaller or counsellor to transfer the selected leads.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const transferable = getAdminTransferableLeads();
+      if (transferable.length === 0) {
+        toast({
+          title: "No leads to transfer",
+          description: "Transferred or converted leads cannot be reassigned.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!isAdminJunkRestoreMode) {
+        const toTelecaller = Boolean(adminTargetTelecallerId);
+        const conflictCount = toTelecaller
+          ? transferable.filter((l) => l.currentCounsellorId != null).length
+          : transferable.filter((l) => l.currentTelecallerId != null).length;
+        if (conflictCount > 0) {
+          setAdminReassignCount(conflictCount);
+          setAdminReassignFromRole(toTelecaller ? "counsellor" : "telecaller");
+          setAdminRemoveFromPreviousAssignee(false);
+          setAdminTransferStep("reassign");
+          return;
+        }
+      }
+
+      setAdminTransferStep("confirm");
       return;
     }
 
-    const leadIds = Array.from(selectedLeadIds);
+    if (adminTransferStep === "reassign") {
+      if (adminReassignCount > 0 && !adminRemoveFromPreviousAssignee) {
+        toast({
+          title: "Confirmation required",
+          description: "Check the box to confirm removing leads from the previous assignee's list.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setAdminTransferStep("confirm");
+      return;
+    }
+
+    const transferable = getAdminTransferableLeads();
+    const leadIds = transferable.map((l) => l.id);
     try {
       setAdminTransferSubmitting(true);
       const assigneePayload = adminTargetCounsellorId
-        ? { counsellorId: Number(adminTargetCounsellorId) }
-        : { telecallerId: Number(adminTargetTelecallerId) };
+        ? {
+            counsellorId: Number(adminTargetCounsellorId),
+            ...(adminRemoveFromPreviousAssignee ? { removeFromTelecaller: true } : {}),
+          }
+        : {
+            telecallerId: Number(adminTargetTelecallerId),
+            ...(adminRemoveFromPreviousAssignee ? { removeFromCounsellor: true } : {}),
+          };
       const result = isAdminJunkRestoreMode
         ? {
             updated: await Promise.all(leadIds.map((id) => revertLeadJunkApi(id, assigneePayload))),
@@ -901,6 +960,12 @@ const loadLeadTypes = useCallback(async () => {
     counsellors.find((c) => String(c.id) === adminTargetCounsellorId)?.fullName ??
     telecallers.find((t) => String(t.id) === adminTargetTelecallerId)?.fullName ??
     "";
+
+  const adminSelectedCount = selectedLeadIds.size;
+  const adminTransferableCount = getAdminTransferableLeads().length;
+  const adminSkippedTransferCount = isAdminJunkRestoreMode
+    ? 0
+    : Math.max(0, adminSelectedCount - adminTransferableCount);
 
   const eligibilityLabel = (v?: string | null) =>
     ELIGIBILITY_OPTIONS.find((o) => o.value === v)?.label;
@@ -1655,12 +1720,19 @@ const loadLeadTypes = useCallback(async () => {
             <DialogTitle>{isAdminJunkRestoreMode ? "Restore & Assign Junk Leads" : "Transfer Selected Leads"}</DialogTitle>
           </DialogHeader>
 
-          {!adminTransferConfirm ? (
+          {adminTransferStep === "assignee" && (
             <div className="space-y-4 py-4">
               <p className="text-sm text-muted-foreground">
                 {isAdminJunkRestoreMode ? "Restoring" : "Transferring"}{" "}
-                <span className="font-semibold text-foreground">{selectedLeadIds.size}</span> lead{selectedLeadIds.size > 1 ? "s" : ""}. Choose one telecaller or one counsellor.
+                <span className="font-semibold text-foreground">{adminTransferableCount}</span> lead
+                {adminTransferableCount !== 1 ? "s" : ""}. Choose one telecaller or one counsellor.
               </p>
+              {!isAdminJunkRestoreMode && adminSkippedTransferCount > 0 && (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                  {adminSkippedTransferCount} selected lead{adminSkippedTransferCount !== 1 ? "s" : ""}{" "}
+                  (transferred or converted) will be skipped. Assigned and follow-up leads can be moved.
+                </p>
+              )}
               <div className="grid gap-2">
                 <Label>Telecaller</Label>
                 <Select
@@ -1700,27 +1772,91 @@ const loadLeadTypes = useCallback(async () => {
                 </Select>
               </div>
             </div>
-          ) : (
+          )}
+
+          {adminTransferStep === "reassign" && (
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-foreground">
+                <span className="font-semibold">{adminReassignCount}</span> lead
+                {adminReassignCount !== 1 ? "s are" : " is"} currently assigned to a{" "}
+                {adminReassignFromRole === "counsellor" ? "counsellor" : "telecaller"}.
+              </p>
+              {adminReassignFromRole === "counsellor" ? (
+                <p className="text-sm text-muted-foreground">
+                  Do you want to remove {adminReassignCount === 1 ? "this lead" : "these leads"} from the
+                  counsellor&apos;s list?
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  If the counsellor converts {adminReassignCount === 1 ? "this lead" : "these leads"}, the
+                  telecaller may receive conversion credit. Do you want to remove{" "}
+                  {adminReassignCount === 1 ? "it" : "them"} from the telecaller&apos;s list?
+                </p>
+              )}
+              <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer">
+                <Checkbox
+                  checked={adminRemoveFromPreviousAssignee}
+                  onCheckedChange={(v) => setAdminRemoveFromPreviousAssignee(v === true)}
+                />
+                <span className="text-sm leading-snug">
+                  Yes, remove from the previous {adminReassignFromRole}&apos;s list
+                </span>
+              </label>
+            </div>
+          )}
+
+          {adminTransferStep === "confirm" && (
             <div className="py-6 text-center space-y-2">
-              <p className="text-sm text-muted-foreground">Confirm {isAdminJunkRestoreMode ? "restore and assignment of" : "transfer of"}</p>
-              <p className="text-lg font-bold">{selectedLeadIds.size} lead{selectedLeadIds.size > 1 ? "s" : ""}</p>
+              <p className="text-sm text-muted-foreground">
+                Confirm {isAdminJunkRestoreMode ? "restore and assignment of" : "transfer of"}
+              </p>
+              <p className="text-lg font-bold">
+                {adminTransferableCount} lead{adminTransferableCount !== 1 ? "s" : ""}
+              </p>
               <p className="text-sm text-muted-foreground">to</p>
               <p className="text-base font-semibold text-primary">{adminTargetName}</p>
+              {adminRemoveFromPreviousAssignee && adminReassignFromRole && (
+                <p className="text-xs text-muted-foreground">
+                  Will be removed from the previous {adminReassignFromRole}&apos;s list.
+                </p>
+              )}
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={adminTransferConfirm ? () => setAdminTransferConfirm(false) : closeAdminTransferModal}>
-              {adminTransferConfirm ? "Back" : "Cancel"}
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (adminTransferStep === "confirm") {
+                  setAdminTransferStep(adminReassignCount > 0 ? "reassign" : "assignee");
+                  return;
+                }
+                if (adminTransferStep === "reassign") {
+                  setAdminTransferStep("assignee");
+                  return;
+                }
+                closeAdminTransferModal();
+              }}
+            >
+              {adminTransferStep === "assignee" ? "Cancel" : "Back"}
             </Button>
             <Button
-              disabled={(!adminTargetTelecallerId && !adminTargetCounsellorId) || adminTransferSubmitting}
+              disabled={
+                (adminTransferStep === "assignee" &&
+                  !adminTargetTelecallerId &&
+                  !adminTargetCounsellorId) ||
+                adminTransferSubmitting
+              }
               onClick={handleAdminTransferSubmit}
             >
               {adminTransferSubmitting
-                ? isAdminJunkRestoreMode ? "Restoring…" : "Transferring…"
-                : adminTransferConfirm
-                  ? isAdminJunkRestoreMode ? "Confirm Restore" : "Confirm Transfer"
+                ? isAdminJunkRestoreMode
+                  ? "Restoring…"
+                  : "Transferring…"
+                : adminTransferStep === "confirm"
+                  ? isAdminJunkRestoreMode
+                    ? "Confirm Restore"
+                    : "Confirm Transfer"
                   : "Next →"}
             </Button>
           </DialogFooter>

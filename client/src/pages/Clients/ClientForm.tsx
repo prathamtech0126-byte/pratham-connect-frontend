@@ -12,7 +12,7 @@ import { useForm, useWatch, useFieldArray, Control } from "react-hook-form";
 import { Trash2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useLocation, useParams, useSearch } from "wouter";
+import { Link, useLocation, useParams, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { clientService } from "@/services/clientService";
 import { useAuth } from "@/context/auth-context";
@@ -36,13 +36,14 @@ import {
 } from "@/components/ui/dialog";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2, Search, X, Plus, Mail, FileText, CheckSquare } from "lucide-react";
+import { ArrowLeft, Loader2, Search, X, Plus, Mail, FileText, CheckSquare } from "lucide-react";
 import { ClientFormSkeleton } from "@/components/ui/page-skeletons";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import api from "@/lib/api";
 import { fetchChecklists, fetchCategories, type ChecklistSummary } from "@/api/checklist.api";
 import { getLeadDetail, updateLeadApi } from "@/api/leads.api";
+import { pushLeadListPatch } from "@/lib/lead-list-sync";
 
 // --- Schema Definitions ---
 
@@ -498,7 +499,34 @@ export default function ClientForm() {
     const v = p.get("fromLead");
     return v ? Number(v) : null;
   }, [searchStr]);
-  const [fromLeadConverted, setFromLeadConverted] = useState(false);
+  // Holds the lead's leadSource for reliable use in submission (disabled fields can be unreliable)
+  const fromLeadSourceRef = useRef<string | null>(null);
+  const leadConvertedMarkedRef = useRef(false);
+
+  const markOriginatingLeadConverted = useCallback(async () => {
+    if (!fromLeadId || leadConvertedMarkedRef.current) return;
+    try {
+      await updateLeadApi(fromLeadId, {
+        progressStatus: "converted",
+        assignmentStatus: "converted",
+      });
+      pushLeadListPatch(fromLeadId, {
+        progressStatus: "converted",
+        assignmentStatus: "converted",
+      });
+      leadConvertedMarkedRef.current = true;
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Could not mark the lead as converted.";
+      toast({
+        title: "Lead status not updated",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  }, [fromLeadId, toast]);
 
   // Socket listeners for all finance approval/rejection events
   useEffect(() => {
@@ -2060,7 +2088,10 @@ export default function ClientForm() {
         form.setValue("name", lead.fullName ?? "", { shouldDirty: true });
         form.setValue("enrollmentDate", enrollmentDate, { shouldDirty: true });
         if (passport) form.setValue("passportDetails", passport, { shouldDirty: true });
-        if (lead.leadSource) form.setValue("leadSource", lead.leadSource, { shouldDirty: true });
+        if (lead.leadSource) {
+          fromLeadSourceRef.current = lead.leadSource;
+          form.setValue("leadSource", lead.leadSource, { shouldDirty: true });
+        }
       } catch {
         // non-critical
       }
@@ -2533,7 +2564,8 @@ export default function ClientForm() {
     try {
       const data = form.getValues();
       const selectedTypeData = allSaleTypes.find((t) => t.saleType === data.salesType);
-      const selectedLeadType = leadTypes.find((lt: any) => lt.leadType === data.leadSource);
+      const effectiveLeadSource = fromLeadId ? (fromLeadSourceRef.current ?? data.leadSource) : data.leadSource;
+      const selectedLeadType = leadTypes.find((lt: any) => lt.leadType === effectiveLeadSource);
       const leadTypeId = selectedLeadType?.id || selectedLeadType?.leadTypeId || null;
 
       // Counsellor: use own ID. Admin/manager/developer: preserve original counsellor from API (don't inject admin's ID).
@@ -2598,6 +2630,10 @@ export default function ClientForm() {
         queryClient.invalidateQueries({ queryKey: ["clients"] });
       }
 
+      if (wasNewClient && fromLeadId) {
+        await markOriginatingLeadConverted();
+      }
+
       toast({
         title: "Success",
         description: wasNewClient
@@ -2651,7 +2687,9 @@ export default function ClientForm() {
         // Create client
         const data = form.getValues();
         const selectedTypeData = allSaleTypes.find((t) => t.saleType === data.salesType);
-        const selectedLeadType = leadTypes.find((lt: any) => lt.leadType === data.leadSource);
+        // When coming from a lead, use the stored leadSource from the lead (ref is authoritative; disabled field may not always be in form values)
+        const effectiveLeadSource = fromLeadId ? (fromLeadSourceRef.current ?? data.leadSource) : data.leadSource;
+        const selectedLeadType = leadTypes.find((lt: any) => lt.leadType === effectiveLeadSource);
         const leadTypeId = selectedLeadType?.id || selectedLeadType?.leadTypeId || null;
 
         // Counsellor: use own ID. Admin/manager/developer: preserve original counsellor from API (don't inject admin's ID).
@@ -2694,19 +2732,6 @@ export default function ClientForm() {
           }
 
           toast({ title: "Success", description: "Client created successfully!" });
-
-          // Mark the originating lead as converted if navigated from lead convert flow
-          if (fromLeadId && !fromLeadConverted) {
-            try {
-              await updateLeadApi(fromLeadId, {
-                progressStatus: "converted",
-                assignmentStatus: "converted",
-              });
-              setFromLeadConverted(true);
-            } catch {
-              // non-critical — lead status update failure should not block client creation
-            }
-          }
         } else {
           throw new Error("Failed to create client");
         }
@@ -2721,6 +2746,8 @@ export default function ClientForm() {
       if (showProductSection) {
         await saveProductData();
       }
+
+      await markOriginatingLeadConverted();
 
       toast({ title: "Success", description: "All data saved successfully!" });
 
@@ -3195,13 +3222,23 @@ export default function ClientForm() {
 
   // Show loading state while fetching client data in edit mode
   if (isLoadingClientData && isEditMode) {
+    const backHref = fromLeadId ? `/leads/${fromLeadId}` : "/clients";
     return (
       <PageWrapper
         title={isEditMode ? "Edit Client" : "Add New Client"}
         breadcrumbs={[
           { label: "Clients", href: "/clients" },
+          ...(fromLeadId ? [{ label: "Lead", href: `/leads/${fromLeadId}` }] : []),
           { label: isEditMode ? "Edit Client" : "New Client" },
         ]}
+        actions={
+          <Link href={backHref}>
+            <Button variant="outline" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </Link>
+        }
       >
         <ClientFormSkeleton />
       </PageWrapper>
@@ -4301,13 +4338,24 @@ export default function ClientForm() {
     </div>
   );
 
+  const backHref = fromLeadId ? `/leads/${fromLeadId}` : "/clients";
+
   return (
     <PageWrapper
       title={isEditMode ? "Edit Client" : "Add New Client"}
       breadcrumbs={[
         { label: "Clients", href: "/clients" },
+        ...(fromLeadId ? [{ label: "Lead", href: `/leads/${fromLeadId}` }] : []),
         { label: isEditMode ? "Edit Client" : "New Client" },
       ]}
+      actions={
+        <Link href={backHref}>
+          <Button variant="outline" size="sm" className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+        </Link>
+      }
     >
       <div className="max-w-4xl mx-auto pb-12 space-y-6">
         {/* Client Information Section */}

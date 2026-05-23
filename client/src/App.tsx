@@ -399,6 +399,24 @@ function Router() {
         <Route path="/leads/reports">
           {() => <ProtectedRoute component={LeadReports} />}
         </Route>
+        <Route path="/leads/counsellor-report/:counsellorId">
+          {() => (
+            <ProtectedRoute
+              component={CounsellorLeadReport}
+              allowedRoles={
+                [
+                  "superadmin",
+                  "admin",
+                  "developer",
+                  "manager",
+                  "marketing_head",
+                  "backend_manager",
+                  "counsellor",
+                ] as UserRole[]
+              }
+            />
+          )}
+        </Route>
         <Route path="/leads/counsellor-report">
           {() => (
             <ProtectedRoute

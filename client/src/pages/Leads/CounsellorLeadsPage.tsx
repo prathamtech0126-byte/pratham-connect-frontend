@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useLeadSocketRefresh } from "@/hooks/use-lead-socket";
 import { format } from "date-fns";
@@ -37,7 +37,12 @@ import {
 
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { getLeadDisplayTags } from "@/lib/lead-status-tags";
+import { getLeadDisplayTags, mergeLeadRow } from "@/lib/lead-status-tags";
+import {
+  applyLeadListPatches,
+  consumeLeadListPatches,
+  extractLeadFromSocketPayload,
+} from "@/lib/lead-list-sync";
 import { getLeadSourceLabel } from "@/lib/lead-source-display";
 import {
   getLeadReferenceDisplayLabel,
@@ -52,11 +57,14 @@ type LeadType = { id: number; leadType: string; displayAlias?: string | null };
 type SaleType = { id: number; saleType: string };
 type Telecaller = { id: number; fullName: string };
 const PROGRESS_STATUS_OPTIONS = [
+  { value: "not_contacted", label: "Not Contacted" },
   { value: "in_progress", label: "In Progress" },
   { value: "follow_up", label: "Follow Up" },
   { value: "converted", label: "Converted" },
   { value: "dropped", label: "Drop" },
-];
+] as const;
+
+type CounsellorListFilter = (typeof PROGRESS_STATUS_OPTIONS)[number]["value"];
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -107,20 +115,7 @@ export default function CounsellorLeadsPage() {
 
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
 
-  const counsellorId = user?.id;
-  useLeadSocketRefresh({
-    enabled: counsellorId != null,
-    queryKeys: counsellorId != null ? [["counsellor-leads", counsellorId]] : [],
-    onLeadEvent: (event, payload) => {
-      if (event !== "lead:transferred:notify" || !user?.id) return;
-      const n = payload as { counsellorId?: number; lead?: LeadEntity };
-      if (n.counsellorId !== Number(user.id) || !n.lead) return;
-      toast({
-        title: "New lead transferred to you",
-        description: `${n.lead.fullName} · ${n.lead.phone}`,
-      });
-    },
-  });
+  const loadLeadsRef = useRef<() => Promise<void>>(async () => {});
 
   const rangeParams = useMemo(
     () => leadDateRangeParams(dateFilter, customDateFrom, customDateTo),
@@ -157,7 +152,7 @@ export default function CounsellorLeadsPage() {
         currentCounsellorId: Number(user.id),
         search: search.trim().length >= 3 ? search.trim() : undefined,
         counsellorListFilter: filterProgressStatus
-          ? (filterProgressStatus as "in_progress" | "follow_up" | "converted" | "dropped")
+          ? (filterProgressStatus as CounsellorListFilter)
           : undefined,
         leadSource: filterLeadSource || undefined,
         leadType: filterLeadType || undefined,
@@ -168,7 +163,7 @@ export default function CounsellorLeadsPage() {
         sortBy: "updated_at",
         sortOrder: "desc",
       });
-      let items = res.items || [];
+      let items = applyLeadListPatches(res.items || [], consumeLeadListPatches());
       if (filterAssignedBy) {
         if (filterAssignedBy === "__direct__") {
           items = items.filter((l) => !l.currentTelecallerId);
@@ -215,6 +210,71 @@ export default function CounsellorLeadsPage() {
       setSaleTypes(stRes?.data?.data || stRes?.data || []);
     } catch { /* non-critical */ }
   }, []);
+
+  useEffect(() => {
+    loadLeadsRef.current = loadLeads;
+  }, [loadLeads]);
+
+  const counsellorId = user?.id;
+  useLeadSocketRefresh({
+    enabled: counsellorId != null,
+    queryKeys: [],
+    onLeadEvent: (event, payload) => {
+      const myId = Number(user?.id);
+      if (!myId) return;
+
+      if (event === "lead:transferred:notify") {
+        const n = payload as { counsellorId?: number; lead?: LeadEntity };
+        if (n.counsellorId !== myId || !n.lead) return;
+        toast({
+          title: "New lead transferred to you",
+          description: `${n.lead.fullName} · ${n.lead.phone}`,
+        });
+        setLeads((prev) => {
+          if (prev.some((l) => l.id === n.lead!.id)) {
+            return prev.map((l) => (l.id === n.lead!.id ? mergeLeadRow(l, n.lead!) : l));
+          }
+          void loadLeadsRef.current();
+          return prev;
+        });
+        return;
+      }
+
+      const lead = extractLeadFromSocketPayload(payload);
+      if (lead && Number(lead.currentCounsellorId) === myId) {
+        setLeads((prev) => {
+          const idx = prev.findIndex((l) => l.id === lead.id);
+          if (idx < 0) {
+            void loadLeadsRef.current();
+            return prev;
+          }
+          const patch: Partial<LeadEntity> = { ...lead };
+          if (event === "lead:followup") {
+            patch.progressStatus = "follow_up";
+            patch.pendingFollowUp = true;
+          }
+          const next = [...prev];
+          next[idx] = mergeLeadRow(prev[idx], patch);
+          return next;
+        });
+        return;
+      }
+
+      if (
+        [
+          "lead:followup",
+          "lead:updated",
+          "lead:assigned",
+          "lead:bulk_assigned",
+          "lead:converted",
+          "lead:dropped",
+          "lead:activity_updated",
+        ].includes(event)
+      ) {
+        void loadLeadsRef.current();
+      }
+    },
+  });
 
   useEffect(() => { void loadLeads(); }, [loadLeads]);
   useEffect(() => { void loadRefData(); }, [loadRefData]);
