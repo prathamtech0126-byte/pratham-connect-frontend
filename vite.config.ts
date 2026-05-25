@@ -6,6 +6,9 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import fs from "fs";
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 /** Build-time version for cache busting: new deploy = new version, so clients reload. */
 function versionPlugin() {
@@ -31,6 +34,7 @@ function versionPlugin() {
   };
 }
 
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
@@ -44,6 +48,11 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       versionPlugin(),
+      sentryVitePlugin({
+      org: "pratham-international",
+      project: "Pratham International",
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+    }),
     ],
 
     resolve: {
