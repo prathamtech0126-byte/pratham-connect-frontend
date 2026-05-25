@@ -51,7 +51,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 import { getLeads, type LeadEntity } from "@/api/leads.api";
-import { leadDateRangeParams, type LeadDateFilterType } from "@/lib/lead-date-range";
+import { getLeadDateBounds, type LeadDateFilterType } from "@/lib/lead-date-range";
 
 type LeadType = { id: number; leadType: string; displayAlias?: string | null };
 type SaleType = { id: number; saleType: string };
@@ -79,6 +79,15 @@ const DATE_FILTER_LABELS: Record<LeadDateFilterType, string> = {
   all: "All", today: "Today", weekly: "Weekly", monthly: "Monthly", custom: "Custom",
 };
 
+const COUNSELLOR_FILTER_KEY = "counsellor_leads_filters";
+
+function readCounsellorFilters(): Record<string, unknown> {
+  try {
+    const raw = sessionStorage.getItem(COUNSELLOR_FILTER_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
 export default function CounsellorLeadsPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -87,25 +96,39 @@ export default function CounsellorLeadsPage() {
   const [leads, setLeads] = useState<LeadEntity[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Filters
-  const [search, setSearch] = useState("");
-  const [filterLeadSource, setFilterLeadSource] = useState("");
-  const [filterLeadType, setFilterLeadType] = useState("");
-  const [filterProgressStatus, setFilterProgressStatus] = useState("");
-  const [filterAssignedBy, setFilterAssignedBy] = useState(""); // telecaller ID
+  // Filters — restored from sessionStorage on mount
+  const [search, setSearch] = useState(() => String(readCounsellorFilters().search ?? ""));
+  const [filterLeadSource, setFilterLeadSource] = useState(() => String(readCounsellorFilters().filterLeadSource ?? ""));
+  const [filterLeadType, setFilterLeadType] = useState(() => String(readCounsellorFilters().filterLeadType ?? ""));
+  const [filterProgressStatus, setFilterProgressStatus] = useState(() => String(readCounsellorFilters().filterProgressStatus ?? ""));
+  const [filterAssignedBy, setFilterAssignedBy] = useState(() => String(readCounsellorFilters().filterAssignedBy ?? "")); // telecaller ID
 
   // Date filter
-  const [dateFilter, setDateFilter] = useState<LeadDateFilterType>("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [dateFilter, setDateFilter] = useState<LeadDateFilterType>(() => {
+    const stored = readCounsellorFilters().dateFilter as LeadDateFilterType;
+    // "all" is not a restorable choice — page always defaults to "weekly"
+    return (["today", "weekly", "monthly", "custom"] as const).includes(stored) ? stored : "weekly";
+  });
+  const [page, setPage] = useState(() => {
+    const n = Number(readCounsellorFilters().page);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  });
+  const [pageSize, setPageSize] = useState(() => {
+    const n = Number(readCounsellorFilters().pageSize);
+    return Number.isFinite(n) && n > 0 ? n : 25;
+  });
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 25,
     total: 0,
     totalPages: 1,
   });
-  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>();
-  const [customDateTo, setCustomDateTo] = useState<string | undefined>();
+  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>(() =>
+    readCounsellorFilters().customDateFrom as string | undefined
+  );
+  const [customDateTo, setCustomDateTo] = useState<string | undefined>(() =>
+    readCounsellorFilters().customDateTo as string | undefined
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Reference data
@@ -117,10 +140,20 @@ export default function CounsellorLeadsPage() {
 
   const loadLeadsRef = useRef<() => Promise<void>>(async () => {});
 
-  const rangeParams = useMemo(
-    () => leadDateRangeParams(dateFilter, customDateFrom, customDateTo),
-    [dateFilter, customDateFrom, customDateTo]
-  );
+  const rangeParams = useMemo(() => {
+    const bounds = getLeadDateBounds(dateFilter, customDateFrom, customDateTo);
+    if (!bounds) return {};
+    if (filterProgressStatus === "follow_up") {
+      return {
+        nextFollowupFrom: bounds.from.toISOString(),
+        nextFollowupTo: bounds.to.toISOString(),
+      };
+    }
+    return {
+      createdFrom: bounds.from.toISOString(),
+      createdTo: bounds.to.toISOString(),
+    };
+  }, [dateFilter, customDateFrom, customDateTo, filterProgressStatus]);
 
   useEffect(() => {
     setPage(1);
@@ -140,7 +173,7 @@ export default function CounsellorLeadsPage() {
     filterLeadType,
     filterProgressStatus,
     filterAssignedBy,
-    dateFilter !== "all" ? "date" : "",
+    dateFilter !== "weekly" && dateFilter !== "all" ? "date" : "",
   ].filter(Boolean).length;
 
   // ── Data loading ───────────────────────────────────────────────
@@ -278,6 +311,27 @@ export default function CounsellorLeadsPage() {
 
   useEffect(() => { void loadLeads(); }, [loadLeads]);
   useEffect(() => { void loadRefData(); }, [loadRefData]);
+
+  // Persist filter state to sessionStorage whenever any filter changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(COUNSELLOR_FILTER_KEY, JSON.stringify({
+        search,
+        filterLeadSource,
+        filterLeadType,
+        filterProgressStatus,
+        filterAssignedBy,
+        dateFilter,
+        customDateFrom,
+        customDateTo,
+        page,
+        pageSize,
+      }));
+    } catch {}
+  }, [
+    search, filterLeadSource, filterLeadType, filterProgressStatus,
+    filterAssignedBy, dateFilter, customDateFrom, customDateTo, page, pageSize,
+  ]);
 
   /** "Added directly" only when this counsellor created the lead (assignedBy = self). */
   const getFromLabel = (lead: LeadEntity): string | null => {

@@ -164,6 +164,15 @@ const statusColors: Record<string, string> = {
   junk: "bg-red-200 text-red-700",
 };
 
+const LEADLIST_FILTER_KEY = "leadlist_filters";
+
+function readLeadListFilters(): Record<string, unknown> {
+  try {
+    const raw = sessionStorage.getItem(LEADLIST_FILTER_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
 export default function LeadList() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -174,11 +183,25 @@ export default function LeadList() {
   const [loading, setLoading] = useState(false);
   const MAX_LEADS_PER_PAGE = 500;
 
-  const [page, setPage] = useState(1);
-  const [perPagePreset, setPerPagePreset] = useState<"20" | "50" | "100" | "custom">("50");
+  const [page, setPage] = useState(() => {
+    const n = Number(readLeadListFilters().page);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  });
+  const [perPagePreset, setPerPagePreset] = useState<"20" | "50" | "100" | "custom">(() => {
+    const stored = readLeadListFilters().perPagePreset as string;
+    return (["20", "50", "100", "custom"] as const).includes(stored as "20" | "50" | "100" | "custom")
+      ? (stored as "20" | "50" | "100" | "custom")
+      : "50";
+  });
   /** Applied limit when preset is Custom (avoids refetch on every keystroke). */
-  const [customPerPageCommitted, setCustomPerPageCommitted] = useState(50);
-  const [customPerPageDraft, setCustomPerPageDraft] = useState("50");
+  const [customPerPageCommitted, setCustomPerPageCommitted] = useState(() => {
+    const n = Number(readLeadListFilters().customPerPageCommitted);
+    return Number.isFinite(n) && n > 0 ? n : 50;
+  });
+  const [customPerPageDraft, setCustomPerPageDraft] = useState(() => {
+    const n = Number(readLeadListFilters().customPerPageCommitted);
+    return String(Number.isFinite(n) && n > 0 ? n : 50);
+  });
   const pageSize = useMemo(() => {
     if (perPagePreset !== "custom") return Number(perPagePreset);
     return Math.min(MAX_LEADS_PER_PAGE, Math.max(1, customPerPageCommitted));
@@ -203,21 +226,31 @@ export default function LeadList() {
     totalPages: 1,
   });
 
-  // Filters
-  const [search, setSearch] = useState("");
+  // Filters — restored from sessionStorage on mount
+  const [search, setSearch] = useState(() => String(readLeadListFilters().search ?? ""));
   /** Debounced term sent to API (only when length >= SEARCH_MIN_LENGTH). */
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filterLeadSource, setFilterLeadSource] = useState("");
-  const [filterLeadType, setFilterLeadType] = useState("");
-  const [filterProgressStatus, setFilterProgressStatus] = useState("");
-  const [filterAssignmentStatus, setFilterAssignmentStatus] = useState("");
-  const [filterEligibility, setFilterEligibility] = useState("");
-  const [filterQuality, setFilterQuality] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState(() => {
+    const s = String(readLeadListFilters().search ?? "");
+    return s.trim().length >= SEARCH_MIN_LENGTH ? s.trim() : "";
+  });
+  const [filterLeadSource, setFilterLeadSource] = useState(() => String(readLeadListFilters().filterLeadSource ?? ""));
+  const [filterLeadType, setFilterLeadType] = useState(() => String(readLeadListFilters().filterLeadType ?? ""));
+  const [filterProgressStatus, setFilterProgressStatus] = useState(() => String(readLeadListFilters().filterProgressStatus ?? ""));
+  const [filterAssignmentStatus, setFilterAssignmentStatus] = useState(() => String(readLeadListFilters().filterAssignmentStatus ?? ""));
+  const [filterEligibility, setFilterEligibility] = useState(() => String(readLeadListFilters().filterEligibility ?? ""));
+  const [filterQuality, setFilterQuality] = useState(() => String(readLeadListFilters().filterQuality ?? ""));
 
   // Date filter
-  const [dateFilter, setDateFilter] = useState<DateFilterType>("weekly");
-  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>();
-  const [customDateTo, setCustomDateTo] = useState<string | undefined>();
+  const [dateFilter, setDateFilter] = useState<DateFilterType>(() => {
+    const stored = readLeadListFilters().dateFilter as DateFilterType;
+    return (["all", "today", "weekly", "monthly", "custom"] as const).includes(stored) ? stored : "weekly";
+  });
+  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>(() =>
+    readLeadListFilters().customDateFrom as string | undefined
+  );
+  const [customDateTo, setCustomDateTo] = useState<string | undefined>(() =>
+    readLeadListFilters().customDateTo as string | undefined
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
@@ -241,9 +274,9 @@ export default function LeadList() {
   const [followupNote, setFollowupNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const [filterTelecaller, setFilterTelecaller] = useState("");
+  const [filterTelecaller, setFilterTelecaller] = useState(() => String(readLeadListFilters().filterTelecaller ?? ""));
   const [telecallers, setTelecallers] = useState<Counsellor[]>([]);
-  const [filterCounsellor, setFilterCounsellor] = useState("");
+  const [filterCounsellor, setFilterCounsellor] = useState(() => String(readLeadListFilters().filterCounsellor ?? ""));
 
   /**
    * Authoritative current-user id, fetched directly from `/api/users/me`.
@@ -279,6 +312,34 @@ export default function LeadList() {
       setFilterProgressStatus("follow_up");
     }
   }, [searchStr]);
+
+  // Persist filter state to sessionStorage whenever any filter changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(LEADLIST_FILTER_KEY, JSON.stringify({
+        search,
+        filterLeadSource,
+        filterLeadType,
+        filterProgressStatus,
+        filterAssignmentStatus,
+        filterEligibility,
+        filterQuality,
+        filterTelecaller,
+        filterCounsellor,
+        dateFilter,
+        customDateFrom,
+        customDateTo,
+        page,
+        perPagePreset,
+        customPerPageCommitted,
+      }));
+    } catch {}
+  }, [
+    search, filterLeadSource, filterLeadType, filterProgressStatus,
+    filterAssignmentStatus, filterEligibility, filterQuality,
+    filterTelecaller, filterCounsellor, dateFilter,
+    customDateFrom, customDateTo, page, perPagePreset, customPerPageCommitted,
+  ]);
 
   // ── Telecaller-to-telecaller transfer ──────────────────────────
   const [isSelectMode, setIsSelectMode] = useState(false);

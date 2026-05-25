@@ -14,7 +14,7 @@ export function canAccessCustomReports(role: UserRole): boolean {
 }
 
 export function canUseCsvImportExport(role: UserRole): boolean {
-  return ["superadmin", "manager"].includes(role);
+  return ["superadmin", "manager", "marketing_head"].includes(role);
 }
 
 export function canConvertToClient(role: UserRole): boolean {

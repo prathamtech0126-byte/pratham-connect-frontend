@@ -758,7 +758,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       <span className="truncate">Kanban</span>
                     </Link>
                     */}
-                    {user && ["superadmin", "developer", "manager"].includes(user.role) && (
+                    {user && ["superadmin", "developer", "manager", "marketing_head"].includes(user.role) && (
                       <Link
                         href="/leads/automation"
                         className={cn(
