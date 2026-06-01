@@ -59,6 +59,16 @@ const EMPTY_STATS: CounsellorReportStats = {
 type LeadTypeLite = { id: number; leadType: string; displayAlias?: string | null };
 type UserLite = { id: number; fullName: string };
 type LeadListSegment = "all" | "direct" | "via" | "telecaller";
+type CounsellorCardMetric =
+  | "total_assigned"
+  | "in_progress"
+  | "not_contacted"
+  | "converted"
+  | "dropped"
+  | "follow_up";
+
+/** Report segment for drill-down: matches backend direct / via telecaller split. */
+type CounsellorReportDrillSegment = "all" | "direct" | "via";
 
 const progressStatusColors: Record<string, string> = {
   not_contacted: "bg-slate-100 text-slate-600",
@@ -69,19 +79,31 @@ const progressStatusColors: Record<string, string> = {
   junk: "bg-red-200 text-red-700",
 };
 
-function StatsCards({ stats }: { stats: CounsellorReportStats }) {
+function StatsCards({
+  stats,
+  segment = "all",
+  onCardClick,
+}: {
+  stats: CounsellorReportStats;
+  segment?: CounsellorReportDrillSegment;
+  onCardClick?: (metric: CounsellorCardMetric, segment: CounsellorReportDrillSegment) => void;
+}) {
   const items = [
-    { label: "Total Assigned", value: stats.total, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
-    { label: "In Progress", value: stats.inProgress, icon: ArrowRightLeft, color: "text-indigo-600", bg: "bg-indigo-50" },
-    { label: "Follow Up", value: stats.followUp, icon: CalendarClock, color: "text-violet-600", bg: "bg-violet-50" },
-    { label: "Converted", value: stats.converted, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50" },
-    { label: "Dropped", value: stats.dropped, icon: Trash2, color: "text-red-500", bg: "bg-red-50" },
-    { label: "Not Connected", value: stats.notContacted, icon: PhoneOff, color: "text-slate-600", bg: "bg-slate-100" },
+    { metric: "total_assigned" as const, label: "Total Assigned", value: stats.total, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
+    { metric: "in_progress" as const, label: "In Process", value: stats.inProgress, icon: ArrowRightLeft, color: "text-indigo-600", bg: "bg-indigo-50" },
+    { metric: "not_contacted" as const, label: "Not Contacted", value: stats.notContacted, icon: PhoneOff, color: "text-slate-600", bg: "bg-slate-100" },
+    { metric: "converted" as const, label: "Converted", value: stats.converted, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50" },
+    { metric: "dropped" as const, label: "Drop", value: stats.dropped, icon: Trash2, color: "text-red-500", bg: "bg-red-50" },
+    { metric: "follow_up" as const, label: "Follow Up", value: stats.followUp, icon: CalendarClock, color: "text-violet-600", bg: "bg-violet-50" },
   ];
   return (
     <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
       {items.map((stat) => (
-        <Card key={stat.label} className="shadow-sm">
+        <Card
+          key={stat.label}
+          className={cn("shadow-sm", onCardClick && "cursor-pointer hover:shadow-md transition-shadow")}
+          onClick={() => onCardClick?.(stat.metric, segment)}
+        >
           <CardContent className="p-4 flex flex-col items-center text-center">
             <div className={cn("p-1.5 rounded-lg mb-2", stat.bg)}>
               <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
@@ -356,6 +378,40 @@ export default function CounsellorLeadReport() {
       ? `${format(new Date(customDateFrom), "d MMM")} – ${format(new Date(customDateTo), "d MMM yyyy")}`
       : null;
 
+  const openLeadListForMetric = useCallback(
+    (metric: CounsellorCardMetric, segment: CounsellorReportDrillSegment = "all") => {
+      const qs = new URLSearchParams();
+      qs.set("clearFilters", "1");
+      qs.set("counsellorReportDrill", "1");
+      qs.set("forReport", "1");
+      qs.set("dateFilter", dateFilter);
+      if (rangeParams.createdFrom) qs.set("createdFrom", rangeParams.createdFrom);
+      if (rangeParams.createdTo) qs.set("createdTo", rangeParams.createdTo);
+      if (effectiveCounsellorId != null) qs.set("counsellorId", String(effectiveCounsellorId));
+
+      if (segment === "direct") {
+        qs.set("reportSegment", "direct");
+        qs.set("withoutTelecaller", "1");
+      } else if (segment === "via") {
+        qs.set("reportSegment", "via");
+        qs.set("withTelecaller", "1");
+      }
+
+      const bucketByMetric: Partial<Record<CounsellorCardMetric, string>> = {
+        in_progress: "in_progress",
+        not_contacted: "not_contacted",
+        converted: "converted",
+        dropped: "dropped",
+        follow_up: "follow_up",
+      };
+      const bucket = bucketByMetric[metric];
+      if (bucket) qs.set("counsellorListFilter", bucket);
+
+      setLocation(`/leads?${qs.toString()}`);
+    },
+    [dateFilter, rangeParams.createdFrom, rangeParams.createdTo, effectiveCounsellorId, setLocation]
+  );
+
   const applyTelecallerFilter = (row: CounsellorTelecallerBreakdownRow) => {
     setLeadListSegment("telecaller");
     setFilterTelecallerId(row.telecallerId);
@@ -448,7 +504,7 @@ export default function CounsellorLeadReport() {
 
         <div>
           <h3 className="text-sm font-semibold mb-3">Overall summary</h3>
-          <StatsCards stats={stats} />
+          <StatsCards stats={stats} onCardClick={openLeadListForMetric} />
         </div>
 
         <BreakdownTables
@@ -474,7 +530,7 @@ export default function CounsellorLeadReport() {
               </p>
             </div>
           </div>
-          <StatsCards stats={direct.stats} />
+          <StatsCards stats={direct.stats} segment="direct" onCardClick={openLeadListForMetric} />
           <BreakdownTables segment={direct} loading={loading} resolveSourceLabel={resolveSourceLabel} />
         </div>
 
@@ -491,7 +547,7 @@ export default function CounsellorLeadReport() {
               </p>
             </div>
           </div>
-          <StatsCards stats={viaTelecaller.stats} />
+          <StatsCards stats={viaTelecaller.stats} segment="via" onCardClick={openLeadListForMetric} />
           <BreakdownTables segment={viaTelecaller} loading={loading} resolveSourceLabel={resolveSourceLabel} />
 
           <Card className="shadow-sm">

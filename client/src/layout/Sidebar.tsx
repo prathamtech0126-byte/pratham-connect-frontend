@@ -52,6 +52,7 @@ import lightLogoUrl from "@/assets/images/pratham-logo-light-mode.svg";
 import darkLogoUrl from "@/assets/images/pratham-logo-dark-mode.svg";
 import { useAuth, UserRole } from "@/context/auth-context";
 import { INCENTIVE_ROLES } from "@/constants/roles";
+import { hasFullAccess } from "@/lib/role-access";
 import { useTheme } from "@/components/theme-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileDialog } from "@/components/profile-dialog";
@@ -227,6 +228,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
 
   // Filter items based on user role
   const filteredItems = sidebarItems.filter((item) => {
+    if (hasFullAccess(user?.role)) return true;
     if (user?.role === "tech_support") {
       return ["/", "/tech-support/device-info"].includes(item.href);
     }
@@ -624,7 +626,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       </Link>
                     )}
 
-                    {user && ["manager", "marketing_head"].includes(user.role) && (
+                    {user && (hasFullAccess(user.role) || ["manager", "marketing_head"].includes(user.role)) && (
                       <Link
                         href="/leads/daily-report"
                         className={cn(
@@ -701,7 +703,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                 {!isCollapsed && (
                   <CollapsibleContent className="pl-4 space-y-1 overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
                     {/* My Leads — counsellor only */}
-                    {user?.role === "counsellor" && (
+                    {(user?.role === "counsellor" || hasFullAccess(user?.role)) && (
                       <Link
                         href="/leads/counsellor"
                         className={cn(
@@ -730,7 +732,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                         <span className="truncate">Lead List</span>
                       </Link>
                     )}
-                    {user && ["superadmin", "manager", "backend_manager"].includes(user.role) && (
+                    {user && (hasFullAccess(user.role) || ["superadmin", "developer", "manager", "backend_manager"].includes(user.role)) && (
                       <Link
                         href="/leads/telecaller-wise"
                         className={cn(

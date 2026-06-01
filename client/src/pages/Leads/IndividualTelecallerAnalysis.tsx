@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useRoute, useLocation, useSearch } from "wouter";
 import { format } from "date-fns";
 
 import { PageWrapper } from "@/layout/PageWrapper";
@@ -17,7 +17,7 @@ import {
 
 import { useAuth } from "@/context/auth-context";
 import {
-  getLeads,
+  fetchAllLeads,
   getTelecallerIndividualReport,
   type LeadEntity,
   type TelecallerIndividualReport,
@@ -32,6 +32,14 @@ import {
 } from "@/components/ui/select";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
+import {
+  buildLeadListUrlFromReport,
+  type LeadReportMetricKey,
+} from "@/lib/lead-report-metrics";
+import {
+  getTelecallerReportAssignmentTag,
+  sortLeadsForTelecallerReport,
+} from "@/lib/lead-status-tags";
 import {
   type LeadDateFilterType,
   leadDateRangeParams,
@@ -59,27 +67,59 @@ type LeadTypeLite = { id: number; leadType: string; displayAlias?: string | null
 export default function IndividualTelecallerAnalysis() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const searchStr = useSearch();
   const [, params] = useRoute("/leads/telecaller/:id");
   const telecallerId = params?.id ? Number(params.id) : null;
+  const navContext = useMemo(() => {
+    const qs = new URLSearchParams(searchStr.startsWith("?") ? searchStr.slice(1) : searchStr);
+    const rawDateFilter = qs.get("dateFilter");
+    const dateFilter =
+      rawDateFilter &&
+      (["all", "today", "weekly", "monthly", "custom"] as const).includes(rawDateFilter as LeadDateFilterType)
+        ? (rawDateFilter as LeadDateFilterType)
+        : undefined;
+    const from = qs.get("from");
+    return {
+      from,
+      dateFilter,
+      customDateFrom: qs.get("createdFrom") ?? undefined,
+      customDateTo: qs.get("createdTo") ?? undefined,
+    };
+  }, [searchStr]);
 
-  const [leads, setLeads] = useState<LeadEntity[]>([]);
+  const [allLeads, setAllLeads] = useState<LeadEntity[]>([]);
   const [report, setReport] = useState<TelecallerIndividualReport | null>(null);
   const [telecallerName, setTelecallerName] = useState("");
   const [counsellors, setCounsellors] = useState<UserLite[]>([]);
   const [leadTypes, setLeadTypes] = useState<LeadTypeLite[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [dateFilter, setDateFilter] = useState<LeadDateFilterType>("monthly");
-  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>();
-  const [customDateTo, setCustomDateTo] = useState<string | undefined>();
+  const [dateFilter, setDateFilter] = useState<LeadDateFilterType>(navContext.dateFilter ?? "monthly");
+  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>(navContext.customDateFrom);
+  const [customDateTo, setCustomDateTo] = useState<string | undefined>(navContext.customDateTo);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 25,
-    total: 0,
-    totalPages: 1,
-  });
+
+  const sortedLeads = useMemo(
+    () => sortLeadsForTelecallerReport(allLeads),
+    [allLeads]
+  );
+
+  const pagination = useMemo(() => {
+    const total = sortedLeads.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    return {
+      page: Math.min(page, totalPages),
+      limit: pageSize,
+      total,
+      totalPages,
+    };
+  }, [sortedLeads.length, page, pageSize]);
+
+  const displayLeads = useMemo(() => {
+    const start = (pagination.page - 1) * pageSize;
+    return sortedLeads.slice(start, start + pageSize);
+  }, [sortedLeads, pagination.page, pageSize]);
 
   const isRestricted =
     user?.role === "telecaller" &&
@@ -87,6 +127,24 @@ export default function IndividualTelecallerAnalysis() {
     String(telecallerId) !== String(user.id);
 
   const isAdminView = user?.role !== "telecaller";
+  const cameFromTelecallerWise = navContext.from === "telecaller-wise";
+  const adminBackPath = useMemo(() => {
+    if (!cameFromTelecallerWise) return "/leads/reports";
+    const qs = new URLSearchParams();
+    if (navContext.dateFilter) qs.set("dateFilter", navContext.dateFilter);
+    if (navContext.customDateFrom) qs.set("createdFrom", navContext.customDateFrom);
+    if (navContext.customDateTo) qs.set("createdTo", navContext.customDateTo);
+    const query = qs.toString();
+    return query ? `/leads/telecaller-wise?${query}` : "/leads/telecaller-wise";
+  }, [cameFromTelecallerWise, navContext]);
+  const adminBackLabel = cameFromTelecallerWise ? "Back to telecaller wise leads" : "Back to reports";
+  const adminBreadcrumbLabel = cameFromTelecallerWise ? "Telecaller Wise Leads" : "Reports";
+
+  useEffect(() => {
+    if (navContext.dateFilter) setDateFilter(navContext.dateFilter);
+    if (navContext.customDateFrom) setCustomDateFrom(navContext.customDateFrom);
+    if (navContext.customDateTo) setCustomDateTo(navContext.customDateTo);
+  }, [navContext]);
 
   const rangeParams = useMemo(
     () => leadDateRangeParams(dateFilter, customDateFrom, customDateTo),
@@ -101,30 +159,21 @@ export default function IndividualTelecallerAnalysis() {
     if (!telecallerId || isRestricted) return;
     try {
       setLoading(true);
-      const [reportRes, leadRes, tRes, cRes, ltRes] = await Promise.all([
+      const [reportRes, leadItems, tRes, cRes, ltRes] = await Promise.all([
         getTelecallerIndividualReport(telecallerId, rangeParams),
-        getLeads({
+        fetchAllLeads({
           currentTelecallerId: telecallerId,
           ...rangeParams,
-          page,
-          limit: pageSize,
-          sortBy: "created_at",
-          sortOrder: "desc",
+          isJunk: false,
+          forReport: true,
+          assignedScope: true,
         }),
         api.get("/api/users/telecallers"),
         api.get("/api/users/counsellors"),
         api.get("/api/lead-types"),
       ]);
       setReport(reportRes);
-      setLeads(leadRes.items || []);
-      setPagination(
-        leadRes.pagination ?? {
-          page,
-          limit: pageSize,
-          total: leadRes.items?.length ?? 0,
-          totalPages: 1,
-        }
-      );
+      setAllLeads(leadItems);
       const tList: any[] = tRes?.data?.data || tRes?.data || [];
       const me = tList.find((t: any) => t.id === telecallerId);
       setTelecallerName(me?.fullName || `Telecaller #${telecallerId}`);
@@ -133,7 +182,7 @@ export default function IndividualTelecallerAnalysis() {
     } finally {
       setLoading(false);
     }
-  }, [telecallerId, isRestricted, rangeParams, page, pageSize]);
+  }, [telecallerId, isRestricted, rangeParams]);
 
   useEffect(() => { void loadData(); }, [loadData]);
 
@@ -167,6 +216,22 @@ export default function IndividualTelecallerAnalysis() {
       };
     });
   }, [report?.counsellorBreakdown, counsellors]);
+
+  const openLeadList = useCallback(
+    (metric: LeadReportMetricKey) => {
+      if (!telecallerId) return;
+      setLocation(
+        buildLeadListUrlFromReport({
+          metric,
+          dateFilter,
+          customDateFrom,
+          customDateTo,
+          telecallerId,
+        })
+      );
+    },
+    [setLocation, telecallerId, dateFilter, customDateFrom, customDateTo]
+  );
 
   const periodTotal = stats.assigned;
 
@@ -214,7 +279,7 @@ export default function IndividualTelecallerAnalysis() {
         isAdminView
           ? [
               { label: "Leads", href: "/leads" },
-              { label: "Reports", href: "/leads/reports" },
+              { label: adminBreadcrumbLabel, href: adminBackPath },
               { label: telecallerName || "Analysis" },
             ]
           : [
@@ -229,10 +294,10 @@ export default function IndividualTelecallerAnalysis() {
             variant="ghost"
             size="sm"
             className="-ml-2 h-8 px-2 text-muted-foreground hover:text-foreground"
-            onClick={() => setLocation("/leads/reports")}
+            onClick={() => setLocation(adminBackPath)}
           >
             <ArrowLeft className="h-4 w-4 mr-1.5" />
-            Back to reports
+            {adminBackLabel}
           </Button>
         )}
 
@@ -282,20 +347,25 @@ export default function IndividualTelecallerAnalysis() {
         {/* ── Stats Cards ───────────────────────────────── */}
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7">
           {[
-            { label: "Assigned", value: stats.assigned, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
-            { label: "Contacted", value: stats.contacted, icon: Phone, color: "text-sky-600", bg: "bg-sky-50" },
-            { label: "Not Contacted", value: stats.notContacted, icon: PhoneOff, color: "text-slate-500", bg: "bg-slate-100" },
-            { label: "Transferred", value: stats.transferred, icon: ArrowRightLeft, color: "text-amber-600", bg: "bg-amber-50" },
-            { label: "Converted", value: stats.converted, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50" },
-            { label: "Pending F/U", value: stats.pendingFollowUp, icon: CalendarClock, color: "text-violet-600", bg: "bg-violet-50" },
-            { label: "Junk", value: stats.junk, icon: Trash2, color: "text-red-500", bg: "bg-red-50" },
+            { label: "Assigned", value: stats.assigned, icon: Users, color: "text-blue-600", bg: "bg-blue-50", metric: "assigned" as LeadReportMetricKey },
+            { label: "Not Contacted", value: stats.notContacted, icon: PhoneOff, color: "text-slate-500", bg: "bg-slate-100", metric: "not_contacted" as LeadReportMetricKey },
+            { label: "Junk", value: stats.junk, icon: Trash2, color: "text-red-500", bg: "bg-red-50", metric: "junk" as LeadReportMetricKey },
+            { label: "Contacted", value: stats.contacted, icon: Phone, color: "text-sky-600", bg: "bg-sky-50", metric: "contacted" as LeadReportMetricKey },
+            { label: "Transferred", value: stats.transferred, icon: ArrowRightLeft, color: "text-amber-600", bg: "bg-amber-50", metric: "transferred" as LeadReportMetricKey },
+            { label: "Converted", value: stats.converted, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50", metric: "converted" as LeadReportMetricKey },
+            { label: "Pending F/U", value: stats.pendingFollowUp, icon: CalendarClock, color: "text-violet-600", bg: "bg-violet-50", metric: "pending_follow_up" as LeadReportMetricKey },
+            
           ].map(stat => (
-            <Card key={stat.label} className="shadow-sm">
+            <Card
+              key={stat.label}
+              className="shadow-sm cursor-pointer hover:bg-muted/30 transition-colors"
+              onClick={() => openLeadList(stat.metric)}
+            >
               <CardContent className="p-4 flex flex-col items-center text-center">
                 <div className={cn("p-1.5 rounded-lg mb-2", stat.bg)}>
                   <stat.icon className={cn("w-3.5 h-3.5", stat.color)} />
                 </div>
-                <p className="text-2xl font-bold tabular-nums">{stat.value}</p>
+                <p className={cn("text-2xl font-bold tabular-nums hover:underline underline-offset-4", stat.color)}>{stat.value}</p>
                 <p className="text-xs font-medium text-muted-foreground mt-1">{stat.label}</p>
               </CardContent>
             </Card>
@@ -517,10 +587,12 @@ export default function IndividualTelecallerAnalysis() {
                 <TableBody>
                   {loading ? (
                     <TableRow><TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
-                  ) : leads.length === 0 ? (
+                  ) : displayLeads.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">No leads in this period.</TableCell></TableRow>
                   ) : (
-                    leads.map(lead => (
+                    displayLeads.map(lead => {
+                      const assignmentTag = getTelecallerReportAssignmentTag(lead);
+                      return (
                       <TableRow
                         key={lead.id}
                         className="cursor-pointer hover:bg-muted/30 transition-colors"
@@ -546,18 +618,25 @@ export default function IndividualTelecallerAnalysis() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={lead.assignmentStatus === "transferred" ? "default" : "secondary"}
-                            className="capitalize text-[10px]"
-                          >
-                            {lead.assignmentStatus.replace(/_/g, " ")}
-                          </Badge>
+                          {assignmentTag ? (
+                            <span
+                              className={cn(
+                                "inline-flex text-[10px] font-medium px-2 py-0.5 rounded-full capitalize",
+                                assignmentTag.className
+                              )}
+                            >
+                              {assignmentTag.label}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {format(new Date(lead.createdAt), "dd MMM yyyy")}
                         </TableCell>
                       </TableRow>
-                    ))
+                    );
+                    })
                   )}
                 </TableBody>
               </Table>

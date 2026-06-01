@@ -64,7 +64,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const counsellorId = Number.isFinite(rawCounsellorId as number) ? (rawCounsellorId as number) : null;
 
     // Admin users (superadmin, manager, director) can also connect to socket for real-time updates
-    const isAdmin = user.role === 'superadmin' || user.role === 'manager' || user.role === 'director';
+    const isAdmin =
+      user.role === 'superadmin' ||
+      user.role === 'developer' ||
+      user.role === 'manager' ||
+      user.role === 'director' ||
+      user.role === 'admin';
     const isTechSupport = user.role === 'tech_support';
     const isBroadcastRecipient =
       user.role === 'front_desk' || user.role === 'marketing_head';
@@ -108,8 +113,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
-      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity,
+      reconnectionDelayMax: 10000,
     });
 
     // Connection event handlers
@@ -261,6 +266,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     newSocket.on('reconnect', () => {
       setIsConnected(true);
       setConnectionStatus('connected');
+      // Notify listeners (e.g. maintenance context) that the socket reconnected
+      // so they can re-fetch state that may have changed while disconnected.
+      window.dispatchEvent(new Event('socket:reconnected'));
 
       // Rejoin room after reconnection
       if (isCounsellor) {
@@ -378,7 +386,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const isTelecaller2 = user.role === 'telecaller';
     const rawCounsellorId = isCounsellor ? Number(user.id) : null;
     const counsellorId = Number.isFinite(rawCounsellorId as number) ? (rawCounsellorId as number) : null;
-    const isAdmin = user.role === 'superadmin' || user.role === 'manager' || user.role === 'director';
+    const isAdmin =
+      user.role === 'superadmin' ||
+      user.role === 'developer' ||
+      user.role === 'manager' ||
+      user.role === 'director' ||
+      user.role === 'admin';
     const isTechSupport = user.role === 'tech_support';
     const isBroadcastRecipient2 =
       user.role === 'front_desk' || user.role === 'marketing_head';
@@ -412,7 +425,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           socket.emit('join:user', userId);
         }
       } else if (isAdmin) {
-        // ALWAYS join role room for any admin role
+        socket.emit('join:admin');
         socket.emit('join:role', user.role);
 
         const userId = Number(user.id);

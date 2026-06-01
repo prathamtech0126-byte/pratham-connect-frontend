@@ -49,6 +49,7 @@ import {
 import DateRangePicker from "@/components/payments/DateRangePicker";
 
 import {
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Phone,
@@ -68,14 +69,13 @@ import { cn } from "@/lib/utils";
 import {
   fetchAllLeads,
   assignLeadApi,
-  bulkAssignLeadsApi,
-  revertLeadJunkApi,
   addLeadActivityApi,
   updateLeadFieldsApi,
   type LeadEntity,
   type LeadEligibilityStatus,
   type LeadQuality,
 } from "@/api/leads.api";
+import { LeadBulkAssignDialog } from "@/components/leads/LeadBulkAssignDialog";
 import {
   getLeadDisplayTags,
   isLeadTransferBlocked,
@@ -98,6 +98,20 @@ type LeadType = { id: number; leadType: string; displayAlias?: string | null };
 
 type SaleType = { id: number; saleType: string };
 type DateFilterType = "all" | "today" | "weekly" | "monthly" | "custom";
+
+const COUNSELLOR_LIST_BUCKETS = [
+  "not_contacted",
+  "in_progress",
+  "follow_up",
+  "converted",
+  "dropped",
+] as const;
+
+type CounsellorListBucket = (typeof COUNSELLOR_LIST_BUCKETS)[number];
+
+function isCounsellorListBucket(value: string): value is CounsellorListBucket {
+  return (COUNSELLOR_LIST_BUCKETS as readonly string[]).includes(value);
+}
 
 const PROGRESS_STATUS_OPTIONS = [
   { value: "not_contacted", label: "Not Contacted" },
@@ -166,7 +180,18 @@ const statusColors: Record<string, string> = {
 
 const LEADLIST_FILTER_KEY = "leadlist_filters";
 
+function shouldIgnoreStoredLeadFilters(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const qs = new URLSearchParams(window.location.search);
+    return qs.get("clearFilters") === "1";
+  } catch {
+    return false;
+  }
+}
+
 function readLeadListFilters(): Record<string, unknown> {
+  if (shouldIgnoreStoredLeadFilters()) return {};
   try {
     const raw = sessionStorage.getItem(LEADLIST_FILTER_KEY);
     return raw ? JSON.parse(raw) : {};
@@ -277,6 +302,14 @@ export default function LeadList() {
   const [filterTelecaller, setFilterTelecaller] = useState(() => String(readLeadListFilters().filterTelecaller ?? ""));
   const [telecallers, setTelecallers] = useState<Counsellor[]>([]);
   const [filterCounsellor, setFilterCounsellor] = useState(() => String(readLeadListFilters().filterCounsellor ?? ""));
+  const [assignedScopeMode, setAssignedScopeMode] = useState(false);
+  const [forReportMode, setForReportMode] = useState(false);
+  const [filterWithTelecaller, setFilterWithTelecaller] = useState(false);
+  const [counsellorReportDrillMode, setCounsellorReportDrillMode] = useState(false);
+  const [reportWithoutTelecaller, setReportWithoutTelecaller] = useState(false);
+  const [reportWithTelecaller, setReportWithTelecaller] = useState(false);
+  const [reportBucketFilter, setReportBucketFilter] = useState<"" | "contacted" | "transferred">("");
+  const [hasPendingFollowUpOnly, setHasPendingFollowUpOnly] = useState(false);
 
   /**
    * Authoritative current-user id, fetched directly from `/api/users/me`.
@@ -300,17 +333,101 @@ export default function LeadList() {
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(searchStr);
+    const params = new URLSearchParams(searchStr.startsWith("?") ? searchStr.slice(1) : searchStr);
     const telecallerId = params.get("telecallerId");
+    const counsellorId = params.get("counsellorId");
     const date = params.get("date");
     const followupToday = params.get("followupToday");
+    const progress = params.get("progress");
+    const assignment = params.get("assignment");
+    const dateFilterParam = params.get("dateFilter");
+    const createdFrom = params.get("createdFrom");
+    const createdTo = params.get("createdTo");
+    const assignedScope = params.get("assignedScope");
+    const reportBucket = params.get("reportBucket");
+    const hasPendingFollowUp = params.get("hasPendingFollowUp") ?? params.get("pendingFollowUp");
+    const clearFilters = params.get("clearFilters");
+    const counsellorListFilter = params.get("counsellorListFilter");
+    const forReport = params.get("forReport");
+    const counsellorReportDrill = params.get("counsellorReportDrill");
+    const reportSegment = params.get("reportSegment");
+
+    if (clearFilters === "1") {
+      try {
+        sessionStorage.removeItem(LEADLIST_FILTER_KEY);
+      } catch {}
+      setSearch("");
+      setFilterLeadSource("");
+      setFilterLeadType("");
+      setFilterProgressStatus("");
+      setFilterAssignmentStatus("");
+      setFilterEligibility("");
+      setFilterQuality("");
+      setFilterTelecaller("");
+      setFilterCounsellor("");
+      setCustomDateFrom(undefined);
+      setCustomDateTo(undefined);
+      setDateFilter("weekly");
+      setAssignedScopeMode(false);
+      setForReportMode(false);
+      setFilterWithTelecaller(false);
+      setCounsellorReportDrillMode(false);
+      setReportWithoutTelecaller(false);
+      setReportWithTelecaller(false);
+      setReportBucketFilter("");
+      setHasPendingFollowUpOnly(false);
+      setPage(1);
+      setPerPagePreset("50");
+      setCustomPerPageCommitted(50);
+      setCustomPerPageDraft("50");
+    }
 
     if (telecallerId) setFilterTelecaller(telecallerId);
+    if (counsellorId) setFilterCounsellor(counsellorId);
     if (date === "all") setDateFilter("all");
     if (followupToday === "1") {
       setDateFilter("today");
       setFilterProgressStatus("follow_up");
     }
+    setForReportMode(forReport === "1" || forReport === "true");
+    const isDrill = counsellorReportDrill === "1";
+    setCounsellorReportDrillMode(isDrill);
+    if (isDrill) {
+      if (reportSegment === "direct" || params.get("withoutTelecaller") === "1") {
+        setReportWithoutTelecaller(true);
+        setReportWithTelecaller(false);
+      } else if (reportSegment === "via" || params.get("withTelecaller") === "1") {
+        setReportWithTelecaller(true);
+        setReportWithoutTelecaller(false);
+      } else {
+        setReportWithoutTelecaller(false);
+        setReportWithTelecaller(false);
+      }
+    }
+    if (counsellorListFilter && isCounsellorListBucket(counsellorListFilter)) {
+      setFilterProgressStatus(counsellorListFilter);
+    } else if (progress) setFilterProgressStatus(progress);
+    else if (assignedScope === "1") setFilterProgressStatus("");
+    if (assignment) setFilterAssignmentStatus(assignment);
+    else if (assignedScope === "1") setFilterAssignmentStatus("");
+    if (
+      dateFilterParam &&
+      (["all", "today", "weekly", "monthly", "custom"] as const).includes(dateFilterParam as DateFilterType)
+    ) {
+      setDateFilter(dateFilterParam as DateFilterType);
+    }
+    if (createdFrom) setCustomDateFrom(createdFrom);
+    if (createdTo) setCustomDateTo(createdTo);
+    setAssignedScopeMode(assignedScope === "1");
+    if (reportBucket === "contacted" || reportBucket === "transferred") {
+      setReportBucketFilter(reportBucket);
+    } else {
+      setReportBucketFilter("");
+    }
+    setHasPendingFollowUpOnly(
+      hasPendingFollowUp === "1" || hasPendingFollowUp === "true"
+    );
+    setFilterWithTelecaller(params.get("hasTelecaller") === "1");
   }, [searchStr]);
 
   // Persist filter state to sessionStorage whenever any filter changes
@@ -351,17 +468,6 @@ export default function LeadList() {
   const [ttSubmitting, setTtSubmitting] = useState(false);
 
   const [adminTransferOpen, setAdminTransferOpen] = useState(false);
-  const [adminTargetTelecallerId, setAdminTargetTelecallerId] = useState("");
-  const [adminTargetCounsellorId, setAdminTargetCounsellorId] = useState("");
-  const [adminTransferStep, setAdminTransferStep] = useState<"assignee" | "reassign" | "confirm">(
-    "assignee"
-  );
-  const [adminReassignCount, setAdminReassignCount] = useState(0);
-  const [adminReassignFromRole, setAdminReassignFromRole] = useState<"counsellor" | "telecaller" | null>(
-    null
-  );
-  const [adminRemoveFromPreviousAssignee, setAdminRemoveFromPreviousAssignee] = useState(false);
-  const [adminTransferSubmitting, setAdminTransferSubmitting] = useState(false);
 
   const canBulkSelect =
     user?.role === "telecaller" ||
@@ -456,23 +562,109 @@ export default function LeadList() {
   const loadLeads = useCallback(async () => {
     try {
       setLoading(true);
+
+      // Counsellor report card drill-down: exact API query only (no default list filter logic).
+      if (counsellorReportDrillMode) {
+        const bucket =
+          filterProgressStatus && isCounsellorListBucket(filterProgressStatus)
+            ? filterProgressStatus
+            : undefined;
+        const items = await fetchAllLeads({
+          currentCounsellorId: filterCounsellor ? Number(filterCounsellor) : undefined,
+          counsellorListFilter: bucket,
+          forReport: true,
+          isJunk: false,
+          withoutTelecaller: reportWithoutTelecaller ? true : undefined,
+          withTelecaller: reportWithTelecaller ? true : undefined,
+          ...dateRangeParams,
+        });
+        const patches = consumeLeadListPatches();
+        const merged = items.map((row) => {
+          const patch = patches[String(row.id)];
+          return patch ? mergeLeadRow(row, patch) : row;
+        });
+        const sorted = sortLeadsForDisplay(merged);
+        setLeads(sorted);
+        const total = sorted.length;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        setPagination({
+          page: Math.min(page, totalPages),
+          limit: pageSize,
+          total,
+          totalPages,
+        });
+        return;
+      }
+
       let assignmentStatusParam = filterAssignmentStatus || undefined;
       let progressStatusParam = filterProgressStatus || undefined;
+      let counsellorListFilterParam: CounsellorListBucket | undefined;
       let isJunkParam: boolean | undefined = false;
       if (isCounsellor) {
         progressStatusParam = undefined;
         if (filterAssignmentStatus === "follow_up") {
           progressStatusParam = "follow_up";
           assignmentStatusParam = undefined;
+        } else if (filterProgressStatus && isCounsellorListBucket(filterProgressStatus)) {
+          counsellorListFilterParam = filterProgressStatus;
         }
+      } else if (
+        filterCounsellor &&
+        filterProgressStatus &&
+        isCounsellorListBucket(filterProgressStatus)
+      ) {
+        // Admin drill-down from counsellor report (scoped by counsellor + bucket).
+        counsellorListFilterParam = filterProgressStatus;
+        progressStatusParam = undefined;
+        assignmentStatusParam = undefined;
       }
       if (filterProgressStatus === "junk") {
         progressStatusParam = undefined;
+        counsellorListFilterParam = undefined;
         isJunkParam = true;
       }
+
+      const personFilterActive = Boolean(filterTelecaller || filterCounsellor);
+      const hasExplicitProgressFilter = Boolean(filterProgressStatus);
+      const assignmentBucket = filterAssignmentStatus;
+      const effectiveReportBucket =
+        !hasExplicitProgressFilter && !assignmentBucket ? reportBucketFilter : "";
+      const isExplicitAssignmentBucket =
+        assignmentBucket === "converted" ||
+        assignmentBucket === "dropped" ||
+        assignmentBucket === "transferred" ||
+        assignmentBucket === "not_assigned";
+      const effectiveAssignedScopeMode =
+        assignedScopeMode && !hasExplicitProgressFilter && !assignmentBucket;
+      if (effectiveAssignedScopeMode) {
+        // Report "Assigned" drilldown should include junk + non-junk.
+        isJunkParam = undefined;
+      }
+
+      // "Assigned to person" = every lead where their name is on the row (any status).
+      // Assignment dropdown "Assigned" means assignment_status=assigned only — skip that when scoping by person.
+      if (!isCounsellor && personFilterActive) {
+        if (effectiveAssignedScopeMode || !isExplicitAssignmentBucket) {
+          if (!isExplicitAssignmentBucket || assignmentBucket === "assigned") {
+            assignmentStatusParam = undefined;
+          }
+          if (effectiveAssignedScopeMode) {
+            progressStatusParam = undefined;
+            counsellorListFilterParam = undefined;
+          }
+        }
+      }
+
+      const includeAllForPerson =
+        !isCounsellor &&
+        personFilterActive &&
+        !hasExplicitProgressFilter &&
+        (effectiveAssignedScopeMode || !isExplicitAssignmentBucket || Boolean(effectiveReportBucket));
+
       const items = await fetchAllLeads({
         search: searchQuery,
         progressStatus: progressStatusParam,
+        counsellorListFilter: counsellorListFilterParam,
         assignmentStatus: assignmentStatusParam,
         eligibilityStatus: filterEligibility || undefined,
         leadQuality: filterQuality || undefined,
@@ -481,6 +673,12 @@ export default function LeadList() {
         isJunk: isJunkParam,
         leadSource: filterLeadSource || undefined,
         leadType: filterLeadType || undefined,
+        forReport: forReportMode || includeAllForPerson ? true : undefined,
+        assignedScope:
+          effectiveAssignedScopeMode ? true : includeAllForPerson ? true : undefined,
+        reportBucket: effectiveReportBucket || undefined,
+        hasPendingFollowUp: hasPendingFollowUpOnly || undefined,
+        withTelecaller: filterWithTelecaller ? true : undefined,
         ...dateRangeParams,
       });
       const patches = consumeLeadListPatches();
@@ -518,6 +716,14 @@ export default function LeadList() {
     pageSize,
     toast,
     isCounsellor,
+    assignedScopeMode,
+    forReportMode,
+    filterWithTelecaller,
+    counsellorReportDrillMode,
+    reportWithoutTelecaller,
+    reportWithTelecaller,
+    reportBucketFilter,
+    hasPendingFollowUpOnly,
   ]);
 
 
@@ -581,6 +787,97 @@ const loadLeadTypes = useCallback(async () => {
     const start = (page - 1) * pageSize;
     return leads.slice(start, start + pageSize);
   }, [leads, page, pageSize]);
+
+  const selectableLeadsOnPage = useMemo(
+    () =>
+      displayLeads.filter((lead) => {
+        if (isAdminJunkRestoreMode) return isLeadJunk(lead);
+        if (isAdminBulk) return !isLeadTransferBlocked(lead);
+        return true;
+      }),
+    [displayLeads, isAdminJunkRestoreMode, isAdminBulk]
+  );
+
+  const allPageSelected =
+    selectableLeadsOnPage.length > 0 &&
+    selectableLeadsOnPage.every((lead) => selectedLeadIds.has(lead.id));
+
+  const somePageSelected =
+    selectableLeadsOnPage.some((lead) => selectedLeadIds.has(lead.id)) && !allPageSelected;
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedLeadIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        selectableLeadsOnPage.forEach((lead) => next.delete(lead.id));
+      } else {
+        selectableLeadsOnPage.forEach((lead) => next.add(lead.id));
+      }
+      return next;
+    });
+  };
+
+  const bulkSelectActive = canBulkSelect && isSelectMode;
+  const leadTableCols = useMemo(() => {
+    if (isAdminBulk && bulkSelectActive) {
+      return {
+        check: "w-8 max-w-8 px-1",
+        name: "w-[18%]",
+        mobile: "w-[13%]",
+        leadType: "w-[11%]",
+        leadSource: "w-[11%]",
+        telecaller: "w-[13%]",
+        counsellor: "w-[13%]",
+        assignedCounsellor: "w-[16%]",
+        quality: "w-[10%]",
+        transferredFrom: "w-[15%]",
+        status: "w-[11%] text-right",
+      };
+    }
+    if (isAdminBulk) {
+      return {
+        check: "w-8 max-w-8 px-1",
+        name: "w-[20%]",
+        mobile: "w-[15%]",
+        leadType: "w-[13%]",
+        leadSource: "w-[13%]",
+        telecaller: "w-[14%]",
+        counsellor: "w-[14%]",
+        assignedCounsellor: "w-[18%]",
+        quality: "w-[12%]",
+        transferredFrom: "w-[18%]",
+        status: "w-[11%] text-right",
+      };
+    }
+    if (bulkSelectActive) {
+      return {
+        check: "w-8 max-w-8 px-1",
+        name: "w-[22%]",
+        mobile: "w-[17%]",
+        leadType: "w-[14%]",
+        leadSource: "w-[14%]",
+        telecaller: "w-[16%]",
+        counsellor: "w-[16%]",
+        assignedCounsellor: "w-[16%]",
+        quality: "w-[11%]",
+        transferredFrom: "w-[16%]",
+        status: "w-[12%] text-right",
+      };
+    }
+    return {
+      check: "w-8 max-w-8 px-1",
+      name: "w-[22%]",
+      mobile: "w-[17%]",
+      leadType: "w-[15%]",
+      leadSource: "w-[15%]",
+      telecaller: "w-[16%]",
+      counsellor: "w-[16%]",
+      assignedCounsellor: "w-[18%]",
+      quality: "w-[12%]",
+      transferredFrom: "w-[18%]",
+      status: "w-[14%] text-right",
+    };
+  }, [isAdminBulk, bulkSelectActive]);
 
   // ── Filter helpers ─────────────────────────────────────────────
   const clearFilters = () => {
@@ -752,18 +1049,22 @@ const loadLeadTypes = useCallback(async () => {
     const followupIso = scheduled.toISOString();
     try {
       setSubmitting(true);
-      await addLeadActivityApi(targetId, {
+      const result = await addLeadActivityApi(targetId, {
         activityType: "followup",
         message: followupNote.trim() || undefined,
         followupAt: followupIso,
         status: "pending",
       });
-      // Optimistic local update — backend also flips progressStatus to "follow_up"
+      const nextFollowupAt = result.lead?.nextFollowupAt ?? null;
       setLeads((prev) =>
         sortLeadsForDisplay(
           prev.map((l) =>
             l.id === targetId
-              ? mergeLeadRow(l, { nextFollowupAt: followupIso, progressStatus: "follow_up" })
+              ? mergeLeadRow(l, {
+                  nextFollowupAt,
+                  progressStatus: "follow_up",
+                  pendingFollowUp: true,
+                })
               : l
           )
         )
@@ -846,23 +1147,31 @@ const loadLeadTypes = useCallback(async () => {
   );
 
   const openAdminTransferModal = () => {
-    setAdminTargetTelecallerId("");
-    setAdminTargetCounsellorId("");
-    setAdminTransferStep("assignee");
-    setAdminReassignCount(0);
-    setAdminReassignFromRole(null);
-    setAdminRemoveFromPreviousAssignee(false);
     setAdminTransferOpen(true);
   };
 
   const closeAdminTransferModal = () => {
     setAdminTransferOpen(false);
-    setAdminTargetTelecallerId("");
-    setAdminTargetCounsellorId("");
-    setAdminTransferStep("assignee");
-    setAdminReassignCount(0);
-    setAdminReassignFromRole(null);
-    setAdminRemoveFromPreviousAssignee(false);
+  };
+
+  const handleAdminBulkAssignSuccess = (updated: LeadEntity[]) => {
+    const updatedMap = new Map(updated.map((lead) => [lead.id, lead]));
+    setLeads((prev) => {
+      if (isAdminJunkRestoreMode) {
+        return prev.filter((lead) => !updatedMap.has(lead.id));
+      }
+      return prev.map((lead) =>
+        updatedMap.has(lead.id) ? { ...lead, ...updatedMap.get(lead.id)! } : lead
+      );
+    });
+    if (isAdminJunkRestoreMode) {
+      setPagination((prev) => ({
+        ...prev,
+        total: Math.max(0, prev.total - updated.length),
+      }));
+    }
+    setIsSelectMode(false);
+    setSelectedLeadIds(new Set());
   };
 
   const closeTtModal = () => {
@@ -905,128 +1214,12 @@ const loadLeadTypes = useCallback(async () => {
     }
   };
 
-  const handleAdminTransferSubmit = async () => {
-    if (adminTransferStep === "assignee") {
-      if (!adminTargetTelecallerId && !adminTargetCounsellorId) {
-        toast({
-          title: "Select assignee",
-          description: "Choose a telecaller or counsellor to transfer the selected leads.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const transferable = getAdminTransferableLeads();
-      if (transferable.length === 0) {
-        toast({
-          title: "No leads to transfer",
-          description: "Transferred or converted leads cannot be reassigned.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!isAdminJunkRestoreMode) {
-        const toTelecaller = Boolean(adminTargetTelecallerId);
-        const conflictCount = toTelecaller
-          ? transferable.filter((l) => l.currentCounsellorId != null).length
-          : transferable.filter((l) => l.currentTelecallerId != null).length;
-        if (conflictCount > 0) {
-          setAdminReassignCount(conflictCount);
-          setAdminReassignFromRole(toTelecaller ? "counsellor" : "telecaller");
-          setAdminRemoveFromPreviousAssignee(false);
-          setAdminTransferStep("reassign");
-          return;
-        }
-      }
-
-      setAdminTransferStep("confirm");
-      return;
-    }
-
-    if (adminTransferStep === "reassign") {
-      if (adminReassignCount > 0 && !adminRemoveFromPreviousAssignee) {
-        toast({
-          title: "Confirmation required",
-          description: "Check the box to confirm removing leads from the previous assignee's list.",
-          variant: "destructive",
-        });
-        return;
-      }
-      setAdminTransferStep("confirm");
-      return;
-    }
-
-    const transferable = getAdminTransferableLeads();
-    const leadIds = transferable.map((l) => l.id);
-    try {
-      setAdminTransferSubmitting(true);
-      const assigneePayload = adminTargetCounsellorId
-        ? {
-            counsellorId: Number(adminTargetCounsellorId),
-            ...(adminRemoveFromPreviousAssignee ? { removeFromTelecaller: true } : {}),
-          }
-        : {
-            telecallerId: Number(adminTargetTelecallerId),
-            ...(adminRemoveFromPreviousAssignee ? { removeFromCounsellor: true } : {}),
-          };
-      const result = isAdminJunkRestoreMode
-        ? {
-            updated: await Promise.all(leadIds.map((id) => revertLeadJunkApi(id, assigneePayload))),
-            blocked: [],
-            missing: [],
-          }
-        : await bulkAssignLeadsApi({
-            leadIds,
-            ...assigneePayload,
-          });
-
-      const updatedMap = new Map(result.updated.map((lead) => [lead.id, lead]));
-      setLeads((prev) => {
-        if (isAdminJunkRestoreMode) {
-          return prev.filter((lead) => !updatedMap.has(lead.id));
-        }
-        return prev.map((lead) => (updatedMap.has(lead.id) ? { ...lead, ...updatedMap.get(lead.id)! } : lead));
-      });
-      if (isAdminJunkRestoreMode) {
-        setPagination((prev) => ({
-          ...prev,
-          total: Math.max(0, prev.total - result.updated.length),
-        }));
-      }
-
-      if (result.blocked.length > 0) {
-        toast({
-          title: `${result.updated.length} lead${result.updated.length === 1 ? "" : "s"} transferred`,
-          description: `${result.blocked.length} lead${result.blocked.length === 1 ? "" : "s"} skipped because they are transferred or converted.`,
-        });
-      } else {
-        toast({
-          title: `${result.updated.length} lead${result.updated.length === 1 ? "" : "s"} ${isAdminJunkRestoreMode ? "restored and assigned" : "transferred"}`,
-        });
-      }
-
-      closeAdminTransferModal();
-      setIsSelectMode(false);
-      setSelectedLeadIds(new Set());
-    } catch {
-      toast({ title: "Transfer failed", variant: "destructive" });
-    } finally {
-      setAdminTransferSubmitting(false);
-    }
-  };
-
   const ttTargetName = telecallers.find((t) => String(t.id) === ttTargetId)?.fullName ?? "";
-  const adminTargetName =
-    counsellors.find((c) => String(c.id) === adminTargetCounsellorId)?.fullName ??
-    telecallers.find((t) => String(t.id) === adminTargetTelecallerId)?.fullName ??
-    "";
 
-  const adminSelectedCount = selectedLeadIds.size;
   const adminTransferableCount = getAdminTransferableLeads().length;
   const adminSkippedTransferCount = isAdminJunkRestoreMode
     ? 0
-    : Math.max(0, adminSelectedCount - adminTransferableCount);
+    : Math.max(0, selectedLeadIds.size - adminTransferableCount);
 
   const eligibilityLabel = (v?: string | null) =>
     ELIGIBILITY_OPTIONS.find((o) => o.value === v)?.label;
@@ -1039,7 +1232,20 @@ const loadLeadTypes = useCallback(async () => {
 
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold">Leads Management</h1>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            onClick={() => {
+              if (window.history.length > 1) window.history.back();
+              else setLocation("/leads");
+            }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold">Leads Management</h1>
+        </div>
         <div className="flex items-center gap-2">
           {/* Telecaller-only: select + bulk transfer */}
           {canBulkSelect && (
@@ -1055,7 +1261,8 @@ const loadLeadTypes = useCallback(async () => {
                   ) : (
                     <Send className="w-3.5 h-3.5" />
                   )}
-                  {isAdminJunkRestoreMode ? "Restore & Assign" : "Transfer"} ({selectedLeadIds.size})
+                  {isAdminJunkRestoreMode ? "Restore & Assign" : isAdminBulk ? "Assign" : "Transfer"} (
+                    {isAdminBulk ? adminTransferableCount : selectedLeadIds.size})
                 </Button>
               )}
               <Button
@@ -1398,25 +1605,41 @@ const loadLeadTypes = useCallback(async () => {
               <Table className="table-fixed w-full border-separate border-spacing-y-2 [&_td]:overflow-hidden [&_td]:py-3 [&_th]:h-8">
                 <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    {canBulkSelect && isSelectMode && <TableHead className="w-10" />}
-                    <TableHead className="w-[22%]">Name</TableHead>
-                    <TableHead className="w-[17%]">Mobile Number</TableHead>
-                    <TableHead className="w-[15%]">Lead Type</TableHead>
-                    <TableHead className="w-[15%]">Lead Source</TableHead>
+                    {bulkSelectActive && (
+                      <TableHead className={leadTableCols.check}>
+                        <input
+                          type="checkbox"
+                          checked={allPageSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = somePageSelected;
+                          }}
+                          onChange={toggleSelectAllOnPage}
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label="Select all leads on this page"
+                          className="h-4 w-4 accent-primary cursor-pointer"
+                        />
+                      </TableHead>
+                    )}
+                    <TableHead className={leadTableCols.name}>Name</TableHead>
+                    <TableHead className={leadTableCols.mobile}>Mobile Number</TableHead>
+                    <TableHead className={leadTableCols.leadType}>Lead Type</TableHead>
+                    <TableHead className={leadTableCols.leadSource}>Lead Source</TableHead>
                     {isAdminBulk && (
                       <>
-                        <TableHead className="w-[16%]">Current Telecaller</TableHead>
-                        <TableHead className="w-[16%]">Current Counsellor</TableHead>
+                        <TableHead className={leadTableCols.telecaller}>Current Telecaller</TableHead>
+                        <TableHead className={leadTableCols.counsellor}>Current Counsellor</TableHead>
                       </>
                     )}
-                    {isTelecaller && <TableHead className="w-[18%]">Assigned Counsellor</TableHead>}
+                    {isTelecaller && (
+                      <TableHead className={leadTableCols.assignedCounsellor}>Assigned Counsellor</TableHead>
+                    )}
                     {isCounsellor && (
                       <>
-                        <TableHead className="w-[12%]">Quality</TableHead>
-                        <TableHead className="w-[18%]">Transferred From</TableHead>
+                        <TableHead className={leadTableCols.quality}>Quality</TableHead>
+                        <TableHead className={leadTableCols.transferredFrom}>Transferred From</TableHead>
                       </>
                     )}
-                    <TableHead className="w-[14%] text-right">Status</TableHead>
+                    <TableHead className={leadTableCols.status}>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1454,7 +1677,7 @@ const loadLeadTypes = useCallback(async () => {
                         }}
                       >
                         {inSelectMode && (
-                          <TableCell>
+                          <TableCell className={leadTableCols.check}>
                             <input
                               type="checkbox"
                               checked={isSelected}
@@ -1775,154 +1998,19 @@ const loadLeadTypes = useCallback(async () => {
   </DialogContent>
 </Dialog>
 
-      <Dialog open={adminTransferOpen} onOpenChange={(open) => { if (!open) closeAdminTransferModal(); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{isAdminJunkRestoreMode ? "Restore & Assign Junk Leads" : "Transfer Selected Leads"}</DialogTitle>
-          </DialogHeader>
-
-          {adminTransferStep === "assignee" && (
-            <div className="space-y-4 py-4">
-              <p className="text-sm text-muted-foreground">
-                {isAdminJunkRestoreMode ? "Restoring" : "Transferring"}{" "}
-                <span className="font-semibold text-foreground">{adminTransferableCount}</span> lead
-                {adminTransferableCount !== 1 ? "s" : ""}. Choose one telecaller or one counsellor.
-              </p>
-              {!isAdminJunkRestoreMode && adminSkippedTransferCount > 0 && (
-                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-                  {adminSkippedTransferCount} selected lead{adminSkippedTransferCount !== 1 ? "s" : ""}{" "}
-                  (transferred or converted) will be skipped. Assigned and follow-up leads can be moved.
-                </p>
-              )}
-              <div className="grid gap-2">
-                <Label>Telecaller</Label>
-                <Select
-                  value={adminTargetTelecallerId}
-                  onValueChange={(value) => {
-                    setAdminTargetTelecallerId(value);
-                    setAdminTargetCounsellorId("");
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={telecallers.length > 0 ? "Choose telecaller…" : "Loading telecallers..."} />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px] overflow-y-auto">
-                    {telecallers.map((t) => (
-                      <SelectItem key={t.id} value={String(t.id)}>{t.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label>Counsellor</Label>
-                <Select
-                  value={adminTargetCounsellorId}
-                  onValueChange={(value) => {
-                    setAdminTargetCounsellorId(value);
-                    setAdminTargetTelecallerId("");
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={counsellors.length > 0 ? "Choose counsellor…" : "Loading counsellors..."} />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px] overflow-y-auto">
-                    {counsellors.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>{c.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-
-          {adminTransferStep === "reassign" && (
-            <div className="space-y-4 py-4">
-              <p className="text-sm text-foreground">
-                <span className="font-semibold">{adminReassignCount}</span> lead
-                {adminReassignCount !== 1 ? "s are" : " is"} currently assigned to a{" "}
-                {adminReassignFromRole === "counsellor" ? "counsellor" : "telecaller"}.
-              </p>
-              {adminReassignFromRole === "counsellor" ? (
-                <p className="text-sm text-muted-foreground">
-                  Do you want to remove {adminReassignCount === 1 ? "this lead" : "these leads"} from the
-                  counsellor&apos;s list?
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  If the counsellor converts {adminReassignCount === 1 ? "this lead" : "these leads"}, the
-                  telecaller may receive conversion credit. Do you want to remove{" "}
-                  {adminReassignCount === 1 ? "it" : "them"} from the telecaller&apos;s list?
-                </p>
-              )}
-              <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer">
-                <Checkbox
-                  checked={adminRemoveFromPreviousAssignee}
-                  onCheckedChange={(v) => setAdminRemoveFromPreviousAssignee(v === true)}
-                />
-                <span className="text-sm leading-snug">
-                  Yes, remove from the previous {adminReassignFromRole}&apos;s list
-                </span>
-              </label>
-            </div>
-          )}
-
-          {adminTransferStep === "confirm" && (
-            <div className="py-6 text-center space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Confirm {isAdminJunkRestoreMode ? "restore and assignment of" : "transfer of"}
-              </p>
-              <p className="text-lg font-bold">
-                {adminTransferableCount} lead{adminTransferableCount !== 1 ? "s" : ""}
-              </p>
-              <p className="text-sm text-muted-foreground">to</p>
-              <p className="text-base font-semibold text-primary">{adminTargetName}</p>
-              {adminRemoveFromPreviousAssignee && adminReassignFromRole && (
-                <p className="text-xs text-muted-foreground">
-                  Will be removed from the previous {adminReassignFromRole}&apos;s list.
-                </p>
-              )}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (adminTransferStep === "confirm") {
-                  setAdminTransferStep(adminReassignCount > 0 ? "reassign" : "assignee");
-                  return;
-                }
-                if (adminTransferStep === "reassign") {
-                  setAdminTransferStep("assignee");
-                  return;
-                }
-                closeAdminTransferModal();
-              }}
-            >
-              {adminTransferStep === "assignee" ? "Cancel" : "Back"}
-            </Button>
-            <Button
-              disabled={
-                (adminTransferStep === "assignee" &&
-                  !adminTargetTelecallerId &&
-                  !adminTargetCounsellorId) ||
-                adminTransferSubmitting
-              }
-              onClick={handleAdminTransferSubmit}
-            >
-              {adminTransferSubmitting
-                ? isAdminJunkRestoreMode
-                  ? "Restoring…"
-                  : "Transferring…"
-                : adminTransferStep === "confirm"
-                  ? isAdminJunkRestoreMode
-                    ? "Confirm Restore"
-                    : "Confirm Transfer"
-                  : "Next →"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <LeadBulkAssignDialog
+        open={adminTransferOpen}
+        onOpenChange={(open) => {
+          if (!open) closeAdminTransferModal();
+          else setAdminTransferOpen(true);
+        }}
+        transferableLeads={getAdminTransferableLeads()}
+        blockedCount={adminSkippedTransferCount}
+        isJunkRestoreMode={isAdminJunkRestoreMode}
+        telecallers={telecallers}
+        counsellors={counsellors}
+        onSuccess={handleAdminBulkAssignSuccess}
+      />
 
       {/* ── Eligibility Modal ─────────────────────────────────── */}
       <Dialog open={!!eligibilityLead} onOpenChange={(open) => { if (!open) closeEligibilityModal(); }}>

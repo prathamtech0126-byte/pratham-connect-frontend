@@ -1,5 +1,6 @@
 import { format } from "date-fns";
-import { useEffect, useRef, useState } from "react";
+import { formatCrmTimestamp } from "@/lib/format-crm-timestamp";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowUpDown,
@@ -21,7 +22,12 @@ import {
   X,
 } from "lucide-react";
 import { Breadcrumbs } from "@/layout/Breadcrumbs";
-import { getLeadSourceLabel, type LeadSourceOption } from "@/lib/lead-source-display";
+import {
+  getLeadSourceLabel,
+  resolveLeadSourceSelectValue,
+  resolveLeadTypeSelectValue,
+  type LeadSourceOption,
+} from "@/lib/lead-source-display";
 import {
   getLeadReferenceDetailCaption,
   getLeadReferenceDisplayLabel,
@@ -62,7 +68,7 @@ function humanizeEnum(value: string) {
 
 function formatDateTime(value?: string | null) {
   if (!value) return "—";
-  return format(new Date(value), "dd MMM yyyy, hh:mm a");
+  return formatCrmTimestamp(value, "datetime");
 }
 
 function formatCustomAnswer(val: unknown): string {
@@ -109,6 +115,8 @@ export type LeadDetailLayoutProps = {
   submitting: boolean;
   transferDisabledReason?: string;
   canTransfer: boolean;
+  canConvert?: boolean;
+  convertDisabledReason?: string;
   canReassign: boolean;
   transferButtonLabel: string;
   eligibilityValue: LeadEntity["eligibilityStatus"] | "";
@@ -152,7 +160,15 @@ export type LeadDetailLayoutProps = {
   setNoteText: (v: string) => void;
   onAddNote: () => void;
   onCompleteFollowUp: (activityId: number) => void;
+  editingNoteId: number | null;
+  editingNoteText: string;
+  savingNoteEdit: boolean;
+  onStartEditNote: (activityId: number, message: string) => void;
+  onCancelEditNote: () => void;
+  onSaveEditNote: () => void;
+  setEditingNoteText: (value: string) => void;
   personalSection?: React.ReactNode;
+  canEditLeadSource?: boolean;
 };
 
 export function LeadDetailLayout(props: LeadDetailLayoutProps) {
@@ -171,6 +187,8 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
     submitting,
     transferDisabledReason,
     canTransfer,
+    canConvert,
+    convertDisabledReason,
     canReassign,
     transferButtonLabel,
     eligibilityValue,
@@ -207,7 +225,15 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
     setNoteText,
     onAddNote,
     onCompleteFollowUp,
+    editingNoteId,
+    editingNoteText,
+    savingNoteEdit,
+    onStartEditNote,
+    onCancelEditNote,
+    onSaveEditNote,
+    setEditingNoteText,
     personalSection,
+    canEditLeadSource = false,
   } = props;
 
   const sortedTimelineItems = sortTimelineActivities(timelineItems, timelineNewestFirst);
@@ -217,6 +243,22 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
       ? (lead.customAnswers as Record<string, unknown>)
       : {};
   const formKeys = getUnmatchedCustomAnswerKeys(customAnswers, lead);
+
+  const editLeadSourceValue = useMemo(
+    () => resolveLeadSourceSelectValue(editForm.leadSource, sourceOptions),
+    [editForm.leadSource, sourceOptions]
+  );
+  const editLeadTypeValue = useMemo(
+    () => resolveLeadTypeSelectValue(editForm.leadType, typeOptions),
+    [editForm.leadType, typeOptions]
+  );
+  const leadSourceInOptions = Boolean(
+    editLeadSourceValue &&
+      sourceOptions.some((o) => o.leadType === editLeadSourceValue)
+  );
+  const leadTypeInOptions = Boolean(
+    editLeadTypeValue && typeOptions.some((o) => o.saleType === editLeadTypeValue)
+  );
 
   useEffect(() => {
     const main = mainColumnRef.current;
@@ -324,7 +366,13 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                 )}
                 {isCounsellor && (
                   <>
-                    <Button size="sm" className="gap-1.5" disabled={submitting} onClick={onConvert}>
+                    <Button
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={submitting || canConvert === false}
+                      title={convertDisabledReason}
+                      onClick={onConvert}
+                    >
                       <UserCheck className="h-4 w-4" />
                       Convert
                     </Button>
@@ -338,13 +386,19 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
             )}
           </div>
         </div>
+        {!readOnly && isCounsellor && (
+          <p className="mt-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+            To convert a lead into a client, mark eligibility, set lead quality, and complete pending
+            follow-ups.
+          </p>
+        )}
       </div>
 
       {/* Eligibility, quality, follow-up — counsellors can update until read-only */}
       {!readOnly && (
         <>
           <div className="grid gap-3 md:grid-cols-3">
-            <Card className="shadow-sm">
+            <Card className="shadow-sm min-h-[112px]">
               <CardContent className="p-4 space-y-2">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Eligibility</p>
                 <ToggleGroup
@@ -368,7 +422,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                 </ToggleGroup>
               </CardContent>
             </Card>
-            <Card className="shadow-sm">
+            <Card className="shadow-sm min-h-[112px]">
               <CardContent className="p-4 space-y-2">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Quality</p>
                 <ToggleGroup
@@ -392,7 +446,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                 </ToggleGroup>
               </CardContent>
             </Card>
-            <Card className="shadow-sm">
+            <Card className="shadow-sm min-h-[112px]">
               <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Next follow-up</p>
@@ -418,8 +472,14 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
       )}
 
       <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
-        <div ref={mainColumnRef} className="lg:col-span-2 min-w-0 overflow-hidden">
-          <Tabs defaultValue="overview" className="w-full min-w-0">
+        <div
+          ref={mainColumnRef}
+          className={cn(
+            "lg:col-span-2 min-w-0",
+            isEditing ? "overflow-visible" : "overflow-hidden"
+          )}
+        >
+          <Tabs defaultValue="overview" className={cn("w-full min-w-0", isEditing && "overflow-visible")}>
             <TabsList className="w-full justify-start h-auto p-1 bg-muted/40 rounded-lg">
               <TabsTrigger value="overview" className="px-6 py-2">
                 Overview
@@ -435,8 +495,16 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="mt-4 space-y-4">
-              <Card className="shadow-sm border-border/60 min-w-0 overflow-hidden">
+            <TabsContent
+              value="overview"
+              className={cn("mt-4 space-y-4", isEditing && "relative z-20 overflow-visible")}
+            >
+              <Card
+                className={cn(
+                  "shadow-sm border-border/60 min-w-0",
+                  isEditing ? "overflow-visible" : "overflow-hidden"
+                )}
+              >
                 <CardHeader className="flex flex-row items-center justify-between py-4">
                   <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
                     Lead information
@@ -458,7 +526,12 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                     ))}
                 </CardHeader>
                 <Separator />
-                <CardContent className="p-6 space-y-6 min-w-0 overflow-hidden">
+                <CardContent
+                  className={cn(
+                    "p-6 space-y-6 min-w-0",
+                    isEditing ? "overflow-visible" : "overflow-hidden"
+                  )}
+                >
                   <div className="grid gap-6 sm:grid-cols-2 min-w-0">
                     <div className="space-y-4">
                       {(
@@ -477,7 +550,9 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                           {isEditing ? (
                             <Input
                               value={String(editForm[field.key] ?? "")}
-                              onChange={(e) => setEditForm({ ...editForm, [field.key]: e.target.value })}
+                              onChange={(e) =>
+                                setEditForm((prev) => ({ ...prev, [field.key]: e.target.value }))
+                              }
                               className="h-9"
                             />
                           ) : (
@@ -491,16 +566,23 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
                           Lead source
                         </p>
-                        {isEditing ? (
+                        {isEditing && canEditLeadSource ? (
                           <Select
-                            value={editForm.leadSource || ""}
-                            onValueChange={(val) => setEditForm({ ...editForm, leadSource: val })}
-                            disabled={isLoadingDropdowns}
+                            value={editLeadSourceValue}
+                            onValueChange={(val) =>
+                              setEditForm((prev) => ({ ...prev, leadSource: val }))
+                            }
+                            disabled={isLoadingDropdowns && sourceOptions.length === 0}
                           >
-                            <SelectTrigger className="h-9">
+                            <SelectTrigger className="h-9 w-full">
                               <SelectValue placeholder="Select source" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent position="popper" className="max-h-[280px] z-[100]">
+                              {!leadSourceInOptions && editForm.leadSource?.trim() && (
+                                <SelectItem value={editForm.leadSource.trim()}>
+                                  {getLeadSourceLabel(editForm.leadSource, sourceOptions)}
+                                </SelectItem>
+                              )}
                               {sourceOptions.map((opt) => (
                                 <SelectItem key={opt.leadType} value={opt.leadType}>
                                   {getLeadSourceLabel(opt.leadType, sourceOptions)}
@@ -532,14 +614,21 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                         </p>
                         {isEditing ? (
                           <Select
-                            value={editForm.leadType || ""}
-                            onValueChange={(val) => setEditForm({ ...editForm, leadType: val })}
-                            disabled={isLoadingDropdowns}
+                            value={editLeadTypeValue}
+                            onValueChange={(val) =>
+                              setEditForm((prev) => ({ ...prev, leadType: val }))
+                            }
+                            disabled={isLoadingDropdowns && typeOptions.length === 0}
                           >
-                            <SelectTrigger className="h-9">
+                            <SelectTrigger className="h-9 w-full">
                               <SelectValue placeholder="Select type" />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent position="popper" className="max-h-[280px] z-[100]">
+                              {!leadTypeInOptions && editForm.leadType?.trim() && (
+                                <SelectItem value={editForm.leadType.trim()}>
+                                  {editForm.leadType.trim()}
+                                </SelectItem>
+                              )}
                               {typeOptions.map((opt) => (
                                 <SelectItem key={opt.id} value={opt.saleType}>
                                   {opt.saleType}
@@ -564,22 +653,13 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                     </div>
                   </div>
 
-                  <div className="min-w-0 max-w-full">
+                  <div className="min-w-0 max-w-full relative z-10">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
                       Lead note
                     </p>
-                    {isEditing ? (
-                      <Textarea
-                        value={editForm.latestNote ?? ""}
-                        onChange={(e) => setEditForm({ ...editForm, latestNote: e.target.value })}
-                        rows={3}
-                        className="resize-y max-w-full"
-                      />
-                    ) : (
-                      <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm whitespace-pre-wrap break-words break-all min-w-0 max-w-full overflow-hidden [overflow-wrap:anywhere]">
-                        {lead.latestNote?.trim() || "No note yet."}
-                      </div>
-                    )}
+                    <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm whitespace-pre-wrap break-words break-all min-w-0 max-w-full overflow-hidden [overflow-wrap:anywhere]">
+                      {lead.latestNote?.trim() || "No note yet."}
+                    </div>
                   </div>
 
                   <div>
@@ -622,7 +702,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
               {personalSection}
             </TabsContent>
 
-            <TabsContent value="notes" className="mt-4 space-y-3">
+            <TabsContent value="notes" className="mt-4 space-y-3 min-h-[560px]">
               <div className="flex justify-between items-center">
                 <p className="text-sm text-muted-foreground">{noteActivities.length} notes</p>
                 {!readOnly && (
@@ -650,25 +730,75 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                 </Card>
               )}
               {noteActivities.length === 0 && !showAddNote && (
-                <p className="text-sm text-muted-foreground py-6 text-center">No notes yet.</p>
+                <div className="min-h-[500px] flex items-center justify-center rounded-lg border border-dashed bg-muted/20">
+                  <p className="text-sm text-muted-foreground text-center">No notes yet.</p>
+                </div>
               )}
-              {noteActivities.map((n) => (
-                <Card key={n.id} className="border-border/50">
-                  <CardContent className="p-4 flex justify-between gap-4">
-                    <p className="text-sm flex-1 break-words break-all min-w-0 [overflow-wrap:anywhere]">
-                      {n.message}
-                    </p>
-                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {formatDateTime(n.createdAt)}
-                    </span>
-                  </CardContent>
-                </Card>
-              ))}
+              {noteActivities.map((n) => {
+                const isEditingThis = editingNoteId === n.id;
+                return (
+                  <Card key={n.id} className="border-border/50">
+                    <CardContent className="p-4 space-y-3">
+                      {isEditingThis ? (
+                        <>
+                          <Textarea
+                            value={editingNoteText}
+                            onChange={(e) => setEditingNoteText(e.target.value)}
+                            rows={3}
+                            className="resize-y"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={savingNoteEdit}
+                              onClick={onCancelEditNote}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={savingNoteEdit || !editingNoteText.trim()}
+                              onClick={onSaveEditNote}
+                            >
+                              {savingNoteEdit ? "Saving…" : "Save"}
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex justify-between gap-4">
+                          <p className="text-sm flex-1 break-words break-all min-w-0 [overflow-wrap:anywhere]">
+                            {n.message}
+                          </p>
+                          <div className="flex flex-col items-end gap-2 shrink-0">
+                            {!readOnly && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 gap-1 text-muted-foreground"
+                                onClick={() => onStartEditNote(n.id, n.message ?? "")}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit
+                              </Button>
+                            )}
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                              {formatDateTime(n.createdAt)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </TabsContent>
 
-            <TabsContent value="followups" className="mt-4 space-y-3">
+            <TabsContent value="followups" className="mt-4 space-y-3 min-h-[560px]">
               {followupActivities.length === 0 && (
-                <p className="text-sm text-muted-foreground py-6 text-center">No follow-ups scheduled.</p>
+                <div className="min-h-[500px] flex items-center justify-center rounded-lg border border-dashed bg-muted/20">
+                  <p className="text-sm text-muted-foreground text-center">No follow-ups scheduled.</p>
+                </div>
               )}
               {followupActivities.map((f) => {
                 const isPending = f.status === "pending";
@@ -723,7 +853,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
           )}
           style={sidebarHeightPx != null ? { height: sidebarHeightPx } : undefined}
         >
-          <Card ref={assignmentRef} className="shadow-sm shrink-0">
+          <Card ref={assignmentRef} className="shadow-sm shrink-0 min-h-[168px]">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Assignment
@@ -737,7 +867,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase text-muted-foreground">Telecaller</p>
-                    <p className="text-sm font-semibold truncate">
+                    <p className={cn("text-sm font-semibold truncate", !lead.telecallerName && !lead.currentTelecallerId && "text-muted-foreground font-medium")}>
                       {lead.telecallerName ||
                         (lead.currentTelecallerId ? `User #${lead.currentTelecallerId}` : "Not assigned")}
                     </p>
@@ -751,7 +881,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase text-muted-foreground">Counsellor</p>
-                    <p className="text-sm font-semibold truncate">
+                    <p className={cn("text-sm font-semibold truncate", !lead.counsellorName && !lead.currentCounsellorId && "text-muted-foreground font-medium")}>
                       {lead.counsellorName ||
                         (lead.currentCounsellorId ? `User #${lead.currentCounsellorId}` : "Not assigned")}
                     </p>

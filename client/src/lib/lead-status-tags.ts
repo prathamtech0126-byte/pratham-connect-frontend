@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { formatCrmFollowupShort } from "@/lib/format-crm-timestamp";
 import type { LeadEntity } from "@/api/leads.api";
 import type { LeadDetailMeta } from "@/api/leads.api";
 
@@ -34,9 +34,7 @@ export const hasPendingFollowUp = (
 };
 
 function followUpProgressTag(lead: LeadEntity): LeadDisplayTag {
-  const when = lead.nextFollowupAt
-    ? format(new Date(lead.nextFollowupAt), "dd MMM, hh:mm a")
-    : null;
+  const when = lead.nextFollowupAt ? formatCrmFollowupShort(lead.nextFollowupAt) : null;
   return {
     key: "follow_up",
     label: when ? `Follow Up · ${when}` : "Follow Up",
@@ -293,3 +291,48 @@ export const sortLeadsForDisplay = (items: LeadEntity[]): LeadEntity[] =>
     if (aRank !== bRank) return aRank - bRank;
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
+
+/** Telecaller individual report: transferred → converted → dropped → rest. */
+const TELECALLER_REPORT_ASSIGNMENT_SORT: Record<string, number> = {
+  transferred: 0,
+  converted: 1,
+  dropped: 2,
+  assigned: 3,
+  not_assigned: 3,
+};
+
+export const sortLeadsForTelecallerReport = (items: LeadEntity[]): LeadEntity[] =>
+  [...items].sort((a, b) => {
+    const aRank = TELECALLER_REPORT_ASSIGNMENT_SORT[a.assignmentStatus ?? ""] ?? 3;
+    const bRank = TELECALLER_REPORT_ASSIGNMENT_SORT[b.assignmentStatus ?? ""] ?? 3;
+    if (aRank !== bRank) return aRank - bRank;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+
+/** Assignment pill on telecaller report — hide generic "assigned" / "not assigned". */
+export const getTelecallerReportAssignmentTag = (lead: LeadEntity): LeadDisplayTag | null => {
+  const status = lead.assignmentStatus;
+  if (!status || status === "assigned" || status === "not_assigned") return null;
+  if (status === "transferred") {
+    return {
+      key: "transferred",
+      label: "Transferred",
+      className: "bg-blue-600 text-white border-0",
+    };
+  }
+  if (status === "converted" || isLeadConverted(lead)) {
+    return {
+      key: "converted",
+      label: "Converted",
+      className: "bg-emerald-600 text-white border-0",
+    };
+  }
+  if (status === "dropped" || isLeadDropped(lead)) {
+    return {
+      key: "dropped",
+      label: "Dropped",
+      className: "bg-red-600 text-white border-0",
+    };
+  }
+  return null;
+};

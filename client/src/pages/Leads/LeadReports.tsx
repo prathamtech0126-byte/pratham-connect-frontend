@@ -22,13 +22,20 @@ import {
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Users, ArrowRightLeft, CheckCircle2, CalendarClock,
-  Trash2, Phone, Calendar, ChevronRight, PhoneOff
+  Trash2, Phone, Calendar, ChevronRight, PhoneOff, UserRound
 } from "lucide-react";
 
 import { fetchAllLeads, type LeadEntity } from "@/api/leads.api";
 import DateRangePicker from "@/components/payments/DateRangePicker";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
+import {
+  buildLeadListUrlFromReport,
+  isLeadAssignedToTelecaller,
+  isLeadAssignedToCounsellor,
+  type LeadReportMetricKey,
+} from "@/lib/lead-report-metrics";
+import { isLeadDropped } from "@/lib/lead-status-tags";
 
 type DateFilterType = "all" | "today" | "weekly" | "monthly" | "custom";
 
@@ -50,7 +57,21 @@ const ASSIGNMENT_OPTIONS = [
   { value: "assigned", label: "Assigned" },
   { value: "transferred", label: "Transferred" },
   { value: "converted", label: "Converted" },
+  { value: "dropped", label: "Dropped" },
 ];
+
+/** Transferred KPI = assignment status transferred + dropped + converted (excludes direct counsellor assign). */
+const TRANSFERRED_ASSIGNMENT_STATUSES = new Set(["transferred", "dropped", "converted"]);
+
+const isTransferredByAssignment = (lead: LeadEntity) =>
+  lead.currentTelecallerId != null &&
+  TRANSFERRED_ASSIGNMENT_STATUSES.has(lead.assignmentStatus ?? "");
+
+const countTransferredByAssignment = (items: LeadEntity[]) =>
+  items.filter(isTransferredByAssignment).length;
+
+const countAssignmentStatus = (items: LeadEntity[], status: LeadEntity["assignmentStatus"]) =>
+  items.filter((l) => l.assignmentStatus === status).length;
 
 type UserLite = { id: number; fullName: string };
 
@@ -85,20 +106,38 @@ export default function LeadReports() {
   const [loading, setLoading] = useState(false);
 
   const loadData = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const [leadRes, tRes, cRes, ltRes, stRes] = await Promise.all([
-        fetchAllLeads({ isJunk: false }),
-        api.get("/api/users/telecallers"),
-        api.get("/api/users/counsellors"),
-        api.get("/api/lead-types"),
-        api.get("/api/sale-types"),
-      ]);
-      setAllLeads(leadRes);
-      setTelecallers(tRes?.data?.data || tRes?.data || []);
-      setCounsellors(cRes?.data?.data || cRes?.data || []);
-      setLeadTypes(ltRes?.data?.data || ltRes?.data || []);
-      setSaleTypes(stRes?.data?.data || stRes?.data || []);
+      const [leadsResult, teleResult, counsResult, leadTypesResult, saleTypesResult] =
+        await Promise.allSettled([
+          fetchAllLeads({}),
+          api.get("/api/users/telecallers"),
+          api.get("/api/users/counsellors"),
+          api.get("/api/lead-types"),
+          api.get("/api/sale-types"),
+        ]);
+
+      if (leadsResult.status === "fulfilled") {
+        setAllLeads(leadsResult.value);
+      } else {
+        console.error("[LeadReports] failed to load leads", leadsResult.reason);
+      }
+      if (teleResult.status === "fulfilled") {
+        setTelecallers(teleResult.value?.data?.data || teleResult.value?.data || []);
+      } else {
+        console.error("[LeadReports] failed to load telecallers", teleResult.reason);
+      }
+      if (counsResult.status === "fulfilled") {
+        setCounsellors(counsResult.value?.data?.data || counsResult.value?.data || []);
+      } else {
+        console.error("[LeadReports] failed to load counsellors", counsResult.reason);
+      }
+      if (leadTypesResult.status === "fulfilled") {
+        setLeadTypes(leadTypesResult.value?.data?.data || leadTypesResult.value?.data || []);
+      }
+      if (saleTypesResult.status === "fulfilled") {
+        setSaleTypes(saleTypesResult.value?.data?.data || saleTypesResult.value?.data || []);
+      }
     } finally {
       setLoading(false);
     }
@@ -106,10 +145,10 @@ export default function LeadReports() {
 
   useEffect(() => { void loadData(); }, [loadData]);
 
-  // ── Filtered leads ────────────────────────────────────
-  const filteredLeads = useMemo(() => {
+  // ── Date-scoped leads ──────────────────────────────────
+  const periodLeads = useMemo(() => {
     const bounds = getDateBounds(dateFilter, customDateFrom, customDateTo);
-    let items = allLeads.filter((l) => !l.isJunk && l.progressStatus !== "junk");
+    let items = allLeads;
     if (bounds) {
       items = items.filter(l => {
         const d = new Date(l.createdAt);
@@ -119,18 +158,35 @@ export default function LeadReports() {
     return items;
   }, [allLeads, dateFilter, customDateFrom, customDateTo]);
 
+  // Active (non-junk) leads used by most report buckets
+  const filteredLeads = useMemo(
+    () => periodLeads.filter((l) => !l.isJunk && l.progressStatus !== "junk"),
+    [periodLeads]
+  );
+
   // ── Summary ───────────────────────────────────────────
   const summary = useMemo(() => ({
-    assigned: filteredLeads.length,
-    contacted: filteredLeads.filter(l => ["contacted", "interested", "follow_up", "converted"].includes(l.progressStatus)).length,
-    notContacted: filteredLeads.filter(l => l.progressStatus === "not_contacted").length,
-    transferred: filteredLeads.filter(
-      (l) => l.assignmentStatus === "transferred" || l.currentCounsellorId != null
+    // Leads actually assigned to someone (telecaller or counsellor).
+    assigned: periodLeads.filter((l) => l.assignmentStatus !== "not_assigned").length,
+    // Leads not yet assigned to anyone.
+    unassigned: periodLeads.filter((l) => l.assignmentStatus === "not_assigned").length,
+    // Contacted bucket includes contacted + transferred/converted/dropped (non-junk).
+    contacted: filteredLeads.filter(
+      (l) =>
+        l.progressStatus === "contacted" ||
+        l.progressStatus === "follow_up" ||
+        l.assignmentStatus === "transferred" ||
+        l.assignmentStatus === "converted" ||
+        l.assignmentStatus === "dropped" ||
+        isLeadDropped(l)
     ).length,
-    converted: filteredLeads.filter(l => l.progressStatus === "converted" || l.assignmentStatus === "converted").length,
+    notContacted: filteredLeads.filter(l => l.progressStatus === "not_contacted").length,
+    transferred: countTransferredByAssignment(filteredLeads),
+    converted: countAssignmentStatus(filteredLeads, "converted"),
+    dropped: countAssignmentStatus(filteredLeads, "dropped"),
     pendingFollowUp: filteredLeads.filter(l => l.progressStatus === "follow_up").length,
-    junk: filteredLeads.filter(l => l.isJunk || l.progressStatus === "junk").length,
-  }), [filteredLeads]);
+    junk: periodLeads.filter(l => l.isJunk || l.progressStatus === "junk").length,
+  }), [filteredLeads, periodLeads]);
 
   const typeBreakdown = useMemo(() => {
     const types = Array.from(new Set(filteredLeads.map(l => l.leadType || "Unknown")));
@@ -139,8 +195,9 @@ export default function LeadReports() {
       return {
         type: t,
         assigned: items.length,
-        transferred: items.filter(l => ["transferred", "dropped"].includes(l.assignmentStatus)).length,
-        converted: items.filter(l => l.assignmentStatus === "converted").length,
+        transferred: countTransferredByAssignment(items),
+        converted: countAssignmentStatus(items, "converted"),
+        dropped: countAssignmentStatus(items, "dropped"),
         junk: items.filter(l => l.isJunk || l.progressStatus === "junk").length,
       };
     }).sort((a, b) => b.assigned - a.assigned);
@@ -152,9 +209,10 @@ export default function LeadReports() {
       const items = filteredLeads.filter(l => (l.leadSource || "Unknown") === s);
       const alias = leadTypes.find((lt: any) => lt.leadType === s)?.displayAlias?.trim() || s.replace(/_/g, " ");
       const assigned = items.length;
-      const transferred = items.filter(l => ["transferred", "dropped"].includes(l.assignmentStatus)).length;
-      const converted = items.filter(l => l.assignmentStatus === "converted").length;
-      return { source: alias, assigned, transferred, converted, barValue: assigned > 0 ? (transferred / assigned) * 100 : 0 };
+      const transferred = countTransferredByAssignment(items);
+      const converted = countAssignmentStatus(items, "converted");
+      const dropped = countAssignmentStatus(items, "dropped");
+      return { source: alias, assigned, transferred, converted, dropped, barValue: assigned > 0 ? (transferred / assigned) * 100 : 0 };
     }).sort((a, b) => b.assigned - a.assigned);
   }, [filteredLeads, leadTypes]);
 
@@ -162,7 +220,7 @@ export default function LeadReports() {
   const counsellorBreakdown = useMemo(() => {
     return counsellors
       .map(c => {
-        const cLeads = filteredLeads.filter(l => l.currentCounsellorId === c.id);
+        const cLeads = filteredLeads.filter(l => isLeadAssignedToCounsellor(l, c.id));
         if (cLeads.length === 0) return null;
         return {
           id: c.id,
@@ -184,32 +242,53 @@ export default function LeadReports() {
   const telecallerStats = useMemo(() => {
     return telecallers
       .map(t => {
-        const tLeads = filteredLeads.filter(l => l.currentTelecallerId === t.id);
+        const tLeads = filteredLeads.filter(l => isLeadAssignedToTelecaller(l, t.id));
+        const tJunkLeads = periodLeads.filter(
+          (l) =>
+            l.currentTelecallerId === t.id &&
+            (l.isJunk || l.progressStatus === "junk")
+        );
         return {
           id: t.id,
           name: t.fullName,
           assigned: tLeads.length,
-          transferred: tLeads.filter(l => l.assignmentStatus === "transferred").length,
-          converted: tLeads.filter(l => l.progressStatus === "converted" || l.assignmentStatus === "converted").length,
+          transferred: countTransferredByAssignment(tLeads),
+          converted: countAssignmentStatus(tLeads, "converted"),
+          dropped: countAssignmentStatus(tLeads, "dropped"),
           totalFollowUp: tLeads.filter(l => !!l.nextFollowupAt).length,
           pendingFollowUp: tLeads.filter(l => l.progressStatus === "follow_up").length,
-          junk: tLeads.filter(l => l.isJunk || l.progressStatus === "junk").length,
+          junk: tJunkLeads.length,
         };
       })
       .filter(t => t.assigned > 0)
       .sort((a, b) => b.transferred - a.transferred || b.assigned - a.assigned);
-  }, [filteredLeads, telecallers]);
+  }, [filteredLeads, periodLeads, telecallers]);
 
   const customLabel = dateFilter === "custom" && customDateFrom && customDateTo
     ? `${format(new Date(customDateFrom), "d MMM")} – ${format(new Date(customDateTo), "d MMM yyyy")}`
     : null;
 
+  const openLeadList = useCallback(
+    (metric: LeadReportMetricKey, telecallerId?: number) => {
+      setLocation(
+        buildLeadListUrlFromReport({
+          metric,
+          dateFilter,
+          customDateFrom,
+          customDateTo,
+          telecallerId,
+        })
+      );
+    },
+    [setLocation, dateFilter, customDateFrom, customDateTo]
+  );
+
   const chartData = telecallerStats.slice(0, 15);
 
   return (
     <PageWrapper
-      title="Telecaller Lead Reports"
-      breadcrumbs={[{ label: "Leads", href: "/leads" }, { label: "Reports" }]}
+      title="Lead Report"
+      breadcrumbs={[{ label: "Leads", href: "/leads" }, { label: "Lead Report" }]}
     >
       <div className="space-y-6">
 
@@ -242,26 +321,33 @@ export default function LeadReports() {
             </div>
             {!loading && (
               <p className="text-xs text-muted-foreground">
-                Showing <span className="font-semibold text-foreground">{filteredLeads.length}</span> leads
+                Showing <span className="font-semibold text-foreground">{summary.assigned}</span> leads
               </p>
             )}
           </div>
         </div>
 
         {/* ── Summary Cards ─────────────────────────────── */}
-        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
-          {[
-            { label: "Assigned", value: summary.assigned, icon: Users, color: "text-blue-600" },
-            { label: "Contacted", value: summary.contacted, icon: Phone, color: "text-sky-600" },
-            { label: "Not Contacted", value: summary.notContacted, icon: PhoneOff, color: "text-slate-400" },
-            { label: "Transferred", value: summary.transferred, icon: ArrowRightLeft, color: "text-amber-600" },
-            { label: "Converted", value: summary.converted, icon: CheckCircle2, color: "text-emerald-600" },
-            { label: "Pending F/U", value: summary.pendingFollowUp, icon: CalendarClock, color: "text-violet-600" },
-          ].map(stat => (
-            <Card key={stat.label} className="shadow-sm border-none bg-card/50">
+        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-5">
+          {([
+            { label: "Assigned", value: summary.assigned, icon: Users, color: "text-blue-600", metric: "assigned" as LeadReportMetricKey },
+            { label: "Unassigned", value: summary.unassigned, icon: UserRound, color: "text-slate-500", metric: "unassigned" as LeadReportMetricKey },
+            { label: "Not Contacted", value: summary.notContacted, icon: PhoneOff, color: "text-slate-400", metric: "not_contacted" as LeadReportMetricKey },
+            { label: "Junk", value: summary.junk, icon: Trash2, color: "text-rose-600", metric: "junk" as LeadReportMetricKey },
+            { label: "Contacted", value: summary.contacted, icon: Phone, color: "text-sky-600", metric: "contacted" as LeadReportMetricKey },
+            { label: "Transferred", value: summary.transferred, icon: ArrowRightLeft, color: "text-amber-600", metric: "transferred" as LeadReportMetricKey },
+            { label: "Converted", value: summary.converted, icon: CheckCircle2, color: "text-emerald-600", metric: "converted" as LeadReportMetricKey },
+            { label: "Drop", value: summary.dropped, icon: Trash2, color: "text-red-500", metric: "dropped" as LeadReportMetricKey },
+            { label: "Pending F/U", value: summary.pendingFollowUp, icon: CalendarClock, color: "text-violet-600", metric: "pending_follow_up" as LeadReportMetricKey },
+          ]).map(stat => (
+            <Card
+              key={stat.label}
+              className="shadow-sm border-none bg-card/50 cursor-pointer hover:bg-muted/30 transition-colors"
+              onClick={() => openLeadList(stat.metric)}
+            >
               <CardContent className="p-5 flex flex-col items-center justify-center relative">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 text-center">{stat.label}</p>
-                <p className={cn("text-3xl font-extrabold tabular-nums text-center", stat.color)}>{stat.value}</p>
+                <p className={cn("text-3xl font-extrabold tabular-nums text-center hover:underline underline-offset-4", stat.color)}>{stat.value}</p>
               </CardContent>
             </Card>
           ))}
@@ -275,7 +361,9 @@ export default function LeadReports() {
           <Card className="lg:col-span-3 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Transfers per Telecaller</CardTitle>
-              <CardDescription className="text-xs">Sorted by transfer count descending</CardDescription>
+              <CardDescription className="text-xs">
+                Transferred = assignment status transferred + drop + converted
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -307,6 +395,7 @@ export default function LeadReports() {
                             <p className="flex justify-between gap-4">Assigned <span className="font-bold">{d.assigned}</span></p>
                             <p className="flex justify-between gap-4">Transferred <span className="font-bold text-blue-600">{d.transferred}</span></p>
                             <p className="flex justify-between gap-4">Converted <span className="font-bold text-emerald-600">{d.converted}</span></p>
+                            <p className="flex justify-between gap-4">Drop <span className="font-bold text-red-500">{d.dropped}</span></p>
                             <p className="flex justify-between gap-4">Junk <span className="font-bold text-red-500">{d.junk}</span></p>
                           </div>
                         );
@@ -325,10 +414,11 @@ export default function LeadReports() {
               <CardTitle className="text-sm font-semibold">All Telecallers (by transfer)</CardTitle>
               <div className="flex justify-between text-[10px] text-muted-foreground font-medium uppercase tracking-wide mt-1 px-0.5">
                 <span>Telecaller</span>
-                <div className="flex gap-6">
+                <div className="flex gap-5">
                   <span>Assigned</span>
                   <span>Transferred</span>
                   <span>Converted</span>
+                  <span>Junk</span>
                 </div>
               </div>
             </CardHeader>
@@ -353,10 +443,19 @@ export default function LeadReports() {
                         </div>
                         <p className="text-sm font-medium truncate">{t.name}</p>
                       </div>
-                      <div className="flex items-center gap-6 text-xs tabular-nums shrink-0 ml-2">
-                        <span className="text-foreground font-medium w-12 text-center">{t.assigned}</span>
-                        <span className="font-bold text-blue-600 w-16 text-center">{t.transferred}</span>
+                      <div className="flex items-center gap-5 text-xs tabular-nums shrink-0 ml-2">
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className="text-foreground font-medium w-12 text-center cursor-pointer hover:underline"
+                          onClick={(e) => { e.stopPropagation(); openLeadList("assigned", t.id); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") openLeadList("assigned", t.id); }}
+                        >
+                          {t.assigned}
+                        </span>
+                        <span className="font-bold text-blue-600 w-14 text-center">{t.transferred}</span>
                         <span className="font-bold text-emerald-600 w-14 text-center">{t.converted}</span>
+                        <span className="font-bold text-red-500 w-12 text-center">{t.junk}</span>
                       </div>
                     </button>
                   ))
@@ -373,7 +472,7 @@ export default function LeadReports() {
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Lead Source Breakdown</CardTitle>
-              <CardDescription className="text-xs">Assigned · Transferred · Converted per source</CardDescription>
+              <CardDescription className="text-xs">Assigned · Transferred · Converted · Drop per source</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="max-h-[340px] overflow-auto">
@@ -383,14 +482,15 @@ export default function LeadReports() {
                       <TableHead className="text-xs uppercase pl-4">Source</TableHead>
                       <TableHead className="text-xs uppercase text-center">Assigned</TableHead>
                       <TableHead className="text-xs uppercase text-center">Transferred</TableHead>
-                      <TableHead className="text-xs uppercase text-center pr-4">Converted</TableHead>
+                      <TableHead className="text-xs uppercase text-center">Converted</TableHead>
+                      <TableHead className="text-xs uppercase text-center pr-4">Drop</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
-                      <TableRow><TableCell colSpan={4} className="h-20 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="h-20 text-center text-sm text-muted-foreground">Loading…</TableCell></TableRow>
                     ) : sourceBreakdown.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="h-20 text-center text-sm text-muted-foreground">No data.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="h-20 text-center text-sm text-muted-foreground">No data.</TableCell></TableRow>
                     ) : sourceBreakdown.map(row => {
                       const pct = row.assigned > 0 ? ((row.transferred / row.assigned) * 100).toFixed(0) : "0";
                       return (
@@ -403,6 +503,11 @@ export default function LeadReports() {
                           </TableCell>
                           <TableCell className="text-center pr-4">
                             <span className="font-bold text-emerald-600 tabular-nums">{row.converted}</span>
+                          </TableCell>
+                          <TableCell className="text-center pr-4">
+                            <span className={cn("tabular-nums", row.dropped > 0 ? "text-red-500 font-medium" : "text-muted-foreground")}>
+                              {row.dropped}
+                            </span>
                           </TableCell>
                         </TableRow>
                       );
@@ -417,7 +522,7 @@ export default function LeadReports() {
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Lead Type Breakdown</CardTitle>
-              <CardDescription className="text-xs">Assigned · Transferred · Converted per type</CardDescription>
+              <CardDescription className="text-xs">Assigned · Transferred · Converted · Drop per type</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="max-h-[340px] overflow-auto">
@@ -428,7 +533,7 @@ export default function LeadReports() {
                       <TableHead className="text-xs uppercase text-center">Assigned</TableHead>
                       <TableHead className="text-xs uppercase text-center">Transferred</TableHead>
                       <TableHead className="text-xs uppercase text-center">Converted</TableHead>
-                      <TableHead className="text-xs uppercase text-center pr-4">Junk</TableHead>
+                      <TableHead className="text-xs uppercase text-center pr-4">Drop</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -450,8 +555,8 @@ export default function LeadReports() {
                             <span className="font-bold text-emerald-600 tabular-nums">{row.converted}</span>
                           </TableCell>
                           <TableCell className="text-center pr-4">
-                            <span className={cn("tabular-nums", row.junk > 0 ? "text-red-500 font-medium" : "text-muted-foreground")}>
-                              {row.junk}
+                            <span className={cn("tabular-nums", row.dropped > 0 ? "text-red-500 font-medium" : "text-muted-foreground")}>
+                              {row.dropped}
                             </span>
                           </TableCell>
                         </TableRow>
@@ -554,6 +659,7 @@ export default function LeadReports() {
                     <TableHead className="text-xs uppercase text-center">Assigned</TableHead>
                     <TableHead className="text-xs uppercase text-center">Transferred</TableHead>
                     <TableHead className="text-xs uppercase text-center">Converted</TableHead>
+                    <TableHead className="text-xs uppercase text-center">Drop</TableHead>
                     <TableHead className="text-xs uppercase text-center">Follow-ups</TableHead>
                     <TableHead className="text-xs uppercase text-center">Pending F/U</TableHead>
                     <TableHead className="text-xs uppercase text-center">Junk</TableHead>
@@ -563,11 +669,11 @@ export default function LeadReports() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="h-24 text-center text-sm text-muted-foreground">Loading…</TableCell>
+                      <TableCell colSpan={10} className="h-24 text-center text-sm text-muted-foreground">Loading…</TableCell>
                     </TableRow>
                   ) : telecallerStats.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="h-24 text-center text-sm text-muted-foreground">No telecaller data for selected period.</TableCell>
+                      <TableCell colSpan={10} className="h-24 text-center text-sm text-muted-foreground">No telecaller data for selected period.</TableCell>
                     </TableRow>
                   ) : (
                     telecallerStats.map((t, i) => (
@@ -590,12 +696,25 @@ export default function LeadReports() {
                             <p className="text-sm font-semibold">{t.name}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="text-center tabular-nums font-medium">{t.assigned}</TableCell>
+                        <TableCell className="text-center tabular-nums font-medium">
+                          <button
+                            type="button"
+                            className="hover:underline"
+                            onClick={(e) => { e.stopPropagation(); openLeadList("assigned", t.id); }}
+                          >
+                            {t.assigned}
+                          </button>
+                        </TableCell>
                         <TableCell className="text-center">
                           <span className="font-bold text-blue-600 tabular-nums">{t.transferred}</span>
                         </TableCell>
                         <TableCell className="text-center">
                           <span className="font-bold text-emerald-600 tabular-nums">{t.converted}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className={cn("tabular-nums font-bold", t.dropped > 0 ? "text-red-500" : "text-muted-foreground")}>
+                            {t.dropped}
+                          </span>
                         </TableCell>
                         <TableCell className="text-center tabular-nums text-muted-foreground">{t.totalFollowUp}</TableCell>
                         <TableCell className="text-center">

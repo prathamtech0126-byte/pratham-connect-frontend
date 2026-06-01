@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Redirect, useLocation } from "wouter";
+import { playNotificationSound } from "@/notification/lib/notification-sound";
 import confetti from "canvas-confetti";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -192,6 +193,7 @@ export default function TelecalerDashbord() {
         if (p.currentTelecallerId === uid) lead = p;
       }
       if (lead) {
+        playNotificationSound();
         setAssignmentAlerts((prev) => {
           if (prev.some((l) => l.id === lead!.id)) return prev;
           return [lead!, ...prev].slice(0, 8);

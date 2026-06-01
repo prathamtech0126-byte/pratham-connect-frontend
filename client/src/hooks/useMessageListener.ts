@@ -13,10 +13,21 @@ export const useMessageListener = (onMessageReceived: (message: any) => void) =>
   }, [onMessageReceived]);
 
   useEffect(() => {
+    if (!user) {
+      return;
+    }
+
     // Listen for messages if user is Manager, Counsellor, or Admin
-    // Admins will receive messages to refresh their Messages page (but won't see blocking modals)
-    // Managers and counsellors will receive messages AND see blocking modals
-    if (!user || (user.role !== 'manager' && user.role !== 'counsellor' && user.role !== 'superadmin' && user.role !== 'director')) {
+    const listensForBroadcast =
+      user.role === 'manager' ||
+      user.role === 'counsellor' ||
+      user.role === 'superadmin' ||
+      user.role === 'director' ||
+      user.role === 'telecaller' ||
+      user.role === 'front_desk' ||
+      user.role === 'marketing_head';
+
+    if (!listensForBroadcast) {
       return;
     }
 

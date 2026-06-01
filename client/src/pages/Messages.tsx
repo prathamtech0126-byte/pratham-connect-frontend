@@ -45,7 +45,11 @@ export default function Messages() {
   // Managers can only view messages (like counsellors)
   const canSendMessages = user?.role === "superadmin" || user?.role === "director";
   const isAdmin = canSendMessages; // For viewing all messages
-  const canApprovePayments = user?.role === "superadmin" || user?.role === "director" || user?.role === "manager";
+  const canApprovePayments =
+    user?.role === "superadmin" ||
+    user?.role === "developer" ||
+    user?.role === "director" ||
+    user?.role === "manager";
   /** All Finance history list: superadmin + manager only (not director/counsellor). */
   const canViewAllFinanceHistory =
     user?.role === "superadmin" || user?.role === "manager";

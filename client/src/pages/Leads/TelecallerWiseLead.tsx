@@ -1,4 +1,4 @@
-import {
+import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -22,7 +22,7 @@ import {
   CheckCircle2,
   PhoneOff,
 } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { Toaster } from "sonner";
 
 import { Breadcrumbs } from "@/layout/Breadcrumbs";
@@ -36,6 +36,10 @@ import {
   getTelecallerLeadSummary,
   type TelecallerLeadSummaryRow,
 } from "@/api/leads.api";
+import {
+  buildLeadListUrlFromReport,
+  type LeadReportMetricKey,
+} from "@/lib/lead-report-metrics";
 
 type DateFilterType = "all" | "today" | "weekly" | "monthly" | "custom";
 type UserLite = { id: number; fullName: string };
@@ -49,7 +53,6 @@ type StatRow = UserLite &
     | "transferred"
     | "converted"
     | "followUp"
-    | "followUpDone"
     | "junk"
   >;
 
@@ -60,7 +63,6 @@ const emptyAgg = {
   transferred: 0,
   converted: 0,
   followUp: 0,
-  followUpDone: 0,
   junk: 0,
 };
 
@@ -84,12 +86,34 @@ function getDateBounds(
 
 export default function TelecallerWiseLead() {
   const [, setLocation] = useLocation();
+  const searchStr = useSearch();
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const [dateFilter, setDateFilter] = useState<DateFilterType>("today");
-  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>();
-  const [customDateTo, setCustomDateTo] = useState<string | undefined>();
+  const navParams = useMemo(() => {
+    const params = new URLSearchParams(searchStr.startsWith("?") ? searchStr.slice(1) : searchStr);
+    const rawDateFilter = params.get("dateFilter");
+    const dateFilter =
+      rawDateFilter &&
+      (["all", "today", "weekly", "monthly", "custom"] as const).includes(rawDateFilter as DateFilterType)
+        ? (rawDateFilter as DateFilterType)
+        : undefined;
+    return {
+      dateFilter,
+      customDateFrom: params.get("createdFrom") ?? undefined,
+      customDateTo: params.get("createdTo") ?? undefined,
+    };
+  }, [searchStr]);
+
+  const [dateFilter, setDateFilter] = useState<DateFilterType>(navParams.dateFilter ?? "today");
+  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>(navParams.customDateFrom);
+  const [customDateTo, setCustomDateTo] = useState<string | undefined>(navParams.customDateTo);
+
+  useEffect(() => {
+    if (navParams.dateFilter) setDateFilter(navParams.dateFilter);
+    if (navParams.customDateFrom) setCustomDateFrom(navParams.customDateFrom);
+    if (navParams.customDateTo) setCustomDateTo(navParams.customDateTo);
+  }, [navParams]);
 
   const [telecallers, setTelecallers] = useState<UserLite[]>([]);
   const [summaryRows, setSummaryRows] = useState<TelecallerLeadSummaryRow[]>([]);
@@ -136,7 +160,6 @@ export default function TelecallerWiseLead() {
         transferred: s?.transferred ?? 0,
         converted: s?.converted ?? 0,
         followUp: s?.followUp ?? 0,
-        followUpDone: s?.followUpDone ?? 0,
         junk: s?.junk ?? 0,
       };
     });
@@ -151,13 +174,11 @@ export default function TelecallerWiseLead() {
         transferred: acc.transferred + t.transferred,
         converted: acc.converted + t.converted,
         followUp: acc.followUp + t.followUp,
-        followUpPending: acc.followUpPending + t.followUp,
-        followUpDone: acc.followUpDone + t.followUpDone,
         junkCount: acc.junkCount + t.junk,
       }),
       {
         total: 0, contacted: 0, notContacted: 0, transferred: 0,
-        converted: 0, followUp: 0, followUpPending: 0, followUpDone: 0, junkCount: 0,
+        converted: 0, followUp: 0, junkCount: 0,
       }
     );
   }, [telecallerStats]);
@@ -166,6 +187,18 @@ export default function TelecallerWiseLead() {
     dateFilter === "custom" && customDateFrom && customDateTo
       ? `${format(new Date(customDateFrom), "d MMM")} - ${format(new Date(customDateTo), "d MMM yyyy")}`
       : null;
+
+  const openLeadList = useCallback(
+    (metric: LeadReportMetricKey) => {
+      const baseUrl = buildLeadListUrlFromReport({ metric, dateFilter, customDateFrom, customDateTo });
+      const [path, qs] = baseUrl.split("?");
+      const params = new URLSearchParams(qs ?? "");
+      params.set("hasTelecaller", "1");
+      params.set("clearFilters", "1");
+      setLocation(`${path}?${params.toString()}`);
+    },
+    [setLocation, dateFilter, customDateFrom, customDateTo]
+  );
 
   return (
     <div className="space-y-5">
@@ -202,72 +235,29 @@ export default function TelecallerWiseLead() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Total Leads</p>
-              <Users className="w-4 h-4 text-primary" />
-            </div>
-            <p className="text-2xl font-bold mt-2">{displayTotals.total}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Contacted</p>
-              <Phone className="w-4 h-4 text-blue-600" />
-            </div>
-            <p className="text-2xl font-bold mt-2">{displayTotals.contacted}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Not Contacted</p>
-              <PhoneOff className="w-4 h-4 text-slate-600" />
-            </div>
-            <p className="text-2xl font-bold mt-2">{displayTotals.notContacted}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Transferred</p>
-              <ArrowRightLeft className="w-4 h-4 text-amber-600" />
-            </div>
-            <p className="text-2xl font-bold mt-2">{displayTotals.transferred}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Converted</p>
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            </div>
-            <p className="text-2xl font-bold mt-2">{displayTotals.converted}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-primary/20">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Follow Up</p>
-              <CalendarClock className="w-4 h-4 text-primary" />
-            </div>
-            <p className="text-2xl font-bold mt-2">{displayTotals.followUp}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Pending: {displayTotals.followUpPending} | Done: {displayTotals.followUpDone}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Junk Marked</p>
-              <UserCheck className="w-4 h-4 text-rose-600" />
-            </div>
-            <p className="text-2xl font-bold mt-2">{displayTotals.junkCount}</p>
-          </CardContent>
-        </Card>
+        {([
+          { label: "Assigned Leads", value: displayTotals.total,       icon: Users,         color: "text-primary",     metric: "assigned"        },
+          { label: "Not Contacted",  value: displayTotals.notContacted, icon: PhoneOff,      color: "text-slate-600",   metric: "not_contacted"   },
+          { label: "Junk Marked",    value: displayTotals.junkCount,    icon: UserCheck,     color: "text-rose-600",    metric: "junk"            },
+          { label: "Contacted",      value: displayTotals.contacted,    icon: Phone,         color: "text-blue-600",    metric: "contacted"       },
+          { label: "Transferred",    value: displayTotals.transferred,  icon: ArrowRightLeft,color: "text-amber-600",   metric: "transferred"     },
+          { label: "Converted",      value: displayTotals.converted,    icon: CheckCircle2,  color: "text-emerald-600", metric: "converted"       },
+          { label: "Follow Up",      value: displayTotals.followUp,     icon: CalendarClock, color: "text-primary",     metric: "pending_follow_up"},
+        ] as { label: string; value: number; icon: React.ElementType; color: string; metric: LeadReportMetricKey }[]).map((stat) => (
+          <Card
+            key={stat.metric}
+            className="cursor-pointer hover:bg-muted/30 transition-colors"
+            onClick={() => openLeadList(stat.metric)}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <stat.icon className={`w-4 h-4 ${stat.color}`} />
+              </div>
+              <p className="text-2xl font-bold mt-2">{stat.value}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <Card>
@@ -287,7 +277,14 @@ export default function TelecallerWiseLead() {
                 <button
                   key={telecaller.id}
                   type="button"
-                  onClick={() => setLocation(`/leads/telecaller/${telecaller.id}`)}
+                  onClick={() => {
+                    const qs = new URLSearchParams();
+                    qs.set("from", "telecaller-wise");
+                    qs.set("dateFilter", dateFilter);
+                    if (customDateFrom) qs.set("createdFrom", customDateFrom);
+                    if (customDateTo) qs.set("createdTo", customDateTo);
+                    setLocation(`/leads/telecaller/${telecaller.id}?${qs.toString()}`);
+                  }}
                   className="w-full text-left rounded-lg border px-3 py-2.5 transition-all hover:bg-primary/5"
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -297,7 +294,7 @@ export default function TelecallerWiseLead() {
                     </Badge>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Total:{" "}
+                    Assigned:{" "}
                     <span className="font-medium text-foreground">{telecaller.total}</span> | Contacted:{" "}
                     <span className="font-medium text-foreground">{telecaller.contacted}</span> |
                     Transferred:{" "}

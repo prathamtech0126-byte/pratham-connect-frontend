@@ -81,7 +81,7 @@ export function MessageProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      console.log('[MessageProvider] Fetching unacknowledged messages for user:', user.id);
+      console.log('[MessageProvider] Fetching unacknowledged messages for user:', user?.id);
       const unacknowledgedMessages = await clientService.getUnacknowledgedMessages();
       console.log('[MessageProvider] Fetched unacknowledged messages:', unacknowledgedMessages);
 

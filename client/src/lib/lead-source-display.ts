@@ -10,6 +10,37 @@ export function formatLeadSourceSlug(slug: string | null | undefined): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Match stored lead source to a dropdown option value (slug). */
+export function resolveLeadSourceSelectValue(
+  raw: string | null | undefined,
+  options?: LeadSourceOption[]
+): string | undefined {
+  if (!raw?.trim() || !options?.length) return undefined;
+  const trimmed = raw.trim();
+  const lower = trimmed.toLowerCase();
+  const bySlug = options.find((o) => o.leadType.trim().toLowerCase() === lower);
+  if (bySlug) return bySlug.leadType;
+  const byAlias = options.find(
+    (o) => o.displayAlias?.trim().toLowerCase() === lower
+  );
+  if (byAlias) return byAlias.leadType;
+  const byLabel = options.find(
+    (o) => getLeadSourceLabel(o.leadType, options).toLowerCase() === lower
+  );
+  if (byLabel) return byLabel.leadType;
+  return trimmed;
+}
+
+export function resolveLeadTypeSelectValue(
+  raw: string | null | undefined,
+  options?: { saleType: string }[]
+): string | undefined {
+  if (!raw?.trim() || !options?.length) return undefined;
+  const lower = raw.trim().toLowerCase();
+  const match = options.find((o) => o.saleType.trim().toLowerCase() === lower);
+  return match?.saleType ?? raw.trim();
+}
+
 export function getLeadSourceLabel(
   slug: string | null | undefined,
   options?: LeadSourceOption[]

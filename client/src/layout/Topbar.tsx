@@ -28,6 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 
 import { ModeToggle } from "@/components/mode-toggle";
+import { NotificationBell } from "@/notification/components/NotificationBell";
 
 const getInitials = (name: string | undefined) => {
   if (!name) return 'U';
@@ -103,7 +104,11 @@ export function Topbar() {
   };
 
   // Fetch pending approvals count (for admin/manager)
-  const canViewApprovals = user?.role === "superadmin" || user?.role === "director" || user?.role === "manager";
+  const canViewApprovals =
+    user?.role === "superadmin" ||
+    user?.role === "developer" ||
+    user?.role === "director" ||
+    user?.role === "manager";
   const isTechSupportUser = user?.role === "tech_support";
   const { data: pendingApprovals = [], isLoading: isLoadingApprovals, error: approvalsError } = useQuery({
     queryKey: ["pending-all-finance-approvals"],
@@ -210,52 +215,18 @@ export function Topbar() {
     }) => {
       // console.log("[Topbar] New pending approval created:", data);
 
-      toast({
-        title: "New Pending Approval",
-        description: `All Finance & Employment payment for ${data.clientName || "client"} ($${data.amount || "N/A"}) requires approval.`,
-      });
-
-      // Refresh pending approvals count immediately
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     };
 
-    // Listen for all finance approval
-    const handleAllFinanceApproved = (data: {
-      financeId: number;
-      productPaymentId?: number;
-      clientId?: number;
-      clientName?: string;
-      amount?: string;
-    }) => {
-      // console.log("[Topbar] All Finance approved event received:", data);
-
-      toast({
-        title: "Payment Approved",
-        description: `All Finance & Employment payment for ${data.clientName || "client"} ($${data.amount || "N/A"}) has been approved.`,
-      });
-
-      // Refresh pending approvals count
+    const handleAllFinanceApproved = () => {
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     };
 
-    // Listen for all finance rejection
-    const handleAllFinanceRejected = (data: {
-      financeId: number;
-      productPaymentId?: number;
-      clientId?: number;
-      clientName?: string;
-      amount?: string;
-    }) => {
-      // console.log("[Topbar] All Finance rejected event received:", data);
-
-      toast({
-        title: "Payment Rejected",
-        description: `All Finance & Employment payment for ${data.clientName || "client"} ($${data.amount || "N/A"}) has been rejected.`,
-        variant: "destructive",
-      });
-
-      // Refresh pending approvals count
+    const handleAllFinanceRejected = () => {
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     };
 
     // Register event listeners
@@ -333,126 +304,62 @@ export function Topbar() {
           </BroadcastDialog>
         )}
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full transition-colors w-10 h-10">
-              <Bell className="w-5 h-5" />
-              {(hasRelevantPendingAlert || pendingApprovalCount > 0 || unreadTechSupportCount > 0) && (
-                <span className={`absolute top-2.5 right-2.5 w-2 h-2 rounded-full border-2 border-background animate-pulse ${
-                  unreadTechSupportCount > 0 ? 'bg-blue-500' :
-                  pendingApprovalCount > 0 ? 'bg-orange-500' :
-                  pendingAlert?.type === 'good_news' ? 'bg-green-500' :
-                  pendingAlert?.type === 'announcement' ? 'bg-blue-500' : 'bg-red-500'
-                }`} />
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-80 mt-2 p-1 rounded-xl shadow-lg border-border/60" align="end">
-            <div className="max-h-96 overflow-y-auto">
-              {hasRelevantPendingAlert && (
-                <DropdownMenuItem
-                  className="p-3 cursor-pointer bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-lg focus:bg-slate-100 mb-2"
-                  onClick={activatePendingAlert}
-                >
-                  <div className="flex gap-3 items-start w-full">
-                    <div className={`p-2 rounded-full mt-1 ${getAlertColor(pendingAlert.type)}`}>
-                      {getAlertIcon(pendingAlert.type)}
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="font-semibold text-slate-900 text-sm">{pendingAlert.title}</p>
-                      <p className="text-xs text-slate-700 line-clamp-2 leading-relaxed">
-                        {pendingAlert.message}
-                      </p>
-                      <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide pt-1">Click to view</p>
-                    </div>
-                  </div>
-                </DropdownMenuItem>
-              )}
-              {pendingApprovalCount > 0 && (user?.role === "superadmin" || user?.role === "director" || user?.role === "manager") && (
-                <DropdownMenuItem
-                  className="p-3 cursor-pointer bg-orange-50 hover:bg-orange-100 border border-orange-100 rounded-lg focus:bg-orange-100"
-                  onClick={() => {
-                    sessionStorage.setItem("showNotifications", "true");
-                    setLocation("/messages");
-                  }}
-                >
-                  <div className="flex gap-3 items-start w-full">
-                    <div className="p-2 rounded-full mt-1 bg-orange-200">
-                      <Bell className="w-4 h-4 text-orange-700" />
-                    </div>
-                    <div className="flex-1 space-y-1">
-                      <p className="font-semibold text-slate-900 text-sm">Pending Approvals</p>
-                      <p className="text-xs text-slate-700 line-clamp-2 leading-relaxed">
-                        {pendingApprovalCount} All Finance & Employment payment{pendingApprovalCount > 1 ? 's' : ''} awaiting approval
-                      </p>
-                      <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide pt-1">Click to view</p>
-                    </div>
-                  </div>
-                </DropdownMenuItem>
-              )}
-              {isTechSupportUser && (
-                <>
+        <NotificationBell
+          extraBadgeCount={
+            (hasRelevantPendingAlert ? 1 : 0) + (isTechSupportUser ? unreadTechSupportCount : 0)
+          }
+          childrenBefore={
+            <>
+              {hasRelevantPendingAlert && pendingAlert && (
+                <div className="border-b border-border/60 p-2">
                   <DropdownMenuItem
-                    className="p-3 cursor-pointer bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg focus:bg-blue-100 mb-2"
-                    onClick={() => openTechSupportTab("tickets")}
+                    className="cursor-pointer rounded-lg border border-slate-100 bg-slate-50 p-3 focus:bg-slate-100"
+                    onClick={activatePendingAlert}
                   >
-                    <div className="flex gap-3 items-start w-full">
-                      <div className="p-2 rounded-full mt-1 bg-blue-200">
-                        <Bell className="w-4 h-4 text-blue-700" />
+                    <div className="flex w-full items-start gap-3">
+                      <div className={`mt-1 rounded-full p-2 ${getAlertColor(pendingAlert.type)}`}>
+                        {getAlertIcon(pendingAlert.type)}
                       </div>
-                      <div className="flex-1 space-y-1">
-                        <p className="font-semibold text-slate-900 text-sm">Raised Tickets Pending</p>
-                        <p className="text-xs text-slate-700 leading-relaxed">
-                          {pendingTicketCount} ticket{pendingTicketCount === 1 ? "" : "s"} waiting to resolve
-                          {unreadTicketCount > 0 ? ` • ${unreadTicketCount} new` : ""}
-                        </p>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <p className="text-sm font-semibold text-slate-900">{pendingAlert.title}</p>
+                        <p className="line-clamp-2 text-xs text-slate-700">{pendingAlert.message}</p>
                       </div>
                     </div>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="p-3 cursor-pointer bg-violet-50 hover:bg-violet-100 border border-violet-100 rounded-lg focus:bg-violet-100 mb-2"
-                    onClick={() => openTechSupportTab("devices")}
-                  >
-                    <div className="flex gap-3 items-start w-full">
-                      <div className="p-2 rounded-full mt-1 bg-violet-200">
-                        <Bell className="w-4 h-4 text-violet-700" />
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <p className="font-semibold text-slate-900 text-sm">New Device Requests</p>
-                        <p className="text-xs text-slate-700 leading-relaxed">
-                          {pendingDeviceRequestCount} pending device request{pendingDeviceRequestCount === 1 ? "" : "s"}
-                          {unreadDeviceCount > 0 ? ` • ${unreadDeviceCount} new` : ""}
-                        </p>
-                      </div>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="p-3 cursor-pointer bg-cyan-50 hover:bg-cyan-100 border border-cyan-100 rounded-lg focus:bg-cyan-100"
-                    onClick={() => openTechSupportTab("recharge")}
-                  >
-                    <div className="flex gap-3 items-start w-full">
-                      <div className="p-2 rounded-full mt-1 bg-cyan-200">
-                        <Bell className="w-4 h-4 text-cyan-700" />
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <p className="font-semibold text-slate-900 text-sm">New Recharge / SIM Requests</p>
-                        <p className="text-xs text-slate-700 leading-relaxed">
-                          {pendingRechargeRequestCount} pending recharge request{pendingRechargeRequestCount === 1 ? "" : "s"}
-                          {unreadRechargeCount > 0 ? ` • ${unreadRechargeCount} new` : ""}
-                        </p>
-                      </div>
-                    </div>
-                  </DropdownMenuItem>
-                </>
-              )}
-              {!hasRelevantPendingAlert && pendingApprovalCount === 0 && (!isTechSupportUser || (pendingTicketCount + pendingDeviceRequestCount + pendingRechargeRequestCount) === 0) && (
-                <div className="p-8 text-center text-muted-foreground text-sm">
-                  No new notifications
                 </div>
               )}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {isTechSupportUser && (
+                <div className="space-y-1 border-b border-border/60 p-2">
+                  {pendingTicketCount > 0 && (
+                    <DropdownMenuItem
+                      className="cursor-pointer rounded-lg bg-blue-50 p-2 text-xs"
+                      onClick={() => openTechSupportTab("tickets")}
+                    >
+                      Tickets: {pendingTicketCount} pending
+                      {unreadTicketCount > 0 ? ` (${unreadTicketCount} new)` : ""}
+                    </DropdownMenuItem>
+                  )}
+                  {pendingDeviceRequestCount > 0 && (
+                    <DropdownMenuItem
+                      className="cursor-pointer rounded-lg bg-violet-50 p-2 text-xs"
+                      onClick={() => openTechSupportTab("devices")}
+                    >
+                      Devices: {pendingDeviceRequestCount} pending
+                    </DropdownMenuItem>
+                  )}
+                  {pendingRechargeRequestCount > 0 && (
+                    <DropdownMenuItem
+                      className="cursor-pointer rounded-lg bg-cyan-50 p-2 text-xs"
+                      onClick={() => openTechSupportTab("recharge")}
+                    >
+                      Recharge: {pendingRechargeRequestCount} pending
+                    </DropdownMenuItem>
+                  )}
+                </div>
+              )}
+            </>
+          }
+        />
 
         <div className="h-8 w-px bg-border/60 hidden sm:block mx-1" />
 

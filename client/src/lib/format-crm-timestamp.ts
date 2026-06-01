@@ -4,7 +4,7 @@ const IST_OFFSET = "+05:30";
 
 /**
  * Parse API/DB timestamps for CRM display.
- * Handles: explicit +05:30, legacy `...Z` (naive stored as UTC), and naive strings without offset.
+ * Handles: explicit +05:30, UTC `...Z` instants, and naive strings without offset.
  */
 export function parseCrmTimestamp(
   value: string | Date | null | undefined
@@ -23,9 +23,9 @@ export function parseCrmTimestamp(
     return isNaN(d.getTime()) ? null : d;
   }
 
+  // True UTC instant (e.g. optimistic toISOString before patch). Display in IST via format*.
   if (s.endsWith("Z")) {
-    const normalized = s.replace(/\.\d+Z$/, "").replace(/Z$/, "");
-    const d = new Date(`${normalized}${IST_OFFSET}`);
+    const d = new Date(s);
     return isNaN(d.getTime()) ? null : d;
   }
 
@@ -59,6 +59,51 @@ export function formatCrmTimestamp(
 
   return parsed.toLocaleString("en-IN", {
     ...STYLE_OPTIONS[style],
+    timeZone: CRM_LEAD_DATE_TZ,
+  });
+}
+
+/**
+ * Serialize a Date for CRM lead/follow-up fields (+05:30 wall clock).
+ * Matches backend serializePgNaiveTimestampAsIst.
+ */
+export function toCrmApiTimestamp(value: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: CRM_LEAD_DATE_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(value);
+
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "00";
+
+  const pad = (n: string) => n.padStart(2, "0");
+  const ms = value.getMilliseconds();
+  const base = `${get("year")}-${pad(get("month"))}-${pad(get("day"))}T${pad(get("hour"))}:${pad(get("minute"))}:${pad(get("second"))}`;
+  if (ms > 0) {
+    return `${base}.${String(ms).padStart(3, "0")}${IST_OFFSET}`;
+  }
+  return `${base}${IST_OFFSET}`;
+}
+
+/** Follow-up badge: day, month, time (no year). */
+export function formatCrmFollowupShort(
+  value: string | Date | null | undefined
+): string | null {
+  const parsed = parseCrmTimestamp(value);
+  if (!parsed) return null;
+
+  return parsed.toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
     timeZone: CRM_LEAD_DATE_TZ,
   });
 }

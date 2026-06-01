@@ -50,7 +50,12 @@ import {
 } from "@/lib/lead-reference-display";
 import { Badge } from "@/components/ui/badge";
 
-import { getLeads, type LeadEntity } from "@/api/leads.api";
+import {
+  getLeads,
+  type LeadEntity,
+  type LeadEligibilityStatus,
+  type LeadQuality,
+} from "@/api/leads.api";
 import { getLeadDateBounds, type LeadDateFilterType } from "@/lib/lead-date-range";
 
 type LeadType = { id: number; leadType: string; displayAlias?: string | null };
@@ -74,6 +79,19 @@ const LEAD_QUALITY_LABELS: Record<string, string> = {
   average: "Average",
   bad: "Bad",
 };
+
+const ELIGIBILITY_OPTIONS: { value: LeadEligibilityStatus; label: string }[] = [
+  { value: "eligible", label: "Eligible" },
+  { value: "not_eligible", label: "Not Eligible" },
+  { value: "future_prospect", label: "Future Prospect" },
+];
+
+const QUALITY_OPTIONS: { value: LeadQuality; label: string }[] = [
+  { value: "excellent", label: "Excellent" },
+  { value: "good", label: "Good" },
+  { value: "average", label: "Average" },
+  { value: "bad", label: "Bad" },
+];
 
 const DATE_FILTER_LABELS: Record<LeadDateFilterType, string> = {
   all: "All", today: "Today", weekly: "Weekly", monthly: "Monthly", custom: "Custom",
@@ -102,12 +120,26 @@ export default function CounsellorLeadsPage() {
   const [filterLeadType, setFilterLeadType] = useState(() => String(readCounsellorFilters().filterLeadType ?? ""));
   const [filterProgressStatus, setFilterProgressStatus] = useState(() => String(readCounsellorFilters().filterProgressStatus ?? ""));
   const [filterAssignedBy, setFilterAssignedBy] = useState(() => String(readCounsellorFilters().filterAssignedBy ?? "")); // telecaller ID
+  const [filterEligibility, setFilterEligibility] = useState(() =>
+    String(readCounsellorFilters().filterEligibility ?? "")
+  );
+  const [filterQuality, setFilterQuality] = useState(() =>
+    String(readCounsellorFilters().filterQuality ?? "")
+  );
 
   // Date filter
   const [dateFilter, setDateFilter] = useState<LeadDateFilterType>(() => {
     const stored = readCounsellorFilters().dateFilter as LeadDateFilterType;
     // "all" is not a restorable choice — page always defaults to "weekly"
-    return (["today", "weekly", "monthly", "custom"] as const).includes(stored) ? stored : "weekly";
+    if (
+      stored === "today" ||
+      stored === "weekly" ||
+      stored === "monthly" ||
+      stored === "custom"
+    ) {
+      return stored;
+    }
+    return "weekly";
   });
   const [page, setPage] = useState(() => {
     const n = Number(readCounsellorFilters().page);
@@ -163,6 +195,8 @@ export default function CounsellorLeadsPage() {
     filterLeadType,
     filterProgressStatus,
     filterAssignedBy,
+    filterEligibility,
+    filterQuality,
     dateFilter,
     customDateFrom,
     customDateTo,
@@ -173,6 +207,8 @@ export default function CounsellorLeadsPage() {
     filterLeadType,
     filterProgressStatus,
     filterAssignedBy,
+    filterEligibility,
+    filterQuality,
     dateFilter !== "weekly" && dateFilter !== "all" ? "date" : "",
   ].filter(Boolean).length;
 
@@ -189,6 +225,8 @@ export default function CounsellorLeadsPage() {
           : undefined,
         leadSource: filterLeadSource || undefined,
         leadType: filterLeadType || undefined,
+        eligibilityStatus: filterEligibility || undefined,
+        leadQuality: filterQuality || undefined,
         isJunk: false,
         ...rangeParams,
         page,
@@ -225,6 +263,8 @@ export default function CounsellorLeadsPage() {
     filterLeadSource,
     filterLeadType,
     filterAssignedBy,
+    filterEligibility,
+    filterQuality,
     rangeParams,
     page,
     pageSize,
@@ -321,6 +361,8 @@ export default function CounsellorLeadsPage() {
         filterLeadType,
         filterProgressStatus,
         filterAssignedBy,
+        filterEligibility,
+        filterQuality,
         dateFilter,
         customDateFrom,
         customDateTo,
@@ -330,7 +372,8 @@ export default function CounsellorLeadsPage() {
     } catch {}
   }, [
     search, filterLeadSource, filterLeadType, filterProgressStatus,
-    filterAssignedBy, dateFilter, customDateFrom, customDateTo, page, pageSize,
+    filterAssignedBy, filterEligibility, filterQuality,
+    dateFilter, customDateFrom, customDateTo, page, pageSize,
   ]);
 
   /** "Added directly" only when this counsellor created the lead (assignedBy = self). */
@@ -349,6 +392,8 @@ export default function CounsellorLeadsPage() {
     setFilterLeadType("");
     setFilterProgressStatus("");
     setFilterAssignedBy("");
+    setFilterEligibility("");
+    setFilterQuality("");
     setSearch("");
     setDateFilter("all");
     setCustomDateFrom(undefined);
@@ -449,6 +494,28 @@ export default function CounsellorLeadsPage() {
             <SelectTrigger className="h-9 w-40 text-xs"><SelectValue placeholder="Progress" /></SelectTrigger>
             <SelectContent>
               {PROGRESS_STATUS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterEligibility} onValueChange={setFilterEligibility}>
+            <SelectTrigger className="h-9 w-40 text-xs">
+              <SelectValue placeholder="Eligibility" />
+            </SelectTrigger>
+            <SelectContent>
+              {ELIGIBILITY_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterQuality} onValueChange={setFilterQuality}>
+            <SelectTrigger className="h-9 w-40 text-xs">
+              <SelectValue placeholder="Lead Quality" />
+            </SelectTrigger>
+            <SelectContent>
+              {QUALITY_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
 

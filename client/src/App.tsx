@@ -17,9 +17,11 @@ import {
   CX_ALLOWED_ROLES,
   INCENTIVE_ROLES,
 } from "@/constants/roles";
+import { canAccessByRole } from "@/lib/role-access";
 import { SocketProvider } from "@/context/socket-context";
 import { AlertProvider } from "@/context/alert-context";
 import { EmergencyAlert } from "@/components/ui/emergency-alert";
+import { NotificationProvider } from "@/notification/context/notification-context";
 import { MessageProvider } from "@/components/message-provider";
 import { MessageErrorBoundary } from "@/components/message-error-boundary";
 
@@ -132,7 +134,7 @@ function ProtectedRoute({ component: Component, allowedRoles, ...rest }: any) {
     return <Redirect to="/login" />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
+  if (allowedRoles && !canAccessByRole(user.role, allowedRoles as UserRole[])) {
     return <Redirect to="/" />;
   }
 
@@ -569,6 +571,7 @@ function App() {
           <AuthProvider>
             <MaintenanceProvider>
             <SocketProvider>
+              <NotificationProvider>
               <AlertProvider>
                 <MessageErrorBoundary>
                   <MessageProvider>
@@ -579,6 +582,7 @@ function App() {
                   </MessageProvider>
                 </MessageErrorBoundary>
               </AlertProvider>
+              </NotificationProvider>
             </SocketProvider>
             </MaintenanceProvider>
           </AuthProvider>

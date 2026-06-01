@@ -23,6 +23,7 @@ import { fetchAllLeads, type LeadEntity } from "@/api/leads.api";
 import DateRangePicker from "@/components/payments/DateRangePicker";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { formatCrmTimestamp, parseCrmTimestamp } from "@/lib/format-crm-timestamp";
 
 type DateFilterType = "today" | "weekly" | "monthly" | "custom";
 type UserLite = { id: number; fullName: string };
@@ -119,7 +120,8 @@ export default function MarketingHeadDashboard() {
     converted: filteredLeads.filter(l => l.assignmentStatus === "converted").length,
     followUpToday: allLeads.filter(l => {
       if (!l.nextFollowupAt) return false;
-      const d = new Date(l.nextFollowupAt);
+      const d = parseCrmTimestamp(l.nextFollowupAt);
+      if (!d) return false;
       const t = getDateBounds("today");
       return d >= t.from && d <= t.to;
     }).length,
@@ -190,8 +192,8 @@ export default function MarketingHeadDashboard() {
     return allLeads
       .filter(l => {
         if (!l.nextFollowupAt) return false;
-        const d = new Date(l.nextFollowupAt);
-        return d >= t.from && d <= t.to;
+        const d = parseCrmTimestamp(l.nextFollowupAt);
+        return d != null && d >= t.from && d <= t.to;
       })
       .slice(0, 20);
   }, [allLeads]);
@@ -519,7 +521,7 @@ export default function MarketingHeadDashboard() {
                         </Badge>
                         {lead.nextFollowupAt && (
                           <span className="text-[10px] text-amber-600 font-medium">
-                            {format(new Date(lead.nextFollowupAt), "HH:mm")}
+                            {formatCrmTimestamp(lead.nextFollowupAt, "time")}
                           </span>
                         )}
                       </div>

@@ -263,6 +263,12 @@ export interface LeadListParams {
     | "dropped";
   /** Include converted/dropped on counsellor-scoped lists (e.g. lead report). */
   forReport?: boolean;
+  /** All leads for selected telecaller/counsellor (any assignment status). */
+  assignedScope?: boolean;
+  /** Report drilldown bucket computed on backend. */
+  reportBucket?: "contacted" | "transferred";
+  /** Leads with a pending follow-up activity (distinct by lead). */
+  hasPendingFollowUp?: boolean;
   withoutTelecaller?: boolean;
   withTelecaller?: boolean;
   sentToMeta?: boolean;
@@ -316,7 +322,6 @@ export interface TelecallerLeadSummaryRow {
   transferred: number;
   converted: number;
   followUp: number;
-  followUpDone: number;
   junk: number;
 }
 
@@ -609,6 +614,54 @@ export const bulkAssignLeadsApi = async (payload: {
   };
 };
 
+export type BulkStrategyAssignPreview = {
+  assignments: {
+    leadId: number;
+    leadName: string;
+    userId: number;
+    userName: string;
+    role: "telecaller" | "counsellor";
+  }[];
+  summary: {
+    userId: number;
+    userName: string;
+    role: "telecaller" | "counsellor";
+    count: number;
+  }[];
+  blocked: number[];
+  missing: number[];
+  conflictCounts: {
+    withTelecaller: number;
+    withCounsellor: number;
+  };
+};
+
+export const previewBulkStrategyAssignApi = async (payload: {
+  leadIds: number[];
+  strategy: string;
+  assignedTelecallers: number[];
+  assignedCounsellors: number[];
+  priorityWeights?: Record<string, number>;
+}) => {
+  const res = await api.post("/api/leads/bulk-assign-strategy", {
+    ...payload,
+    preview: true,
+  });
+  return res.data.data as BulkStrategyAssignPreview;
+};
+
+export const bulkStrategyAssignLeadsApi = async (payload: {
+  leadIds: number[];
+  strategy: string;
+  assignedTelecallers: number[];
+  assignedCounsellors: number[];
+  priorityWeights?: Record<string, number>;
+  removeFromPreviousAssignee?: boolean;
+}) => {
+  const res = await api.post("/api/leads/bulk-assign-strategy", payload);
+  return res.data.data as BulkStrategyAssignPreview & { updated: LeadEntity[] };
+};
+
 export const markLeadJunkApi = async (
   leadId: number,
   reason?: string
@@ -670,7 +723,10 @@ export const addLeadActivityApi = async (
   }
 ) => {
   const res = await api.post(`/api/leads/${leadId}/activities`, payload);
-  return res.data.data as LeadActivityEntity;
+  return {
+    activity: res.data.data as LeadActivityEntity,
+    lead: (res.data.lead ?? null) as LeadEntity | null,
+  };
 };
 
 export type CsvImportResult = {
@@ -723,4 +779,15 @@ export const updateActivityStatusApi = async (
     ...(options?.message?.trim() ? { message: options.message.trim() } : {}),
   });
   return res.data.data;
+};
+
+export const updateLeadActivityMessageApi = async (
+  leadId: number,
+  activityId: number,
+  message: string
+) => {
+  const res = await api.patch(`/api/leads/${leadId}/activities/${activityId}`, {
+    message: message.trim(),
+  });
+  return res.data.data as LeadActivityEntity;
 };

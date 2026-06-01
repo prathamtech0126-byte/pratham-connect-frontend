@@ -55,7 +55,6 @@ export function MaintenanceProvider({ children }: { children: ReactNode }) {
   const [startTime, setStartTime] = useState<string | null>(null);
   const [endTime, setEndTime] = useState<string | null>(null);
   const [isToggling, setIsToggling] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const armedRef = useRef(armed);
   const startRef = useRef(startTime);
   const endRef = useRef(endTime);
@@ -87,20 +86,27 @@ export function MaintenanceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Fetch once on mount to hydrate initial state.
     void fetchStatus();
-    intervalRef.current = setInterval(fetchStatus, 30_000);
+    // Re-fetch when the user returns to the tab (cheap, user-initiated).
     const onFocus = () => void fetchStatus();
+    // Re-fetch after a socket reconnect so we catch any events missed while disconnected.
+    const onReconnect = () => void fetchStatus();
     window.addEventListener("focus", onFocus);
+    window.addEventListener("socket:reconnected", onReconnect);
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
       window.removeEventListener("focus", onFocus);
+      window.removeEventListener("socket:reconnected", onReconnect);
     };
   }, [fetchStatus]);
 
   useEffect(() => {
+    // Only run the local time-window recalculation when there is actually a
+    // scheduled window armed — no point ticking when maintenance is off or immediate.
+    if (!armed || !isScheduled) return;
     const tick = setInterval(recomputeEffective, 15_000);
     return () => clearInterval(tick);
-  }, [recomputeEffective]);
+  }, [recomputeEffective, armed, isScheduled]);
 
   useEffect(() => {
     const handler = (e: CustomEvent<MaintenanceApiPayload>) => {

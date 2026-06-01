@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { formatCrmTimestamp } from "@/lib/format-crm-timestamp";
 import type { LeadActivityEntity } from "@/api/leads.api";
 
 export type LeadActivityLike = {
@@ -255,7 +256,7 @@ export function formatLeadActivityDisplay(
 
   if (item.activityType === "followup") {
     const when = item.followupAt
-      ? format(new Date(item.followupAt), "dd MMM yyyy, hh:mm a")
+      ? formatCrmTimestamp(item.followupAt, "datetime")
       : null;
     if (item.status === "completed") {
       const raw = item.message?.trim() ?? "";

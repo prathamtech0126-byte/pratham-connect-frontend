@@ -31,6 +31,7 @@ import {
   markLeadFollowupApi,
   addNoteApi,
   updateActivityStatusApi,
+  updateLeadActivityMessageApi,
   dropLeadByCounsellorApi,
   type LeadEntity,
   type LeadEducationRow,
@@ -61,6 +62,10 @@ import {
   isFollowupDateTimeAllowed,
 } from "@/lib/followup-datetime";
 import type { LeadDetailMeta } from "@/api/leads.api";
+import {
+  resolveLeadSourceSelectValue,
+  resolveLeadTypeSelectValue,
+} from "@/lib/lead-source-display";
 
 /** Select value meaning “cleared” in DB (null quality / eligibility). */
 const UNSET_SELECT = "__not_assigned__";
@@ -146,6 +151,9 @@ export default function LeadDetail() {
   const [showAddNote, setShowAddNote] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
+  const [savingNoteEdit, setSavingNoteEdit] = useState(false);
 
   // Modal Form States
   const [selectedCounsellor, setSelectedCounsellor] = useState("");
@@ -322,7 +330,6 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
     pushLeadListPatch(lead.id, {
       ...(updatedLead as LeadEntity),
-      nextFollowupAt: scheduled.toISOString(),
       progressStatus: "follow_up",
       pendingFollowUp: true,
     });
@@ -332,7 +339,6 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
         ? {
             ...prev,
             ...updatedLead,
-            nextFollowupAt: scheduled.toISOString(),
             progressStatus: "follow_up",
           }
         : prev
@@ -488,6 +494,17 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
     }
     if (lead.assignmentStatus === "transferred" && leadMeta?.counsellorHasActivity) {
       return "Counsellor has already worked on this lead — contact admin to re-transfer";
+    }
+    return undefined;
+  })();
+
+  const convertDisabledReason = (() => {
+    if (!lead || user?.role !== "counsellor" || isLeadReadOnly(lead, user?.role)) return undefined;
+    if (!lead.eligibilityStatus || !lead.leadQuality) {
+      return "Set lead quality and eligibility before converting";
+    }
+    if (leadMeta?.pendingFollowUp) {
+      return "Complete pending follow-up before converting";
     }
     return undefined;
   })();
@@ -715,6 +732,14 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
   const handleConvertToClient = () => {
     if (!lead) return;
+    if (convertDisabledReason) {
+      toast({
+        title: "Cannot convert",
+        description: convertDisabledReason,
+        variant: "destructive",
+      });
+      return;
+    }
     setShowConvertModal(true);
   };
 
@@ -774,6 +799,41 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       toast({ title: "Failed to add note", variant: "destructive" });
     } finally {
       setSavingNote(false);
+    }
+  };
+
+  const handleStartEditNote = (activityId: number, message: string) => {
+    setEditingNoteId(activityId);
+    setEditingNoteText(message);
+  };
+
+  const handleCancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditingNoteText("");
+  };
+
+  const handleSaveEditNote = async () => {
+    if (!lead || editingNoteId == null || !editingNoteText.trim()) return;
+    if (isLeadReadOnly(lead, user?.role)) return;
+    try {
+      setSavingNoteEdit(true);
+      await updateLeadActivityMessageApi(lead.id, editingNoteId, editingNoteText.trim());
+      const detail = await getLeadDetail(lead.id);
+      setLead(detail.lead);
+      setActivities(detail.activities || []);
+      setEditForm((prev) => ({
+        ...prev,
+        latestNote: detail.lead.latestNote ?? "",
+      }));
+      handleCancelEditNote();
+      toast({ title: "Note updated" });
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Failed to update note";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setSavingNoteEdit(false);
     }
   };
 
@@ -902,7 +962,10 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       submitting={submitting}
       transferDisabledReason={transferDisabledReason}
       canTransfer={canTransferToCounsellor(lead, leadMeta)}
+      canConvert={!convertDisabledReason}
+      convertDisabledReason={convertDisabledReason}
       canReassign={!!leadMeta?.canReassignCounsellor}
+      canEditLeadSource={["admin", "superadmin", "developer"].includes(user?.role ?? "")}
       transferButtonLabel={getTransferButtonLabel(lead, leadMeta)}
       eligibilityValue={eligibilityValue}
       qualityValue={qualityValue}
@@ -936,8 +999,15 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       onEditStart={() => {
         setEditForm({
           ...lead,
-          leadSource: lead.leadSource || "",
-          leadType: lead.leadType || "",
+          leadSource:
+            resolveLeadSourceSelectValue(lead.leadSource, sourceOptions) ??
+            lead.leadSource ??
+            "",
+          leadType:
+            resolveLeadTypeSelectValue(lead.leadType, typeOptions) ??
+            lead.leadType ??
+            "",
+          latestNote: lead.latestNote ?? "",
         });
         setIsEditing(true);
       }}
@@ -949,6 +1019,13 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       setNoteText={setNoteText}
       onAddNote={() => void handleAddNote()}
       onCompleteFollowUp={(id) => void handleCompleteFollowUp(id)}
+      editingNoteId={editingNoteId}
+      editingNoteText={editingNoteText}
+      savingNoteEdit={savingNoteEdit}
+      onStartEditNote={handleStartEditNote}
+      onCancelEditNote={handleCancelEditNote}
+      onSaveEditNote={() => void handleSaveEditNote()}
+      setEditingNoteText={setEditingNoteText}
       personalSection={
         <LeadPersonalDetailsTab
           readOnly={readOnly}
