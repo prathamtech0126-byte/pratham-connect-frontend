@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionTabs } from "@/components/tabs/SectionTabs";
 import { format } from "date-fns";
-import { CreditCard, ClipboardList, Info, ChevronDown, ChevronUp, Edit, ArrowLeft, FolderOpen, ListChecks, Route } from "lucide-react";
+import { CreditCard, ClipboardList, Info, ChevronDown, ChevronUp, Edit, ArrowLeft, FolderOpen, ListChecks, Route, BookOpen } from "lucide-react";
 import { getLatestStageFromPayments } from "@/utils/stageUtils";
 import { useState, useEffect } from "react";
 import { useSocket } from "@/context/socket-context";
@@ -17,6 +17,7 @@ import { useAuth } from "@/context/auth-context";
 import { BACKEND_ALLOWED_ROLES } from "@/constants/roles";
 import { useToast } from "@/hooks/use-toast";
 import { isClientListReturnPath } from "@/lib/clientListReturnPath";
+import { CxDocReviewPanel } from "@/components/cx/CxDocReviewPanel";
 
 /** Parse date-only (YYYY-MM-DD), ISO string, or Date as local calendar date so display is correct in all timezones. */
 function parseDateOnly(val: string | Date | null | undefined): Date | null {
@@ -717,7 +718,9 @@ export default function ClientView() {
   };
   const clientSaleType = getClientSaleType();
   const isBackendViewRole = !!user && BACKEND_ALLOWED_ROLES.includes(user.role);
-  const canViewDocsVault = isBackendViewRole;
+  const isCxUser = user?.role === "customer_experience";
+  const isBindingUser = user?.role === "binding_team";
+  const canViewDocsVault = isBackendViewRole || isCxUser;
 
   const timelineItems: TimelineItem[] = [
     {
@@ -783,10 +786,16 @@ export default function ClientView() {
           {returnPath && (
             <Button variant="outline" size="sm" onClick={() => setLocation(returnPath)} className="gap-1.5">
               <ArrowLeft className="h-4 w-4" />
-              Back to counsellor clients
+              {user?.role === "customer_experience" || user?.role === "binding_team" ? "Back to my clients" : "Back to clients"}
             </Button>
           )}
-          {params?.id && (
+          {params?.id && user?.role === "binding_team" && (
+            <Button size="sm" onClick={() => setLocation(`/binding/studio/${params.id}`)} className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
+              <BookOpen className="h-4 w-4" />
+              Create Binder
+            </Button>
+          )}
+          {params?.id && user?.role !== "customer_experience" && user?.role !== "binding_team" && (
             <Button variant="outline" size="sm" onClick={() => setLocation(`/clients/${params.id}/edit`)} className="gap-1.5">
               <Edit className="h-4 w-4" />
               Edit
@@ -1003,40 +1012,17 @@ export default function ClientView() {
                 </div>
               ),
             },
-            {
-              value: "timeline",
-              label: "Timeline",
-              content: (
-                <Card className="border-none shadow-md overflow-hidden bg-white">
-                  <CardHeader className="pb-4 border-b border-gray-50">
-                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
-                      <Route className="h-6 w-6 text-violet-500" />
-                      Full Timeline
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-6">
-                    {timelineItems.length > 0 ? (
-                      <div className="space-y-3">
-                        {timelineItems.map((item) => (
-                          <div key={item.id} className="rounded-lg border border-gray-100 p-4">
-                            <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-                            <p className="text-xs text-gray-500 mt-1">{item.subtitle}</p>
-                            <p className="text-xs text-gray-400 mt-1">{formatDateLocal(item.date || "")}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center py-8 text-gray-400 italic text-sm">No timeline events found.</p>
-                    )}
-                  </CardContent>
-                </Card>
-              ),
-            },
             ...(canViewDocsVault
               ? [{
                 value: "docs-vault",
                 label: "Docs Vault",
-                content: (
+                content: (isCxUser || isBindingUser) ? (
+                  <CxDocReviewPanel
+                    rawDocuments={documents}
+                    clientName={clientFullName}
+                    canReviewDocuments={isCxUser}
+                  />
+                ) : (
                   <Card className="border-none shadow-md overflow-hidden bg-white">
                     <CardHeader className="pb-4 border-b border-gray-50">
                       <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
@@ -1133,7 +1119,37 @@ export default function ClientView() {
               }]
               : []),
             {
+              value: "timeline",
+              label: "Timeline",
+              content: (
+                <Card className="border-none shadow-md overflow-hidden bg-white">
+                  <CardHeader className="pb-4 border-b border-gray-50">
+                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                      <Route className="h-6 w-6 text-violet-500" />
+                      Full Timeline
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    {timelineItems.length > 0 ? (
+                      <div className="space-y-3">
+                        {timelineItems.map((item) => (
+                          <div key={item.id} className="rounded-lg border border-gray-100 p-4">
+                            <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                            <p className="text-xs text-gray-500 mt-1">{item.subtitle}</p>
+                            <p className="text-xs text-gray-400 mt-1">{formatDateLocal(item.date || "")}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-center py-8 text-gray-400 italic text-sm">No timeline events found.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ),
+            },
+            {
               value: "task-followup",
+
               label: "Task & Followup",
               content: (
                 <Card className="border-none shadow-md overflow-hidden bg-white">

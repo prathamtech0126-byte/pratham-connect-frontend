@@ -191,11 +191,8 @@ export default function TeamList() {
     }
 
     // Manager assignment validation
-    if (newMember.role === "Counsellor" && !newMember.managerId) {
-      newErrors.managerId = "Manager assignment is required";
-    }
-
-    if(newMember.role === "Telecaller" && !newMember.managerId) {
+    const rolesRequiringManager = ["Counsellor", "Telecaller", "CX", "Binding", "Application"];
+    if (rolesRequiringManager.includes(newMember.role) && !newMember.managerId) {
       newErrors.managerId = "Manager assignment is required";
     }
     setErrors(newErrors);
@@ -218,7 +215,7 @@ export default function TeamList() {
           ...newMember,
           email: newMember.email.toLowerCase().trim(),
           role: roleToApiValue(newMember.role),
-          managerId: (roleToApiValue(newMember.role) === "counsellor" || roleToApiValue(newMember.role) === "telecaller") ? Number(newMember.managerId) : undefined,
+          managerId: (["counsellor", "telecaller", "cx", "binding", "application"].includes(roleToApiValue(newMember.role))) ? Number(newMember.managerId) : undefined,
           isSupervisor: roleToApiValue(newMember.role) === "manager" ? newMember.isSupervisor : undefined,
           status: newMember.status === "Active"
         };
@@ -238,7 +235,7 @@ export default function TeamList() {
           ...newMember,
           email: newMember.email.toLowerCase().trim(),
           role: roleToApiValue(newMember.role),
-          managerId: (roleToApiValue(newMember.role) === "counsellor" || roleToApiValue(newMember.role) === "telecaller") ? Number(newMember.managerId) : undefined,
+          managerId: (["counsellor", "telecaller", "cx", "binding", "application"].includes(roleToApiValue(newMember.role))) ? Number(newMember.managerId) : undefined,
           isSupervisor: roleToApiValue(newMember.role) === "manager" ? newMember.isSupervisor : false,
           status: newMember.status === "Active"
         };
@@ -357,6 +354,9 @@ export default function TeamList() {
     "telecaller": 2,
     "developer": 3,
     "it support": 4,
+    "cx": 5,
+    "binding": 6,
+    "application": 7,
   };
 
   const filteredMembers = teamMembers
@@ -370,7 +370,8 @@ export default function TeamList() {
     .sort((a, b) => {
       const aOrder = ROLE_ORDER[a.role.toLowerCase()] ?? 99;
       const bOrder = ROLE_ORDER[b.role.toLowerCase()] ?? 99;
-      return aOrder - bOrder;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.role.toLowerCase().localeCompare(b.role.toLowerCase());
     });
 
   const handleDeleteMember = async () => {
@@ -523,7 +524,8 @@ export default function TeamList() {
                   <Select
                     value={newMember.role}
                     onValueChange={(value) => {
-                      setNewMember({ ...newMember, role: value, managerId: value === "Counsellor" || value === "Telecaller" ? newMember.managerId : "" });
+                      const rolesWithManager = ["Counsellor", "Telecaller", "CX", "Binding", "Application"];
+                      setNewMember({ ...newMember, role: value, managerId: rolesWithManager.includes(value) ? newMember.managerId : "" });
                       if (errors.role) setErrors(prev => { const { role, ...rest } = prev; return rest; });
                     }}
                   >
@@ -538,6 +540,9 @@ export default function TeamList() {
                       <SelectItem value="Front Desk">Front Desk</SelectItem>
                       <SelectItem value="IT Support">IT Support</SelectItem>
                       <SelectItem value="Developer">Developer</SelectItem>
+                      <SelectItem value="CX">CX Team</SelectItem>
+                      <SelectItem value="Binding">Binding Team</SelectItem>
+                      <SelectItem value="Application">Application Team</SelectItem>
                     </SelectContent>
                   </Select>
                   {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
@@ -583,7 +588,7 @@ export default function TeamList() {
                   </div>
                 )}
 
-                {(newMember.role === "Counsellor" || newMember.role === "Telecaller") && (
+                {(["Counsellor", "Telecaller", "CX", "Binding", "Application"].includes(newMember.role)) && (
                   <div className="space-y-2">
                     <Label htmlFor="assignedTo" className={errors.managerId ? "text-destructive" : ""}>Assign to Manager *</Label>
                     <Select
