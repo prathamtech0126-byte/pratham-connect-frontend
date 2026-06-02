@@ -354,12 +354,9 @@ export default function TeamList() {
     "telecaller": 2,
     "developer": 3,
     "it support": 4,
-<<<<<<< HEAD
-=======
     "cx": 5,
     "binding": 6,
     "application": 7,
->>>>>>> main
   };
 
   const filteredMembers = teamMembers
@@ -373,12 +370,8 @@ export default function TeamList() {
     .sort((a, b) => {
       const aOrder = ROLE_ORDER[a.role.toLowerCase()] ?? 99;
       const bOrder = ROLE_ORDER[b.role.toLowerCase()] ?? 99;
-<<<<<<< HEAD
-      return aOrder - bOrder;
-=======
       if (aOrder !== bOrder) return aOrder - bOrder;
       return a.role.toLowerCase().localeCompare(b.role.toLowerCase());
->>>>>>> main
     });
 
   const handleDeleteMember = async () => {
