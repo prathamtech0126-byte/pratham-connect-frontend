@@ -1,12 +1,8 @@
-import { CRM_LEAD_DATE_TZ } from "@/lib/ist-date-range";
+import { CRM_LEAD_DATE_TZ, IST_OFFSET } from "@/lib/ist-date-range";
 
 /**
  * Parse API/DB timestamps for CRM display.
-<<<<<<< HEAD
  * Handles: explicit +05:30, UTC `...Z` instants, and naive strings without offset.
-=======
- * All timestamps from the backend are UTC — convert to IST for display.
->>>>>>> main
  */
 export function parseCrmTimestamp(
   value: string | Date | null | undefined
@@ -27,16 +23,9 @@ export function parseCrmTimestamp(
     return isNaN(d.getTime()) ? null : d;
   }
 
-<<<<<<< HEAD
   // True UTC instant (e.g. optimistic toISOString before patch). Display in IST via format*.
   if (s.endsWith("Z")) {
     const d = new Date(s);
-=======
-  // Ends with Z (UTC) — truncate microseconds for browser compat
-  if (s.endsWith("Z")) {
-    const safe = s.replace(/(\.\d{3})\d+Z$/, "$1Z");
-    const d = new Date(safe);
->>>>>>> main
     return isNaN(d.getTime()) ? null : d;
   }
 

@@ -2,7 +2,7 @@
 export const CRM_LEAD_DATE_TZ = "Asia/Kolkata";
 
 /** IST is fixed UTC+5:30 (no DST). */
-const IST_OFFSET = "+05:30";
+export const IST_OFFSET = "+05:30";
 
 const IST_WEEKDAY_LONG = new Intl.DateTimeFormat("en-US", {
   timeZone: CRM_LEAD_DATE_TZ,
