@@ -516,6 +516,24 @@ import api, { setInMemoryToken, setCsrfToken } from "@/lib/api";
 
 import { useToast } from "@/hooks/use-toast";
 
+const resolveUserIdFromResponse = (data: any): string | null => {
+    const candidates = [
+        data?.userId,
+        data?.id,
+        data?.user?.id,
+        data?.data?.userId,
+        data?.data?.id,
+        data?.data?.user?.id,
+    ];
+
+    for (const value of candidates) {
+        if (value !== undefined && value !== null && String(value).trim() !== "") {
+            return String(value);
+        }
+    }
+    return null;
+};
+
 export default function Login() {
     const { toast } = useToast();
     const { login, isLoading: authLoading } = useAuth();
@@ -600,8 +618,18 @@ export default function Login() {
                 role === "admin" ? "superadmin" : role
             ) as UserRole;
 
+            let resolvedUserId = resolveUserIdFromResponse(response.data);
+            if (!resolvedUserId) {
+                try {
+                    const meResponse = await api.get("/api/users/me");
+                    resolvedUserId = resolveUserIdFromResponse(meResponse.data);
+                } catch {
+                    // Keep null; we will fall back to a stable mock role id below.
+                }
+            }
+
             const userData = {
-                id: response.data.userId ? String(response.data.userId) : String(Date.now()),
+                id: resolvedUserId ?? "",
                 username: response.data.username || username,
                 name: response.data.name || response.data.fullname || username.split("@")[0],
                 role: mappedRole,

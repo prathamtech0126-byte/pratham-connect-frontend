@@ -393,7 +393,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const newUser: User = userData && userData.id
       ? { ...userData, role, isSupervisor: role === 'manager' ? (userData.isSupervisor || false) : undefined } as User
       : MOCK_USERS[role] || {
-          id: 'temp-' + Date.now(),
+          id: '1',
           username: 'user',
           name: 'User',
           role: role,

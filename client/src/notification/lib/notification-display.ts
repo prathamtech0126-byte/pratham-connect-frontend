@@ -78,8 +78,7 @@ export function filterByCategory(
       (n) =>
         isBlockingPriority(n.priority) ||
         n.type === "lead_followup_overdue" ||
-        n.type === "lead_followup_reminder" ||
-        n.category === "alerts"
+        (n.category === "alerts" && n.type !== "lead_followup_reminder")
     );
   }
   return items.filter((n) => n.category === category);

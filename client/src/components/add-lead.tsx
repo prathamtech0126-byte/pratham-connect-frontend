@@ -428,6 +428,7 @@ import {
 } from "@/lib/lead-source-display";
 
 const BLOCKED_SOURCE_SLUGS_FOR_FIELD_ROLES = ["instagram", "facebook","walkin","website"];
+const CITY_ALLOWED_REGEX = /^[A-Za-z\s().,'-]+$/;
 function isBlockedForFieldRole(slug: string): boolean {
   const n = slug.trim().toLowerCase().replace(/[\s_-]+/g, "");
   return BLOCKED_SOURCE_SLUGS_FOR_FIELD_ROLES.some((b) => n.includes(b));
@@ -703,6 +704,9 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
       next.phone = "Phone must be at least 10 digits";
     }
     if (!form.source) next.source = "Lead source is required";
+    if (form.city.trim() && !CITY_ALLOWED_REGEX.test(form.city.trim())) {
+      next.city = "City can contain English letters, spaces, and symbols like ( ) . , ' -";
+    }
     if (needsClientReference && !selectedReference && !manualClientName.trim()) {
       next.source = "Select a client from the list, or enter the client name manually below";
     }
@@ -778,7 +782,16 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
     } catch (err: any) {
       const message = err?.response?.data?.message ?? "Failed to create lead";
       console.error("Failed to create lead:", err);
-      setErrors((prev) => ({ ...prev, name: message }));
+      const errorField: keyof FormState = /city/i.test(message)
+        ? "city"
+        : /email/i.test(message)
+          ? "email"
+          : /phone/i.test(message)
+            ? "phone"
+            : /source|reference/i.test(message)
+              ? "source"
+              : "name";
+      setErrors((prev) => ({ ...prev, [errorField]: message }));
     } finally {
       setIsSubmitting(false);
     }
@@ -857,13 +870,15 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
 
             {/* City */}
             <div className="space-y-1.5">
-              <Label htmlFor="lead-city">City</Label>
+              <Label htmlFor="lead-city" className={errors.city ? "text-destructive" : ""}>City</Label>
               <Input
                 id="lead-city"
                 placeholder="e.g. Mumbai"
                 value={form.city}
                 onChange={(e) => set("city")(e.target.value)}
+                className={errors.city ? "border-destructive" : ""}
               />
+              {errors.city && <p className="text-xs text-destructive">{errors.city}</p>}
             </div>
 
             {/* Lead Source */}

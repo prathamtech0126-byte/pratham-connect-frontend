@@ -61,7 +61,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     queryKey: ["notifications", "inbox", user?.id],
     queryFn: () => fetchNotifications({ limit: 50 }),
     enabled: !!user?.id,
-    refetchInterval: 60_000,
+    refetchInterval: 120_000,
     staleTime: 15_000,
   });
 
@@ -69,7 +69,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     queryKey: ["notifications", "unread-count", user?.id],
     queryFn: () => fetchUnreadNotificationCount(),
     enabled: !!user?.id,
-    refetchInterval: 60_000,
+    refetchInterval: 120_000,
   });
 
   const invalidate = useCallback(() => {

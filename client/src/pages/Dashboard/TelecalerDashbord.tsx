@@ -60,6 +60,11 @@ export default function TelecalerDashbord() {
   const achievementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentMonthYear = format(new Date(), "yyyy-MM");
+  const parsedUserId = Number(user?.id);
+  const hasValidTelecallerId =
+    Number.isInteger(parsedUserId) &&
+    parsedUserId > 0 &&
+    parsedUserId <= 2147483647;
 
   const { data: userProfile } = useQuery({
     queryKey: ["user-profile"],
@@ -74,10 +79,10 @@ export default function TelecalerDashbord() {
   const { data: targetData } = useQuery({
     queryKey: ["current-telecaller-target", user?.id, currentMonthYear],
     queryFn: async () => {
-      const res = await api.get(`/api/telecaller-targets/${user?.id}/${currentMonthYear}`);
+      const res = await api.get(`/api/telecaller-targets/${parsedUserId}/${currentMonthYear}`);
       return res.data;
     },
-    enabled: !!user,
+    enabled: !!user && hasValidTelecallerId,
   });
 
   const periodRangeParams = useMemo((): { createdFrom?: string; createdTo?: string } => {

@@ -369,8 +369,8 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
         city: editForm.city || null,
         leadSource: editForm.leadSource || null,
         leadType: editForm.leadType || null,
-        leadQuality: q,
-        eligibilityStatus: e,
+        ...(q !== lead.leadQuality ? { leadQuality: q } : {}),
+        ...(e !== lead.eligibilityStatus ? { eligibilityStatus: e } : {}),
         latestNote: editForm.latestNote?.trim() ? editForm.latestNote.trim() : null,
       });
       const patched = { ...lead, ...updated } as LeadEntity;
@@ -384,8 +384,9 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       addLocalLeadUpdateActivity([{ field: "Lead information", old: "—", new: "Updated" }]);
       setIsEditing(false);
       toast({ title: "Success", description: "Lead updated successfully" });
-    } catch {
-      toast({ title: "Update Failed", variant: "destructive" });
+    } catch (error: any) {
+      const message = error?.response?.data?.message || "Failed to update lead";
+      toast({ title: "Update Failed", description: message, variant: "destructive" });
     }
   };
 
