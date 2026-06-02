@@ -1,10 +1,12 @@
 import { CRM_LEAD_DATE_TZ } from "@/lib/ist-date-range";
 
-const IST_OFFSET = "+05:30";
-
 /**
  * Parse API/DB timestamps for CRM display.
+<<<<<<< HEAD
  * Handles: explicit +05:30, UTC `...Z` instants, and naive strings without offset.
+=======
+ * All timestamps from the backend are UTC — convert to IST for display.
+>>>>>>> main
  */
 export function parseCrmTimestamp(
   value: string | Date | null | undefined
@@ -18,19 +20,29 @@ export function parseCrmTimestamp(
   const s = String(value).trim();
   if (!s) return null;
 
+  // Has explicit timezone offset (e.g. +05:30, +00:00) — truncate microseconds for browser compat
   if (/[+-]\d{2}:\d{2}$/.test(s)) {
-    const d = new Date(s);
+    const safe = s.replace(/(\.\d{3})\d+(?=[+-])/, "$1");
+    const d = new Date(safe);
     return isNaN(d.getTime()) ? null : d;
   }
 
+<<<<<<< HEAD
   // True UTC instant (e.g. optimistic toISOString before patch). Display in IST via format*.
   if (s.endsWith("Z")) {
     const d = new Date(s);
+=======
+  // Ends with Z (UTC) — truncate microseconds for browser compat
+  if (s.endsWith("Z")) {
+    const safe = s.replace(/(\.\d{3})\d+Z$/, "$1Z");
+    const d = new Date(safe);
+>>>>>>> main
     return isNaN(d.getTime()) ? null : d;
   }
 
+  // Naive datetime string (no timezone) — backend stores UTC, so treat as UTC
   const normalized = s.replace(" ", "T").replace(/\.\d+$/, "");
-  const d = new Date(`${normalized}${IST_OFFSET}`);
+  const d = new Date(`${normalized}Z`);
   return isNaN(d.getTime()) ? null : d;
 }
 

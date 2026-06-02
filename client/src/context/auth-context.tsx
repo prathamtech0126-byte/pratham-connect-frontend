@@ -237,7 +237,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const resolvedName =
                 profile?.name || name || userData.name || profile?.username || userData.username;
 
-              const mappedRole = (role === "admin" ? "superadmin" : role) as UserRole;
+              const ROLE_MAP: Record<string, string> = { admin: "superadmin", cx: "customer_experience", binding: "binding_team", application: "application_team" };
+              const mappedRole = (ROLE_MAP[role] ?? role) as UserRole;
               const verifiedUserData: User = {
                 id: String(resolvedUserId || userData.id || '1'),
                 username: username || profile?.username || userData.username || 'user',
@@ -277,7 +278,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const resolvedUserId = profile?.userId ?? userId;
         const resolvedName = profile?.name || name || profile?.username;
 
-        const mappedRole = (role === "admin" ? "superadmin" : role) as UserRole;
+        const ROLE_MAP: Record<string, string> = { admin: "superadmin", cx: "customer_experience", binding: "binding_team", application: "application_team" };
+        const mappedRole = (ROLE_MAP[role] ?? role) as UserRole;
         const userData: User = {
           id: String(resolvedUserId || '1'),
           username: username || profile?.username || 'user',

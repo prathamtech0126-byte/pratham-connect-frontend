@@ -6,14 +6,10 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Users,
-  Settings,
   LogOut,
   Menu,
   PieChart,
   UserPlus,
-  Shield,
-  UserCog,
-  Briefcase,
   Crown,
   Activity,
   FileText,
@@ -25,18 +21,15 @@ import {
   List,
   Megaphone,
   Target,
-  LayoutGrid,
   Zap,
   BarChart3,
   FileBarChart,
   ClipboardList,
-  FolderOpen,
   Loader2,
   Info,
   GraduationCap,
   CheckSquare,
   Headset,
-  ConciergeBell,
   Wrench,
   BadgeDollarSign,
 } from "lucide-react";
@@ -74,6 +67,7 @@ interface SidebarItem {
 // Updated sidebar items with more appropriate icons
 const sidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
+  { icon: Users,         label: "My Clients",    href: "/cx/clients",       roles: ["customer_experience"] },
   { icon: Target, label: "Leads", href: "/leads", roles: ["superadmin", "developer", "manager", "counsellor", "telecaller", "marketing_head"] },
   { icon: Users, label: "Clients", href: "/clients", roles: ["superadmin", "developer", "manager", "counsellor"] },
   { icon: PieChart, label: "Reports", href: "/reports" },
@@ -142,13 +136,27 @@ const sidebarItems: SidebarItem[] = [
   },
 
   
-   {
+  {
     icon: CheckSquare,
     label: "Checklists",
     href: "/checklists",
     roles: ["superadmin", "developer", "manager"],
   },
 
+  // ── CX Team items ──────────────────────────────────────────────────
+  { icon: FileBarChart,  label: " Report",     href: "/cx/my-report",     roles: ["customer_experience"] },
+  { icon: Activity,      label: "Activity Feed", href: "/cx/activity-feed", roles: ["customer_experience"] },
+  { icon: Headset,       label: "IT Support",    href: "/tech-support",     roles: ["customer_experience"] },
+  { icon: GraduationCap, label: "University List", href: "/university-db",  roles: ["customer_experience"] },
+
+  // ── Binding Team items ─────────────────────────────────────────────
+  { icon: Users,         label: "My Clients",       href: "/binding/clients",            roles: ["binding_team"] },
+  { icon: ClipboardList, label: "Visa Applications", href: "/binding/visa-applications",  roles: ["binding_team"] },
+  { icon: FileText,      label: "Doc Checklist",    href: "/binding/document-checklist", roles: ["binding_team"] },
+  { icon: FileBarChart,  label: "My Report",        href: "/binding/my-report",          roles: ["binding_team"] },
+  { icon: Activity,      label: "Activity Feed",    href: "/binding/activity",           roles: ["binding_team"] },
+  { icon: Headset,       label: "IT Support",       href: "/tech-support",               roles: ["binding_team"] },
+  { icon: GraduationCap, label: "University List",  href: "/university-db",              roles: ["binding_team"] },
 ];
 
 
@@ -211,11 +219,6 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
   // Select logo based on theme
   const currentLogo = isDarkMode ? darkLogoUrl : lightLogoUrl;
 
-  const { data: clients } = useQuery({
-    queryKey: ["sidebar-clients"],
-    queryFn: clientService.getClients,
-    enabled: !!user && ["superadmin", "manager", "counsellor"].includes(user.role),
-  });
 
   // Fetch real user profile data
   const { data: userProfile, isLoading: isLoadingProfile } = useQuery({
@@ -235,6 +238,15 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
     if (user?.role === "front_desk") {
       return ["/front-desk", "/front-desk/activity"].includes(item.href);
     }
+    if (user?.role === "customer_experience") {
+      // Dashboard and Messages have no roles array, so special-case them
+      if (item.href === "/" || item.href === "/messages") return true;
+      return item.roles?.includes("customer_experience") ?? false;
+    }
+    if (user?.role === "binding_team") {
+      if (item.href === "/" || item.href === "/messages") return true;
+      return item.roles?.includes("binding_team") ?? false;
+    }
     if (!item.roles) return true;
     return user && item.roles.includes(user.role);
   });
@@ -249,6 +261,21 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
 
       // Treat /overall-report as part of Reports menu for active state
       if (item.label === "Reports" && location.startsWith("/overall-report")) {
+        return item;
+      }
+
+      // Binding Studio is accessed from Clients — keep My Clients highlighted
+      if (item.href === "/binding/clients" && location.startsWith("/binding/studio/")) {
+        return item;
+      }
+
+      // CX: client detail page (/clients/:id/view) — keep My Clients highlighted
+      if (item.href === "/cx/clients" && location.startsWith("/clients/")) {
+        return item;
+      }
+
+      // Binding: client detail page (/clients/:id/view) — keep My Clients highlighted
+      if (item.href === "/binding/clients" && location.startsWith("/clients/")) {
         return item;
       }
 
@@ -555,7 +582,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                   <CollapsibleContent className="pl-4 space-y-1">
 
                     {/* Individual Reports */}
-                    {user && !["telecaller", "marketing_head"].includes(user.role) && (
+                    {user && !["telecaller", "marketing_head", "customer_experience"].includes(user.role) && (
                       <Link
                         href="/reports"
                         className={cn(

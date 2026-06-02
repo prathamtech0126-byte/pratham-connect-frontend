@@ -1,6 +1,9 @@
+import { useState, useMemo } from "react";
+import { ArrowUpDown } from "lucide-react";
 import { DataTable } from "@/components/table/DataTable";
 import { TableActions } from "@/components/table/TableActions";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -37,6 +40,16 @@ function getStageBadgeClass(stage: string): string {
   return "bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800";
 }
 
+function parseEnrollmentDate(dateStr: string): number {
+  // Handles DD-MM-YYYY
+  const parts = dateStr.split("-");
+  if (parts.length === 3) {
+    const [d, m, y] = parts;
+    return new Date(`${y}-${m}-${d}`).getTime();
+  }
+  return new Date(dateStr).getTime() || 0;
+}
+
 export function AllCounsellorClientsList({
   data,
   search,
@@ -46,6 +59,15 @@ export function AllCounsellorClientsList({
   onView,
   onEdit,
 }: AllCounsellorClientsListProps) {
+  const [newestFirst, setNewestFirst] = useState(true);
+
+  const sortedData = useMemo(() => {
+    return [...data].sort((a, b) => {
+      const diff = parseEnrollmentDate(a.enrollmentDate) - parseEnrollmentDate(b.enrollmentDate);
+      return newestFirst ? -diff : diff;
+    });
+  }, [data, newestFirst]);
+
   const columns = [
     { header: "Sr No", cell: (_: AllCounsellorClientRow, index: number) => <span className="text-slate-400 font-mono text-xs">{String(index + 1).padStart(2, "0")}</span>, className: "w-[60px]" },
     {
@@ -108,9 +130,25 @@ export function AllCounsellorClientsList({
             </SelectContent>
           </Select>
         </div>
+        <div className="sm:ml-auto pb-0.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 text-slate-600"
+            onClick={() => setNewestFirst((prev) => !prev)}
+            title={newestFirst ? "Showing newest first — click for oldest first" : "Showing oldest first — click for newest first"}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            Swap
+          </Button>
+        </div>
       </div>
 
-      <DataTable data={data} columns={columns} onRowClick={(item) => onView(item.id)} />
+      <p className="text-xs text-muted-foreground -mt-1">
+        Enrollment: {newestFirst ? "Newest first" : "Oldest first"}
+      </p>
+
+      <DataTable data={sortedData} columns={columns} onRowClick={(item) => onView(item.id)} />
     </div>
   );
 }

@@ -614,9 +614,13 @@ export default function Login() {
             const newCsrf = csrf ?? csrfSnake ?? null;
             if (newCsrf) setCsrfToken(newCsrf);
 
-            const mappedRole = (
-                role === "admin" ? "superadmin" : role
-            ) as UserRole;
+            const ROLE_MAP: Record<string, string> = {
+                admin: "superadmin",
+                cx: "customer_experience",
+                binding: "binding_team",
+                application: "application_team",
+            };
+            const mappedRole = (ROLE_MAP[role] ?? role) as UserRole;
 
             let resolvedUserId = resolveUserIdFromResponse(response.data);
             if (!resolvedUserId) {
