@@ -130,7 +130,14 @@ function buildGroups(rows: IncentiveRow[]): CounsellorGroup[] {
       displayCoreSaleIncentive = row.coreSale.incentive
       displayAllFinanceIncentive = row.allFinance.incentive
       displayOtherProductsIncentive = row.otherProducts.incentive
-      if (delta > 0) extraAddedAmount = delta
+      if (delta > 0) {
+        extraAddedAmount = delta
+      } else if (delta < 0 && sectionTotal > 0) {
+        const scale = row.incentiveAmount / sectionTotal
+        displayCoreSaleIncentive = Math.round(row.coreSale.incentive * scale)
+        displayAllFinanceIncentive = Math.round(row.allFinance.incentive * scale)
+        displayOtherProductsIncentive = row.incentiveAmount - displayCoreSaleIncentive - displayAllFinanceIncentive
+      }
     }
 
     g.clients.push({
@@ -829,6 +836,8 @@ function ClientRow({
           )}
           <a
             href={`/clients/${client.clientId}/view`}
+            target="_blank"
+            rel="noopener noreferrer"
             className={cn(
               'inline-flex h-7 items-center justify-center rounded-lg border border-border bg-background px-3 text-[11px] font-semibold text-foreground',
               'no-underline hover:bg-accent hover:text-accent-foreground',

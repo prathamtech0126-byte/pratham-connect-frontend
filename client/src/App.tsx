@@ -79,6 +79,24 @@ const FrontDeskPortal = lazy(() => import("@/pages/FrontDesk/FrontDeskPortal"));
 const FrontDeskActivity = lazy(() => import("@/pages/FrontDesk/FrontDeskActivity"));
 const MarketingHeadDashboard = lazy(() => import("@/pages/Dashboard/MarketingHeadDashboard"));
 const MaintenanceSettingsPage = lazy(() => import("@/pages/MaintenanceSettingsPage"));
+const CxDashboardPage    = lazy(() => import("@/pages/Bakend Team/CX Team/CX_Dashboard"));
+const CxClientsPage      = lazy(() => import("@/pages/Bakend Team/CX Team/CX_Clients"));
+const CxVisaTrackerPage  = lazy(() => import("@/pages/Bakend Team/CX Team/CX_VisaTracker"));
+const CxDocumentsPage    = lazy(() => import("@/pages/Bakend Team/CX Team/CX_Documents"));
+const CxActivityFeedPage = lazy(() => import("@/pages/Bakend Team/CX Team/CX_ActivityFeed"));
+const CxEscalationsPage  = lazy(() => import("@/pages/Bakend Team/CX Team/CX_Escalations"));
+const CxKanbanPage       = lazy(() => import("@/pages/Bakend Team/CX Team/CX_Kanban"));
+const CxMyReportPage          = lazy(() => import("@/pages/Bakend Team/CX Team/CX_MyReport"));
+const CxDocumentReviewPage    = lazy(() => import("@/pages/Bakend Team/CX Team/CX_DocumentReview"));
+
+const BtDashboardPage         = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_Dashboard"));
+const BtClientsPage           = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_Clients"));
+const BtClientDetailPage      = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_ClientDetail"));
+const BtBindingStudioPage     = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_BindingStudio"));
+const BtVisaApplicationsPage  = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_VisaApplications"));
+const BtDocumentChecklistPage = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_DocumentChecklist"));
+const BtMyReportPage          = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_MyReport"));
+
 
 // const ChecklistPage = lazy(() => import("@/pages/ChecklistPage"));
 // const AddChecklistPage = lazy(() => import("@/pages/AddChecklistPage"));
@@ -99,7 +117,7 @@ const MaintenanceSettingsPage = lazy(() => import("@/pages/MaintenanceSettingsPa
 // // Binding module pages
 // const BindingDashboardPage = lazy(() => import("@/modules/binding/pages/DashboardPage"));
 // const BindingClientListPage = lazy(() => import("@/modules/binding/pages/ClientListPage"));
-// const BindingActivityPage = lazy(() => import("@/modules/binding/pages/ActivityPage"));
+const BindingActivityPage = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_ActivityFeed"));
 // const BindingReportsPage = lazy(() => import("@/modules/binding/pages/ReportsPage"));
 
 // // Application module pages
@@ -221,7 +239,66 @@ function Router() {
         </Route>
 
         <Route path="/">
-          {params => <ProtectedRoute component={user?.role === "telecaller" ? TelecalerDashbord : user?.role === "marketing_head" ? MarketingHeadDashboard : Dashboard} />}
+          {params => <ProtectedRoute component={
+            user?.role === "telecaller" ? TelecalerDashbord :
+            user?.role === "marketing_head" ? MarketingHeadDashboard :
+            user?.role === "customer_experience" ? CxDashboardPage :
+            user?.role === "binding_team" ? BtDashboardPage :
+            Dashboard
+          } />}
+        </Route>
+
+        <Route path="/cx-dashboard">
+          {() => <ProtectedRoute component={CxDashboardPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/cx/clients">
+          {() => <ProtectedRoute component={CxClientsPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/cx/visa-tracker">
+          {() => <ProtectedRoute component={CxVisaTrackerPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/cx/documents">
+          {() => <ProtectedRoute component={CxDocumentsPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/cx/activity-feed">
+          {() => <ProtectedRoute component={CxActivityFeedPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/cx/escalations">
+          {() => <ProtectedRoute component={CxEscalationsPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/cx/kanban">
+          {() => <ProtectedRoute component={CxKanbanPage} allowedRoles={["superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/cx/my-report">
+          {() => <ProtectedRoute component={CxMyReportPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/cx/documents/:clientId">
+          {(params) => <ProtectedRoute component={CxDocumentReviewPage} params={params} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+
+        <Route path="/binding/dashboard">
+          {() => <ProtectedRoute component={BtDashboardPage} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/binding/clients">
+          {() => <ProtectedRoute component={BtClientsPage} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/binding/client/:id">
+          {(params) => <ProtectedRoute component={BtClientDetailPage} params={params} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/binding/studio/:clientId">
+          {(params) => <ProtectedRoute component={BtBindingStudioPage} params={params} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/binding/visa-applications">
+          {() => <ProtectedRoute component={BtVisaApplicationsPage} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/binding/document-checklist">
+          {() => <ProtectedRoute component={BtDocumentChecklistPage} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/binding/my-report">
+          {() => <ProtectedRoute component={BtMyReportPage} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
+        <Route path="/binding/activity">
+          {() => <ProtectedRoute component={BindingActivityPage} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
         </Route>
 
         <Route path="/dashboard">
@@ -240,10 +317,10 @@ function Router() {
           {params => <ProtectedRoute component={Activity} />}
         </Route>
 
-        {/* <Route path="/cx/dashboard">
+        <Route path="/cx/dashboard">
           {params => <ProtectedRoute component={CxDashboardPage} allowedRoles={CX_ALLOWED_ROLES} />}
         </Route>
-        <Route path="/cx/clients">
+        {/* <Route path="/cx/clients">
           {params => <ProtectedRoute component={CxClientListPage} allowedRoles={CX_ALLOWED_ROLES} />}
         </Route>
         <Route path="/cx/clients/:id">

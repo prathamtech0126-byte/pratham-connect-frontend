@@ -348,7 +348,7 @@ let clients: Client[] = [
   },
   {
     id: "CL-003",
-    name: "Rohan Gupta",
+    name: "Trushaben Patel",
     enrollmentDate: "2024-03-05",
     counsellor: "Amit Kumar",
     productManager: "Sneha Reddy",
@@ -550,7 +550,7 @@ const mockActivities: ActivityLogItem[] = [
     id: "act-4",
     type: "upload",
     title: "Document Uploaded",
-    description: "Uploaded Passport copy for Rohan Gupta",
+    description: "Uploaded Passport copy for Trushaben Patel",
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
     user: {
       name: "Dr. Counsellor",

@@ -637,7 +637,12 @@ export async function fetchIncentivesReport(params: {
   const { startDate, endDate } = params
 
   if (params.pageSize >= ALL_PAGES_SENTINEL) {
-    const { rows, totalRecords, totalIncentiveAmount } = await fetchAllPages(startDate, endDate)
+    const res = await api.get<ReportResponse>('/api/incentives/report', {
+      params: { startDate, endDate, page: 1, pageSize: ALL_PAGES_SENTINEL },
+    })
+    const rows = (res.data.data ?? []).map(mapReportRow)
+    const totalRecords = res.data.pagination?.totalRecords ?? rows.length
+    const totalIncentiveAmount = res.data.pagination?.totalIncentiveAmount
     return {
       data: rows,
       pagination: {

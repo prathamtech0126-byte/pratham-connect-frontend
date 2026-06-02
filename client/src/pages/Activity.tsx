@@ -304,10 +304,10 @@ const transformActivityLog = (log: any): ActivityLogItem => {
   };
 };
 
-export default function Activity() {
+export function ActivityLogView({ restrictRole }: { restrictRole?: string } = {}) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [roleFilter, setRoleFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState(restrictRole ?? "all");
   const [actionFilter, setActionFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [selectedActivity, setSelectedActivity] = useState<ActivityLogItem | null>(null);
@@ -452,8 +452,12 @@ export default function Activity() {
 
   const pagination = data?.pagination;
 
+  const pageTitle = restrictRole
+    ? `Activity Log — ${restrictRole === "customer_experience" ? "CX Team" : restrictRole === "binding_team" ? "Binding Team" : restrictRole}`
+    : "Activity Log";
+
   return (
-    <PageWrapper title="Activity Log">
+    <PageWrapper title={pageTitle}>
       {/* <div className="mb-6">
         <h2 className="text-2xl font-bold tracking-tight">System Activity</h2>
         <p className="text-muted-foreground">
@@ -516,19 +520,21 @@ export default function Activity() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-[150px] bg-card border-border/50">
-                      <SelectValue placeholder="User Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Roles</SelectItem>
-                      {uniqueRoles.map(role => (
-                        <SelectItem key={role} value={role} className="capitalize">
-                          {role.replace('_', ' ')}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {!restrictRole && (
+                    <Select value={roleFilter} onValueChange={setRoleFilter}>
+                      <SelectTrigger className="w-[150px] bg-card border-border/50">
+                        <SelectValue placeholder="User Role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Roles</SelectItem>
+                        {uniqueRoles.map(role => (
+                          <SelectItem key={role} value={role} className="capitalize">
+                            {role.replace('_', ' ')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
 
                   {isFilterActive && (
                     <Button
@@ -792,4 +798,8 @@ export default function Activity() {
       </Card>
     </PageWrapper>
   );
+}
+
+export default function Activity() {
+  return <ActivityLogView />;
 }

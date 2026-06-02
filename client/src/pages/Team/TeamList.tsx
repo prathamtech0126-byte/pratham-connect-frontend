@@ -191,11 +191,8 @@ export default function TeamList() {
     }
 
     // Manager assignment validation
-    if (newMember.role === "Counsellor" && !newMember.managerId) {
-      newErrors.managerId = "Manager assignment is required";
-    }
-
-    if(newMember.role === "Telecaller" && !newMember.managerId) {
+    const rolesRequiringManager = ["Counsellor", "Telecaller", "CX", "Binding", "Application"];
+    if (rolesRequiringManager.includes(newMember.role) && !newMember.managerId) {
       newErrors.managerId = "Manager assignment is required";
     }
     setErrors(newErrors);
@@ -218,7 +215,7 @@ export default function TeamList() {
           ...newMember,
           email: newMember.email.toLowerCase().trim(),
           role: roleToApiValue(newMember.role),
-          managerId: (roleToApiValue(newMember.role) === "counsellor" || roleToApiValue(newMember.role) === "telecaller") ? Number(newMember.managerId) : undefined,
+          managerId: (["counsellor", "telecaller", "cx", "binding", "application"].includes(roleToApiValue(newMember.role))) ? Number(newMember.managerId) : undefined,
           isSupervisor: roleToApiValue(newMember.role) === "manager" ? newMember.isSupervisor : undefined,
           status: newMember.status === "Active"
         };
@@ -238,7 +235,7 @@ export default function TeamList() {
           ...newMember,
           email: newMember.email.toLowerCase().trim(),
           role: roleToApiValue(newMember.role),
-          managerId: (roleToApiValue(newMember.role) === "counsellor" || roleToApiValue(newMember.role) === "telecaller") ? Number(newMember.managerId) : undefined,
+          managerId: (["counsellor", "telecaller", "cx", "binding", "application"].includes(roleToApiValue(newMember.role))) ? Number(newMember.managerId) : undefined,
           isSupervisor: roleToApiValue(newMember.role) === "manager" ? newMember.isSupervisor : false,
           status: newMember.status === "Active"
         };
@@ -351,13 +348,31 @@ export default function TeamList() {
     setIsAddMemberOpen(true);
   };
 
-  const filteredMembers = teamMembers.filter(member => {
-    const matchesRole = roleFilter === "all" || member.role.toLowerCase() === roleFilter.toLowerCase();
-    const nameToSearch = member.name || member.fullName || "";
-    const matchesSearch = nameToSearch.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         member.email.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesRole && matchesSearch;
-  });
+  const ROLE_ORDER: Record<string, number> = {
+    "manager": 0,
+    "counsellor": 1,
+    "telecaller": 2,
+    "developer": 3,
+    "it support": 4,
+    "cx": 5,
+    "binding": 6,
+    "application": 7,
+  };
+
+  const filteredMembers = teamMembers
+    .filter(member => {
+      const matchesRole = roleFilter === "all" || member.role.toLowerCase() === roleFilter.toLowerCase();
+      const nameToSearch = member.name || member.fullName || "";
+      const matchesSearch = nameToSearch.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           member.email.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesRole && matchesSearch;
+    })
+    .sort((a, b) => {
+      const aOrder = ROLE_ORDER[a.role.toLowerCase()] ?? 99;
+      const bOrder = ROLE_ORDER[b.role.toLowerCase()] ?? 99;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return a.role.toLowerCase().localeCompare(b.role.toLowerCase());
+    });
 
   const handleDeleteMember = async () => {
     if (!deleteId) return;
@@ -509,7 +524,8 @@ export default function TeamList() {
                   <Select
                     value={newMember.role}
                     onValueChange={(value) => {
-                      setNewMember({ ...newMember, role: value, managerId: value === "Counsellor" || value === "Telecaller" ? newMember.managerId : "" });
+                      const rolesWithManager = ["Counsellor", "Telecaller", "CX", "Binding", "Application"];
+                      setNewMember({ ...newMember, role: value, managerId: rolesWithManager.includes(value) ? newMember.managerId : "" });
                       if (errors.role) setErrors(prev => { const { role, ...rest } = prev; return rest; });
                     }}
                   >
@@ -524,6 +540,9 @@ export default function TeamList() {
                       <SelectItem value="Front Desk">Front Desk</SelectItem>
                       <SelectItem value="IT Support">IT Support</SelectItem>
                       <SelectItem value="Developer">Developer</SelectItem>
+                      <SelectItem value="CX">CX Team</SelectItem>
+                      <SelectItem value="Binding">Binding Team</SelectItem>
+                      <SelectItem value="Application">Application Team</SelectItem>
                     </SelectContent>
                   </Select>
                   {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
@@ -569,7 +588,7 @@ export default function TeamList() {
                   </div>
                 )}
 
-                {(newMember.role === "Counsellor" || newMember.role === "Telecaller") && (
+                {(["Counsellor", "Telecaller", "CX", "Binding", "Application"].includes(newMember.role)) && (
                   <div className="space-y-2">
                     <Label htmlFor="assignedTo" className={errors.managerId ? "text-destructive" : ""}>Assign to Manager *</Label>
                     <Select
@@ -675,59 +694,71 @@ export default function TeamList() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredMembers.map((member) => (
-                    <TableRow key={member.id}>
-                      <TableCell className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-muted text-xs">
-                            {member.name.split(' ').map((n: any) => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-sm">{member.name}</span>
-                          <span className="text-xs text-muted-foreground">{member.email}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="font-normal">
-                            {member.role}
-                          </Badge>
-                          {member.role?.toLowerCase() === "manager" && member.isSupervisor && (
-                            <Badge variant="default" className="font-normal text-xs">
-                              Supervisor
+                  filteredMembers.map((member, index) => {
+                    const isNewRole = index === 0 || member.role !== filteredMembers[index - 1].role;
+                    return (
+                      <>
+                        {isNewRole && (
+                          <TableRow key={`role-header-${member.role}`} className="bg-muted/50 hover:bg-muted/50">
+                            <TableCell colSpan={4} className="py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                              {member.role}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        <TableRow key={member.id}>
+                          <TableCell className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="bg-muted text-xs">
+                                {member.name.split(' ').map((n: any) => n[0]).join('')}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-sm">{member.name}</span>
+                              <span className="text-xs text-muted-foreground">{member.email}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="font-normal">
+                                {member.role}
+                              </Badge>
+                              {member.role?.toLowerCase() === "manager" && member.isSupervisor && (
+                                <Badge variant="default" className="font-normal text-xs">
+                                  Supervisor
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={member.status === "Active" ? "default" : "secondary"}
+                              className={member.status === "Inactive" ? "bg-red-100 text-red-700 hover:bg-red-300" : ""}
+                            >
+                              {member.status}
                             </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={member.status === "Active" ? "default" : "secondary"}
-                          className={member.status === "Inactive" ? "bg-red-100 text-red-700 hover:bg-red-300" : ""}
-                        >
-                          {member.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 mr-1 text-muted-foreground hover:text-primary"
-                          onClick={() => openEditMember(member)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => confirmDelete(member)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 mr-1 text-muted-foreground hover:text-primary"
+                              onClick={() => openEditMember(member)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => confirmDelete(member)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      </>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
