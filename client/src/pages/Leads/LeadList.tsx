@@ -17,6 +17,7 @@ import { useAuth } from "@/context/auth-context";
 
 import { Breadcrumbs } from "@/layout/Breadcrumbs";
 import { AddLead } from "@/components/add-lead";
+import { SearchableAssigneePicker } from "@/components/leads/SearchableAssigneePicker";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -343,6 +344,12 @@ export default function LeadList() {
     const dateFilterParam = params.get("dateFilter");
     const createdFrom = params.get("createdFrom");
     const createdTo = params.get("createdTo");
+    const transferredFrom = params.get("transferredFrom");
+    const transferredTo = params.get("transferredTo");
+    const convertedFrom = params.get("convertedFrom");
+    const convertedTo = params.get("convertedTo");
+    const droppedFrom = params.get("droppedFrom");
+    const droppedTo = params.get("droppedTo");
     const assignedScope = params.get("assignedScope");
     const reportBucket = params.get("reportBucket");
     const hasPendingFollowUp = params.get("hasPendingFollowUp") ?? params.get("pendingFollowUp");
@@ -416,8 +423,14 @@ export default function LeadList() {
     ) {
       setDateFilter(dateFilterParam as DateFilterType);
     }
-    if (createdFrom) setCustomDateFrom(createdFrom);
-    if (createdTo) setCustomDateTo(createdTo);
+    if (transferredFrom || convertedFrom || droppedFrom || createdFrom) {
+      setCustomDateFrom(
+        transferredFrom ?? convertedFrom ?? droppedFrom ?? createdFrom ?? undefined
+      );
+    }
+    if (transferredTo || convertedTo || droppedTo || createdTo) {
+      setCustomDateTo(transferredTo ?? convertedTo ?? droppedTo ?? createdTo ?? undefined);
+    }
     setAssignedScopeMode(assignedScope === "1");
     if (reportBucket === "contacted" || reportBucket === "transferred") {
       setReportBucketFilter(reportBucket);
@@ -491,6 +504,12 @@ export default function LeadList() {
   const dateRangeParams = useMemo((): {
     createdFrom?: string;
     createdTo?: string;
+    transferredFrom?: string;
+    transferredTo?: string;
+    convertedFrom?: string;
+    convertedTo?: string;
+    droppedFrom?: string;
+    droppedTo?: string;
     nextFollowupFrom?: string;
     nextFollowupTo?: string;
   } => {
@@ -508,8 +527,34 @@ export default function LeadList() {
     if (filterProgressStatus === "follow_up") {
       return { nextFollowupFrom: range.createdFrom, nextFollowupTo: range.createdTo };
     }
+    if (reportBucketFilter === "transferred") {
+      return {
+        transferredFrom: range.createdFrom,
+        transferredTo: range.createdTo,
+      };
+    }
+    if (filterAssignmentStatus === "converted" && forReportMode) {
+      return {
+        convertedFrom: range.createdFrom,
+        convertedTo: range.createdTo,
+      };
+    }
+    if (filterAssignmentStatus === "dropped" && forReportMode) {
+      return {
+        droppedFrom: range.createdFrom,
+        droppedTo: range.createdTo,
+      };
+    }
     return range;
-  }, [dateFilter, customDateFrom, customDateTo, filterProgressStatus]);
+  }, [
+    dateFilter,
+    customDateFrom,
+    customDateTo,
+    filterProgressStatus,
+    reportBucketFilter,
+    filterAssignmentStatus,
+    forReportMode,
+  ]);
 
   useEffect(() => {
     const trimmed = search.trim();
@@ -729,19 +774,31 @@ export default function LeadList() {
 
 const loadCounsellors = useCallback(async () => {
   try {
+    const isTelecallerTransferPicker =
+      user?.role === "telecaller" || user?.role === "manager";
     const [cRes, tRes] = await Promise.all([
-      api.get("/api/users/counsellors"),
+      isTelecallerTransferPicker
+        ? api.get("/api/leads/transfer-assignees")
+        : api.get("/api/users/counsellors"),
       api.get("/api/users/telecallers"),
     ]);
-    // Safety check for data nesting
-    setCounsellors(cRes?.data?.data || cRes?.data || []);
+    const raw = cRes?.data?.data ?? cRes?.data ?? [];
+    setCounsellors(
+      Array.isArray(raw)
+        ? raw.map((c: { id: number; fullName: string; role?: string }) => ({
+            id: Number(c.id),
+            fullName: String(c.fullName ?? ""),
+            role: c.role ?? null,
+          }))
+        : []
+    );
     setTelecallers(tRes?.data?.data || tRes?.data || []);
   } catch (err) {
     console.error("Fetch error:", err);
     setCounsellors([]);
     setTelecallers([]);
   }
-}, []);
+}, [user?.role]);
 
 const loadLeadTypes = useCallback(async () => {
   try {
@@ -1845,20 +1902,14 @@ const loadLeadTypes = useCallback(async () => {
       <DialogTitle>Transfer Lead to Counsellor</DialogTitle>
     </DialogHeader>
     <div className="space-y-2 py-4">
-      <Label>Select Counsellor</Label>
-      <Select value={selectedCounsellorId} onValueChange={setSelectedCounsellorId}>
-        <SelectTrigger>
-          <SelectValue placeholder="Choose counsellor" />
-        </SelectTrigger>
-        {/* The fix is right here in the SelectContent */}
-        <SelectContent className="max-h-[300px] overflow-y-auto">
-          {counsellors?.map((item) => (
-            <SelectItem key={item.id} value={String(item.id)}>
-              {item.fullName}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Label>Select counsellor or manager</Label>
+      <SearchableAssigneePicker
+        options={counsellors}
+        value={selectedCounsellorId}
+        onValueChange={setSelectedCounsellorId}
+        placeholder="Choose counsellor or manager…"
+        searchPlaceholder="Type name to filter…"
+      />
     </div>
     <DialogFooter>
       <Button variant="outline" onClick={closeTransferModal}>Cancel</Button>

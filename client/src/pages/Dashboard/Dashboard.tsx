@@ -58,6 +58,7 @@ import { RevenueChart } from "@/components/charts/RevenueChart";
 import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
 import { ITSupportKanbanDashboard } from "@/pages/tech-support/ITSupportKanbanDashboard";
 import { assignLeadApi, getLeads, type LeadEntity } from "@/api/leads.api";
+import { SearchableAssigneePicker } from "@/components/leads/SearchableAssigneePicker";
 import api from "@/lib/api";
 
 const counselorRevenue = [
@@ -246,7 +247,7 @@ export default function Dashboard() {
   const { data: telecallerCounsellors = [] } = useQuery({
     queryKey: ["telecaller-dashboard-counsellors"],
     queryFn: async () => {
-      const res = await api.get("/api/users/counsellors");
+      const res = await api.get("/api/leads/transfer-assignees");
       return Array.isArray(res?.data?.data) ? res.data.data : [];
     },
     enabled: !!user && user.role === "telecaller",
@@ -1114,11 +1115,13 @@ export default function Dashboard() {
     const progressPercentage = target && target.monthlyEnrollmentTarget > 0 && achieved
       ? (achieved.monthlyEnrollmentAchieved / target.monthlyEnrollmentTarget) * 100
       : 0;
-    const counsellorOptions = (telecallerCounsellors as any[]).map((u) => ({
-      id: String(u.id),
-      name: u.fullName || u.name || `Counsellor #${u.id}`,
-      role: "counsellor",
-    }));
+    const counsellorOptions = (telecallerCounsellors as { id: number; fullName: string; role?: string }[]).map(
+      (u) => ({
+        id: Number(u.id),
+        fullName: u.fullName || `User #${u.id}`,
+        role: u.role ?? "counsellor",
+      })
+    );
 
     const handleTransferSubmit = async () => {
       if (!transferLead || !transferToId) return;
@@ -1126,8 +1129,8 @@ export default function Dashboard() {
       try {
         await assignLeadApi(Number(transferLead.id), { counsellorId: Number(transferToId) });
         await queryClient.invalidateQueries({ queryKey: ["telecaller-dashboard-leads"] });
-        const to = counsellorOptions.find((c) => c.id === transferToId);
-        toast({ title: "Lead transferred", description: `${transferLead.name} transferred to ${to?.name ?? 'Counsellor'}.` });
+        const to = counsellorOptions.find((c) => String(c.id) === transferToId);
+        toast({ title: "Lead transferred", description: `${transferLead.name} transferred to ${to?.fullName ?? "assignee"}.` });
         setTransferLead(null);
         setTransferToId('');
       } finally {
@@ -1474,17 +1477,14 @@ export default function Dashboard() {
             )}
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>Select counsellor</Label>
-                <Select value={transferToId} onValueChange={setTransferToId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose counsellor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {counsellorOptions.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Select counsellor or manager</Label>
+                <SearchableAssigneePicker
+                  options={counsellorOptions}
+                  value={transferToId}
+                  onValueChange={setTransferToId}
+                  placeholder="Choose counsellor or manager…"
+                  searchPlaceholder="Type name to filter…"
+                />
               </div>
             </div>
             <DialogFooter>

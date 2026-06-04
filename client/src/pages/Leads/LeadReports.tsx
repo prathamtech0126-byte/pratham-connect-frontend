@@ -35,6 +35,12 @@ import {
   isLeadAssignedToCounsellor,
   type LeadReportMetricKey,
 } from "@/lib/lead-report-metrics";
+import {
+  countConvertedInPeriod,
+  countDroppedInPeriod,
+  countTransferredInPeriod,
+  getReportPeriodBounds,
+} from "@/lib/lead-report-period";
 import { isLeadDropped } from "@/lib/lead-status-tags";
 
 type DateFilterType = "all" | "today" | "weekly" | "monthly" | "custom";
@@ -59,16 +65,6 @@ const ASSIGNMENT_OPTIONS = [
   { value: "converted", label: "Converted" },
   { value: "dropped", label: "Dropped" },
 ];
-
-/** Transferred KPI = assignment status transferred + dropped + converted (excludes direct counsellor assign). */
-const TRANSFERRED_ASSIGNMENT_STATUSES = new Set(["transferred", "dropped", "converted"]);
-
-const isTransferredByAssignment = (lead: LeadEntity) =>
-  lead.currentTelecallerId != null &&
-  TRANSFERRED_ASSIGNMENT_STATUSES.has(lead.assignmentStatus ?? "");
-
-const countTransferredByAssignment = (items: LeadEntity[]) =>
-  items.filter(isTransferredByAssignment).length;
 
 const countAssignmentStatus = (items: LeadEntity[], status: LeadEntity["assignmentStatus"]) =>
   items.filter((l) => l.assignmentStatus === status).length;
@@ -145,12 +141,17 @@ export default function LeadReports() {
 
   useEffect(() => { void loadData(); }, [loadData]);
 
-  // ── Date-scoped leads ──────────────────────────────────
+  const reportBounds = useMemo(
+    () => getReportPeriodBounds(dateFilter, customDateFrom, customDateTo),
+    [dateFilter, customDateFrom, customDateTo]
+  );
+
+  // Leads created in the selected period (assigned, contacted, junk, etc.)
   const periodLeads = useMemo(() => {
     const bounds = getDateBounds(dateFilter, customDateFrom, customDateTo);
     let items = allLeads;
     if (bounds) {
-      items = items.filter(l => {
+      items = items.filter((l) => {
         const d = new Date(l.createdAt);
         return d >= bounds.from && d <= bounds.to;
       });
@@ -181,40 +182,46 @@ export default function LeadReports() {
         isLeadDropped(l)
     ).length,
     notContacted: filteredLeads.filter(l => l.progressStatus === "not_contacted").length,
-    transferred: countTransferredByAssignment(filteredLeads),
-    converted: countAssignmentStatus(filteredLeads, "converted"),
-    dropped: countAssignmentStatus(filteredLeads, "dropped"),
+    transferred: countTransferredInPeriod(allLeads, reportBounds),
+    converted: countConvertedInPeriod(allLeads, reportBounds),
+    dropped: countDroppedInPeriod(allLeads, reportBounds),
     pendingFollowUp: filteredLeads.filter(l => l.progressStatus === "follow_up").length,
     junk: periodLeads.filter(l => l.isJunk || l.progressStatus === "junk").length,
-  }), [filteredLeads, periodLeads]);
+  }), [filteredLeads, periodLeads, allLeads, reportBounds]);
 
   const typeBreakdown = useMemo(() => {
     const types = Array.from(new Set(filteredLeads.map(l => l.leadType || "Unknown")));
     return types.map(t => {
       const items = filteredLeads.filter(l => (l.leadType || "Unknown") === t);
+      const pool = allLeads.filter(
+        (l) => !l.isJunk && l.progressStatus !== "junk" && (l.leadType || "Unknown") === t
+      );
       return {
         type: t,
         assigned: items.length,
-        transferred: countTransferredByAssignment(items),
-        converted: countAssignmentStatus(items, "converted"),
-        dropped: countAssignmentStatus(items, "dropped"),
+        transferred: countTransferredInPeriod(pool, reportBounds),
+        converted: countConvertedInPeriod(pool, reportBounds),
+        dropped: countDroppedInPeriod(pool, reportBounds),
         junk: items.filter(l => l.isJunk || l.progressStatus === "junk").length,
       };
     }).sort((a, b) => b.assigned - a.assigned);
-  }, [filteredLeads]);
+  }, [filteredLeads, allLeads, reportBounds]);
 
   const sourceBreakdown = useMemo(() => {
     const sources = Array.from(new Set(filteredLeads.map(l => l.leadSource || "Unknown")));
     return sources.map(s => {
       const items = filteredLeads.filter(l => (l.leadSource || "Unknown") === s);
+      const pool = allLeads.filter(
+        (l) => !l.isJunk && l.progressStatus !== "junk" && (l.leadSource || "Unknown") === s
+      );
       const alias = leadTypes.find((lt: any) => lt.leadType === s)?.displayAlias?.trim() || s.replace(/_/g, " ");
       const assigned = items.length;
-      const transferred = countTransferredByAssignment(items);
-      const converted = countAssignmentStatus(items, "converted");
-      const dropped = countAssignmentStatus(items, "dropped");
+      const transferred = countTransferredInPeriod(pool, reportBounds);
+      const converted = countConvertedInPeriod(pool, reportBounds);
+      const dropped = countDroppedInPeriod(pool, reportBounds);
       return { source: alias, assigned, transferred, converted, dropped, barValue: assigned > 0 ? (transferred / assigned) * 100 : 0 };
     }).sort((a, b) => b.assigned - a.assigned);
-  }, [filteredLeads, leadTypes]);
+  }, [filteredLeads, allLeads, leadTypes, reportBounds]);
 
   // Counsellor-wise stats (who received leads and what happened)
   const counsellorBreakdown = useMemo(() => {
@@ -226,8 +233,8 @@ export default function LeadReports() {
           id: c.id,
           name: c.fullName,
           received: cLeads.length,
-          converted: cLeads.filter(l => l.assignmentStatus === "converted").length,
-          dropped: cLeads.filter(l => l.assignmentStatus === "dropped").length,
+          converted: countConvertedInPeriod(cLeads, reportBounds),
+          dropped: countDroppedInPeriod(cLeads, reportBounds),
           pending: cLeads.filter(l => !["converted", "dropped"].includes(l.assignmentStatus)).length,
         };
       })
@@ -236,7 +243,7 @@ export default function LeadReports() {
         id: number; name: string; received: number;
         converted: number; dropped: number; pending: number;
       }[];
-  }, [filteredLeads, counsellors]);
+  }, [filteredLeads, counsellors, reportBounds]);
 
   // ── Per-telecaller stats ──────────────────────────────
   const telecallerStats = useMemo(() => {
@@ -252,9 +259,18 @@ export default function LeadReports() {
           id: t.id,
           name: t.fullName,
           assigned: tLeads.length,
-          transferred: countTransferredByAssignment(tLeads),
-          converted: countAssignmentStatus(tLeads, "converted"),
-          dropped: countAssignmentStatus(tLeads, "dropped"),
+          transferred: countTransferredInPeriod(
+            allLeads.filter((l) => isLeadAssignedToTelecaller(l, t.id)),
+            reportBounds
+          ),
+          converted: countConvertedInPeriod(
+            allLeads.filter((l) => isLeadAssignedToTelecaller(l, t.id)),
+            reportBounds
+          ),
+          dropped: countDroppedInPeriod(
+            allLeads.filter((l) => isLeadAssignedToTelecaller(l, t.id)),
+            reportBounds
+          ),
           totalFollowUp: tLeads.filter(l => !!l.nextFollowupAt).length,
           pendingFollowUp: tLeads.filter(l => l.progressStatus === "follow_up").length,
           junk: tJunkLeads.length,
@@ -262,7 +278,7 @@ export default function LeadReports() {
       })
       .filter(t => t.assigned > 0)
       .sort((a, b) => b.transferred - a.transferred || b.assigned - a.assigned);
-  }, [filteredLeads, periodLeads, telecallers]);
+  }, [filteredLeads, periodLeads, telecallers, allLeads, reportBounds]);
 
   const customLabel = dateFilter === "custom" && customDateFrom && customDateTo
     ? `${format(new Date(customDateFrom), "d MMM")} – ${format(new Date(customDateTo), "d MMM yyyy")}`
@@ -362,7 +378,7 @@ export default function LeadReports() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Transfers per Telecaller</CardTitle>
               <CardDescription className="text-xs">
-                Transferred = assignment status transferred + drop + converted
+                Transferred = outcomes in period (by transferred / converted / dropped time)
               </CardDescription>
             </CardHeader>
             <CardContent>

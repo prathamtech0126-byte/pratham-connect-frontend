@@ -396,7 +396,7 @@
 //     </Dialog>
 //   );
 // }
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -419,7 +419,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import type { DummyLead } from "@/data/dummyLeads";
 import api from "@/lib/api";
-import { createLeadApi, searchLeadReferenceClientsApi } from "@/api/leads.api";
+import { cn } from "@/lib/utils";
+import { SearchableAssigneePicker } from "@/components/leads/SearchableAssigneePicker";
+import {
+  createLeadApi,
+  searchLeadReferenceClientsApi,
+  listLeadReferenceTeamDirectoryApi,
+  listLeadReferenceCounsellorsApi,
+} from "@/api/leads.api";
 import { useAuth } from "@/context/auth-context";
 import {
   getLeadSourceLabel,
@@ -462,6 +469,9 @@ function formatReferenceRoleLabel(role: string | null | undefined): string {
   const r = role.toLowerCase();
   if (r === "telecaller") return "Telecaller";
   if (r === "counsellor" || r === "counselor") return "Counsellor";
+  if (r === "manager") return "Manager";
+  if (r === "marketing_head") return "Marketing Head";
+  if (r === "director") return "Director";
   if (r === "self") return "Self";
   return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -519,7 +529,12 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
   const [saleTypes, setSaleTypes] = useState<SaleType[]>([]);
   const [isLoadingSaleTypes, setIsLoadingSaleTypes] = useState(false);
 
-  const [counsellors, setCounsellors] = useState<{ id: number; fullName: string }[]>([]);
+  const [counsellors, setCounsellors] = useState<
+    { id: number; fullName: string; role?: string | null }[]
+  >([]);
+  const [internalTeamDirectory, setInternalTeamDirectory] = useState<
+    { id: number; fullName: string; memberRole: string }[]
+  >([]);
 
   const [referenceSearch, setReferenceSearch] = useState("");
   const [referenceOptions, setReferenceOptions] = useState<
@@ -531,14 +546,44 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
   const [showManualClientInput, setShowManualClientInput] = useState(false);
   const [manualClientName, setManualClientName] = useState("");
   const [manualClientCounsellorId, setManualClientCounsellorId] = useState("");
+  const referenceSearchRef = useRef<HTMLDivElement>(null);
+
+  const closeReferenceSearch = (clearUnselectedInput = true) => {
+    setShowReferenceList(false);
+    if (clearUnselectedInput && !selectedReference) {
+      setReferenceSearch("");
+    }
+  };
+
+  useEffect(() => {
+    if (!showReferenceList) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (referenceSearchRef.current?.contains(target)) return;
+      closeReferenceSearch(true);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [showReferenceList, selectedReference]);
 
   useEffect(() => {
     if (open) {
       fetchLeadTypes();
       fetchSaleTypes();
-      api.get("/api/users/counsellors").then((r) => {
-        setCounsellors(r.data?.data || r.data || []);
-      }).catch(() => setCounsellors([]));
+      Promise.all([
+        listLeadReferenceCounsellorsApi(),
+        listLeadReferenceTeamDirectoryApi(),
+      ])
+        .then(([counsellorRows, teamRows]) => {
+          setCounsellors(counsellorRows);
+          setInternalTeamDirectory(teamRows);
+        })
+        .catch(() => {
+          setCounsellors([]);
+          setInternalTeamDirectory([]);
+        });
     }
   }, [open]);
 
@@ -577,7 +622,36 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
 
   useEffect(() => {
     const term = referenceSearch.trim();
-    if (!needsReferencePick || term.length < 3) {
+    if (!needsReferencePick) {
+      setReferenceOptions([]);
+      return;
+    }
+
+    if (needsInternalReference) {
+      const lower = term.toLowerCase();
+      const filtered = term
+        ? internalTeamDirectory.filter((m) => {
+            const roleLabel = formatReferenceRoleLabel(m.memberRole).toLowerCase();
+            return (
+              m.fullName.toLowerCase().includes(lower) ||
+              m.memberRole.toLowerCase().includes(lower) ||
+              roleLabel.includes(lower)
+            );
+          })
+        : internalTeamDirectory;
+      setReferenceOptions(
+        filtered.map((m) => ({
+          id: m.id,
+          label: m.fullName,
+          kind: "internal" as const,
+          memberRole: m.memberRole,
+        }))
+      );
+      setIsLoadingReference(false);
+      return;
+    }
+
+    if (term.length < 3) {
       setReferenceOptions([]);
       return;
     }
@@ -585,53 +659,14 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
     const timer = setTimeout(async () => {
       setIsLoadingReference(true);
       try {
-        if (needsClientReference) {
-          const rows = await searchLeadReferenceClientsApi(term);
-          setReferenceOptions(
-            rows.map((c) => ({
-              id: Number(c.id),
-              label: String(c.fullName ?? `Client #${c.id}`),
-              kind: "client" as const,
-            }))
-          );
-        } else {
-          const [tcRes, coRes] = await Promise.all([
-            api.get("/api/users/telecallers"),
-            api.get("/api/users/counsellors"),
-          ]);
-          const telecallers = (tcRes.data?.data || tcRes.data || []) as {
-            id: number;
-            fullName: string;
-          }[];
-          const counsellors = (coRes.data?.data || coRes.data || []) as {
-            id: number;
-            fullName: string;
-          }[];
-          const lower = term.toLowerCase();
-          const team = [
-            ...telecallers.map((m) => ({
-              id: m.id,
-              fullName: m.fullName,
-              memberRole: "telecaller" as const,
-            })),
-            ...counsellors.map((m) => ({
-              id: m.id,
-              fullName: m.fullName,
-              memberRole: "counsellor" as const,
-            })),
-          ];
-          setReferenceOptions(
-            team
-              .filter((m) => m.fullName?.toLowerCase().includes(lower))
-              .slice(0, 20)
-              .map((m) => ({
-                id: m.id,
-                label: m.fullName,
-                kind: "internal" as const,
-                memberRole: m.memberRole,
-              }))
-          );
-        }
+        const rows = await searchLeadReferenceClientsApi(term);
+        setReferenceOptions(
+          rows.map((c) => ({
+            id: Number(c.id),
+            label: String(c.fullName ?? `Client #${c.id}`),
+            kind: "client" as const,
+          }))
+        );
       } catch {
         setReferenceOptions([]);
       } finally {
@@ -640,7 +675,13 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [referenceSearch, needsReferencePick, needsClientReference]);
+  }, [
+    referenceSearch,
+    needsReferencePick,
+    needsInternalReference,
+    needsClientReference,
+    internalTeamDirectory,
+  ]);
 
   const fetchLeadTypes = async () => {
     try {
@@ -971,26 +1012,44 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
                   )}
 
                   {!showManualClientInput && (
-                    <div className="relative">
+                    <div className="relative" ref={referenceSearchRef}>
                       <Input
-                        placeholder="Type at least 3 characters to search…"
+                        placeholder={
+                          needsInternalReference
+                            ? "Search team member (type to filter)…"
+                            : "Type at least 3 characters to search…"
+                        }
                         value={referenceSearch}
                         onChange={(e) => {
                           setReferenceSearch(e.target.value);
                           setShowReferenceList(true);
                         }}
                         onFocus={() => setShowReferenceList(true)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") closeReferenceSearch(true);
+                        }}
                       />
-                
-                      {showReferenceList && referenceSearch.trim().length >= 3 && (
-                        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+
+                      {showReferenceList &&
+                        (needsInternalReference || referenceSearch.trim().length >= 3) && (
+                        <div
+                          className={cn(
+                            "absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md",
+                            "max-h-48 overflow-y-scroll overscroll-contain pr-1",
+                            "[scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent]",
+                            "[&::-webkit-scrollbar]:w-2.5",
+                            "[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border"
+                          )}
+                        >
                           {isLoadingReference ? (
                             <div className="p-3 flex justify-center">
                               <Loader2 className="h-4 w-4 animate-spin" />
                             </div>
                           ) : referenceOptions.length === 0 ? (
                             <p className="p-3 text-sm text-muted-foreground">
-                              No matches found
+                              {needsInternalReference && internalTeamDirectory.length === 0
+                                ? "Loading team list…"
+                                : "No matches found"}
                             </p>
                           ) : (
                             referenceOptions.map((opt) => (
@@ -1029,7 +1088,10 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
                         <button
                           type="button"
                           className="text-xs text-primary hover:underline"
-                          onClick={() => setShowManualClientInput((v) => !v)}
+                          onClick={() => {
+                            setShowManualClientInput((v) => !v);
+                            closeReferenceSearch(true);
+                          }}
                         >
                           {showManualClientInput ? "Hide manual entry" : "Client not in system? Enter manually"}
                         </button>
@@ -1044,17 +1106,14 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
                               />
                             </div>
                             <div className="space-y-1">
-                              <Label className="text-xs">Their counsellor (optional)</Label>
-                              <Select value={manualClientCounsellorId} onValueChange={setManualClientCounsellorId}>
-                                <SelectTrigger className="h-9 text-sm">
-                                  <SelectValue placeholder="Select counsellor…" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-56 overflow-y-auto">
-                                  {counsellors.map((c) => (
-                                    <SelectItem key={c.id} value={String(c.id)}>{c.fullName}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <Label className="text-xs">Their counsellor / manager (optional)</Label>
+                              <SearchableAssigneePicker
+                                options={counsellors}
+                                value={manualClientCounsellorId}
+                                onValueChange={setManualClientCounsellorId}
+                                placeholder="Select counsellor or manager…"
+                                searchPlaceholder="Type name to filter…"
+                              />
                             </div>
                           </div>
                         )}

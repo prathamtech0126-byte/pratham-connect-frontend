@@ -349,7 +349,13 @@ export default function TelecalerDashbord() {
   const followUpsInPeriod = dashStats?.followUpsInPeriod ?? 0;
 
   const periodLabel =
-    timeFilter === "today" ? "today" : timeFilter === "weekly" ? "this week" : "this month";
+    timeFilter === "all"
+      ? "all time"
+      : timeFilter === "today"
+        ? "today"
+        : timeFilter === "weekly"
+          ? "this week"
+          : "this month";
 
   const leaderboardRows = [...leaderboardData]
     .sort((a, b) => b.transferTargetAchieved - a.transferTargetAchieved || a.fullName.localeCompare(b.fullName));
@@ -369,7 +375,7 @@ export default function TelecalerDashbord() {
           
         </div>
         <div className="flex bg-muted p-1 rounded-lg">
-          {["Today", "Weekly", "Monthly"].map((tab) => (
+          {["All", "Today", "Weekly", "Monthly"].map((tab) => (
             <button
               key={tab}
               onClick={() => setTimeFilter(tab.toLowerCase())}

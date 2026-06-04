@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import DateRangePicker from "@/components/payments/DateRangePicker";
 import { fetchAllLeads, type LeadEntity } from "@/api/leads.api";
+import { isTransferredInPeriod } from "@/lib/lead-report-period";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -61,18 +62,25 @@ export default function DailyLeadReport() {
     setLoading(true);
     setGenerated(false);
     try {
-      const [tcRes, ltRes, leadsData] = await Promise.all([
+      const period = {
+        createdFrom: bounds.from.toISOString(),
+        createdTo: bounds.to.toISOString(),
+      };
+      const [tcRes, ltRes, createdLeads, transferredLeads] = await Promise.all([
         api.get("/api/users/telecallers"),
         api.get("/api/lead-types"),
+        fetchAllLeads({ isJunk: false, ...period }),
         fetchAllLeads({
           isJunk: false,
-          createdFrom: bounds.from.toISOString(),
-          createdTo: bounds.to.toISOString(),
+          transferredFrom: period.createdFrom,
+          transferredTo: period.createdTo,
         }),
       ]);
       setTelecallers(tcRes?.data?.data || tcRes?.data || []);
       setLeadTypes(ltRes?.data?.data || ltRes?.data || []);
-      setAllLeads(leadsData);
+      const merged = new Map<number, LeadEntity>();
+      for (const lead of [...createdLeads, ...transferredLeads]) merged.set(lead.id, lead);
+      setAllLeads(Array.from(merged.values()));
     } finally {
       setLoading(false);
       setGenerated(true);
@@ -97,9 +105,18 @@ export default function DailyLeadReport() {
   );
 
   // Lead coverage: per lead type, total assigned + how many were contacted (progressStatus !== "not_contacted")
+  const leadsCreatedInPeriod = useMemo(
+    () =>
+      allLeads.filter((l) => {
+        const d = new Date(l.createdAt);
+        return d >= bounds.from && d <= bounds.to;
+      }),
+    [allLeads, bounds]
+  );
+
   const leadCoverage = useMemo(() => {
     const map = new Map<string, { total: number; contacted: number }>();
-    for (const lead of allLeads) {
+    for (const lead of leadsCreatedInPeriod) {
       const lt = lead.leadType || "unknown";
       const existing = map.get(lt) ?? { total: 0, contacted: 0 };
       existing.total++;
@@ -109,14 +126,14 @@ export default function DailyLeadReport() {
     return Array.from(map.entries())
       .map(([slug, v]) => ({ slug, alias: resolveAlias(slug), ...v }))
       .sort((a, b) => b.total - a.total);
-  }, [allLeads, resolveAlias]);
+  }, [leadsCreatedInPeriod, resolveAlias]);
 
-  // Caller-wise TRF: per telecaller, leads transferred (assignmentStatus = "transferred" | "dropped" | "converted"), grouped by lead type
+  // Caller-wise TRF: transfers in period by transferred_at
   const callerTrf = useMemo(() => {
     const map = new Map<number, Map<string, number>>();
+    const periodBounds = { from: bounds.from, to: bounds.to };
     for (const lead of allLeads) {
-      const status = lead.assignmentStatus;
-      if (!["transferred", "dropped", "converted"].includes(status ?? "")) continue;
+      if (!isTransferredInPeriod(lead, periodBounds)) continue;
       const tcId = lead.currentTelecallerId;
       if (!tcId) continue;
       if (!map.has(tcId)) map.set(tcId, new Map());
@@ -155,10 +172,13 @@ export default function DailyLeadReport() {
     [callerTrf]
   );
 
-  const totalLeads = allLeads.length;
+  const totalLeads = leadsCreatedInPeriod.length;
   const totalContacted = useMemo(
-    () => allLeads.filter((l) => l.progressStatus && l.progressStatus !== "not_contacted").length,
-    [allLeads]
+    () =>
+      leadsCreatedInPeriod.filter(
+        (l) => l.progressStatus && l.progressStatus !== "not_contacted"
+      ).length,
+    [leadsCreatedInPeriod]
   );
 
   const dateLabel = useMemo(() => {

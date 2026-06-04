@@ -19,6 +19,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
+import { SearchableAssigneePicker } from "@/components/leads/SearchableAssigneePicker";
 
 import api from "@/lib/api";
 import {
@@ -272,13 +273,24 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       const [sourcesRes, typesRes, counsellorsRes, telecallersRes] = await Promise.all([
         api.get("/api/lead-types"), // Used as Lead Source
         api.get("/api/sale-types"), // Used as Lead Type (Visa Category)
-        api.get("/api/users/counsellors"),
+        user?.role === "telecaller" || user?.role === "manager"
+          ? api.get("/api/leads/transfer-assignees")
+          : api.get("/api/users/counsellors"),
         api.get("/api/users/telecallers") // Optional: If you want to allow transferring to telecallers as well
       ]);
       
       setSourceOptions(sourcesRes.data.data || []);
       setTypeOptions(typesRes.data.data || []);
-      setCounsellors(counsellorsRes.data.data || []);
+      const raw = counsellorsRes.data?.data ?? counsellorsRes.data ?? [];
+      setCounsellors(
+        Array.isArray(raw)
+          ? raw.map((c: { id: number; fullName: string; role?: string }) => ({
+              id: Number(c.id),
+              fullName: String(c.fullName ?? ""),
+              role: c.role ?? null,
+            }))
+          : []
+      );
       setTelecallers(telecallersRes.data.data || []);
     } catch (err) {
       console.error("Failed to fetch dropdown options", err);
@@ -1093,31 +1105,20 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       <Dialog open={showTransferModal} onOpenChange={setShowTransferModal}>
   <DialogContent>
     <DialogHeader>
-      <DialogTitle>Transfer to Counsellor</DialogTitle>
+      <DialogTitle>Transfer to Counsellor / Manager</DialogTitle>
     </DialogHeader>
     <div className="py-4 space-y-4">
       <div className="grid gap-2">
-        <Label>Select Counsellor</Label>
-        <Select onValueChange={setSelectedCounsellor}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a person..." />
-          </SelectTrigger>
-          
-          {/* UPDATED: Added max-height and overflow scroll */}
-          <SelectContent className="max-h-[300px] overflow-y-auto">
-            {counsellors.length > 0 ? (
-              counsellors.map((c) => (
-                <SelectItem key={c.id} value={String(c.id)}>
-                  {c.fullName}
-                </SelectItem>
-              ))
-            ) : (
-              <div className="p-2 text-center text-sm text-muted-foreground">
-                No counsellors available
-              </div>
-            )}
-          </SelectContent>
-        </Select>
+        <Label>Select counsellor or manager</Label>
+        <SearchableAssigneePicker
+          options={counsellors}
+          value={selectedCounsellor}
+          onValueChange={setSelectedCounsellor}
+          placeholder="Select a person…"
+          searchPlaceholder="Type name to filter…"
+          emptyMessage="No counsellors or managers found"
+          listMaxHeight={300}
+        />
       </div>
     </div>
     <DialogFooter>
