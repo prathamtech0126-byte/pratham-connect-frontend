@@ -303,6 +303,10 @@ export default function LeadList() {
   const [filterTelecaller, setFilterTelecaller] = useState(() => String(readLeadListFilters().filterTelecaller ?? ""));
   const [telecallers, setTelecallers] = useState<Counsellor[]>([]);
   const [filterCounsellor, setFilterCounsellor] = useState(() => String(readLeadListFilters().filterCounsellor ?? ""));
+  const [excludeUnassigned, setExcludeUnassigned] = useState(() => {
+    const stored = readLeadListFilters().excludeUnassigned;
+    return stored === true || stored === "true" || stored === "1";
+  });
   const [assignedScopeMode, setAssignedScopeMode] = useState(false);
   const [forReportMode, setForReportMode] = useState(false);
   const [filterWithTelecaller, setFilterWithTelecaller] = useState(false);
@@ -358,6 +362,7 @@ export default function LeadList() {
     const forReport = params.get("forReport");
     const counsellorReportDrill = params.get("counsellorReportDrill");
     const reportSegment = params.get("reportSegment");
+    const excludeUnassignedParam = params.get("excludeUnassigned");
 
     if (clearFilters === "1") {
       try {
@@ -377,6 +382,7 @@ export default function LeadList() {
       setDateFilter("weekly");
       setAssignedScopeMode(false);
       setForReportMode(false);
+      setExcludeUnassigned(false);
       setFilterWithTelecaller(false);
       setCounsellorReportDrillMode(false);
       setReportWithoutTelecaller(false);
@@ -417,6 +423,7 @@ export default function LeadList() {
     else if (assignedScope === "1") setFilterProgressStatus("");
     if (assignment) setFilterAssignmentStatus(assignment);
     else if (assignedScope === "1") setFilterAssignmentStatus("");
+    setExcludeUnassigned(excludeUnassignedParam === "1" || excludeUnassignedParam === "true");
     if (
       dateFilterParam &&
       (["all", "today", "weekly", "monthly", "custom"] as const).includes(dateFilterParam as DateFilterType)
@@ -456,6 +463,7 @@ export default function LeadList() {
         filterQuality,
         filterTelecaller,
         filterCounsellor,
+        excludeUnassigned,
         dateFilter,
         customDateFrom,
         customDateTo,
@@ -467,7 +475,7 @@ export default function LeadList() {
   }, [
     search, filterLeadSource, filterLeadType, filterProgressStatus,
     filterAssignmentStatus, filterEligibility, filterQuality,
-    filterTelecaller, filterCounsellor, dateFilter,
+    filterTelecaller, filterCounsellor, excludeUnassigned, dateFilter,
     customDateFrom, customDateTo, page, perPagePreset, customPerPageCommitted,
   ]);
 
@@ -583,6 +591,7 @@ export default function LeadList() {
     filterLeadType,
     filterTelecaller,
     filterCounsellor,
+    excludeUnassigned,
     dateFilter,
     customDateFrom,
     customDateTo,
@@ -723,7 +732,9 @@ export default function LeadList() {
           effectiveAssignedScopeMode ? true : includeAllForPerson ? true : undefined,
         reportBucket: effectiveReportBucket || undefined,
         hasPendingFollowUp: hasPendingFollowUpOnly || undefined,
+        withoutTelecaller: reportWithoutTelecaller ? true : undefined,
         withTelecaller: filterWithTelecaller ? true : undefined,
+        excludeUnassigned: excludeUnassigned || undefined,
         ...dateRangeParams,
       });
       const patches = consumeLeadListPatches();

@@ -31,7 +31,9 @@ export type LeadReportMetricKey =
 
 export type LeadReportDateFilter = "all" | "today" | "weekly" | "monthly" | "custom";
 
-/** Build lead list URL for report drill-down. Assigned = all leads linked to that user (any status). */
+/** Build lead list URL for report drill-down.
+ * Assigned = all leads that are not unassigned.
+ */
 export const buildLeadListUrlFromReport = (input: {
   metric: LeadReportMetricKey;
   dateFilter: LeadReportDateFilter;
@@ -73,6 +75,7 @@ export const buildLeadListUrlFromReport = (input: {
 
   switch (input.metric) {
     case "assigned":
+      qs.set("excludeUnassigned", "1");
       qs.set("forReport", "1");
       qs.set("assignedScope", "1");
       break;

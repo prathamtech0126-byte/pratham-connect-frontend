@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type ClientStageFilter = "all" | "initial" | "before" | "after";
+export type ClientTypeFilter = "all" | "student" | "student-td" | "student-no-td" | "core" | "core-product" | "other-product" | "pending";
 
 export interface AllCounsellorClientRow {
   id: string;
@@ -17,10 +18,24 @@ export interface AllCounsellorClientRow {
   counsellor: string;
   enrollmentDate: string;
   salesType: string;
+  /** Lowercase category name from sale_type_category: "student", "visitor", "spouse", etc. */
+  saleTypeCategory: string | null;
+  /** Numeric counsellor ID (from the bucket key in the API response). */
+  counsellorId: number | null;
+  /** True if the client has at least one ALL_FINANCE_EMPLOYEMENT product payment. */
+  hasAllFinance: boolean;
+  /** True if the client has at least one product payment that is NOT ALL_FINANCE_EMPLOYEMENT. */
+  hasOtherProduct: boolean;
+  /** True if the client has a TUTION_FEES (TD) product payment. */
+  hasTutionFees: boolean;
+  /** True if the client has at least one student application recorded. */
+  hasStudentApplication: boolean;
   stage: string;
   totalPayment: number;
   amountReceived: number;
   amountPending: number;
+  /** Set when core-product payment in range was handled by another counsellor (not credited on dashboard). */
+  coreProductHandledBy?: { id: number; name: string };
 }
 
 interface AllCounsellorClientsListProps {
@@ -29,6 +44,8 @@ interface AllCounsellorClientsListProps {
   onSearchChange: (value: string) => void;
   stageFilter: ClientStageFilter;
   onStageFilterChange: (value: ClientStageFilter) => void;
+  clientTypeFilter: ClientTypeFilter;
+  onClientTypeFilterChange: (value: ClientTypeFilter) => void;
   onView: (id: string) => void;
   onEdit: (id: string) => void;
 }
@@ -56,13 +73,15 @@ export function AllCounsellorClientsList({
   onSearchChange,
   stageFilter,
   onStageFilterChange,
+  clientTypeFilter,
+  onClientTypeFilterChange,
   onView,
   onEdit,
 }: AllCounsellorClientsListProps) {
   const [newestFirst, setNewestFirst] = useState(true);
 
   const sortedData = useMemo(() => {
-    return [...data].sort((a, b) => {
+    return [...(data ?? [])].sort((a, b) => {
       const diff = parseEnrollmentDate(a.enrollmentDate) - parseEnrollmentDate(b.enrollmentDate);
       return newestFirst ? -diff : diff;
     });
@@ -73,22 +92,52 @@ export function AllCounsellorClientsList({
     {
       header: "Client Name",
       cell: (s: AllCounsellorClientRow) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-slate-900">{s.name}</span>
-          {s.isTransferred && (
-            <Badge
-              variant="secondary"
-              className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
-            >
-              Shared Client
-            </Badge>
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-slate-900">{s.name}</span>
+            {s.isTransferred && (
+              <Badge
+                variant="secondary"
+                className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
+              >
+                Shared Client
+              </Badge>
+            )}
+          </div>
+          {s.coreProductHandledBy && (
+            <span className="text-[11px] leading-tight text-amber-700 dark:text-amber-400">
+              {s.coreProductHandledBy.name} has taken this payment
+            </span>
           )}
         </div>
       ),
     },
     { header: "Counsellor", accessorKey: "counsellor", className: "text-slate-600" },
     { header: "Enrollment", accessorKey: "enrollmentDate", className: "whitespace-nowrap text-slate-500" },
-    { header: "Sales Type", cell: (s: AllCounsellorClientRow) => <Badge variant="outline" className="font-normal whitespace-nowrap bg-slate-50 text-slate-600 border-slate-200">{s.salesType}</Badge> },
+    {
+      header: "Sales Type",
+      cell: (s: AllCounsellorClientRow) => {
+        const isStudent = s.saleTypeCategory === "student";
+        let suffix = "";
+        if (isStudent) {
+          if (s.hasStudentApplication && s.hasTutionFees) suffix = " (Application + TD)";
+          else if (s.hasStudentApplication) suffix = " (Application)";
+          else if (s.hasTutionFees) suffix = " (TD)";
+        }
+        return (
+          <Badge
+            variant="outline"
+            className={`font-normal whitespace-nowrap ${
+              isStudent && s.hasTutionFees
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-slate-50 text-slate-600 border-slate-200"
+            }`}
+          >
+            {s.salesType}{suffix}
+          </Badge>
+        );
+      },
+    },
     { header: "Stage", cell: (s: AllCounsellorClientRow) => <Badge variant="outline" className={`font-medium whitespace-nowrap ${getStageBadgeClass(s.stage)}`}>{s.stage}</Badge> },
     { header: "Total", cell: (s: AllCounsellorClientRow) => `₹${s.totalPayment.toLocaleString('en-IN')}` },
     { header: "Received", cell: (s: AllCounsellorClientRow) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString('en-IN')}</span> },
@@ -115,6 +164,24 @@ export function AllCounsellorClientsList({
             onChange={(e) => onSearchChange(e.target.value)}
             className="h-9"
           />
+        </div>
+        <div className="space-y-2 w-full sm:w-[220px]">
+          <Label className="text-xs font-medium text-muted-foreground">Client Type</Label>
+          <Select value={clientTypeFilter} onValueChange={(v) => onClientTypeFilterChange(v as ClientTypeFilter)}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="student">Students (All)</SelectItem>
+              <SelectItem value="student-td">Students (Application + TD)</SelectItem>
+              <SelectItem value="student-no-td">Students (Application Only)</SelectItem>
+              <SelectItem value="core">Visitor / Spouse</SelectItem>
+              <SelectItem value="core-product">Core Product (All Finance)</SelectItem>
+              <SelectItem value="other-product">Other Products</SelectItem>
+              <SelectItem value="pending">With Pending Amount</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2 w-full sm:w-[220px]">
           <Label className="text-xs font-medium text-muted-foreground">Payment Stage</Label>
@@ -148,7 +215,14 @@ export function AllCounsellorClientsList({
         Enrollment: {newestFirst ? "Newest first" : "Oldest first"}
       </p>
 
-      <DataTable data={sortedData} columns={columns} onRowClick={(item) => onView(item.id)} />
+      <DataTable
+        data={sortedData}
+        columns={columns}
+        onRowClick={(item) => onView(item.id)}
+        rowClassName={(item) =>
+          item.hasTutionFees ? "bg-emerald-50 hover:bg-emerald-100" : ""
+        }
+      />
     </div>
   );
 }
