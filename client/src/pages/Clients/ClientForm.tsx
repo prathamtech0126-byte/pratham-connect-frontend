@@ -1355,58 +1355,27 @@ export default function ClientForm() {
     fetchSaleTypes();
   }, []);
 
-  const isStudentSaleType = useCallback(
-    (t: { category?: string; categoryName?: string }) =>
-      String(t.category ?? t.categoryName ?? "").toLowerCase() === "student",
-    []
-  );
-
-  // Core Service sale types: student category only when client has student applications; otherwise non-student only
+  // Core Service: all sale types, ordered by category (no segment headers in the dropdown)
   useEffect(() => {
     if (allSaleTypes.length === 0) return;
 
-    const coreOptions = allSaleTypes
-      .filter((t: any) => {
-        if (hasStudentApplications) return isStudentSaleType(t);
-        return t.isCoreProduct && !isStudentSaleType(t);
-      })
-      .map((t: any) => ({ label: t.saleType, value: t.saleType }));
+    const categoryOrder = ["student", "visitor", "spouse", "other"];
+    const categoryRank = (t: { categoryName?: string; category?: string }) => {
+      const raw = String(t.categoryName ?? t.category ?? "").trim().toLowerCase();
+      const idx = categoryOrder.indexOf(raw || "other");
+      return idx === -1 ? categoryOrder.length : idx;
+    };
 
-    const otherOptions = allSaleTypes
-      .filter((t: any) => !t.isCoreProduct && !isStudentSaleType(t))
-      .map((t: any) => ({ label: t.saleType, value: t.saleType }));
+    const sorted = [...allSaleTypes].sort((a, b) => {
+      const rankDiff = categoryRank(a) - categoryRank(b);
+      if (rankDiff !== 0) return rankDiff;
+      return String(a.saleType).localeCompare(String(b.saleType));
+    });
 
-    setDynamicOptions([
-      {
-        label: hasStudentApplications ? "Student Services" : "Core Product",
-        options: coreOptions,
-      },
-      { label: "Other Products", options: otherOptions },
-    ]);
-  }, [allSaleTypes, hasStudentApplications, isStudentSaleType]);
-
-  // Clear sales type when it no longer matches student-application mode
-  useEffect(() => {
-    if (!salesType || allSaleTypes.length === 0 || !showServiceSection) return;
-    if (salesType === "Other Product") return;
-
-    const selected = allSaleTypes.find((t: any) => t.saleType === salesType);
-    if (!selected) return;
-
-    const isStudent = isStudentSaleType(selected);
-    const allowed = hasStudentApplications ? isStudent : !isStudent;
-    if (!allowed) {
-      setValue("salesType", "", { shouldValidate: false });
-      setValue("saleTypeCategoryName", "", { shouldValidate: false });
-    }
-  }, [
-    hasStudentApplications,
-    salesType,
-    allSaleTypes,
-    setValue,
-    showServiceSection,
-    isStudentSaleType,
-  ]);
+    setDynamicOptions(
+      sorted.map((t: any) => ({ label: t.saleType, value: t.saleType })),
+    );
+  }, [allSaleTypes]);
 
   // Load lead types on mount
   useEffect(() => {
