@@ -958,6 +958,23 @@ export const clientService = {
     }
   },
 
+  getUserDisplayNames: async (ids: number[]): Promise<Record<number, string>> => {
+    try {
+      if (!ids.length) return {};
+      const res = await api.get(`/api/users/display-names?ids=${ids.join(",")}`);
+      const raw = res.data?.data ?? {};
+      const out: Record<number, string> = {};
+      for (const [key, value] of Object.entries(raw)) {
+        const id = Number(key);
+        if (Number.isFinite(id) && value != null) out[id] = String(value);
+      }
+      return out;
+    } catch (err) {
+      console.error("Failed to fetch user display names", err);
+      return {};
+    }
+  },
+
   getCounsellors: async (search?: string): Promise<any[]> => {
     try {
       const trimmed = search?.trim();
@@ -1292,11 +1309,10 @@ export const clientService = {
   },
 
   // Leaderboard APIs
-  getLeaderboard: async (month: number, year: number): Promise<{ data: any[]; summary?: { totalCounsellors: number; totalEnrollments: number; totalRevenue: number } }> => {
+  getLeaderboard: async (month: number, year: number, category = "general"): Promise<{ data: any[]; summary?: { totalCounsellors: number; totalEnrollments: number; totalRevenue: number } }> => {
     try {
-      const res = await api.get(`/api/leaderboard?month=${month}&year=${year}`);
+      const res = await api.get(`/api/leaderboard?month=${month}&year=${year}&category=${encodeURIComponent(category)}`);
       const body = res.data;
-      // API returns { success, data, summary, month, year }; return so component can use summary
       if (body && typeof body === 'object' && Array.isArray(body.data)) {
         return { data: body.data, summary: body.summary };
       }
@@ -1304,6 +1320,25 @@ export const clientService = {
     } catch (err: any) {
       console.error(`Failed to fetch leaderboard for ${month}/${year}`, err);
       throw err;
+    }
+  },
+
+  getLeaderboardCategories: async (): Promise<Array<{ id: number; name: string }>> => {
+    try {
+      const res = await api.get("/api/leaderboard/categories");
+      return Array.isArray(res.data?.data) ? res.data.data : [];
+    } catch (err: any) {
+      console.error("Failed to fetch leaderboard categories", err);
+      return [];
+    }
+  },
+
+  getLeaderboardMonthTargets: async (month: number, year: number): Promise<Array<{ counsellorId: number; targetId: number; categoryName: string }>> => {
+    try {
+      const res = await api.get(`/api/leaderboard/month-targets?month=${month}&year=${year}`);
+      return Array.isArray(res.data?.data) ? res.data.data : [];
+    } catch {
+      return [];
     }
   },
 
@@ -1541,13 +1576,24 @@ export const clientService = {
     return res.data?.data ?? res.data;
   },
 
-  setTarget: async (counsellorId: number, target: number, month: number, year: number): Promise<any> => {
+  setTarget: async (
+    counsellorId: number,
+    target: number,
+    month: number,
+    year: number,
+    categoryName = "general",
+    applicationTarget?: number,
+    finalStudentTarget?: number
+  ): Promise<any> => {
     try {
       const res = await api.post("/api/leaderboard/target", {
         counsellorId,
         target,
         month,
-        year
+        year,
+        categoryName,
+        ...(applicationTarget != null ? { applicationTarget } : {}),
+        ...(finalStudentTarget != null ? { finalStudentTarget } : {}),
       });
       return res.data.data || res.data;
     } catch (err: any) {

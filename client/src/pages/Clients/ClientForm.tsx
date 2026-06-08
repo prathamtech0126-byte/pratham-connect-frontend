@@ -1,4 +1,5 @@
 
+import { StudentApplicationTracker, StudentApplicationTrackerHandle } from "@/components/students/StudentApplicationTracker";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { FormSection } from "@/components/form/FormSection";
 import { FormTextInput } from "@/components/form/FormTextInput";
@@ -450,6 +451,11 @@ export default function ClientForm() {
   const [dynamicOptions, setDynamicOptions] = useState<any[]>([]);
   const [allSaleTypes, setAllSaleTypes] = useState<any[]>([]);
   const [leadTypes, setLeadTypes] = useState<any[]>([]);
+  // Student-category sale type names (for the Student Application flow)
+  const studentSaleTypeNames = allSaleTypes
+    .filter((t: any) => String(t.category ?? t.categoryName ?? "").toLowerCase() === "student")
+    .map((t: any) => t.saleType as string)
+    .filter(Boolean);
   const [isEditMode, setIsEditMode] = useState(false);
   const [internalClientId, setInternalClientId] = useState<number | null>(null);
   const [isLoadingClientData, setIsLoadingClientData] = useState(false);
@@ -459,11 +465,15 @@ export default function ClientForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingStep, setLoadingStep] = useState<number | null>(null);
   const requestInFlightRef = useRef(false); // Additional protection against race conditions
+  const studentTrackerRef = useRef<StudentApplicationTrackerHandle>(null);
 
   // State for single page form
   const [isClientCreated, setIsClientCreated] = useState(false);
   const [showProductSection, setShowProductSection] = useState(false);
   const [showServiceSection, setShowServiceSection] = useState(false);
+  const [showStudentSection, setShowStudentSection] = useState(false);
+  const [studentApplicationCount, setStudentApplicationCount] = useState(0);
+  const hasStudentApplications = studentApplicationCount > 0;
 
   // State for product search and selection
   const [productSearchQuery, setProductSearchQuery] = useState("");
@@ -1332,19 +1342,6 @@ export default function ClientForm() {
         const saleTypesRes = await api.get("/api/sale-types");
         const types = saleTypesRes.data.data || [];
         setAllSaleTypes(types);
-
-        const coreOptions = types
-          .filter((t: any) => t.isCoreProduct)
-          .map((t: any) => ({ label: t.saleType, value: t.saleType }));
-
-        const otherOptions = types
-          .filter((t: any) => !t.isCoreProduct)
-          .map((t: any) => ({ label: t.saleType, value: t.saleType }));
-
-        setDynamicOptions([
-          { label: "Core Product", options: coreOptions },
-          { label: "Other Products", options: otherOptions },
-        ]);
       } catch (err) {
         console.error("Failed to fetch sale types", err);
         toast({
@@ -1357,6 +1354,59 @@ export default function ClientForm() {
 
     fetchSaleTypes();
   }, []);
+
+  const isStudentSaleType = useCallback(
+    (t: { category?: string; categoryName?: string }) =>
+      String(t.category ?? t.categoryName ?? "").toLowerCase() === "student",
+    []
+  );
+
+  // Core Service sale types: student category only when client has student applications; otherwise non-student only
+  useEffect(() => {
+    if (allSaleTypes.length === 0) return;
+
+    const coreOptions = allSaleTypes
+      .filter((t: any) => {
+        if (hasStudentApplications) return isStudentSaleType(t);
+        return t.isCoreProduct && !isStudentSaleType(t);
+      })
+      .map((t: any) => ({ label: t.saleType, value: t.saleType }));
+
+    const otherOptions = allSaleTypes
+      .filter((t: any) => !t.isCoreProduct && !isStudentSaleType(t))
+      .map((t: any) => ({ label: t.saleType, value: t.saleType }));
+
+    setDynamicOptions([
+      {
+        label: hasStudentApplications ? "Student Services" : "Core Product",
+        options: coreOptions,
+      },
+      { label: "Other Products", options: otherOptions },
+    ]);
+  }, [allSaleTypes, hasStudentApplications, isStudentSaleType]);
+
+  // Clear sales type when it no longer matches student-application mode
+  useEffect(() => {
+    if (!salesType || allSaleTypes.length === 0 || !showServiceSection) return;
+    if (salesType === "Other Product") return;
+
+    const selected = allSaleTypes.find((t: any) => t.saleType === salesType);
+    if (!selected) return;
+
+    const isStudent = isStudentSaleType(selected);
+    const allowed = hasStudentApplications ? isStudent : !isStudent;
+    if (!allowed) {
+      setValue("salesType", "", { shouldValidate: false });
+      setValue("saleTypeCategoryName", "", { shouldValidate: false });
+    }
+  }, [
+    hasStudentApplications,
+    salesType,
+    allSaleTypes,
+    setValue,
+    showServiceSection,
+    isStudentSaleType,
+  ]);
 
   // Load lead types on mount
   useEffect(() => {
@@ -1762,10 +1812,28 @@ export default function ClientForm() {
           }
 
           const saleTypeRowForLoad = allSaleTypes.find((st: any) => st.saleType === salesTypeValue);
-          let saleTypeCategoryNameForForm = String(saleTypeRowForLoad?.categoryName || "").toLowerCase();
+          let saleTypeCategoryNameForForm = String(
+            saleTypeRowForLoad?.categoryName || saleTypeRowForLoad?.category || "",
+          ).toLowerCase();
           if (salesTypeValue.toLowerCase() === "other product") {
             const inferred = getProductType(salesTypeValue, "");
             if (inferred) saleTypeCategoryNameForForm = inferred;
+          }
+          if (!saleTypeCategoryNameForForm) {
+            const paymentWithCategory = (clientData.payments || responseData.payments || []).find(
+              (payment: any) => payment?.saleType?.categoryName,
+            );
+            if (paymentWithCategory?.saleType?.categoryName) {
+              saleTypeCategoryNameForForm = String(
+                paymentWithCategory.saleType.categoryName,
+              ).toLowerCase();
+            }
+          }
+          if (!saleTypeCategoryNameForForm && saleTypeIdFromPayment && allSaleTypes.length > 0) {
+            const rowById = allSaleTypes.find((st: any) => st.id === saleTypeIdFromPayment);
+            saleTypeCategoryNameForForm = String(
+              rowById?.categoryName || rowById?.category || "",
+            ).toLowerCase();
           }
 
           const formData = {
@@ -1997,7 +2065,22 @@ export default function ClientForm() {
             setAddedProducts(existingProducts);
           }
 
-          // Immediately try to set leadSource if we have it, even before useEffect runs
+          let studentApps = Array.isArray(responseData.studentApplications)
+            ? responseData.studentApplications
+            : [];
+          if (studentApps.length === 0) {
+            try {
+              const appsRes = await api.get(`/api/student-applications/client/${clientIdFromUrl}`);
+              studentApps = appsRes.data?.data ?? [];
+            } catch {
+              studentApps = [];
+            }
+          }
+          if (studentApps.length > 0) {
+            setShowStudentSection(true);
+            studentSectionAutoOpenedRef.current = true;
+          }
+          setStudentApplicationCount(studentApps.length);
           if (formData.leadSource) {
             // console.log('[ClientForm] ✅ Immediately setting leadSource after reset:', formData.leadSource);
             setTimeout(() => {
@@ -2244,6 +2327,35 @@ export default function ClientForm() {
   const saleTypeCategoryName = useWatch({ control, name: "saleTypeCategoryName" });
   const isStudentSaleCategory = saleTypeCategoryName === "student";
 
+  useEffect(() => {
+    studentSectionAutoOpenedRef.current = false;
+    setStudentApplicationCount(0);
+  }, [clientIdFromUrl]);
+
+  useEffect(() => {
+    if (!internalClientId || !isClientCreated || studentSectionAutoOpenedRef.current) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const appsRes = await api.get(`/api/student-applications/client/${internalClientId}`);
+        if (cancelled) return;
+        const studentApps = appsRes.data?.data ?? [];
+        setStudentApplicationCount(studentApps.length);
+        if (studentApps.length > 0) {
+          setShowStudentSection(true);
+          studentSectionAutoOpenedRef.current = true;
+        }
+      } catch {
+        // ignore — section stays closed until user opens manually
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [internalClientId, isClientCreated, clientIdFromUrl]);
+
   // Check if service payment data exists: student may save with total 0; other categories need total > 0
   const hasServiceData = useMemo(() => {
     const hasNumericTotal =
@@ -2315,6 +2427,7 @@ export default function ClientForm() {
   const [rawPaymentsFromApi, setRawPaymentsFromApi] = useState<any[]>([]);
   // Stores the counsellorId fetched from the API — used to preserve it for non-counsellor saves
   const clientOriginalCounsellorIdRef = useRef<number | null>(null);
+  const studentSectionAutoOpenedRef = useRef(false);
   const paymentEditability = { initialPayment: true, beforeVisaPayment: true, afterVisaPayment: true };
   const [productPaymentIds, setProductPaymentIds] = useState<
     Record<string, number>
@@ -2662,6 +2775,9 @@ export default function ClientForm() {
     setIsSubmitting(true);
     requestInFlightRef.current = true;
 
+    // Track the effective client ID for redirect (state update is async so we can't rely on internalClientId)
+    let effectiveClientId: number | null = internalClientId;
+
     try {
       // First, ensure client is created
       if (!internalClientId) {
@@ -2709,11 +2825,12 @@ export default function ClientForm() {
         
 
         const clientRes = await api.post("/api/clients", payload);
-       
+
         const returnedClient = clientRes.data?.data?.client;
-        const newId = returnedClient?.clientId || clientRes.data?.data?.clientId || clientRes.data?.clientId;
+        const newId: number | null = returnedClient?.clientId || clientRes.data?.data?.clientId || clientRes.data?.clientId || null;
 
         if (newId) {
+          effectiveClientId = newId;
           setInternalClientId(newId);
           setIsClientCreated(true);
           (window as any).currentClientId = newId;
@@ -2746,11 +2863,20 @@ export default function ClientForm() {
         await saveProductData();
       }
 
+      // Submit any pending student application rows
+      if (showStudentSection) {
+        await studentTrackerRef.current?.submitPending();
+      }
+
       await markOriginatingLeadConverted();
 
       toast({ title: "Success", description: "All data saved successfully!" });
 
-    setTimeout(() => { window.location.href = "/clients"; }, 150);
+      if (effectiveClientId) {
+        setLocation(`/clients/${effectiveClientId}/view`);
+      } else {
+        setLocation("/clients");
+      }
     } catch (error: any) {
       console.error("Failed to save data:", error);
       toast({
@@ -4385,7 +4511,7 @@ export default function ClientForm() {
 
         {/* Action Buttons - Show after client is created */}
         {isClientCreated && (
-          <div className="flex gap-4 justify-center">
+          <div className="flex flex-wrap gap-3 justify-center">
             <Button
               onClick={() => setShowServiceSection(!showServiceSection)}
               variant={showServiceSection ? "outline" : "default"}
@@ -4399,6 +4525,13 @@ export default function ClientForm() {
               className="px-8 rounded-xl h-12 font-semibold"
             >
               {showProductSection ? "− Remove Product" : "+ Add Product"}
+            </Button>
+            <Button
+              onClick={() => setShowStudentSection(!showStudentSection)}
+              variant={showStudentSection ? "outline" : "default"}
+              className="px-8 rounded-xl h-12 font-semibold"
+            >
+              {showStudentSection ? "− Remove Student Applications" : "+ Add Student Application"}
             </Button>
           </div>
         )}
@@ -4427,8 +4560,33 @@ export default function ClientForm() {
           </Card>
         )}
 
+        {/* Student Application Section */}
+        {isClientCreated && showStudentSection && (
+          <Card className="border-none shadow-md">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold">Student Applications</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <StudentApplicationTracker
+                ref={studentTrackerRef}
+                studentSaleTypes={studentSaleTypeNames}
+                saleTypes={allSaleTypes.filter(
+                  (t: any) => String(t.category ?? t.categoryName ?? "").toLowerCase() === "student",
+                )}
+                clientId={internalClientId ?? undefined}
+                counsellorId={
+                  user?.role === "counsellor"
+                    ? Number(user.id)
+                    : clientOriginalCounsellorIdRef.current ?? undefined
+                }
+                onCountChange={setStudentApplicationCount}
+              />
+            </CardContent>
+          </Card>
+        )}
+
         {/* Combined Save Button - Appears only after client is created and at least one section is shown */}
-        {isClientCreated && (showServiceSection || showProductSection) && (
+        {isClientCreated && (showServiceSection || showProductSection || showStudentSection) && (
           <div className="flex justify-end">
             <Button
               onClick={handleCombinedSave}

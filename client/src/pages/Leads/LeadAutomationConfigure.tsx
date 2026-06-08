@@ -1,7 +1,7 @@
 import { useRoute, Link } from "wouter";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { useAuth } from "@/context/auth-context";
-import { canUseCsvImportExport } from "@/lib/lead-permissions";
+import { canAccessLeadAutomation } from "@/lib/lead-permissions";
 import { Redirect } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -231,7 +231,7 @@ export default function LeadAutomationConfigure() {
   const [, params] = useRoute("/leads/automation/configure/:id");
   const id = params?.id ?? "";
 
-  if (!user || !canUseCsvImportExport(user.role)) {
+  if (!user || !canAccessLeadAutomation(user.role)) {
     return <Redirect to="/" />;
   }
 

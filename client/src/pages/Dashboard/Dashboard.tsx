@@ -1,6 +1,6 @@
 import { PageWrapper } from "@/layout/PageWrapper";
 import { StatCard } from "@/components/cards/StatCard";
-import { Users, DollarSign, Clock, CreditCard, TrendingUp, UserPlus, ShieldAlert, Activity, ArrowUpRight, ArrowRight, Target, Trophy, Medal, Calendar, CheckCircle2, XCircle, Loader2, IndianRupee, PhoneCall, Tag, Send, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, DollarSign, Clock, CreditCard, TrendingUp, UserPlus, ShieldAlert, Activity, ArrowUpRight, ArrowRight, Target, Trophy, Calendar, CheckCircle2, XCircle, Loader2, IndianRupee, PhoneCall, Tag, Send, ChevronDown, ChevronUp, GraduationCap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Area, AreaChart, CartesianGrid } from "recharts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -58,15 +58,10 @@ import { RevenueChart } from "@/components/charts/RevenueChart";
 import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
 import { ITSupportKanbanDashboard } from "@/pages/tech-support/ITSupportKanbanDashboard";
 import { assignLeadApi, getLeads, type LeadEntity } from "@/api/leads.api";
+import { SearchableAssigneePicker } from "@/components/leads/SearchableAssigneePicker";
 import api from "@/lib/api";
 
-const counselorRevenue = [
-  { name: "Priya Singh", revenue: 1250000, clients: 12, avatar: "P" },
-  { name: "Amit Kumar", revenue: 980000, clients: 8, avatar: "A" },
-  { name: "Sarah Jones", revenue: 750000, clients: 5, avatar: "S" },
-  { name: "Mike Brown", revenue: 450000, clients: 3, avatar: "M" },
-  { name: "Rahul Verma", revenue: 320000, clients: 2, avatar: "R" },
-];
+
 
 function hasAchievedTarget(data: { achieved?: number; target?: number; targetStatus?: string }): boolean {
   const status = String(data.targetStatus ?? "").toLowerCase();
@@ -76,6 +71,27 @@ function hasAchievedTarget(data: { achieved?: number; target?: number; targetSta
   return Number(data.achieved) >= target;
 }
 
+
+function capitalizeSegment(s: string | undefined | null) {
+  if (!s) return "";
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function sortLeaderboardRows(a: { achieved?: number; target?: number; name?: string }, b: { achieved?: number; target?: number; name?: string }) {
+  const aTarget = Number(a.target) || 0;
+  const bTarget = Number(b.target) || 0;
+  const aAchieved = Number(a.achieved) || 0;
+  const bAchieved = Number(b.achieved) || 0;
+  const aHasTarget = aTarget > 0;
+  const bHasTarget = bTarget > 0;
+  if (aHasTarget !== bHasTarget) return aHasTarget ? -1 : 1;
+  if (aHasTarget && bHasTarget) {
+    const pctDiff = bAchieved / bTarget - aAchieved / aTarget;
+    if (pctDiff !== 0) return pctDiff;
+  }
+  if (bAchieved !== aAchieved) return bAchieved - aAchieved;
+  return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -101,6 +117,7 @@ export default function Dashboard() {
   const [tcVisaFilter, setTcVisaFilter] = useState<string>("");
   const [tcSourceFilter, setTcSourceFilter] = useState<string>("");
   const [tcFollowUpFilter, setTcFollowUpFilter] = useState<string>("");
+  const [selectedLeaderboardCategory, setSelectedLeaderboardCategory] = useState("all");
 
   const maxY = Math.max(
     ...(chartData ?? []).map((d: any) => Number(d.total || d.value || 0)),
@@ -131,6 +148,55 @@ export default function Dashboard() {
       params.afterDate = toYYYYMMDD(customDateRange[1]);   // end of range (later)
     }
     return params;
+  };
+
+  // Returns "from=YYYY-MM-DD&to=YYYY-MM-DD" for the current dashboard time filter.
+  // Used to pass the active date window to the All Clients page when clicking a stat card.
+  const getCardDateParams = (): string => {
+    const now = new Date();
+    if (timeFilter === 'today') {
+      const d = toYYYYMMDD(now);
+      return `from=${d}&to=${d}`;
+    }
+    if (timeFilter === 'weekly') {
+      const day = now.getDay();
+      const diffToMonday = (day + 6) % 7;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - diffToMonday);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const end = sunday > now ? now : sunday;
+      return `from=${toYYYYMMDD(monday)}&to=${toYYYYMMDD(end)}`;
+    }
+    if (timeFilter === 'monthly') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return `from=${toYYYYMMDD(start)}&to=${toYYYYMMDD(end)}`;
+    }
+    if (timeFilter === 'yearly') {
+      return `from=${now.getFullYear()}-01-01&to=${now.getFullYear()}-12-31`;
+    }
+    if (timeFilter === 'custom' && customDateRange[0] && customDateRange[1]) {
+      return `from=${toYYYYMMDD(customDateRange[0])}&to=${toYYYYMMDD(customDateRange[1])}`;
+    }
+    return ''; // maximum — no date restriction
+  };
+
+  // Build the full href for a stat card link, combining clientType and date params.
+  // Pending amount is lifetime — do not pass dashboard date range for that card.
+  // Counsellors only see their own clients on the list page.
+  const cardHref = (clientType?: string): string => {
+    const base = '/clients/all-counsellor-clients';
+    const parts: string[] = [];
+    if (clientType) parts.push(`clientType=${clientType}`);
+    if (isCounsellor && user?.id) {
+      parts.push(`counsellorId=${user.id}`);
+    }
+    if (clientType !== 'pending') {
+      const dateStr = getCardDateParams();
+      if (dateStr) parts.push(dateStr);
+    }
+    return parts.length ? `${base}?${parts.join('&')}` : base;
   };
 
   const { data: stats, error, isLoading } = useQuery({
@@ -246,7 +312,7 @@ export default function Dashboard() {
   const { data: telecallerCounsellors = [] } = useQuery({
     queryKey: ["telecaller-dashboard-counsellors"],
     queryFn: async () => {
-      const res = await api.get("/api/users/counsellors");
+      const res = await api.get("/api/leads/transfer-assignees");
       return Array.isArray(res?.data?.data) ? res.data.data : [];
     },
     enabled: !!user && user.role === "telecaller",
@@ -393,15 +459,50 @@ export default function Dashboard() {
     return { month: now.getMonth() + 1, year: now.getFullYear() };
   }, [timeFilter, customDateRange]);
 
-  // Use leaderboard from stats API if available, otherwise fetch by same period as dashboard filter
-  const apiLeaderboard = (stats as any)?.leaderboard;
-  const { data: leaderboardResponse, isLoading: isLoadingLeaderboard } = useQuery({
-    queryKey: ['leaderboard', leaderboardPeriod.month, leaderboardPeriod.year],
-    queryFn: () => clientService.getLeaderboard(leaderboardPeriod.month, leaderboardPeriod.year),
-    staleTime: 1000 * 60 * 2, // Cache for 2 minutes
-    // Skip leaderboard API call for tech support users (403 forbidden for them)
-    enabled: !!user && !apiLeaderboard && user?.role !== 'tech_support',
+  // Leaderboard categories (segments) and month target assignments
+  const { data: leaderboardCategories = [] } = useQuery({
+    queryKey: ["leaderboard-categories"],
+    queryFn: () => clientService.getLeaderboardCategories(),
+    staleTime: 1000 * 60 * 10,
+    enabled: !!user && user?.role !== "tech_support",
   });
+
+  const { data: monthTargets = [] } = useQuery({
+    queryKey: ["leaderboard-month-targets", leaderboardPeriod.month, leaderboardPeriod.year],
+    queryFn: () => clientService.getLeaderboardMonthTargets(leaderboardPeriod.month, leaderboardPeriod.year),
+    staleTime: 0,
+    enabled: !!user && user?.role !== "tech_support",
+  });
+
+  const leaderboardSegmentOptions = useMemo(() => {
+    return [
+      { id: "all", label: "All" },
+      { id: "general", label: "General" },
+      ...leaderboardCategories
+        .filter((c) => c?.name)
+        .map((c) => ({ id: c.name.toLowerCase(), label: capitalizeSegment(c.name) })),
+    ];
+  }, [leaderboardCategories]);
+
+  const leaderboardApiCategory =
+    selectedLeaderboardCategory === "all" ? "general" : selectedLeaderboardCategory;
+
+  // Category-aware leaderboard — skipped for "All" (uses full list from dashboard stats)
+  const useAllLeaderboardFromStats = selectedLeaderboardCategory === "all";
+  const { data: leaderboardResponse, isLoading: isLoadingLeaderboardQuery } = useQuery({
+    queryKey: ["leaderboard", leaderboardPeriod.month, leaderboardPeriod.year, leaderboardApiCategory],
+    queryFn: () =>
+      clientService.getLeaderboard(
+        leaderboardPeriod.month,
+        leaderboardPeriod.year,
+        leaderboardApiCategory
+      ),
+    staleTime: 1000 * 60 * 2,
+    enabled: !!user && user?.role !== "tech_support" && !useAllLeaderboardFromStats,
+  });
+
+  const isLoadingLeaderboard =
+    useAllLeaderboardFromStats ? isLoading : isLoadingLeaderboardQuery;
 
   const isManagerRoleUser = user?.role === "manager";
   // Supervisor managers can see all counsellors and all managers (same as admin view)
@@ -466,39 +567,25 @@ export default function Dashboard() {
 
   const managerTargetsList: any[] = managerTargetsQueryData?.data ?? [];
 
-  // API returns { data: array, summary }; stats may return array or single object
-  const leaderboardArray = leaderboardResponse && typeof leaderboardResponse === 'object' && Array.isArray(leaderboardResponse.data)
-    ? leaderboardResponse.data
-    : Array.isArray(leaderboardResponse) ? leaderboardResponse : null;
-  const finalLeaderboardData = apiLeaderboard || leaderboardArray;
+  const statsLeaderboard = (stats as any)?.leaderboard;
+  const leaderboardArray =
+    leaderboardResponse && typeof leaderboardResponse === "object" && Array.isArray(leaderboardResponse.data)
+      ? leaderboardResponse.data
+      : Array.isArray(leaderboardResponse)
+        ? leaderboardResponse
+        : null;
+
+  // "All" uses dashboard stats — full counsellor list with enrollments even when target is not set
+  const finalLeaderboardData =
+    useAllLeaderboardFromStats && Array.isArray(statsLeaderboard)
+      ? statsLeaderboard
+      : leaderboardArray;
 
   // Transform leaderboard API data to display format
   const transformedLeaderboardData = useMemo(() => {
-    // Handle counsellor leaderboard (object format)
-    if (isCounsellor && finalLeaderboardData && typeof finalLeaderboardData === 'object' && !Array.isArray(finalLeaderboardData)) {
-      const leaderboardObj = finalLeaderboardData as any;
-      return [{
-        name: userProfile?.fullname || user?.name || 'You',
-        achieved: leaderboardObj.enrollments || 0,
-        target: leaderboardObj.target || 0,
-        avatar: (userProfile?.fullname || user?.name || 'U').charAt(0).toUpperCase(),
-        isCurrentUser: true,
-        counsellorId: userCounsellorId,
-        position: leaderboardObj.position,
-        targetStatus: leaderboardObj.targetStatus
-      }];
-    }
-
-    // Handle admin/manager leaderboard (array format)
     if (!finalLeaderboardData || !Array.isArray(finalLeaderboardData)) {
       return [];
     }
-
-    // Debug: Log user ID and first counsellor ID for comparison
-    // if (finalLeaderboardData.length > 0 && user?.id) {
-    //   console.log('[Dashboard Leaderboard] User ID:', user.id, 'Type:', typeof user.id);
-    //   console.log('[Dashboard Leaderboard] First counsellor ID:', finalLeaderboardData[0].counsellorId, 'Type:', typeof finalLeaderboardData[0].counsellorId);
-    // }
 
     return finalLeaderboardData.map((item: any) => {
       const counsellorId = item.counsellorId;
@@ -544,55 +631,50 @@ export default function Dashboard() {
         counsellorId: counsellorId,
         targetStatus: item.targetStatus,
       };
-    }).sort((a: any, b: any) => {
-      // Sort by achieved (descending), then by name
-      if (b.achieved !== a.achieved) {
-        return b.achieved - a.achieved;
-      }
-      return a.name.localeCompare(b.name);
     });
-  }, [finalLeaderboardData, userCounsellorId, user?.id, isCounsellor, userProfile?.fullname, user?.name]);
+  }, [finalLeaderboardData, userCounsellorId, user?.id]);
 
-  // For counsellor: get their own data for target card
+  // For counsellor: get their own data for target card (uses selected segment)
   const currentUserTarget = useMemo(() => {
-    if (isCounsellor) {
-      // For counsellor, use leaderboard object from API or transformed data
-      const leaderboardObj = (stats as any)?.leaderboard;
-      if (leaderboardObj && typeof leaderboardObj === 'object' && !Array.isArray(leaderboardObj)) {
-        return {
-          name: userProfile?.fullname || user?.name || 'You',
-          achieved: leaderboardObj.enrollments || 0,
-          target: leaderboardObj.target || 0,
-          avatar: (userProfile?.fullname || user?.name || 'U').charAt(0).toUpperCase(),
-          isCurrentUser: true,
-          position: leaderboardObj.position,
-          targetStatus: leaderboardObj.targetStatus
-        };
-      }
-      // Fallback to transformed data
-      if (transformedLeaderboardData.length > 0) {
-        return transformedLeaderboardData.find((c: any) => c.isCurrentUser) || null;
-      }
-    }
-    // Fallback to hardcoded data if API data not available
-    return counselorTargets.find(c => c.isCurrentUser) || null;
-  }, [transformedLeaderboardData, isCounsellor, stats, userProfile?.fullname, user?.name]);
-
-  // For leaderboard widget: use API data, fallback to hardcoded
-  // Show ALL counsellors (not limited to top 5)
-  const leaderboardForDisplay = useMemo(() => {
+    if (!isCounsellor) return null;
     if (transformedLeaderboardData.length > 0) {
-      // Return all counsellors (no limit)
-      return transformedLeaderboardData;
+      return transformedLeaderboardData.find((c: any) => c.isCurrentUser) || null;
     }
-    // Fallback to hardcoded data
-    return counselorTargets;
-  }, [transformedLeaderboardData]);
+    return null;
+  }, [transformedLeaderboardData, isCounsellor]);
 
-  /** Achievement messages for marquee — from API leaderboard rows only. */
+  // Segment filter + rank sort: highest target completion first, then by clients
+  const leaderboardForDisplay = useMemo(() => {
+    const base =
+      transformedLeaderboardData.length > 0 ? transformedLeaderboardData : counselorTargets;
+    const cat = selectedLeaderboardCategory.toLowerCase();
+    let filtered = base;
+
+    if (cat === "all") {
+      filtered = base;
+    } else if (cat === "general") {
+      const assignedToSegment = new Set(
+        monthTargets
+          .filter((t) => (t.categoryName ?? "general").toLowerCase() !== "general")
+          .map((t) => t.counsellorId)
+      );
+      filtered = base.filter((c: any) => !assignedToSegment.has(Number(c.counsellorId ?? c.id)));
+    } else {
+      const segmentCounsellorIds = new Set(
+        monthTargets
+          .filter((t) => (t.categoryName ?? "general").toLowerCase() === cat)
+          .map((t) => t.counsellorId)
+      );
+      filtered = base.filter((c: any) => segmentCounsellorIds.has(Number(c.counsellorId ?? c.id)));
+    }
+
+    return [...filtered].sort(sortLeaderboardRows);
+  }, [transformedLeaderboardData, monthTargets, selectedLeaderboardCategory]);
+
+  /** Achievement messages for marquee — from filtered segment leaderboard rows. */
   const achieverMarqueeLine = useMemo(() => {
-    if (transformedLeaderboardData.length === 0) return "";
-    const messages = transformedLeaderboardData
+    if (leaderboardForDisplay.length === 0) return "";
+    const messages = leaderboardForDisplay
       .filter((c: any) => hasAchievedTarget(c))
       .map((c: any) => `${String(c.name).trim()} has achieved their target`)
       .filter(Boolean);
@@ -600,7 +682,7 @@ export default function Dashboard() {
     const joined = messages.join("   ·   ");
     // Repeat so short lists still fill the bar and the loop looks smooth
     return [joined, joined, joined].join("   ·   ");
-  }, [transformedLeaderboardData]);
+  }, [leaderboardForDisplay]);
 
   const remainingTarget = currentUserTarget ? Math.max(0, currentUserTarget.target - currentUserTarget.achieved) : 0;
   const progressPercentage = currentUserTarget && currentUserTarget.target > 0
@@ -1114,11 +1196,13 @@ export default function Dashboard() {
     const progressPercentage = target && target.monthlyEnrollmentTarget > 0 && achieved
       ? (achieved.monthlyEnrollmentAchieved / target.monthlyEnrollmentTarget) * 100
       : 0;
-    const counsellorOptions = (telecallerCounsellors as any[]).map((u) => ({
-      id: String(u.id),
-      name: u.fullName || u.name || `Counsellor #${u.id}`,
-      role: "counsellor",
-    }));
+    const counsellorOptions = (telecallerCounsellors as { id: number; fullName: string; role?: string }[]).map(
+      (u) => ({
+        id: Number(u.id),
+        fullName: u.fullName || `User #${u.id}`,
+        role: u.role ?? "counsellor",
+      })
+    );
 
     const handleTransferSubmit = async () => {
       if (!transferLead || !transferToId) return;
@@ -1126,8 +1210,8 @@ export default function Dashboard() {
       try {
         await assignLeadApi(Number(transferLead.id), { counsellorId: Number(transferToId) });
         await queryClient.invalidateQueries({ queryKey: ["telecaller-dashboard-leads"] });
-        const to = counsellorOptions.find((c) => c.id === transferToId);
-        toast({ title: "Lead transferred", description: `${transferLead.name} transferred to ${to?.name ?? 'Counsellor'}.` });
+        const to = counsellorOptions.find((c) => String(c.id) === transferToId);
+        toast({ title: "Lead transferred", description: `${transferLead.name} transferred to ${to?.fullName ?? "assignee"}.` });
         setTransferLead(null);
         setTransferToId('');
       } finally {
@@ -1474,17 +1558,14 @@ export default function Dashboard() {
             )}
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>Select counsellor</Label>
-                <Select value={transferToId} onValueChange={setTransferToId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose counsellor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {counsellorOptions.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Select counsellor or manager</Label>
+                <SearchableAssigneePicker
+                  options={counsellorOptions}
+                  value={transferToId}
+                  onValueChange={setTransferToId}
+                  placeholder="Choose counsellor or manager…"
+                  searchPlaceholder="Type name to filter…"
+                />
               </div>
             </div>
             <DialogFooter>
@@ -1656,202 +1737,287 @@ export default function Dashboard() {
           </div>
 
           {/* Stats - Takes 2/3 width, displayed as 2x2 grid */}
-          <div className="lg:col-span-2 grid gap-6 sm:grid-cols-2">
-            <StatCard
-              title="Total Clients"
-              value={getAdjustedValue((stats as any)?.totalClients?.count ?? (stats as any)?.totalClients ?? 0)}
-              icon={Users}
-              trend={(stats as any)?.totalClients?.change !== undefined ? {
-                value: (stats as any)?.totalClients?.change ?? 0,
-                isPositive: (stats as any)?.totalClients?.changeType === "increase" || (stats as any)?.totalClients?.changeType === "no-change"
-              } : undefined}
-              description={`for ${timeFilter}`}
-              className="shadow-card hover:shadow-lg transition-shadow border-none h-full"
-            />
+          <div className="lg:col-span-2 grid gap-6 sm:grid-cols-2" style={{ gridAutoRows: '1fr' }}>
+            <Link
+              href={cardHref('student')}
+              className="block h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+            >
+              <StatCard
+                title="Students"
+                value={Number((stats as any)?.studentStats?.total ?? 0)}
+                icon={GraduationCap}
+                description="under application"
+                extra={
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    <a
+                      href={cardHref('student-td')}
+                      className="text-[12px] text-foreground hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span>Application + TD</span>
+                      <span className="text-muted-foreground">:</span>{" "}
+                      <span className="font-semibold tabular-nums">{Number((stats as any)?.studentStats?.withTD ?? 0)}</span>
+                    </a>
+                    <a
+                      href={cardHref('student-no-td')}
+                      className="text-[12px] text-foreground hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span>Application Only</span>
+                      <span className="text-muted-foreground">:</span>{" "}
+                      <span className="font-semibold tabular-nums">{Number((stats as any)?.studentStats?.withoutTD ?? 0)}</span>
+                    </a>
+                  </div>
+                }
+                className="shadow-card hover:shadow-lg transition-shadow border-none h-full cursor-pointer"
+              />
+            </Link>
 
+            <Link
+              href={cardHref('core')}
+              className="block h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+            >
+              <StatCard
+                title="Core Sale"
+                value={Number((stats as any)?.coreSale?.number ?? 0)}
+                secondaryValue={(stats as any)?.coreSale?.amount ? `₹${Number((stats as any)?.coreSale?.amount).toLocaleString('en-IN')}` : undefined}
+                icon={CreditCard}
+                trend={(stats as any)?.coreSale?.change !== undefined ? {
+                  value: (stats as any)?.coreSale?.change ?? 0,
+                  isPositive: (stats as any)?.coreSale?.changeType === "increase" || (stats as any)?.coreSale?.changeType === "no-change"
+                } : undefined}
+                description="core sales"
+                className="shadow-card hover:shadow-lg transition-shadow border-none h-full cursor-pointer"
+              />
+            </Link>
+
+            <Link
+              href={cardHref('core-product')}
+              className="block h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+            >
+              <StatCard
+                title="Core Product"
+                value={Number((stats as any)?.coreProduct?.number ?? 0)}
+                secondaryValue={(stats as any)?.coreProduct?.amount ? `₹${Number((stats as any)?.coreProduct?.amount).toLocaleString('en-IN')}` : undefined}
+                icon={Target}
+                trend={(stats as any)?.coreProduct?.change !== undefined ? {
+                  value: (stats as any)?.coreProduct?.change ?? 0,
+                  isPositive: (stats as any)?.coreProduct?.changeType === "increase" || (stats as any)?.coreProduct?.changeType === "no-change"
+                } : undefined}
+                description="core products"
+                className="shadow-card hover:shadow-lg transition-shadow border-none h-full cursor-pointer"
+              />
+            </Link>
+
+            <Link
+              href={cardHref('other-product')}
+              className="block h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+            >
+              <StatCard
+                title="Other Product"
+                value={Number((stats as any)?.otherProduct?.number ?? 0)}
+                secondaryValue={(stats as any)?.otherProduct?.amount ? `₹${Number((stats as any)?.otherProduct?.amount).toLocaleString('en-IN')}` : undefined}
+                icon={TrendingUp}
+                trend={(stats as any)?.otherProduct?.change !== undefined ? {
+                  value: (stats as any)?.otherProduct?.change ?? 0,
+                  isPositive: (stats as any)?.otherProduct?.changeType === "increase" || (stats as any)?.otherProduct?.changeType === "no-change"
+                } : undefined}
+                description="other products"
+                className="shadow-card hover:shadow-lg transition-shadow border-none h-full cursor-pointer"
+              />
+            </Link>
+
+            <div
+              onClick={() => setLocation(cardHref('pending'))}
+              className="h-full cursor-pointer rounded-lg"
+              role="link"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && setLocation(cardHref('pending'))}
+            >
+              <StatCard
+                title="Total Pending Amount"
+                value={`₹${Number((stats as any)?.totalPendingAmount?.amount ?? 0).toLocaleString('en-IN')}`}
+                icon={Clock}
+                trend={(stats as any)?.totalPendingAmount?.change !== undefined ? {
+                  value: (stats as any)?.totalPendingAmount?.change ?? 0,
+                  isPositive: (stats as any)?.totalPendingAmount?.changeType === "increase" || (stats as any)?.totalPendingAmount?.changeType === "no-change"
+                } : undefined}
+                description="total outstanding"
+                className="shadow-card hover:shadow-lg transition-shadow border-l-4 border-l-yellow-500 h-full cursor-pointer"
+              />
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Admin/Manager View: 6 stats in a grid */
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" style={{ gridAutoRows: '1fr' }}>
+          <Link
+            href={cardHref('student')}
+            className="block h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+          >
+            <StatCard
+              title="Students"
+              value={Number((stats as any)?.studentStats?.total ?? 0)}
+              icon={GraduationCap}
+              description="Student Applications"
+              extra={
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  <div className="text-[12px] text-foreground">
+                    <span>Confirm Student (TD)</span>
+                    <span className="text-muted-foreground">:</span>{" "}
+                    <span className="font-semibold tabular-nums">{Number((stats as any)?.studentStats?.withTD ?? 0)}</span>
+                  </div>
+                  <div className="text-[12px] text-foreground">
+                    <span>Application (No TD)</span>
+                    <span className="text-muted-foreground">:</span>{" "}
+                    <span className="font-semibold tabular-nums">{Number((stats as any)?.studentStats?.withoutTD ?? 0)}</span>
+                  </div>
+                </div>
+              }
+              className="shadow-card hover:shadow-lg transition-shadow border-none h-full cursor-pointer"
+            />
+          </Link>
+
+          <Link
+            href={cardHref('core')}
+            className="block h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+          >
             <StatCard
               title="Core Sale"
               value={Number((stats as any)?.coreSale?.number ?? 0)}
-              secondaryValue={(stats as any)?.coreSale?.amount ? `₹${Number((stats as any)?.coreSale?.amount).toLocaleString('en-IN')}` : undefined}
+              secondaryValue={(stats as any)?.coreSale?.amount ? `₹ ${Number((stats as any)?.coreSale?.amount).toLocaleString('en-IN')}` : undefined}
               icon={CreditCard}
               trend={(stats as any)?.coreSale?.change !== undefined ? {
                 value: (stats as any)?.coreSale?.change ?? 0,
                 isPositive: (stats as any)?.coreSale?.changeType === "increase" || (stats as any)?.coreSale?.changeType === "no-change"
               } : undefined}
-              description="core sales"
-              className="shadow-card hover:shadow-lg transition-shadow border-none h-full"
+              extra={canViewFinancials && Array.isArray((stats as any)?.saleTypeCategoryCounts) && (stats as any).saleTypeCategoryCounts.length > 0 ? (
+                <div className="space-y-1">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {(stats as any).saleTypeCategoryCounts.map((r: any) => (
+                      <div key={r.categoryId ?? r.categoryName} className="text-[12px] text-foreground">
+                        <span className="capitalize">{r.categoryName ?? "—"}</span>
+                        <span className="text-muted-foreground">:</span>{" "}
+                        <span className="font-semibold tabular-nums">{Number(r.count ?? 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              className="shadow-card hover:shadow-lg transition-shadow border-none h-full cursor-pointer"
             />
+          </Link>
 
+          <Link
+            href={cardHref('core-product')}
+            className="block h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+          >
             <StatCard
               title="Core Product"
               value={Number((stats as any)?.coreProduct?.number ?? 0)}
-              secondaryValue={(stats as any)?.coreProduct?.amount ? `₹${Number((stats as any)?.coreProduct?.amount).toLocaleString('en-IN')}` : undefined}
+              secondaryValue={(stats as any)?.coreProduct?.amount ? `₹ ${Number((stats as any)?.coreProduct?.amount).toLocaleString('en-IN')}` : undefined}
               icon={Target}
               trend={(stats as any)?.coreProduct?.change !== undefined ? {
                 value: (stats as any)?.coreProduct?.change ?? 0,
                 isPositive: (stats as any)?.coreProduct?.changeType === "increase" || (stats as any)?.coreProduct?.changeType === "no-change"
               } : undefined}
               description="core products"
-              className="shadow-card hover:shadow-lg transition-shadow border-none h-full"
+              className="shadow-card hover:shadow-lg transition-shadow border-none h-full cursor-pointer"
             />
+          </Link>
 
+          <Link
+            href={cardHref('other-product')}
+            className="block h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+          >
             <StatCard
               title="Other Product"
               value={Number((stats as any)?.otherProduct?.number ?? 0)}
-              secondaryValue={(stats as any)?.otherProduct?.amount ? `₹${Number((stats as any)?.otherProduct?.amount).toLocaleString('en-IN')}` : undefined}
+              secondaryValue={(stats as any)?.otherProduct?.amount ? `₹ ${Number((stats as any)?.otherProduct?.amount).toLocaleString('en-IN')}` : undefined}
               icon={TrendingUp}
               trend={(stats as any)?.otherProduct?.change !== undefined ? {
                 value: (stats as any)?.otherProduct?.change ?? 0,
                 isPositive: (stats as any)?.otherProduct?.changeType === "increase" || (stats as any)?.otherProduct?.changeType === "no-change"
               } : undefined}
-              description="other products"
-              className="shadow-card hover:shadow-lg transition-shadow border-none h-full"
+              extra={canViewFinancials && Array.isArray((stats as any)?.otherProductBreakdown) && (stats as any).otherProductBreakdown.length > 0 ? (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">other products</p>
+                    {((stats as any).otherProductBreakdown as any[]).length > 5 ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowAllOtherProductBreakdown((v) => !v); }}
+                        title={showAllOtherProductBreakdown ? "Hide" : "Show all"}
+                      >
+                        {showAllOtherProductBreakdown ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    ) : null}
+                  </div>
+                  {showAllOtherProductBreakdown ? (
+                    <>
+                      <p className="text-[11px] text-muted-foreground">Breakdown</p>
+                      <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                        {((stats as any).otherProductBreakdown as any[]).map((r: any) => (
+                          <div key={r.key ?? r.name} className="flex items-center justify-between gap-2 text-[12px]">
+                            <span className="text-foreground truncate">
+                              {String(r.name ?? "—").replace(/_/g, " ")}
+                            </span>
+                            <span className="text-muted-foreground whitespace-nowrap tabular-nums">
+                              {Number(r.count ?? 0)} • ₹ {Number(r.amount ?? 0).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">other products</div>
+              )}
+              className="shadow-card hover:shadow-lg transition-shadow border-none h-full cursor-pointer"
             />
+          </Link>
 
+          <div
+            onClick={() => setLocation(cardHref('pending'))}
+            className="h-full cursor-pointer rounded-lg"
+            role="link"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && setLocation(cardHref('pending'))}
+          >
             <StatCard
               title="Total Pending Amount"
-              value={`₹${Number((stats as any)?.totalPendingAmount?.amount ?? 0).toLocaleString('en-IN')}`}
+              value={`₹ ${Number((stats as any)?.totalPendingAmount?.amount ?? 0).toLocaleString('en-IN')}`}
               icon={Clock}
               trend={(stats as any)?.totalPendingAmount?.change !== undefined ? {
                 value: (stats as any)?.totalPendingAmount?.change ?? 0,
                 isPositive: (stats as any)?.totalPendingAmount?.changeType === "increase" || (stats as any)?.totalPendingAmount?.changeType === "no-change"
               } : undefined}
-              description="total outstanding"
-              className="shadow-card hover:shadow-lg transition-shadow border-l-4 border-l-yellow-500 h-full"
+              className="shadow-card hover:shadow-lg transition-shadow border-l-4 border-l-yellow-500 h-full cursor-pointer"
             />
           </div>
-        </div>
-      ) : (
-        /* Admin/Manager View: 6 stats in a grid */
-        <div className="grid items-start gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <StatCard
-            title="Total Clients"
-            value={getAdjustedValue((stats as any)?.totalClients?.count ?? 0)}
-            icon={UserPlus}
-            trend={(stats as any)?.totalClients?.change !== undefined ? {
-              value: (stats as any)?.totalClients?.change ?? 0,
-              isPositive: (stats as any)?.totalClients?.changeType === "increase" || (stats as any)?.totalClients?.changeType === "no-change"
-            } : undefined}
-            description={`for ${timeFilter}`}
-            className="shadow-card hover:shadow-lg transition-shadow border-none"
-          />
 
-          <StatCard
-            title="Core Sale"
-            value={Number((stats as any)?.coreSale?.number ?? 0)}
-            secondaryValue={(stats as any)?.coreSale?.amount ? `₹ ${Number((stats as any)?.coreSale?.amount).toLocaleString('en-IN')}` : undefined}
-            icon={CreditCard}
-            trend={(stats as any)?.coreSale?.change !== undefined ? {
-              value: (stats as any)?.coreSale?.change ?? 0,
-              isPositive: (stats as any)?.coreSale?.changeType === "increase" || (stats as any)?.coreSale?.changeType === "no-change"
-            } : undefined}
-            extra={canViewFinancials && Array.isArray((stats as any)?.saleTypeCategoryCounts) && (stats as any).saleTypeCategoryCounts.length > 0 ? (
-              <div className="space-y-1">
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  {(stats as any).saleTypeCategoryCounts.map((r: any) => (
-                    <div key={r.categoryId ?? r.categoryName} className="text-[12px] text-foreground">
-                      <span className="capitalize">{r.categoryName ?? "—"}</span>
-                      <span className="text-muted-foreground">:</span>{" "}
-                      <span className="font-semibold tabular-nums">{Number(r.count ?? 0)}</span>
-                    </div>
-                  ))} 
-                </div>
-              </div>
-            ) : null}
-            className="shadow-card hover:shadow-lg transition-shadow border-none"
-          />
-
-          <StatCard
-            title="Core Product"
-            value={Number((stats as any)?.coreProduct?.number ?? 0)}
-            secondaryValue={(stats as any)?.coreProduct?.amount ? `₹ ${Number((stats as any)?.coreProduct?.amount).toLocaleString('en-IN')}` : undefined}
-            icon={Target}
-            trend={(stats as any)?.coreProduct?.change !== undefined ? {
-              value: (stats as any)?.coreProduct?.change ?? 0,
-              isPositive: (stats as any)?.coreProduct?.changeType === "increase" || (stats as any)?.coreProduct?.changeType === "no-change"
-            } : undefined}
-            description="core products"
-            className="shadow-card hover:shadow-lg transition-shadow border-none"
-          />
-
-          <StatCard
-            title="Other Product"
-            value={Number((stats as any)?.otherProduct?.number ?? 0)}
-            secondaryValue={(stats as any)?.otherProduct?.amount ? `₹ ${Number((stats as any)?.otherProduct?.amount).toLocaleString('en-IN')}` : undefined}
-            icon={TrendingUp}
-            trend={(stats as any)?.otherProduct?.change !== undefined ? {
-              value: (stats as any)?.otherProduct?.change ?? 0,
-              isPositive: (stats as any)?.otherProduct?.changeType === "increase" || (stats as any)?.otherProduct?.changeType === "no-change"
-            } : undefined}
-            extra={canViewFinancials && Array.isArray((stats as any)?.otherProductBreakdown) && (stats as any).otherProductBreakdown.length > 0 ? (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">other products</p>
-                  {((stats as any).otherProductBreakdown as any[]).length > 5 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setShowAllOtherProductBreakdown((v) => !v)}
-                      title={showAllOtherProductBreakdown ? "Hide" : "Show all"}
-                    >
-                      {showAllOtherProductBreakdown ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </Button>
-                  ) : null}
-                </div>
-                {showAllOtherProductBreakdown ? (
-                  <>
-                    <p className="text-[11px] text-muted-foreground">Breakdown</p>
-                    <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
-                      {((stats as any).otherProductBreakdown as any[]).map((r: any) => (
-                        <div key={r.key ?? r.name} className="flex items-center justify-between gap-2 text-[12px]">
-                          <span className="text-foreground truncate">
-                            {String(r.name ?? "—").replace(/_/g, " ")}
-                          </span>
-                          <span className="text-muted-foreground whitespace-nowrap tabular-nums">
-                            {Number(r.count ?? 0)} • ₹ {Number(r.amount ?? 0).toLocaleString('en-IN')}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                ) : null}
-              </div>
-            ) : (
-              <div className="text-xs text-muted-foreground">other products</div>
-            )}
-            className="shadow-card hover:shadow-lg transition-shadow border-none"
-          />
-
-          <StatCard
-            title="Total Pending Amount"
-            value={`₹ ${Number((stats as any)?.totalPendingAmount?.amount ?? 0).toLocaleString('en-IN')}`}
-            icon={Clock}
-            trend={(stats as any)?.totalPendingAmount?.change !== undefined ? {
-              value: (stats as any)?.totalPendingAmount?.change ?? 0,
-              isPositive: (stats as any)?.totalPendingAmount?.changeType === "increase" || (stats as any)?.totalPendingAmount?.changeType === "no-change"
-            } : undefined}
-            className="shadow-card hover:shadow-lg transition-shadow border-l-4 border-l-yellow-500"
-          />
-
-          {(stats as any)?.revenue && (
-            <Link
-              href={isCounsellor ? "/reports/counsellor/me" : "/reports"}
-              className="block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
-            >
-              <StatCard
-                title="Revenue"
-                value={`₹ ${Number((stats as any)?.revenue?.amount ?? 0).toLocaleString('en-IN')}`}
-                icon={IndianRupee}
-                trend={(stats as any)?.revenue?.change !== undefined ? {
-                  value: (stats as any)?.revenue?.change ?? 0,
-                  isPositive: (stats as any)?.revenue?.changeType === "increase" || (stats as any)?.revenue?.changeType === "no-change"
-                } : undefined}  
-                className="shadow-card hover:shadow-lg transition-shadow border-none cursor-pointer"
-              />
-            </Link>
-          )}
+          <div
+            onClick={() => setLocation(isCounsellor ? '/reports/counsellor/me' : '/reports')}
+            className="h-full cursor-pointer rounded-lg"
+            role="link"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && setLocation(isCounsellor ? '/reports/counsellor/me' : '/reports')}
+          >
+            <StatCard
+              title="Revenue"
+              value={`₹ ${Number((stats as any)?.revenue?.amount ?? 0).toLocaleString('en-IN')}`}
+              icon={IndianRupee}
+              trend={(stats as any)?.revenue?.change !== undefined ? {
+                value: (stats as any)?.revenue?.change ?? 0,
+                isPositive: (stats as any)?.revenue?.changeType === "increase" || (stats as any)?.revenue?.changeType === "no-change"
+              } : undefined}
+              className="shadow-card hover:shadow-lg transition-shadow border-none h-full cursor-pointer"
+            />
+          </div>
         </div>
       )}
 
@@ -1993,7 +2159,26 @@ export default function Dashboard() {
                 <span>{canViewFinancials ? "Performance Leaderboard" : "Counselor Leaderboard"}</span>
               )}
             </CardTitle>
-            <CardDescription>Top performing {canViewFinancials ? "team members" : "counselors"} this month</CardDescription>
+            <CardDescription>
+              Top performing {canViewFinancials ? "team members" : "counselors"} this month
+              {selectedLeaderboardCategory !== "all" && selectedLeaderboardCategory !== "general" && (
+                <span> — {capitalizeSegment(selectedLeaderboardCategory)} segment</span>
+              )}
+            </CardDescription>
+            {leaderboardSegmentOptions.length > 0 && (
+              <Select value={selectedLeaderboardCategory} onValueChange={setSelectedLeaderboardCategory}>
+                <SelectTrigger className="w-full sm:w-[220px] mt-2 h-9">
+                  <SelectValue placeholder="Select leaderboard" />
+                </SelectTrigger>
+                <SelectContent>
+                  {leaderboardSegmentOptions.map((opt) => (
+                    <SelectItem key={opt.id} value={opt.id}>
+                      {opt.label} Leaderboard
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             {(isLoadingLeaderboard || isLoadingManagerTargets) ? (
@@ -2188,6 +2373,7 @@ export default function Dashboard() {
                     const targetValue = Number(counselor.target) || 0;
                     const achievedValue = Number(counselor.achieved) || 0;
                     const rowProgress = targetValue > 0 ? Math.min((achievedValue / targetValue) * 100, 100) : 0;
+                    const rank = index + 1;
                     const canOpenReport = canViewFinancials && counsellorId != null;
                     const reportHref = canOpenReport ? `/reports/counsellor/${counsellorId}` : null;
 
@@ -2199,22 +2385,22 @@ export default function Dashboard() {
                           </div>
                           <div
                             className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-background shadow-sm
-                              ${index === 0 ? "bg-yellow-400 text-yellow-900" :
-                                index === 1 ? "bg-slate-300 text-slate-900" :
-                                  index === 2 ? "bg-orange-300 text-orange-900" : "bg-muted text-muted-foreground"}`}
+                              ${rank === 1 ? "bg-yellow-400 text-yellow-900" :
+                                rank === 2 ? "bg-slate-300 text-slate-900" :
+                                  rank === 3 ? "bg-orange-300 text-orange-900" : "bg-muted text-muted-foreground"}`}
                           >
-                            {index === 0 ? <Medal className="w-3 h-3" /> : index + 1}
+                            {rank === 1 ? <Trophy className="w-3 h-3" /> : rank}
                           </div>
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-3">
                             <p className={`text-sm font-semibold truncate ${isHighlighted ? "text-primary" : "text-foreground"}`}>
-                              {counselor.name} {isHighlighted && "(You)"}
+                              {counselor.name}{isHighlighted ? " (You)" : ""}
                             </p>
                             <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
                               Target:{" "}
                               <span className="font-medium text-foreground">
-                                {counselor.achieved} / {counselor.target}
+                                {achievedValue} / {targetValue}
                               </span>
                             </span>
                           </div>
@@ -2233,10 +2419,7 @@ export default function Dashboard() {
                         <Link
                           key={counsellorId ?? index}
                           href={reportHref!}
-                          className={`block flex items-start p-3 rounded-lg transition-all cursor-pointer ${isHighlighted
-                              ? "bg-primary/10 border-2 border-primary/30 shadow-md ring-2 ring-primary/20"
-                              : "hover:bg-muted/50"
-                            }`}
+                          className={`block p-3 rounded-lg transition-colors cursor-pointer hover:bg-muted/50 ${isHighlighted ? "bg-primary/5" : ""}`}
                         >
                           {rowContent}
                         </Link>
@@ -2245,10 +2428,7 @@ export default function Dashboard() {
                     return (
                       <div
                         key={counsellorId ?? index}
-                        className={`flex items-start p-3 rounded-lg transition-all ${isHighlighted
-                            ? "bg-primary/10 border-2 border-primary/30 shadow-md ring-2 ring-primary/20"
-                            : ""
-                          }`}
+                        className={`p-3 rounded-lg transition-colors ${isHighlighted ? "bg-primary/5" : "hover:bg-muted/50"}`}
                       >
                         {rowContent}
                       </div>

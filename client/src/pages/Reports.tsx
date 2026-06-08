@@ -288,6 +288,13 @@ export default function Reports() {
             saleTypes={dashboardSaleTypes}
             saleTypeId={dashboardSaleTypeId}
             onSaleTypeChange={setDashboardSaleTypeId}
+            onNavigateToClients={(counsellorId, clientType) => {
+              const parts: string[] = [];
+              if (counsellorId) parts.push(`counsellorId=${counsellorId}`);
+              if (clientType) parts.push(`clientType=${clientType}`);
+              parts.push(`from=${effectiveStart}&to=${effectiveEnd}`);
+              setLocation(`/clients/all-counsellor-clients?${parts.join("&")}`);
+            }}
           />
         )}
 
@@ -309,6 +316,8 @@ export default function Reports() {
             report={report}
             isSingleCounsellor={isCounsellor && currentUserCounsellorList.length <= 1}
             onCounsellorClick={isAdmin || isManager ? (c) => setLocation(`/reports/counsellor/${c.counsellor_id}`) : undefined}
+            dateStart={effectiveStart}
+            dateEnd={effectiveEnd}
           />
         )}
 
@@ -359,12 +368,14 @@ function IntelligenceDashboard({
   saleTypes,
   saleTypeId,
   onSaleTypeChange,
+  onNavigateToClients,
 }: {
   report: ReportsResponse;
   counsellorList: CounsellorPerformanceRow[];
   saleTypes: Array<{ id: number; sale_type: string }>;
   saleTypeId: number | null;
   onSaleTypeChange: (id: number | null) => void;
+  onNavigateToClients: (counsellorId?: number, clientType?: string) => void;
 }) {
   const totalRevenue = counsellorList.reduce((s, c) => s + c.total_revenue, 0);
   const otherProductRevenue = counsellorList.reduce(
@@ -459,13 +470,13 @@ function IntelligenceDashboard({
       </CardHeader>
       <CardContent className="space-y-6 p-4 sm:p-6">
         <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/20 p-4 shadow-sm">
+          <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/20 p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigateToClients()}>
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Company Revenue</p>
             <p className="mt-1 text-xl font-bold tabular-nums text-foreground sm:text-2xl">
               {formatCurrency(totalRevenue)}
             </p>
           </div>
-          <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/20 p-4 shadow-sm">
+          <div className="rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/20 p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow" onClick={() => onNavigateToClients(undefined, "other-product")}>
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Third Party Collection</p>
             <p className="mt-1 text-xl font-bold tabular-nums text-foreground sm:text-2xl">
               {formatCurrency(otherProductRevenue)}
@@ -533,7 +544,8 @@ function IntelligenceDashboard({
               {allCounsellorsByRevenue.map((c, i) => (
                 <li
                   key={`${c.counsellor_id}-${i}`}
-                  className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-sm"
+                  className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-sm cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => onNavigateToClients(c.counsellor_id)}
                 >
                   <span className="flex min-w-0 flex-1 items-center gap-2 truncate">
                     <Badge
@@ -641,16 +653,28 @@ function CounsellorPerformanceSection({
   report,
   isSingleCounsellor,
   onCounsellorClick,
+  dateStart,
+  dateEnd,
 }: {
   list: CounsellorPerformanceRow[];
   report: ReportsResponse;
   isSingleCounsellor: boolean;
   onCounsellorClick?: (c: CounsellorPerformanceRow) => void;
+  dateStart?: string;
+  dateEnd?: string;
 }) {
+  const [, setLocation] = useLocation();
   const ranked = useMemo(() => {
     const sorted = [...list].sort((a, b) => b.total_revenue - a.total_revenue);
     return sorted.map((c, i) => ({ ...c, rank: i + 1 }));
   }, [list]);
+
+  const toCellUrl = (counsellorId: number, clientType?: string) => {
+    const parts = [`counsellorId=${counsellorId}`];
+    if (clientType) parts.push(`clientType=${clientType}`);
+    if (dateStart && dateEnd) parts.push(`from=${dateStart}&to=${dateEnd}`);
+    return `/clients/all-counsellor-clients?${parts.join("&")}`;
+  };
 
   return (
     <Card className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
@@ -705,13 +729,13 @@ function CounsellorPerformanceSection({
                       <p className="text-xs text-muted-foreground truncate max-w-[180px]">{c.email}</p>
                     </div>
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{c.total_enrollments}</TableCell>
+                  <TableCell className="text-right tabular-nums cursor-pointer text-primary hover:underline" onClick={(e) => { e.stopPropagation(); setLocation(toCellUrl(c.counsellor_id)); }}>{c.total_enrollments}</TableCell>
                   <TableCell className="text-right tabular-nums">{c.sale_type_count}</TableCell>
-                  <TableCell className="text-right text-sm tabular-nums">{formatCurrency(c.core_sale_revenue)}</TableCell>
-                  <TableCell className="text-right text-sm tabular-nums">{formatCurrency(c.core_product_revenue)}</TableCell>
-                  <TableCell className="text-right text-sm tabular-nums">{formatCurrency(c.other_product_revenue)}</TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">{formatCurrency(c.total_revenue)}</TableCell>
-                  <TableCell className="text-right text-sm tabular-nums">{formatCurrency(Number(c.pending_amount) || 0)}</TableCell>
+                  <TableCell className="text-right text-sm tabular-nums cursor-pointer text-primary hover:underline" onClick={(e) => { e.stopPropagation(); setLocation(toCellUrl(c.counsellor_id, "core")); }}>{formatCurrency(c.core_sale_revenue)}</TableCell>
+                  <TableCell className="text-right text-sm tabular-nums cursor-pointer text-primary hover:underline" onClick={(e) => { e.stopPropagation(); setLocation(toCellUrl(c.counsellor_id, "core-product")); }}>{formatCurrency(c.core_product_revenue)}</TableCell>
+                  <TableCell className="text-right text-sm tabular-nums cursor-pointer text-primary hover:underline" onClick={(e) => { e.stopPropagation(); setLocation(toCellUrl(c.counsellor_id, "other-product")); }}>{formatCurrency(c.other_product_revenue)}</TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums cursor-pointer text-primary hover:underline" onClick={(e) => { e.stopPropagation(); setLocation(toCellUrl(c.counsellor_id)); }}>{formatCurrency(c.total_revenue)}</TableCell>
+                  <TableCell className="text-right text-sm tabular-nums cursor-pointer text-primary hover:underline" onClick={(e) => { e.stopPropagation(); setLocation(toCellUrl(c.counsellor_id, "pending")); }}>{formatCurrency(Number(c.pending_amount) || 0)}</TableCell>
                   <TableCell className="text-right text-sm tabular-nums">{formatCurrency(c.average_revenue_per_client)}</TableCell>
                   <TableCell className="text-right tabular-nums">{c.archived_count}</TableCell>
                 </TableRow>

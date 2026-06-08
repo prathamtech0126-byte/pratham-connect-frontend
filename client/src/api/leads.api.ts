@@ -196,6 +196,9 @@ export interface LeadEntity {
   customAnswers?: Record<string, unknown>;
   nextFollowupAt?: string | null;
   pendingFollowUp?: boolean;
+  transferredAt?: string | null;
+  convertedAt?: string | null;
+  droppedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   isJunk: boolean;
@@ -251,6 +254,12 @@ export interface LeadListParams {
   leadType?: string;
   createdFrom?: string;
   createdTo?: string;
+  transferredFrom?: string;
+  transferredTo?: string;
+  convertedFrom?: string;
+  convertedTo?: string;
+  droppedFrom?: string;
+  droppedTo?: string;
   page?: number;
   limit?: number;
   sortBy?: "created_at" | "updated_at" | "next_followup_at";
@@ -559,6 +568,47 @@ export const searchLeadReferenceClientsApi = async (search: string) => {
     fullName: string;
     counsellorId?: number | null;
     counsellorName?: string | null;
+  }[];
+};
+
+export const searchLeadReferenceTeamApi = async (search: string) => {
+  const term = search.trim();
+  if (term.length < 3) return [];
+  const res = await api.get("/api/leads/reference/team", {
+    params: { search: term },
+  });
+  return (res.data?.data ?? []) as {
+    id: number;
+    fullName: string;
+    memberRole: string;
+  }[];
+};
+
+export const listLeadReferenceTeamDirectoryApi = async () => {
+  const res = await api.get("/api/leads/reference/team-directory");
+  return (res.data?.data ?? []) as {
+    id: number;
+    fullName: string;
+    memberRole: string;
+  }[];
+};
+
+export const listLeadReferenceCounsellorsApi = async () => {
+  const res = await api.get("/api/leads/reference/counsellors");
+  return (res.data?.data ?? []) as {
+    id: number;
+    fullName: string;
+    role?: string;
+  }[];
+};
+
+/** Counsellors + managers for telecaller transfer picker. */
+export const listLeadTransferAssigneesApi = async () => {
+  const res = await api.get("/api/leads/transfer-assignees");
+  return (res.data?.data ?? []) as {
+    id: number;
+    fullName: string;
+    role: string;
   }[];
 };
 

@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -18,13 +17,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns";
 import { useAuth } from "@/context/auth-context";
 import { useSocket } from "@/context/socket-context";
+import { cn } from "@/lib/utils";
 
 interface CounsellorTarget {
   id: string;
   counsellorId: number;
   counsellorName: string;
-  month: string; // Format: "2026-01"
-  target: number; // Number of clients to enroll
+  month: string;
+  target: number;
+  categoryName: string;
+  applicationTarget?: number | null;
+  finalStudentTarget?: number | null;
 }
 
 interface CounsellorData {
@@ -36,6 +39,18 @@ interface CounsellorData {
   target: number;
   progress: number;
   targetId?: string | number | null;
+  categoryName: string;
+  // student-specific
+  studentAppCount?: number;
+  finalStudentCount?: number;
+  applicationTarget?: number | null;
+  finalStudentTarget?: number | null;
+}
+
+// Capitalize first letter
+function capitalize(s: string | undefined | null) {
+  if (!s) return "";
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export default function CounsellorLeaderboard() {
@@ -44,169 +59,164 @@ export default function CounsellorLeaderboard() {
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
 
-  // Check if manager is supervisor (supervisor managers see all counsellors)
-  const isManager = user?.role === 'manager';
-  const isSupervisor = isManager && user?.isSupervisor === true;
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [selectedCategory, setSelectedCategory] = useState<string>("general");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTarget, setEditingTarget] = useState<CounsellorTarget | null>(null);
   const [targetForm, setTargetForm] = useState({
     counsellorId: "",
     counsellorName: "",
     month: selectedMonth,
-    target: ""
+    target: "",
+    categoryName: "general",
+    applicationTarget: "",
+    finalStudentTarget: "",
   });
 
-  // State for preventing multiple clicks
   const [isSubmitting, setIsSubmitting] = useState(false);
   const requestInFlightRef = useRef(false);
-
-  // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; targetId: string; counsellorName: string }>({
-    open: false,
-    targetId: "",
-    counsellorName: "",
+    open: false, targetId: "", counsellorName: "",
   });
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Parse month and year from selectedMonth (format: "2026-01")
   const [month, year] = useMemo(() => {
     const [y, m] = selectedMonth.split('-').map(Number);
     return [m, y];
   }, [selectedMonth]);
 
-  // Fetch leaderboard data from API
+  const [formMonth, formYear] = useMemo(() => {
+    const [y, m] = (targetForm.month || selectedMonth).split('-').map(Number);
+    return [m, y];
+  }, [targetForm.month, selectedMonth]);
+
+  // Fetch categories from DB
+  const { data: categoriesData = [] } = useQuery({
+    queryKey: ['leaderboard-categories'],
+    queryFn: () => clientService.getLeaderboardCategories(),
+    staleTime: 1000 * 60 * 10,
+  });
+
+  // Build tab list: General first, then DB categories (filter out any with missing name)
+  const tabs = useMemo(() => {
+    return [
+      { id: "general", label: "General" },
+      ...categoriesData
+        .filter((c) => c?.name)
+        .map((c) => ({ id: c.name.toLowerCase(), label: capitalize(c.name) })),
+    ];
+  }, [categoriesData]);
+
   const { data: leaderboardData, isLoading: isLoadingLeaderboard, error: leaderboardError } = useQuery({
-    queryKey: ['leaderboard', month, year],
-    queryFn: () => clientService.getLeaderboard(month, year),
-    staleTime: 1000 * 60 * 2, // Cache for 2 minutes
+    queryKey: ['leaderboard', month, year, selectedCategory],
+    queryFn: () => clientService.getLeaderboard(month, year, selectedCategory),
+    staleTime: 1000 * 60 * 2,
     enabled: !!user && !!month && !!year,
   });
 
-  // Fetch counsellors for Set Target dialog via leaderboard counsellors API
   const { data: counsellorsData, isLoading: isLoadingCounsellors } = useQuery({
     queryKey: ['leaderboard-counsellors'],
     queryFn: () => clientService.getLeaderboardCounsellors(),
   });
 
-  // WebSocket listener for leaderboard updates
+  // Targets for the dialog month — month derived from created_at in DB
+  const { data: formMonthTargets = [], refetch: refetchFormMonthTargets } = useQuery({
+    queryKey: ['leaderboard-month-targets', formMonth, formYear],
+    queryFn: () => clientService.getLeaderboardMonthTargets(formMonth, formYear),
+    staleTime: 0,
+    enabled: isDialogOpen && !!formMonth && !!formYear,
+  });
+
+  const isCounsellorTargetAlreadySet = (counsellorId: number, categoryName: string) => {
+    const cat = categoryName.toLowerCase();
+    return formMonthTargets.some(
+      (t) => t.counsellorId === counsellorId && (t.categoryName ?? "general").toLowerCase() === cat
+    );
+  };
+
   useEffect(() => {
-    if (!socket || !isConnected) {
-      // console.log('[CounsellorLeaderboard] Socket not available, skipping socket listeners');
-      return;
-    }
+    if (!socket || !isConnected) return;
+    const handler = (data: any) => {
+      if (data.month !== month || data.year !== year) return;
 
-    // console.log('[CounsellorLeaderboard] Setting up socket event listeners for leaderboard');
-
-    const handleLeaderboardUpdated = (data: {
-      action: "CREATED" | "UPDATED";
-      target: any;
-      leaderboard: any[];
-      summary: any;
-      month: number;
-      year: number;
-    }) => {
-      // console.log('[CounsellorLeaderboard] Received leaderboard:updated event:', data);
-
-      // Only update if the event is for the currently selected month/year
-      if (data.month === month && data.year === year) {
-        // Update React Query cache with new leaderboard data
-        if (data.leaderboard) {
-          queryClient.setQueryData(['leaderboard', month, year], data.leaderboard);
-          // console.log('[CounsellorLeaderboard] ✅ Updated leaderboard cache with', data.leaderboard.length, 'counsellors');
-        }
-
-        // Show toast notification
-        toast({
-          title: data.action === "CREATED" ? "Target Set" : "Target Updated",
-          description: `Target ${data.action === "CREATED" ? "set" : "updated"} successfully.`,
-        });
+      // If WS carries fresh leaderboard for the current category, update query cache immediately
+      if (data.category === selectedCategory && data.leaderboard) {
+        queryClient.setQueryData(
+          ['leaderboard', month, year, selectedCategory],
+          { data: data.leaderboard, summary: data.summary }
+        );
       } else {
-        // console.log('[CounsellorLeaderboard] Event is for different month/year, ignoring');
+        // Different category updated — just invalidate so a refetch happens if user switches
+        queryClient.invalidateQueries({ queryKey: ['leaderboard', month, year] });
       }
+
+      // Always refresh the month-targets so the dropdown disables correctly
+      queryClient.invalidateQueries({ queryKey: ['leaderboard-month-targets', month, year] });
+
+      toast({
+        title: data.action === "CREATED" ? "Target Set" : "Target Updated",
+        description: `Target ${data.action === "CREATED" ? "set" : "updated"} successfully.`,
+      });
     };
+    socket.on('leaderboard:updated', handler);
+    return () => { socket.off('leaderboard:updated', handler); };
+  }, [socket, isConnected, queryClient, toast, month, year, selectedCategory]);
 
-    // Register event listener
-    socket.on('leaderboard:updated', handleLeaderboardUpdated);
-    // console.log('[CounsellorLeaderboard] ✅ Socket event listener registered: leaderboard:updated');
-
-    // Cleanup on unmount
-    return () => {
-      // console.log('[CounsellorLeaderboard] Cleaning up socket event listeners');
-      socket.off('leaderboard:updated', handleLeaderboardUpdated);
-    };
-  }, [socket, isConnected, queryClient, toast, month, year]);
-
-  // API returns { data, summary }; support legacy shape where leaderboardData was the array
   const listFromApi = Array.isArray(leaderboardData) ? leaderboardData : leaderboardData?.data;
   const summaryFromApi = leaderboardData && !Array.isArray(leaderboardData) ? leaderboardData.summary : undefined;
 
-  // Transform API leaderboard data to component format
   const transformedLeaderboardData: CounsellorData[] = useMemo(() => {
     if (!listFromApi || !Array.isArray(listFromApi)) return [];
-
     return listFromApi
-    .filter((item: any) => item.targetId != null && item.targetId !== '' && item.targetId !== 0 && Number(item.target) > 0)
-    .map((item: any) => {
-      // API returns flat structure: counsellorId, fullName, email, enrollments (string), revenue, target, targetId
-      const counsellorId = item.counsellorId;
-      const targetValue = Number(item.target) || 0;
-      const currentClients = Number(item.enrollments) || 0;
-      const currentRevenue = Number(item.revenue) || 0;
-      const progress = targetValue > 0 ? (currentClients / targetValue) * 100 : 0;
-
-      return {
-        id: counsellorId,
-        name: item.fullName || 'Unknown',
-        email: item.email,
-        currentClients,
-        currentRevenue,
-        target: targetValue,
-        progress: Math.min(progress, 100),
-        targetId: item.targetId || null
-      };
-    }).sort((a, b) => {
-      if (b.currentClients !== a.currentClients) {
-        return b.currentClients - a.currentClients;
-      }
-      return b.currentRevenue - a.currentRevenue;
-    });
+      .filter((item: any) => item.targetId != null && item.targetId !== '' && item.targetId !== 0 && Number(item.target) > 0)
+      .map((item: any) => {
+        const targetValue = Number(item.target) || 0;
+        const currentClients = Number(item.enrollments) || 0;
+        const progress = targetValue > 0 ? (currentClients / targetValue) * 100 : 0;
+        return {
+          id: item.counsellorId,
+          name: item.fullName || 'Unknown',
+          email: item.email,
+          currentClients,
+          currentRevenue: Number(item.revenue) || 0,
+          target: targetValue,
+          progress: Math.min(progress, 100),
+          targetId: item.targetId || null,
+          categoryName: item.categoryName || "general",
+          studentAppCount: item.studentAppCount,
+          finalStudentCount: item.finalStudentCount,
+          applicationTarget: item.applicationTarget,
+          finalStudentTarget: item.finalStudentTarget,
+        };
+      })
+      .sort((a, b) => b.currentClients !== a.currentClients ? b.currentClients - a.currentClients : b.currentRevenue - a.currentRevenue);
   }, [listFromApi]);
 
-  // Use API summary when available (GET /api/leaderboard returns summary); otherwise compute from list
-  const summary: { totalCounsellors: number; totalEnrollments: number; totalRevenue: number } = useMemo(() => {
+  const summary = useMemo(() => {
     if (summaryFromApi && typeof summaryFromApi.totalCounsellors === 'number') {
-      return {
-        totalCounsellors: summaryFromApi.totalCounsellors,
-        totalEnrollments: summaryFromApi.totalEnrollments ?? 0,
-        totalRevenue: summaryFromApi.totalRevenue ?? 0
-      };
-    }
-    if (!transformedLeaderboardData || transformedLeaderboardData.length === 0) {
-      return { totalCounsellors: 0, totalEnrollments: 0, totalRevenue: 0 };
+      return { totalCounsellors: summaryFromApi.totalCounsellors, totalEnrollments: summaryFromApi.totalEnrollments ?? 0, totalRevenue: summaryFromApi.totalRevenue ?? 0 };
     }
     return {
       totalCounsellors: transformedLeaderboardData.length,
-      totalEnrollments: transformedLeaderboardData.reduce((sum, c) => sum + c.currentClients, 0),
-      totalRevenue: transformedLeaderboardData.reduce((sum, c) => sum + c.currentRevenue, 0)
+      totalEnrollments: transformedLeaderboardData.reduce((s, c) => s + c.currentClients, 0),
+      totalRevenue: transformedLeaderboardData.reduce((s, c) => s + c.currentRevenue, 0),
     };
   }, [summaryFromApi, transformedLeaderboardData]);
 
-  // Generate month options: all 12 months of the current year (Jan - Dec)
   const monthOptions = useMemo(() => {
     const options = [];
     const currentYear = new Date().getFullYear();
     for (let m = 1; m <= 12; m++) {
       const value = `${currentYear}-${String(m).padStart(2, '0')}`;
-      const date = new Date(currentYear, m - 1, 1);
-      const label = format(date, 'MMMM yyyy');
-      options.push({ value, label });
+      options.push({ value, label: format(new Date(currentYear, m - 1, 1), 'MMMM yyyy') });
     }
     return options;
   }, []);
+
+  const isStudentCategory = targetForm.categoryName.toLowerCase() === "student";
 
   const handleOpenDialog = (target?: CounsellorTarget) => {
     if (target) {
@@ -215,7 +225,10 @@ export default function CounsellorLeaderboard() {
         counsellorId: String(target.counsellorId),
         counsellorName: target.counsellorName,
         month: target.month,
-        target: String(target.target)
+        target: String(target.target),
+        categoryName: target.categoryName,
+        applicationTarget: target.applicationTarget != null ? String(target.applicationTarget) : "",
+        finalStudentTarget: target.finalStudentTarget != null ? String(target.finalStudentTarget) : "",
       });
     } else {
       setEditingTarget(null);
@@ -223,82 +236,68 @@ export default function CounsellorLeaderboard() {
         counsellorId: "",
         counsellorName: "",
         month: selectedMonth,
-        target: ""
+        target: "",
+        categoryName: selectedCategory,
+        applicationTarget: "",
+        finalStudentTarget: "",
       });
     }
     setIsDialogOpen(true);
   };
 
+  useEffect(() => {
+    if (!isDialogOpen || editingTarget || !targetForm.counsellorId) return;
+    const id = Number(targetForm.counsellorId);
+    if (isCounsellorTargetAlreadySet(id, targetForm.categoryName)) {
+      setTargetForm((prev) => ({ ...prev, counsellorId: "", counsellorName: "" }));
+    }
+  }, [isDialogOpen, editingTarget, targetForm.counsellorId, targetForm.categoryName, formMonthTargets]);
+
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingTarget(null);
-    setTargetForm({
-      counsellorId: "",
-      counsellorName: "",
-      month: selectedMonth,
-      target: ""
-    });
+    setTargetForm({ counsellorId: "", counsellorName: "", month: selectedMonth, target: "", categoryName: selectedCategory, applicationTarget: "", finalStudentTarget: "" });
   };
 
   const handleSaveTarget = async () => {
-    // ✅ Prevent multiple clicks
-    if (isSubmitting || requestInFlightRef.current) {
-      // console.log('[CounsellorLeaderboard] Request already in progress, ignoring click');
-      return;
-    }
-
+    if (isSubmitting || requestInFlightRef.current) return;
     if (!targetForm.counsellorId || !targetForm.target || !targetForm.month) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
+      toast({ title: "Validation Error", description: "Please fill in all required fields", variant: "destructive" });
       return;
     }
-
     const targetValue = parseInt(targetForm.target);
     if (isNaN(targetValue) || targetValue < 0) {
-      toast({
-        title: "Validation Error",
-        description: "Target must be a valid positive number",
-        variant: "destructive"
-      });
+      toast({ title: "Validation Error", description: "Target must be a valid non-negative number", variant: "destructive" });
       return;
     }
-
-    // Parse month and year from targetForm.month (format: "2026-01")
-    const [year, monthNum] = targetForm.month.split('-').map(Number);
+    if (isStudentCategory) {
+      const appTarget = parseInt(targetForm.applicationTarget);
+      if (!targetForm.applicationTarget || isNaN(appTarget) || appTarget < 0) {
+        toast({ title: "Validation Error", description: "Application target is required for student category", variant: "destructive" });
+        return;
+      }
+    }
+    const [yr, monthNum] = targetForm.month.split('-').map(Number);
     const counsellorId = parseInt(targetForm.counsellorId);
-
-    // ✅ Set submitting state immediately
     setIsSubmitting(true);
     requestInFlightRef.current = true;
-
     try {
-      // Call API to set target
-      await clientService.setTarget(counsellorId, targetValue, monthNum, year);
-
-      // Show success toast
-      toast({
-        title: editingTarget ? "Target Updated" : "Target Set",
-        description: `Target ${editingTarget ? "updated" : "set"} for ${targetForm.counsellorName}`,
-      });
-
-      // Invalidate and refetch leaderboard data
-      queryClient.invalidateQueries({ queryKey: ['leaderboard', monthNum, year] });
-
-      // Close dialog
+      const appTarget = targetForm.applicationTarget ? parseInt(targetForm.applicationTarget) : undefined;
+      const finalTarget = targetForm.finalStudentTarget ? parseInt(targetForm.finalStudentTarget) : undefined;
+      await clientService.setTarget(
+        counsellorId, targetValue, monthNum, yr,
+        targetForm.categoryName,
+        appTarget,
+        finalTarget
+      );
+      toast({ title: editingTarget ? "Target Updated" : "Target Set", description: `Target ${editingTarget ? "updated" : "set"} for ${targetForm.counsellorName}` });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard', monthNum, yr] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard-month-targets', monthNum, yr] });
       handleCloseDialog();
     } catch (error: any) {
-      console.error("Failed to set target:", error);
       const errorMessage = error.response?.data?.message || error.message || "Failed to set target";
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
-      // ✅ Always reset submitting state
       setIsSubmitting(false);
       requestInFlightRef.current = false;
     }
@@ -315,6 +314,7 @@ export default function CounsellorLeaderboard() {
       await clientService.deleteTarget(deleteConfirm.targetId);
       toast({ title: "Target Deleted", description: `Target for ${deleteConfirm.counsellorName} has been deleted.` });
       queryClient.invalidateQueries({ queryKey: ['leaderboard', month, year] });
+      queryClient.invalidateQueries({ queryKey: ['leaderboard-month-targets', month, year] });
       setDeleteConfirm({ open: false, targetId: "", counsellorName: "" });
     } catch (error: any) {
       const msg = error.response?.data?.message || error.message || "Failed to delete target";
@@ -329,13 +329,6 @@ export default function CounsellorLeaderboard() {
     if (index === 1) return <Trophy className="w-5 h-5 text-gray-400" />;
     if (index === 2) return <Trophy className="w-5 h-5 text-orange-500" />;
     return <span className="text-muted-foreground font-bold">#{index + 1}</span>;
-  };
-
-  const getProgressColor = (progress: number) => {
-    if (progress >= 100) return "bg-green-500";
-    if (progress >= 75) return "bg-blue-500";
-    if (progress >= 50) return "bg-yellow-500";
-    return "bg-red-500";
   };
 
   if (isLoadingCounsellors || isLoadingLeaderboard) {
@@ -356,6 +349,8 @@ export default function CounsellorLeaderboard() {
     );
   }
 
+  const isStudentTab = selectedCategory.toLowerCase() === "student";
+
   return (
     <PageWrapper
       title="Counsellor Leaderboard"
@@ -369,9 +364,7 @@ export default function CounsellorLeaderboard() {
             </SelectTrigger>
             <SelectContent>
               {monthOptions.map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -385,11 +378,10 @@ export default function CounsellorLeaderboard() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{editingTarget ? 'Edit Target' : 'Set Target'}</DialogTitle>
-                <DialogDescription>
-                  Set monthly enrollment target for a counsellor
-                </DialogDescription>
+                <DialogDescription>Set monthly enrollment target for a counsellor</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
+                {/* Counsellor */}
                 <div className="space-y-2">
                   <Label htmlFor="counsellor">Counsellor</Label>
                   <Select
@@ -413,74 +405,96 @@ export default function CounsellorLeaderboard() {
                       {counsellorsData?.map((counsellor: any) => {
                         const cId = counsellor.id ?? counsellor.userId ?? counsellor.counsellorId;
                         const cName = counsellor.name ?? counsellor.fullName ?? counsellor.full_name ?? "Unknown";
-                        const alreadyTargeted = transformedLeaderboardData.some(
-                          (c) => c.id === cId || c.id === Number(cId)
-                        );
+                        const numericId = Number(cId);
+                        const alreadySet = !editingTarget && isCounsellorTargetAlreadySet(numericId, targetForm.categoryName);
                         return (
-                          <SelectItem
-                            key={cId}
-                            value={String(cId)}
-                            disabled={alreadyTargeted}
-                            className={alreadyTargeted ? "opacity-40 cursor-not-allowed" : ""}
-                          >
-                            {cName}
-                            {alreadyTargeted && " (target set)"}
+                          <SelectItem key={cId} value={String(cId)} disabled={alreadySet}>
+                            {cName}{alreadySet ? " — Target already set" : ""}
                           </SelectItem>
                         );
                       })}
                     </SelectContent>
                   </Select>
                 </div>
+                {/* Category */}
                 <div className="space-y-2">
-                  <Label htmlFor="month">Month</Label>
+                  <Label>Category</Label>
                   <Select
-                    value={targetForm.month}
-                    onValueChange={(value) => setTargetForm({ ...targetForm, month: value })}
+                    value={targetForm.categoryName}
+                    onValueChange={(v) => setTargetForm({ ...targetForm, categoryName: v, applicationTarget: "", finalStudentTarget: "" })}
+                    disabled={!!editingTarget}
                   >
-                    <SelectTrigger id="month">
+                    <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {monthOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
+                      <SelectItem value="general">General</SelectItem>
+                      {categoriesData.filter((c) => c?.name).map((c) => (
+                        <SelectItem key={c.id} value={c.name.toLowerCase()}>{capitalize(c.name)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+                {/* Info: existing target will be updated */}
+                {/* Month */}
                 <div className="space-y-2">
-                  <Label htmlFor="target">Target (Number of Clients)</Label>
-                  <Input
-                    id="target"
-                    type="number"
-                    min="0"
-                    value={targetForm.target}
-                    onChange={(e) => setTargetForm({ ...targetForm, target: e.target.value })}
-                    placeholder="Enter target number"
-                  />
+                  <Label htmlFor="month">Month</Label>
+                  <Select value={targetForm.month} onValueChange={(value) => setTargetForm({ ...targetForm, month: value })}>
+                    <SelectTrigger id="month"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {monthOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                {/* Target */}
+                {isStudentCategory ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="appTarget">Application Target <span className="text-destructive">*</span></Label>
+                      <Input
+                        id="appTarget"
+                        type="number"
+                        min="0"
+                        value={targetForm.applicationTarget}
+                        onChange={(e) => setTargetForm({ ...targetForm, applicationTarget: e.target.value, target: e.target.value })}
+                        placeholder="Number of student applications"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="finalTarget">Final Student Target <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                      <Input
+                        id="finalTarget"
+                        type="number"
+                        min="0"
+                        value={targetForm.finalStudentTarget}
+                        onChange={(e) => setTargetForm({ ...targetForm, finalStudentTarget: e.target.value })}
+                        placeholder="Students with application + TD paid"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="target">Target (Number of Clients)</Label>
+                    <Input
+                      id="target"
+                      type="number"
+                      min="0"
+                      value={targetForm.target}
+                      onChange={(e) => setTargetForm({ ...targetForm, target: e.target.value })}
+                      placeholder="Enter target number"
+                    />
+                  </div>
+                )}
               </div>
               <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={handleCloseDialog}
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSaveTarget}
-                  disabled={isSubmitting}
-                  className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
-                >
+                <Button variant="outline" onClick={handleCloseDialog} disabled={isSubmitting}>Cancel</Button>
+                <Button onClick={handleSaveTarget} disabled={isSubmitting} className={isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}>
                   {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      {editingTarget ? 'Updating...' : 'Creating...'}
-                    </>
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{editingTarget ? "Updating..." : "Creating..."}</>
                   ) : (
-                    editingTarget ? 'Update' : 'Create'
+                    editingTarget ? "Update" : "Create"
                   )}
                 </Button>
               </DialogFooter>
@@ -497,76 +511,83 @@ export default function CounsellorLeaderboard() {
               <CardTitle className="text-sm font-medium">Total Counsellors</CardTitle>
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summary.totalCounsellors}</div>
-            </CardContent>
+            <CardContent><div className="text-2xl font-bold">{summary.totalCounsellors}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Client Enrollments</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {summary.totalEnrollments}
-              </div>
-            </CardContent>
+            <CardContent><div className="text-2xl font-bold">{summary.totalEnrollments}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                ₹{summary.totalRevenue.toLocaleString('en-IN')}
-              </div>
-            </CardContent>
+            <CardContent><div className="text-2xl font-bold">₹{summary.totalRevenue.toLocaleString('en-IN')}</div></CardContent>
           </Card>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="flex flex-wrap gap-1 border-b pb-0">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedCategory(tab.id)}
+              className={cn(
+                "px-4 py-2 text-sm font-medium rounded-t-md border border-b-0 transition-colors",
+                selectedCategory === tab.id
+                  ? "bg-background text-foreground border-border -mb-px z-10"
+                  : "bg-muted/50 text-muted-foreground border-transparent hover:text-foreground hover:bg-muted"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Leaderboard */}
         <Card>
           <CardHeader>
-            <CardTitle>Leaderboard - {format(new Date(selectedMonth + '-01'), 'MMMM yyyy')}</CardTitle>
-            <CardDescription>Ranked by number of clients enrolled</CardDescription>
+            <CardTitle>
+              {capitalize(selectedCategory)} Leaderboard — {format(new Date(selectedMonth + '-01'), 'MMMM yyyy')}
+            </CardTitle>
+            <CardDescription>
+              {isStudentTab
+                ? "Ranked by student applications (unique clients)"
+                : "Ranked by number of clients enrolled"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {transformedLeaderboardData.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No targets set for this month. Use <span className="font-medium text-foreground">Set Target</span> to add counsellors to the leaderboard.
+                  No targets set for this month and category. Use <span className="font-medium text-foreground">Set Target</span> to add counsellors.
                 </div>
               ) : (
-                transformedLeaderboardData.map((counsellor: CounsellorData, index: number) => (
+                transformedLeaderboardData.map((counsellor, index) => (
                   <div
                     key={counsellor.id}
                     className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                   >
-                    {/* Rank */}
                     <div className="flex items-center justify-center w-12 h-12 rounded-full bg-muted shrink-0">
                       {getRankIcon(index)}
                     </div>
-
-                    {/* Avatar & Name */}
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <Avatar className="h-10 w-10 shrink-0">
-                        <AvatarFallback>
-                          {counsellor.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
+                        <AvatarFallback>{counsellor.name.charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold truncate">{counsellor.name}</div>
-                        {counsellor.email && (
-                          <div className="text-sm text-muted-foreground truncate">{counsellor.email}</div>
-                        )}
+                        {counsellor.email && <div className="text-sm text-muted-foreground truncate">{counsellor.email}</div>}
                       </div>
                     </div>
 
                     {/* Achievement */}
                     <div className="text-center min-w-[100px] sm:min-w-[120px]">
                       <div className="text-2xl font-bold">{counsellor.currentClients}</div>
-                      <div className="text-xs text-muted-foreground">Clients</div>
+                      <div className="text-xs text-muted-foreground">{isStudentTab ? "Applications" : "Clients"}</div>
                     </div>
 
                     {/* Revenue */}
@@ -576,19 +597,57 @@ export default function CounsellorLeaderboard() {
                     </div>
 
                     {/* Target & Progress */}
-                    <div className="min-w-[180px] sm:min-w-[200px] flex-1">
-                      {counsellor.target > 0 ? (
+                    <div className="min-w-[180px] sm:min-w-[220px] flex-1">
+                      {isStudentTab ? (
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Target: {counsellor.target}</span>
-                            <span className={`font-semibold shrink-0 ml-2 ${(counsellor.progress || 0) >= 100 ? 'text-green-600' : ''}`}>
-                              {(counsellor.progress || 0).toFixed(1)}%
-                            </span>
-                          </div>
-                          <Progress value={counsellor.progress || 0} className="h-2" />
+                          {/* Application progress bar */}
+                          {counsellor.applicationTarget != null && counsellor.applicationTarget > 0 && (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Applications (Target: {counsellor.applicationTarget})</span>
+                                <span className={cn("font-semibold shrink-0 ml-2", ((counsellor.studentAppCount ?? 0) / counsellor.applicationTarget) >= 1 ? 'text-green-600' : '')}>
+                                  {counsellor.studentAppCount ?? 0}/{counsellor.applicationTarget}
+                                </span>
+                              </div>
+                              <Progress
+                                value={Math.min(((counsellor.studentAppCount ?? 0) / counsellor.applicationTarget) * 100, 100)}
+                                className="h-1.5"
+                              />
+                            </div>
+                          )}
+                          {/* Final student progress bar */}
+                          {counsellor.finalStudentTarget != null && counsellor.finalStudentTarget > 0 && (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Final Students (Target: {counsellor.finalStudentTarget})</span>
+                                <span className={cn("font-semibold shrink-0 ml-2", ((counsellor.finalStudentCount ?? 0) / counsellor.finalStudentTarget) >= 1 ? 'text-green-600' : '')}>
+                                  {counsellor.finalStudentCount ?? 0}/{counsellor.finalStudentTarget}
+                                </span>
+                              </div>
+                              <Progress
+                                value={Math.min(((counsellor.finalStudentCount ?? 0) / counsellor.finalStudentTarget) * 100, 100)}
+                                className="h-1.5"
+                              />
+                            </div>
+                          )}
+                          {(counsellor.applicationTarget == null || counsellor.applicationTarget === 0) && (
+                            <div className="text-sm text-muted-foreground">No targets set</div>
+                          )}
                         </div>
                       ) : (
-                        <div className="text-sm text-muted-foreground">No target set</div>
+                        counsellor.target > 0 ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Target: {counsellor.target}</span>
+                              <span className={cn("font-semibold shrink-0 ml-2", (counsellor.progress || 0) >= 100 ? 'text-green-600' : '')}>
+                                {(counsellor.progress || 0).toFixed(1)}%
+                              </span>
+                            </div>
+                            <Progress value={counsellor.progress || 0} className="h-2" />
+                          </div>
+                        ) : (
+                          <div className="text-sm text-muted-foreground">No target set</div>
+                        )
                       )}
                     </div>
 
@@ -597,21 +656,19 @@ export default function CounsellorLeaderboard() {
                       {counsellor.targetId && (
                         <>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9"
+                            variant="ghost" size="icon" className="h-9 w-9"
                             onClick={() => {
-                              // Find target from API data
-                              const targetItem = listFromApi?.find((item: any) =>
-                                item.counsellorId === counsellor.id
-                              );
+                              const targetItem = listFromApi?.find((item: any) => item.counsellorId === counsellor.id);
                               if (targetItem) {
                                 handleOpenDialog({
                                   id: String(targetItem.targetId || counsellor.targetId || ''),
                                   counsellorId: counsellor.id,
                                   counsellorName: counsellor.name,
                                   month: selectedMonth,
-                                  target: counsellor.target || 0
+                                  target: counsellor.target || 0,
+                                  categoryName: counsellor.categoryName || selectedCategory,
+                                  applicationTarget: counsellor.applicationTarget,
+                                  finalStudentTarget: counsellor.finalStudentTarget,
                                 });
                               }
                             }}
@@ -619,35 +676,12 @@ export default function CounsellorLeaderboard() {
                             <Pencil className="w-4 h-4" />
                           </Button>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={() => {
-                              if (counsellor.targetId) handleDeleteTarget(String(counsellor.targetId), counsellor.name);
-                            }}
+                            variant="ghost" size="icon" className="h-9 w-9"
+                            onClick={() => { if (counsellor.targetId) handleDeleteTarget(String(counsellor.targetId), counsellor.name); }}
                           >
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
                         </>
-                      )}
-                      {!counsellor.targetId && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="whitespace-nowrap"
-                          onClick={() => {
-                            handleOpenDialog();
-                            setTargetForm({
-                              counsellorId: String(counsellor.id),
-                              counsellorName: counsellor.name,
-                              month: selectedMonth,
-                              target: ''
-                            });
-                          }}
-                        >
-                          <Target className="w-4 h-4 mr-2" />
-                          Set Target
-                        </Button>
                       )}
                     </div>
                   </div>
@@ -658,11 +692,7 @@ export default function CounsellorLeaderboard() {
         </Card>
       </div>
 
-      {/* Delete confirmation dialog */}
-      <AlertDialog
-        open={deleteConfirm.open}
-        onOpenChange={(open) => !isDeleting && setDeleteConfirm((prev) => ({ ...prev, open }))}
-      >
+      <AlertDialog open={deleteConfirm.open} onOpenChange={(open) => !isDeleting && setDeleteConfirm((prev) => ({ ...prev, open }))}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Target</AlertDialogTitle>
@@ -679,14 +709,7 @@ export default function CounsellorLeaderboard() {
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
+              {isDeleting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Deleting...</> : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

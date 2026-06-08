@@ -1,3 +1,5 @@
+import { getReportPeriodBounds } from "@/lib/lead-report-period";
+
 /** Lead is assigned to a telecaller if current_telecaller_id matches (any status). */
 export const isLeadAssignedToTelecaller = (
   lead: { currentTelecallerId?: number | null; isJunk?: boolean; progressStatus?: string },
@@ -29,7 +31,9 @@ export type LeadReportMetricKey =
 
 export type LeadReportDateFilter = "all" | "today" | "weekly" | "monthly" | "custom";
 
-/** Build lead list URL for report drill-down. Assigned = all leads linked to that user (any status). */
+/** Build lead list URL for report drill-down.
+ * Assigned = all leads that are not unassigned.
+ */
 export const buildLeadListUrlFromReport = (input: {
   metric: LeadReportMetricKey;
   dateFilter: LeadReportDateFilter;
@@ -43,11 +47,35 @@ export const buildLeadListUrlFromReport = (input: {
   if (input.counsellorId != null) qs.set("counsellorId", String(input.counsellorId));
   qs.set("clearFilters", "1");
   qs.set("dateFilter", input.dateFilter);
-  if (input.customDateFrom) qs.set("createdFrom", input.customDateFrom);
-  if (input.customDateTo) qs.set("createdTo", input.customDateTo);
+  const bounds = getReportPeriodBounds(
+    input.dateFilter,
+    input.customDateFrom,
+    input.customDateTo
+  );
+  if (bounds) {
+    const from = bounds.from.toISOString();
+    const to = bounds.to.toISOString();
+    if (input.metric === "transferred") {
+      qs.set("transferredFrom", from);
+      qs.set("transferredTo", to);
+    } else if (input.metric === "converted") {
+      qs.set("convertedFrom", from);
+      qs.set("convertedTo", to);
+    } else if (input.metric === "dropped") {
+      qs.set("droppedFrom", from);
+      qs.set("droppedTo", to);
+    } else {
+      qs.set("createdFrom", from);
+      qs.set("createdTo", to);
+    }
+  } else if (input.customDateFrom) {
+    qs.set("createdFrom", input.customDateFrom);
+    if (input.customDateTo) qs.set("createdTo", input.customDateTo);
+  }
 
   switch (input.metric) {
     case "assigned":
+      qs.set("excludeUnassigned", "1");
       qs.set("forReport", "1");
       qs.set("assignedScope", "1");
       break;

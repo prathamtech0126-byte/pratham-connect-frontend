@@ -1,4 +1,5 @@
 import { useRoute, useLocation } from "wouter";
+import { StudentApplicationTracker } from "@/components/students/StudentApplicationTracker";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { clientService } from "@/services/clientService";
 import api from "@/lib/api";
@@ -9,9 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionTabs } from "@/components/tabs/SectionTabs";
 import { format } from "date-fns";
-import { CreditCard, ClipboardList, Info, ChevronDown, ChevronUp, Edit, ArrowLeft, FolderOpen, ListChecks, Route, BookOpen } from "lucide-react";
+import { CreditCard, ClipboardList, Info, ChevronDown, ChevronUp, Edit, ArrowLeft, FolderOpen, ListChecks, Route, BookOpen, GraduationCap } from "lucide-react";
 import { getLatestStageFromPayments } from "@/utils/stageUtils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSocket } from "@/context/socket-context";
 import { useAuth } from "@/context/auth-context";
 import { BACKEND_ALLOWED_ROLES } from "@/constants/roles";
@@ -45,6 +46,34 @@ function parseDateOnly(val: string | Date | null | undefined): Date | null {
 function formatDateLocal(val: string | null | undefined): string {
   const d = parseDateOnly(val);
   return d ? format(d, "dd MMM yyyy") : "N/A";
+}
+
+function resolvePaymentHandlerName(
+  payment: { handledBy?: number | null; handledByUser?: { id: number; name: string } | null },
+  nameById: Record<number, string>
+): string | null {
+  if (payment?.handledByUser?.name) return payment.handledByUser.name;
+  const id = payment?.handledBy != null ? Number(payment.handledBy) : null;
+  if (id == null || Number.isNaN(id)) return null;
+  return nameById[id] ?? null;
+}
+
+function getOtherPaymentHandlerLabel(
+  payment: { handledBy?: number | null; handledByUser?: { id: number; name: string } | null },
+  clientCounsellorId: number | null,
+  nameById: Record<number, string>
+): string | null {
+  const handledBy = payment?.handledBy != null ? Number(payment.handledBy) : null;
+  if (handledBy == null || clientCounsellorId == null || handledBy === clientCounsellorId) return null;
+  return resolvePaymentHandlerName(payment, nameById);
+}
+
+function PaymentTakenByOtherTag({ handlerName }: { handlerName: string }) {
+  return (
+    <span className="text-[11px] leading-tight text-amber-700 dark:text-amber-400">
+      {handlerName} has taken this payment
+    </span>
+  );
 }
 
 // Helper function to render product entity details
@@ -485,6 +514,56 @@ export default function ClientView() {
     staleTime: 0,
   });
 
+  const { data: studentAppsResponse } = useQuery({
+    queryKey: ["student-applications", clientId],
+    queryFn: async () => {
+      const response = await api.get(`/api/student-applications/client/${clientId}`);
+      return response.data;
+    },
+    enabled: !!clientId,
+    refetchOnWindowFocus: false,
+  });
+
+  const studentAppCount = Array.isArray(studentAppsResponse?.data)
+    ? studentAppsResponse.data.length
+    : Number(studentAppsResponse?.count ?? 0);
+
+  const clientCounsellorId = useMemo(() => {
+    if (!client) return null;
+    const cd = (client as any).client || client;
+    const raw =
+      cd.counsellorId ??
+      (typeof cd.counsellor === "object" ? cd.counsellor?.id : null);
+    const id = raw != null ? Number(raw) : null;
+    return id != null && !Number.isNaN(id) ? id : null;
+  }, [client]);
+
+  const otherHandlerIds = useMemo(() => {
+    if (!client || clientCounsellorId == null) return [];
+    const ids = new Set<number>();
+    const maybeAdd = (payment: any) => {
+      const handledBy = payment?.handledBy != null ? Number(payment.handledBy) : null;
+      if (
+        handledBy != null &&
+        !Number.isNaN(handledBy) &&
+        handledBy !== clientCounsellorId &&
+        !payment?.handledByUser?.name
+      ) {
+        ids.add(handledBy);
+      }
+    };
+    for (const payment of (client as any).productPayments ?? []) maybeAdd(payment);
+    for (const payment of (client as any).payments ?? []) maybeAdd(payment);
+    return [...ids];
+  }, [client, clientCounsellorId]);
+
+  const { data: handlerNames = {} } = useQuery({
+    queryKey: ["client-view-handler-names", clientId, otherHandlerIds.slice().sort((a, b) => a - b).join(",")],
+    queryFn: () => clientService.getUserDisplayNames(otherHandlerIds),
+    enabled: otherHandlerIds.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // WebSocket listeners for real-time payment and product payment updates
   useEffect(() => {
     if (!socket || !isConnected || !clientId) {
@@ -701,22 +780,38 @@ export default function ClientView() {
     clientData.transferredToCounsellorId != null ||
     (clientData as any).transferedToCounsellor_id != null;
 
-  // Get saleType from multiple sources: direct property, or from payments array
+  // Get saleType from multiple sources.
+  // API returns { client: {...}, payments: [...] } — payments are at the TOP level of `client`, not inside clientData.
   const getClientSaleType = () => {
-    // First try direct property
-    if (clientData.saleType?.saleType || clientData.salesType) {
-      return clientData.saleType?.saleType || clientData.salesType;
-    }
-    // Then try from payments array
-    if (clientData.payments && Array.isArray(clientData.payments) && clientData.payments.length > 0) {
-      const paymentWithSaleType = clientData.payments.find((p: any) => p.saleType?.saleType);
-      if (paymentWithSaleType?.saleType?.saleType) {
-        return paymentWithSaleType.saleType.saleType;
-      }
-    }
+    // Try direct property on clientData first
+    if (clientData.saleType?.saleType) return clientData.saleType.saleType;
+    if (clientData.salesType) return clientData.salesType;
+
+    // Payments live at client.payments (top-level response), not clientData.payments
+    const payments: any[] =
+      Array.isArray((client as any)?.payments)
+        ? (client as any).payments
+        : Array.isArray(clientData.payments)
+          ? clientData.payments
+          : [];
+
+    // Find the first core-stage payment with a saleType name
+    const corePayment = payments.find(
+      (p: any) =>
+        p?.stage &&
+        ["INITIAL", "BEFORE_VISA", "AFTER_VISA"].includes(p.stage) &&
+        p.saleType?.saleType
+    );
+    if (corePayment) return corePayment.saleType.saleType;
+
+    // Fallback: any payment with a saleType
+    const anyPayment = payments.find((p: any) => p.saleType?.saleType);
+    if (anyPayment) return anyPayment.saleType.saleType;
+
     return "Only Products";
   };
   const clientSaleType = getClientSaleType();
+  const showStudentApplicationsSection = studentAppCount > 0;
   const isBackendViewRole = !!user && BACKEND_ALLOWED_ROLES.includes(user.role);
   const isCxUser = user?.role === "customer_experience";
   const isBindingUser = user?.role === "binding_team";
@@ -916,11 +1011,22 @@ export default function ClientView() {
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {client.payments?.length > 0 ? (
-                          client.payments.map((payment: any, idx: number) => (
+                          client.payments.map((payment: any, idx: number) => {
+                            const otherHandler = getOtherPaymentHandlerLabel(
+                              payment,
+                              clientCounsellorId,
+                              handlerNames
+                            );
+                            return (
                             <div key={idx} className="flex justify-between items-center p-4 rounded-xl border border-gray-100 bg-white shadow-sm">
                               <div>
                                 <p className="font-bold text-[#1A2B3B]">{payment.invoiceNo || "Invoice not added yet"}</p>
                                 <p className="text-xs text-gray-400 font-medium">{formatDateLocal(payment.paymentDate)}</p>
+                                {otherHandler && (
+                                  <div className="mt-1">
+                                    <PaymentTakenByOtherTag handlerName={otherHandler} />
+                                  </div>
+                                )}
                               </div>
                               <div className="text-right flex flex-col items-end gap-1">
                                 <p className="font-black text-lg text-[#1A2B3B]">₹{Number(payment.amount).toLocaleString('en-IN')}</p>
@@ -929,7 +1035,8 @@ export default function ClientView() {
                                 </Badge>
                               </div>
                             </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <p className="col-span-full text-center py-8 text-gray-400 italic text-sm">No payment records found.</p>
                         )}
@@ -971,6 +1078,11 @@ export default function ClientView() {
                                 : Number(prod.entity?.amount ?? prod.amount ?? 0);
                               const isExpanded = expandedProducts.has(idx);
                               const hasDetails = prod.entity || prod.entityType === "master_only";
+                              const otherHandler = getOtherPaymentHandlerLabel(
+                                prod,
+                                clientCounsellorId,
+                                handlerNames
+                              );
 
                               return (
                                 <div
@@ -992,6 +1104,7 @@ export default function ClientView() {
                                       )}
                                     </div>
                                     <span className="font-black text-lg text-[#1A2B3B]">₹{Number(productAmount).toLocaleString('en-IN')}</span>
+                                    {otherHandler && <PaymentTakenByOtherTag handlerName={otherHandler} />}
                                   </div>
 
                                   {hasDetails && isExpanded && (
@@ -1009,6 +1122,27 @@ export default function ClientView() {
                       </div>
                     </CardContent>
                   </Card>
+
+                  {showStudentApplicationsSection && (
+                    <Card className="border-none shadow-md overflow-hidden bg-white">
+                      <CardHeader className="pb-4 border-b border-gray-50">
+                        <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                          <GraduationCap className="h-6 w-6 text-emerald-600" />
+                          Student Applications
+                          <Badge variant="secondary" className="ml-1">
+                            {studentAppCount}
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-6">
+                        <StudentApplicationTracker
+                          clientId={clientId ?? clientData?.clientId}
+                          compact
+                          readOnly
+                        />
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               ),
             },

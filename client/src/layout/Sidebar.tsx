@@ -46,6 +46,7 @@ import darkLogoUrl from "@/assets/images/pratham-logo-dark-mode.svg";
 import { useAuth, UserRole } from "@/context/auth-context";
 import { INCENTIVE_ROLES } from "@/constants/roles";
 import { hasFullAccess } from "@/lib/role-access";
+import { canAccessLeadAutomation } from "@/lib/lead-permissions";
 import { useTheme } from "@/components/theme-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ProfileDialog } from "@/components/profile-dialog";
@@ -787,7 +788,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       <span className="truncate">Kanban</span>
                     </Link>
                     */}
-                    {user && ["superadmin", "developer", "manager", "marketing_head"].includes(user.role) && (
+                    {user && canAccessLeadAutomation(user.role) && (
                       <Link
                         href="/leads/automation"
                         className={cn(

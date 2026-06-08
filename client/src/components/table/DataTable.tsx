@@ -20,9 +20,10 @@ interface DataTableProps<T> {
   }[];
   className?: string;
   onRowClick?: (item: T) => void;
+  rowClassName?: (item: T, index: number) => string;
 }
 
-export function DataTable<T>({ data, columns, className, onRowClick }: DataTableProps<T>) {
+export function DataTable<T>({ data, columns, className, onRowClick, rowClassName }: DataTableProps<T>) {
   return (
     <div className={cn("rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden", className)}>
       <div className="overflow-x-auto">
@@ -62,8 +63,9 @@ export function DataTable<T>({ data, columns, className, onRowClick }: DataTable
                 <TableRow 
                   key={rowIndex} 
                   className={cn(
-                    "hover:bg-muted/30 transition-colors border-b border-border/40 last:border-0", 
-                    onRowClick && "cursor-pointer active:bg-muted/50"
+                    "hover:bg-muted/30 transition-colors border-b border-border/40 last:border-0",
+                    onRowClick && "cursor-pointer active:bg-muted/50",
+                    rowClassName?.(item, rowIndex)
                   )}
                   onClick={() => onRowClick?.(item)}
                 >

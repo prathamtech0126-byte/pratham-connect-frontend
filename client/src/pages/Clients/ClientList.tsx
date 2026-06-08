@@ -1100,6 +1100,30 @@ export default function ClientList() {
       if (!salesType) {
         salesType = "Only Products";
       }
+
+      // Append application/TD suffix for student clients
+      const saleTypeCategory = String(
+        client.saleType?.categoryName ||
+        (client.payments && Array.isArray(client.payments)
+          ? client.payments.find((p: any) => p.saleType?.categoryName)?.saleType?.categoryName
+          : "") || ""
+      ).toLowerCase();
+      const hasTutionFees = Array.isArray(client.productPayments)
+        ? client.productPayments.some(
+            (p: any) =>
+              p?.productName === "TUTION_FEES" &&
+              p?.entity?.tutionFeesStatus === "paid"
+          )
+        : false;
+      const hasStudentApplication =
+        (Array.isArray(client.studentApplications) && client.studentApplications.length > 0) ||
+        (typeof client.studentApplicationsCount === "number" && client.studentApplicationsCount > 0);
+      if (saleTypeCategory === "student") {
+        if (hasStudentApplication && hasTutionFees) salesType += " (Application + TD)";
+        else if (hasStudentApplication) salesType += " (Application)";
+        else if (hasTutionFees) salesType += " (TD)";
+      }
+
       const status = client.status || (client.archived ? "Archived" : "Active") || "Active";
       const productManager = client.productManager || client.product_manager || "N/A";
 
@@ -1257,7 +1281,20 @@ export default function ClientList() {
   const getColumns = (counsellorId: string | null) => [
     { header: "Sr No", cell: (_: Client, index: number) => <span className="text-slate-400 font-mono text-xs">{String(index + 1).padStart(2, '0')}</span>, className: "w-[60px]" },
     { header: "Name", accessorKey: "name", className: "font-semibold text-slate-900 " },
-    { header: "Sales Type", cell: (s: Client) => <Badge variant="outline" className="font-normal whitespace-nowrap bg-slate-50 text-slate-600 border-slate-200">{s.salesType}</Badge> },
+    {
+      header: "Sales Type",
+      cell: (s: Client) => {
+        const hasTD = String(s.salesType).includes("(TD)") || String(s.salesType).includes("(Application + TD)");
+        return (
+          <Badge
+            variant="outline"
+            className={`font-normal whitespace-nowrap ${hasTD ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-50 text-slate-600 border-slate-200"}`}
+          >
+            {s.salesType}
+          </Badge>
+        );
+      }
+    },
     { header: "Enrollment Date", accessorKey: "enrollmentDate", className: "whitespace-nowrap text-slate-500" },
     { header: "Total Payment", cell: (s: Client) => `₹${s.totalPayment.toLocaleString('en-IN')}` },
     { header: "Received", cell: (s: Client) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString('en-IN')}</span> },
@@ -1794,6 +1831,11 @@ export default function ClientList() {
                               data={invalidDateClients}
                               columns={columns}
                               onRowClick={(s) => navigateToClient(s.id, "view", null)}
+                              rowClassName={(s: any) =>
+                                Array.isArray(s.productPayments) && s.productPayments.some((p: any) => p?.productName === "TUTION_FEES" && p?.entity?.tutionFeesStatus === "paid")
+                                  ? "bg-emerald-50 hover:bg-emerald-100"
+                                  : ""
+                              }
                             />
                           </div>
                         </AccordionContent>
@@ -1834,6 +1876,11 @@ export default function ClientList() {
                                   data={yearMonthGrouped[year][month]}
                                   columns={columns}
                                   onRowClick={(s) => navigateToClient(s.id, "view", null)}
+                                  rowClassName={(s: any) =>
+                                    Array.isArray(s.productPayments) && s.productPayments.some((p: any) => p?.productName === "TUTION_FEES" && p?.entity?.tutionFeesStatus === "paid")
+                                      ? "bg-emerald-50 hover:bg-emerald-100"
+                                      : ""
+                                  }
                                 />
                               </AccordionContent>
                             </AccordionItem>
@@ -2132,11 +2179,17 @@ export default function ClientList() {
                                                               amountReceived: totalReceived,
                                                               amountPending: totalPending,
                                                               status: (client.archived ? "Dropped" : "Active") as 'Active' | 'Completed' | 'Pending' | 'Dropped',
-                                                              stage: (getLatestStageFromPayments(client.payments, client.stage, client.visaSubmitted) || "N/A") as any
+                                                              stage: (getLatestStageFromPayments(client.payments, client.stage, client.visaSubmitted) || "N/A") as any,
+                                                              productPayments: client.productPayments || [],
                                                             };
                                                           })}
                                                         columns={getColumns(counsellorId)}
                                                         onRowClick={(s) => navigateToClient(s.id, "view", counsellorId)}
+                                                        rowClassName={(s: any) =>
+                                                          Array.isArray(s.productPayments) && s.productPayments.some((p: any) => p?.productName === "TUTION_FEES" && p?.entity?.tutionFeesStatus === "paid")
+                                                            ? "bg-emerald-50 hover:bg-emerald-100"
+                                                            : ""
+                                                        }
                                                       />
                                                     </AccordionContent>
                                                   </AccordionItem>

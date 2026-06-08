@@ -1064,6 +1064,17 @@ export default function CounsellorReportPage() {
   const pa   = report?.product_analytics;
   const saleTypeCategoryCounts = report?.sale_type_category_counts ?? [];
 
+  // Build All-Clients URL for drill-down: filters by this counsellor + date range + optional client type
+  const actualCounsellorId = report?.counsellor?.id;
+  const toClientsUrl = (clientType?: string): string => {
+    const base = "/clients/all-counsellor-clients";
+    const parts: string[] = [];
+    if (actualCounsellorId) parts.push(`counsellorId=${actualCounsellorId}`);
+    if (clientType) parts.push(`clientType=${clientType}`);
+    parts.push(`from=${queryStartDate}&to=${queryEndDate}`);
+    return `${base}?${parts.join("&")}`;
+  };
+
   return (
     <PageWrapper
       title={counsellorName}
@@ -1260,16 +1271,16 @@ export default function CounsellorReportPage() {
           <>
             {/* Performance KPIs */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard icon={<IndianRupee />} label="Total Revenue"      value={formatCurrency(perf?.total_revenue ?? 0)}         color="primary" />
-              <StatCard icon={<Users />}       label="Total Enrollments"  value={String(perf?.total_enrollments ?? 0)}              color="blue"    />
-              <StatCard icon={<Package />}     label="Core Sale Rev"      value={formatCurrency(perf?.core_sale_revenue ?? 0)}      color="violet"  />
-              <StatCard icon={<ShoppingBag />} label="Core Product Rev"   value={formatCurrency(perf?.core_product_revenue ?? 0)}   color="amber"   />
+              <StatCard icon={<IndianRupee />} label="Total Revenue"      value={formatCurrency(perf?.total_revenue ?? 0)}         color="primary" onClick={() => setLocation(toClientsUrl())} />
+              <StatCard icon={<Users />}       label="Total Enrollments"  value={String(perf?.total_enrollments ?? 0)}              color="blue"    onClick={() => setLocation(toClientsUrl())} />
+              <StatCard icon={<Package />}     label="Core Sale Rev"      value={formatCurrency(perf?.core_sale_revenue ?? 0)}      color="violet"  onClick={() => setLocation(toClientsUrl("core"))} />
+              <StatCard icon={<ShoppingBag />} label="Core Product Rev"   value={formatCurrency(perf?.core_product_revenue ?? 0)}   color="amber"   onClick={() => setLocation(toClientsUrl("core-product"))} />
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard icon={<ShoppingBag />} label="Other Product Rev"  value={formatCurrency(perf?.other_product_revenue ?? 0)}  color="teal"    />
-              <StatCard icon={<IndianRupee />} label="Avg Rev / Client"   value={formatCurrency(perf?.average_revenue_per_client ?? 0)} color="rose" />
+              <StatCard icon={<ShoppingBag />} label="Other Product Rev"  value={formatCurrency(perf?.other_product_revenue ?? 0)}  color="teal"    onClick={() => setLocation(toClientsUrl("other-product"))} />
+              <StatCard icon={<IndianRupee />} label="Avg Rev / Client"   value={formatCurrency(perf?.average_revenue_per_client ?? 0)} color="rose" onClick={() => setLocation(toClientsUrl())} />
               <StatCard icon={<Users />}       label="Archived Clients"   value={String(perf?.archived_count ?? 0)}                 color="slate"   />
-              <StatCard icon={<Clock />} label="Pending Amount"   value={formatCurrency(Number(perf?.pending_amount) || 0)}   color="red"   />
+              <StatCard icon={<Clock />}       label="Pending Amount"     value={formatCurrency(Number(perf?.pending_amount) || 0)} color="red"     onClick={() => setLocation(toClientsUrl("pending"))} />
             </div>
 
             {/* Sale type categories (count + amount per category) */}
@@ -1287,32 +1298,41 @@ export default function CounsellorReportPage() {
                 </CardHeader>
                 <CardContent className="pt-5">
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {saleTypeCategoryCounts.map((row) => (
-                      <Card key={row.category_id} className="border-border/60 rounded-lg">
-                        <CardContent className="p-4 space-y-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-semibold text-foreground">
-                              {formatCategoryLabel(row.category_name)}
-                            </p>
-                            <Badge variant="secondary" className="text-xs">
-                              ID: {row.category_id}
-                            </Badge>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="rounded-md bg-muted/40 p-3">
-                              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Count</p>
-                              <p className="mt-1 text-xl font-bold tabular-nums">{row.count}</p>
-                            </div>
-                            <div className="rounded-md bg-muted/40 p-3">
-                              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Amount</p>
-                              <p className="mt-1 text-base font-bold tabular-nums">
-                                {formatCurrency(parseAmount(row.amount))}
+                    {saleTypeCategoryCounts.map((row) => {
+                      const catLower = row.category_name?.toLowerCase() ?? "";
+                      const clientType =
+                        catLower === "student" ? "student" :
+                        catLower === "visitor" || catLower === "spouse" ? "core" :
+                        undefined;
+                      return (
+                        <Card
+                          key={row.category_id}
+                          className={`border-border/60 rounded-lg${clientType ? " cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+                          onClick={clientType ? () => setLocation(toClientsUrl(clientType)) : undefined}
+                        >
+                          <CardContent className="p-4 space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-semibold text-foreground">
+                                {formatCategoryLabel(row.category_name)}
+                                {catLower === "student" && <span className="ml-1 text-xs font-normal text-muted-foreground">(with TD)</span>}
                               </p>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="rounded-md bg-muted/40 p-3">
+                                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Count</p>
+                                <p className="mt-1 text-xl font-bold tabular-nums">{row.count}</p>
+                              </div>
+                              <div className="rounded-md bg-muted/40 p-3">
+                                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Amount</p>
+                                <p className="mt-1 text-base font-bold tabular-nums">
+                                  {formatCurrency(parseAmount(row.amount))}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -1537,11 +1557,13 @@ function StatCard({
   label,
   value,
   color,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   color: "primary" | "blue" | "violet" | "amber" | "teal" | "rose" | "slate" | "red";
+  onClick?: () => void;
 }) {
   const colorMap: Record<string, string> = {
     primary: "bg-primary/10 text-primary",
@@ -1554,7 +1576,10 @@ function StatCard({
     red:     "bg-red-100 text-red-600",
   };
   return (
-    <Card className="border-border/50 rounded-xl overflow-hidden">
+    <Card
+      className={`border-border/50 rounded-xl overflow-hidden${onClick ? " cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+      onClick={onClick}
+    >
       <CardContent className="p-4 flex items-center gap-3">
         <div className={`p-2 rounded-lg ${colorMap[color]}`}>{icon}</div>
         <div className="min-w-0">
