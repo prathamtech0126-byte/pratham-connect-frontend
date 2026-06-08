@@ -17,7 +17,7 @@ import { format, startOfMonth } from "date-fns";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
-import { canUseCsvImportExport } from "@/lib/lead-permissions";
+import { canAccessLeadAutomation } from "@/lib/lead-permissions";
 import { getLeads, type LeadEntity } from "@/api/leads.api";
 import {
   getMetaConversionsStatus,
@@ -161,7 +161,7 @@ function resolveDateRange(
 export default function MetaConversionsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const canAccess = Boolean(user && canUseCsvImportExport(user.role));
+  const canAccess = Boolean(user && canAccessLeadAutomation(user.role));
 
   // Status
   const [status, setStatus] = useState<MetaConversionsStatus | null>(null);

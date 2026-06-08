@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { useAuth } from "@/context/auth-context";
-import { canUseCsvImportExport } from "@/lib/lead-permissions";
+import { canAccessLeadAutomation } from "@/lib/lead-permissions";
 import { Redirect } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -118,7 +118,7 @@ const LEAD_AUTOMATIONS: AutomationItem[] = [
 export default function LeadAutomation() {
   const { user } = useAuth();
 
-  if (!user || !canUseCsvImportExport(user.role)) {
+  if (!user || !canAccessLeadAutomation(user.role)) {
     return <Redirect to="/" />;
   }
 

@@ -16,6 +16,7 @@ import {
   CLIENT_FOLDER_ALLOWED_ROLES,
   CX_ALLOWED_ROLES,
   INCENTIVE_ROLES,
+  LEAD_AUTOMATION_ALLOWED_ROLES,
 } from "@/constants/roles";
 import { canAccessByRole } from "@/lib/role-access";
 import { SocketProvider } from "@/context/socket-context";
@@ -455,22 +456,28 @@ function Router() {
           {() => <ProtectedRoute component={LeadKanban} />}
         </Route>
         <Route path="/leads/automation/configure/:id">
-          {(params) => <ProtectedRoute component={LeadAutomationConfigure} params={params} />}
+          {(params) => (
+            <ProtectedRoute
+              component={LeadAutomationConfigure}
+              params={params}
+              allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES}
+            />
+          )}
         </Route>
         <Route path="/leads/automation/meta-conversions">
-          {() => <ProtectedRoute component={MetaConversionsPage} />}
+          {() => <ProtectedRoute component={MetaConversionsPage} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
         </Route>
         <Route path="/leads/automation/facebook/master-distribution">
-          {() => <ProtectedRoute component={FacebookMasterDistribution} />}
+          {() => <ProtectedRoute component={FacebookMasterDistribution} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
         </Route>
         <Route path="/leads/automation/facebook/manual-distribution">
-          {() => <ProtectedRoute component={FacebookManualDistribution} />}
+          {() => <ProtectedRoute component={FacebookManualDistribution} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
         </Route>
         <Route path="/leads/automation/facebook">
-          {() => <ProtectedRoute component={FacebookLeadAutomation} />}
+          {() => <ProtectedRoute component={FacebookLeadAutomation} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
         </Route>
         <Route path="/leads/automation">
-          {() => <ProtectedRoute component={LeadAutomation} />}
+          {() => <ProtectedRoute component={LeadAutomation} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
         </Route>
         <Route path="/leads/import">
           {() => <ProtectedRoute component={LeadImport} />}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { useAuth } from "@/context/auth-context";
-import { canUseCsvImportExport } from "@/lib/lead-permissions";
+import { canAccessLeadAutomation } from "@/lib/lead-permissions";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -1057,7 +1057,7 @@ export default function FacebookLeadAutomation() {
   }, []);
 
   useEffect(() => {
-    if (user && canUseCsvImportExport(user.role)) {
+    if (user && canAccessLeadAutomation(user.role)) {
       const params = new URLSearchParams(window.location.search);
       const justConnected = params.get("connected") === "1";
       if (justConnected) {

@@ -5,6 +5,7 @@ import api from '@/lib/api';
 
 export type UserRole =
   | 'superadmin'
+  | 'admin'
   | 'developer'
   | 'manager'
   | 'counsellor'

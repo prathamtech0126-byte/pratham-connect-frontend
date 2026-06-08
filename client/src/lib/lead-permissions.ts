@@ -22,6 +22,13 @@ export function canUseCsvImportExport(role: UserRole): boolean {
   return ["superadmin", "developer", "manager", "marketing_head"].includes(role);
 }
 
+/** Lead automation (Facebook, Meta conversions, etc.) — not available to managers. */
+export function canAccessLeadAutomation(role: UserRole | string | undefined | null): boolean {
+  if (hasFullAccess(role)) return true;
+  if (!role) return false;
+  return ["superadmin", "admin", "marketing_head"].includes(role);
+}
+
 export function canConvertToClient(role: UserRole): boolean {
   if (hasFullAccess(role)) return true;
   return role === "telecaller";
