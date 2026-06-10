@@ -3,6 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -55,7 +58,11 @@ import {
   PenLine,
   X,
   CalendarIcon,
+  Wallet,
+  Package,
+  BadgeCheck,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { SimpleCalendar } from "@/components/ui/simple-calendar";
@@ -87,6 +94,11 @@ export interface StudentApplication {
   currentStageKey: string;
   stages: ApplicationStage[];
   createdAt: string;
+  tuitionDepositTaken?: boolean;
+  tuitionDepositStatus?: "paid" | "pending" | null;
+  tuitionDepositDate?: string | null;
+  tuitionDepositRemarks?: string | null;
+  tuitionDepositProductPaymentId?: number | null;
 }
 
 interface SaleTypeOption {
@@ -152,6 +164,11 @@ function mapApiApplication(row: {
   applicationDate?: string | null;
   note?: string | null;
   createdAt?: string | Date | null;
+  tuitionDepositTaken?: boolean;
+  tuitionDepositStatus?: "paid" | "pending" | null;
+  tuitionDepositDate?: string | null;
+  tuitionDepositRemarks?: string | null;
+  tuitionDepositProductPaymentId?: number | null;
 }): StudentApplication {
   const stageKey = normalizeStageKey(row.status);
   return {
@@ -168,6 +185,11 @@ function mapApiApplication(row: {
     createdAt: row.createdAt
       ? new Date(row.createdAt).toLocaleDateString("en-IN")
       : new Date().toLocaleDateString("en-IN"),
+    tuitionDepositTaken: row.tuitionDepositTaken ?? false,
+    tuitionDepositStatus: row.tuitionDepositStatus ?? null,
+    tuitionDepositDate: row.tuitionDepositDate ?? null,
+    tuitionDepositRemarks: row.tuitionDepositRemarks ?? null,
+    tuitionDepositProductPaymentId: row.tuitionDepositProductPaymentId ?? null,
   };
 }
 
@@ -555,20 +577,136 @@ function StageStatusPicker({
   );
 }
 
+function TuitionDepositDialog({
+  app,
+  open,
+  onClose,
+  onSave,
+  saving,
+}: {
+  app: StudentApplication | null;
+  open: boolean;
+  onClose: () => void;
+  onSave: (payload: { status: string; date: string; remarks: string }) => Promise<void>;
+  saving: boolean;
+}) {
+  const [status, setStatus] = useState("Pending");
+  const [date, setDate] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [dateOpen, setDateOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open || !app) return;
+    const currentStatus = app.tuitionDepositStatus === "paid" ? "Paid" : app.tuitionDepositStatus === "pending" ? "Pending" : "";
+    setStatus(currentStatus);
+    setDate(app.tuitionDepositDate ?? "");
+    setRemarks(app.tuitionDepositRemarks ?? "");
+  }, [open, app]);
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Tuition Deposit</DialogTitle>
+        </DialogHeader>
+        {app && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Record tuition deposit for <span className="font-semibold text-foreground">{app.university}</span>
+            </p>
+            <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+              <Label className="text-base font-semibold">Tuition Deposit</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select value={status} onValueChange={setStatus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Paid">Paid</SelectItem>
+                      <SelectItem value="Pending">Pending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Popover open={dateOpen} onOpenChange={setDateOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !date && "text-muted-foreground",
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? format(new Date(date), "dd MMM yyyy") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <SimpleCalendar
+                        value={date ? new Date(date) : null}
+                        maxDate={new Date()}
+                        onChange={(d) => {
+                          const picked = Array.isArray(d) ? d[0] : d;
+                          if (picked instanceof Date) {
+                            setDate(format(picked, "yyyy-MM-dd"));
+                            setDateOpen(false);
+                          }
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Remarks</Label>
+                <Textarea
+                  placeholder="Tuition deposit remarks..."
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            disabled={saving || !status}
+            onClick={async () => {
+              await onSave({ status, date, remarks });
+            }}
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Tuition Deposit"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ApplicationCard({
   app,
   onUpdateStage,
   onView,
   onDelete,
   onNoteUpdate,
+  onOpenTuitionDeposit,
   readOnly = false,
+  variant = "default",
 }: {
   app: StudentApplication;
   onUpdateStage: (id: string, stage: string) => void;
   onView: (app: StudentApplication) => void;
   onDelete?: (app: StudentApplication) => void;
   onNoteUpdate?: (app: StudentApplication, note: string) => Promise<void>;
+  onOpenTuitionDeposit?: (app: StudentApplication) => void;
   readOnly?: boolean;
+  variant?: "default" | "clientInfo";
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -594,6 +732,140 @@ function ApplicationCard({
     } finally {
       setSavingNote(false);
     }
+  }
+
+  if (variant === "clientInfo") {
+    const tuitionDepositLabel = app.tuitionDepositTaken
+      ? "Tuition Deposit Taken"
+      : app.tuitionDepositStatus === "pending"
+        ? "Tuition Deposit Pending"
+        : "Not Recorded";
+
+    return (
+      <div
+        className={cn(
+          "rounded-xl border bg-white shadow-sm overflow-hidden",
+          app.tuitionDepositTaken ? "border-emerald-200" : "border-gray-100",
+        )}
+      >
+        <div className="p-5 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-mono font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md">
+                {app.id}
+              </span>
+              {app.saleType && (
+                <Badge className="text-[10px] bg-[#1A2B3B] text-white hover:bg-[#1A2B3B]">
+                  {app.saleType}
+                </Badge>
+              )}
+              {app.tuitionDepositTaken && (
+                <Badge className="text-[10px] bg-emerald-600 text-white hover:bg-emerald-600 gap-1">
+                  <BadgeCheck className="h-3 w-3" />
+                  Tuition Deposit Taken
+                </Badge>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-primary hover:text-primary"
+              onClick={() => onView(app)}
+            >
+              <Eye className="h-4 w-4 mr-1" />
+              View
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2 text-sm">
+            <span className="text-gray-500">Tuition Deposit</span>
+            <span
+              className={cn(
+                "font-semibold sm:text-right",
+                app.tuitionDepositTaken
+                  ? "text-emerald-700"
+                  : app.tuitionDepositStatus === "pending"
+                    ? "text-amber-700"
+                    : "text-gray-500",
+              )}
+            >
+              {tuitionDepositLabel}
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="text-base font-bold text-[#1A2B3B] uppercase leading-snug tracking-wide">
+              {app.university}
+            </h4>
+
+            {app.country && (
+              <p className="text-sm text-gray-500 flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                <span>{app.country}</span>
+              </p>
+            )}
+
+            {courses.length > 0 && (
+              <ul className="space-y-1">
+                {courses.map((course, i) => (
+                  <li key={i} className="text-sm text-gray-600 flex items-start gap-1.5 leading-snug">
+                    <span className="text-gray-400 mt-1.5">•</span>
+                    <span>{course}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {app.applicationDate && (
+              <p className="text-sm text-gray-500 flex items-center gap-1.5">
+                <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Applied{" "}
+                  {new Date(app.applicationDate).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+              </p>
+            )}
+
+            {app.note && (
+              <p className="text-sm text-gray-600">
+                <span className="text-gray-400">Note:</span> {app.note}
+              </p>
+            )}
+
+            <div className="pt-1">
+              <StageStatusPicker
+                value={app.currentStageKey}
+                onChange={(stageKey) => onUpdateStage(app.id, stageKey)}
+              />
+            </div>
+          </div>
+        </div>
+
+        {onOpenTuitionDeposit && (
+          <div className="mx-5 mb-5 rounded-lg border border-gray-100 bg-gray-50/60 p-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-gray-500" />
+                Tuition Deposit
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 text-xs font-medium border-gray-200 bg-white hover:bg-gray-50"
+                onClick={() => onOpenTuitionDeposit(app)}
+              >
+                <Package className="h-3.5 w-3.5 mr-1.5" />
+                {app.tuitionDepositStatus ? "Update Tuition Deposit" : "Add Tuition Deposit"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -1448,6 +1720,8 @@ interface StudentApplicationTrackerProps {
   onCountChange?: (count: number) => void;
   compact?: boolean;
   readOnly?: boolean;
+  variant?: "default" | "compact" | "clientInfo";
+  onAddApplication?: () => void;
 }
 
 export const StudentApplicationTracker = forwardRef<StudentApplicationTrackerHandle, StudentApplicationTrackerProps>(
@@ -1459,6 +1733,8 @@ function StudentApplicationTracker({
   onCountChange,
   compact = false,
   readOnly = false,
+  variant = "default",
+  onAddApplication,
 }: StudentApplicationTrackerProps, ref) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1470,6 +1746,8 @@ function StudentApplicationTracker({
     },
   }));
   const [viewingApp, setViewingApp] = useState<StudentApplication | null>(null);
+  const [tuitionDepositApp, setTuitionDepositApp] = useState<StudentApplication | null>(null);
+  const [savingTuitionDeposit, setSavingTuitionDeposit] = useState(false);
   const numericClientId = clientId ? Number(clientId) : null;
   const useApi = Number.isFinite(numericClientId);
 
@@ -1694,8 +1972,100 @@ function StudentApplicationTracker({
     [applications, useApi, numericClientId, queryClient, refetch, toast],
   );
 
+  const handleSaveTuitionDeposit = useCallback(
+    async (payload: { status: string; date: string; remarks: string }) => {
+      if (!tuitionDepositApp?.applicationId) return;
+      setSavingTuitionDeposit(true);
+      try {
+        const status = payload.status.toLowerCase();
+        await api.post(
+          `/api/student-applications/${tuitionDepositApp.applicationId}/tuition-deposit`,
+          {
+            status,
+            date: payload.date || null,
+            remarks: payload.remarks || null,
+          },
+        );
+        await refetch();
+        if (numericClientId) {
+          queryClient.invalidateQueries({ queryKey: ["client-complete", numericClientId] });
+        }
+        toast({
+          title: "Tuition deposit saved",
+          description: `Tuition deposit recorded for ${tuitionDepositApp.university}.`,
+        });
+        setTuitionDepositApp(null);
+      } catch (error: any) {
+        toast({
+          title: "Failed to save tuition deposit",
+          description: error.response?.data?.message || error.message || "Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setSavingTuitionDeposit(false);
+      }
+    },
+    [tuitionDepositApp, refetch, numericClientId, queryClient, toast],
+  );
+
+  const resolvedVariant = variant !== "default" ? variant : compact ? "compact" : "default";
+
+  // ── Client info view (read-only list with payment add-ons) ────────────────
+  if (resolvedVariant === "clientInfo") {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-[#1A2B3B]">
+              {applications.length} application{applications.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+          {onAddApplication && (
+            <Button
+              size="sm"
+              className="h-9 bg-[#1A2B3B] hover:bg-[#152232] text-white"
+              onClick={onAddApplication}
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              Add Another Application
+            </Button>
+          )}
+        </div>
+
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground italic text-center py-8 flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading applications...
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {applications.map((app: StudentApplication) => (
+              <ApplicationCard
+                key={app.id}
+                app={app}
+                variant="clientInfo"
+                onUpdateStage={handleUpdateStage}
+                onView={setViewingApp}
+                onOpenTuitionDeposit={setTuitionDepositApp}
+              />
+            ))}
+          </div>
+        )}
+
+        <TuitionDepositDialog
+          app={tuitionDepositApp}
+          open={!!tuitionDepositApp}
+          onClose={() => setTuitionDepositApp(null)}
+          onSave={handleSaveTuitionDeposit}
+          saving={savingTuitionDeposit}
+        />
+        <ViewTimelineDialog app={viewingApp} onClose={() => setViewingApp(null)} />
+      </div>
+    );
+  }
+
   // ── Compact mode ──────────────────────────────────────────────────────────
-  if (compact) {
+  if (resolvedVariant === "compact") {
     return (
       <div className="space-y-3">
         {isLoading ? (

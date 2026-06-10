@@ -68,7 +68,12 @@ function parseFlexibleDate(value: unknown): number | null {
   if (!s) return null;
   const dmy = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
   if (dmy) {
-    const t = new Date(`${dmy[3]}-${dmy[2]}-${dmy[1]}`).getTime();
+    const t = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1])).getTime();
+    return Number.isNaN(t) ? null : t;
+  }
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const t = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])).getTime();
     return Number.isNaN(t) ? null : t;
   }
   const t = new Date(s).getTime();
@@ -188,9 +193,50 @@ function collectCoreProductHandlerIds(
   return [...ids];
 }
 
-function isStudentClientRow(row: AllCounsellorClientRow): boolean {
-  const cat = row.saleTypeCategory ?? "";
-  return cat === "student" || row.hasStudentApplication;
+function hasStudentApplicationDateInRange(
+  applicationDates: string[],
+  fromMs: number,
+  toMs: number
+): boolean {
+  return applicationDates.some((d) => isDateInRange(d, fromMs, toMs));
+}
+
+/** Matches dashboard getStudentStats pool: application_date in period. */
+function isStudentInDashboardRange(
+  row: AllCounsellorClientRow,
+  fromMs: number | null,
+  toMs: number | null
+): boolean {
+  if (fromMs != null && toMs != null) {
+    return hasStudentApplicationDateInRange(row.studentApplicationDates, fromMs, toMs);
+  }
+  return row.hasStudentApplication || row.studentApplicationDates.length > 0;
+}
+
+/** Student core sale type enrolled in period (sale type only — no application/TD suffix). */
+function isStudentSaleTypeInEnrollmentRange(
+  row: AllCounsellorClientRow,
+  fromMs: number | null,
+  toMs: number | null
+): boolean {
+  const isStudentSale =
+    row.saleTypeCategory === "student" || /\bstudent\b/i.test(row.salesType ?? "");
+  if (!isStudentSale) return false;
+  if (fromMs == null || toMs == null) return true;
+  if (!row.enrollmentDate) return false;
+  return isDateInRange(row.enrollmentDate, fromMs, toMs);
+}
+
+/** Full student list when drilling down from dashboard Students card. */
+function matchesStudentListFilter(
+  row: AllCounsellorClientRow,
+  fromMs: number | null,
+  toMs: number | null
+): boolean {
+  return (
+    isStudentInDashboardRange(row, fromMs, toMs) ||
+    isStudentSaleTypeInEnrollmentRange(row, fromMs, toMs)
+  );
 }
 
 function matchesDashboardDateFilter(
@@ -221,14 +267,8 @@ function matchesDashboardDateFilter(
     clientTypeFilter === "student-td" ||
     clientTypeFilter === "student-no-td"
   ) {
-    const enrollmentMatch = row.enrollmentDate
-      ? isDateInRange(row.enrollmentDate, fromMs, toMs)
-      : false;
-    const allFinanceMatch = hasAllFinanceInRange(productPayments, fromMs, toMs);
-    if (clientTypeFilter === "student-no-td") {
-      return enrollmentMatch;
-    }
-    return enrollmentMatch || allFinanceMatch;
+    // Date range applied in matchClientType (same rules as dashboard studentStats)
+    return true;
   }
 
   if (!row.enrollmentDate) return false;
@@ -279,7 +319,18 @@ function mapRawToRow(
     Array.isArray(raw.productPayments) &&
     raw.productPayments.some((p: any) => !!p?.productName);
 
+  const studentApplicationDates: string[] = [];
+  if (Array.isArray(raw.studentApplications)) {
+    for (const app of raw.studentApplications) {
+      const d = app?.applicationDate ?? app?.application_date;
+      if (d != null && String(d).trim() !== "") {
+        studentApplicationDates.push(String(d));
+      }
+    }
+  }
+
   const hasStudentApplication =
+    studentApplicationDates.length > 0 ||
     !!raw.studentAppSaleType ||
     (Array.isArray(raw.studentApplications) && raw.studentApplications.length > 0) ||
     (typeof raw.studentApplicationsCount === "number" && raw.studentApplicationsCount > 0);
@@ -317,6 +368,7 @@ function mapRawToRow(
     hasOtherProduct,
     hasTutionFees,
     hasStudentApplication,
+    studentApplicationDates,
     stage,
     totalPayment,
     amountReceived,
@@ -402,6 +454,12 @@ export default function AllCounsellorClientsPage() {
   const toDate = urlParams.get("to") ?? "";
   const counsellorIdParam = urlParams.get("counsellorId");
 
+  const dashboardPeriodMs = useMemo(() => {
+    const fromMs = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : null;
+    const toMs = toDate ? new Date(toDate).setHours(23, 59, 59, 999) : null;
+    return { fromMs, toMs };
+  }, [fromDate, toDate]);
+
   const isCounsellor = user?.role === "counsellor";
   const loggedInCounsellorId = user?.id != null ? Number(user.id) : null;
 
@@ -460,12 +518,13 @@ export default function AllCounsellorClientsPage() {
         (stageFilter === "after" && stage === "After Visa");
 
       const cat = row.saleTypeCategory ?? "";
-      const isStudent = isStudentClientRow(row);
+      const studentInDashboardRange = isStudentInDashboardRange(row, fromMs, toMs);
+      const studentListMatch = matchesStudentListFilter(row, fromMs, toMs);
       const matchClientType =
         clientTypeFilter === "all" ||
-        (clientTypeFilter === "student" && isStudent) ||
-        (clientTypeFilter === "student-td" && isStudent && row.hasTutionFees) ||
-        (clientTypeFilter === "student-no-td" && isStudent && !row.hasTutionFees) ||
+        (clientTypeFilter === "student" && studentListMatch) ||
+        (clientTypeFilter === "student-td" && studentInDashboardRange && row.hasTutionFees) ||
+        (clientTypeFilter === "student-no-td" && studentInDashboardRange && !row.hasTutionFees) ||
         (clientTypeFilter === "core" && (cat === "visitor" || cat === "spouse")) ||
         (clientTypeFilter === "core-product" && row.hasAllFinance) ||
         (clientTypeFilter === "other-product" && row.hasOtherProduct) ||
@@ -673,6 +732,8 @@ export default function AllCounsellorClientsPage() {
               sessionStorage.removeItem("client_list_return_counsellor_name");
               setLocation(`/clients/${id}/edit`);
             }}
+            periodFromMs={dashboardPeriodMs.fromMs}
+            periodToMs={dashboardPeriodMs.toMs}
           />
         )}
       </div>

@@ -30,6 +30,8 @@ export interface AllCounsellorClientRow {
   hasTutionFees: boolean;
   /** True if the client has at least one student application recorded. */
   hasStudentApplication: boolean;
+  /** application_date values from student applications (dashboard student filter). */
+  studentApplicationDates: string[];
   stage: string;
   totalPayment: number;
   amountReceived: number;
@@ -48,6 +50,48 @@ interface AllCounsellorClientsListProps {
   onClientTypeFilterChange: (value: ClientTypeFilter) => void;
   onView: (id: string) => void;
   onEdit: (id: string) => void;
+  /** Dashboard drill-down period — used for Application/TD suffix labels. */
+  periodFromMs?: number | null;
+  periodToMs?: number | null;
+}
+
+function parseListDate(value: string): number | null {
+  const dmy = value.trim().match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dmy) {
+    const t = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1])).getTime();
+    return Number.isNaN(t) ? null : t;
+  }
+  const iso = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const t = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])).getTime();
+    return Number.isNaN(t) ? null : t;
+  }
+  const t = new Date(value).getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
+function isDateInListRange(value: string, fromMs: number, toMs: number): boolean {
+  const t = parseListDate(value);
+  return t != null && t >= fromMs && t <= toMs;
+}
+
+function isStudentRowForDisplay(row: AllCounsellorClientRow): boolean {
+  return (
+    row.saleTypeCategory === "student" ||
+    row.hasStudentApplication ||
+    /\bstudent\b/i.test(row.salesType ?? "")
+  );
+}
+
+function hasApplicationForDisplay(
+  row: AllCounsellorClientRow,
+  fromMs: number | null | undefined,
+  toMs: number | null | undefined
+): boolean {
+  if (fromMs != null && toMs != null && row.studentApplicationDates.length > 0) {
+    return row.studentApplicationDates.some((d) => isDateInListRange(d, fromMs, toMs));
+  }
+  return row.hasStudentApplication;
 }
 
 function getStageBadgeClass(stage: string): string {
@@ -77,6 +121,8 @@ export function AllCounsellorClientsList({
   onClientTypeFilterChange,
   onView,
   onEdit,
+  periodFromMs = null,
+  periodToMs = null,
 }: AllCounsellorClientsListProps) {
   const [newestFirst, setNewestFirst] = useState(true);
 
@@ -117,11 +163,12 @@ export function AllCounsellorClientsList({
     {
       header: "Sales Type",
       cell: (s: AllCounsellorClientRow) => {
-        const isStudent = s.saleTypeCategory === "student";
+        const isStudent = isStudentRowForDisplay(s);
+        const hasApplication = hasApplicationForDisplay(s, periodFromMs, periodToMs);
         let suffix = "";
         if (isStudent) {
-          if (s.hasStudentApplication && s.hasTutionFees) suffix = " (Application + TD)";
-          else if (s.hasStudentApplication) suffix = " (Application)";
+          if (hasApplication && s.hasTutionFees) suffix = " (Application + TD)";
+          else if (hasApplication) suffix = " (Application)";
           else if (s.hasTutionFees) suffix = " (TD)";
         }
         return (

@@ -37,7 +37,13 @@ import {
 
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { getLeadDisplayTags, mergeLeadRow } from "@/lib/lead-status-tags";
+import {
+  getLeadDisplayTags,
+  leadStatusBadgeClassName,
+  LEAD_STATUS_TABLE_CELL_CLASS,
+  LEAD_STATUS_TABLE_HEAD_CLASS,
+  mergeLeadRow,
+} from "@/lib/lead-status-tags";
 import {
   applyLeadListPatches,
   consumeLeadListPatches,
@@ -568,8 +574,8 @@ export default function CounsellorLeadsPage() {
           </Card>
         ) : (
           <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <div className="overflow-hidden">
-              <Table className="table-fixed w-full border-separate border-spacing-y-2 [&_td]:overflow-hidden [&_td]:py-3 [&_th]:h-8">
+            <div className="overflow-x-auto">
+              <Table className="table-fixed w-full min-w-[56rem] border-separate border-spacing-y-2 [&_td]:overflow-hidden [&_td.lead-status-cell]:overflow-visible [&_td]:py-3 [&_th]:h-8">
                 <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
                     <TableHead className="w-[22%]">Name</TableHead>
@@ -578,7 +584,7 @@ export default function CounsellorLeadsPage() {
                     <TableHead className="w-[15%]">Lead Source</TableHead>
                     <TableHead className="w-[12%]">Quality</TableHead>
                     <TableHead className="w-[18%]">Transferred From</TableHead>
-                    <TableHead className="w-[14%] text-right">Status</TableHead>
+                    <TableHead className={LEAD_STATUS_TABLE_HEAD_CLASS}>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -660,12 +666,12 @@ export default function CounsellorLeadsPage() {
                             </span>
                           </span>
                         </TableCell>
-                        <TableCell className="py-2 text-right">
-                          <div className="flex min-w-0 items-center justify-end gap-1.5 overflow-hidden">
+                        <TableCell className={cn("py-2", LEAD_STATUS_TABLE_CELL_CLASS)}>
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
                             {statusTags.map((tag) => (
                               <Badge
                                 key={tag.key}
-                                className={cn("h-5 max-w-full truncate border-0 text-[10px] font-normal", tag.className)}
+                                className={leadStatusBadgeClassName(tag)}
                                 title={tag.label}
                               >
                                 {tag.label}

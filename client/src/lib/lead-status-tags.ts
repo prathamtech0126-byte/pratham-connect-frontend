@@ -1,4 +1,5 @@
 import { formatCrmFollowupShort } from "@/lib/format-crm-timestamp";
+import { cn } from "@/lib/utils";
 import type { LeadEntity } from "@/api/leads.api";
 import type { LeadDetailMeta } from "@/api/leads.api";
 
@@ -12,6 +13,17 @@ export type LeadDisplayTagOptions = {
   /** When false, do not show a follow-up progress tag even if progressStatus is follow_up. */
   pendingFollowUp?: boolean;
 };
+
+/** Table/list status pill — never truncate follow-up date/time. */
+export const leadStatusBadgeClassName = (tag: LeadDisplayTag) =>
+  cn(
+    "h-auto min-h-5 shrink-0 whitespace-nowrap border-0 px-2 py-0.5 text-[10px] font-normal leading-snug",
+    tag.className,
+  );
+
+/** Status column in lead tables — wide enough for "Follow Up · date, time". */
+export const LEAD_STATUS_TABLE_HEAD_CLASS = "min-w-[12.5rem] w-[18%] text-right";
+export const LEAD_STATUS_TABLE_CELL_CLASS = "lead-status-cell text-right align-middle !overflow-visible";
 
 export const isLeadJunk = (lead: LeadEntity) =>
   Boolean(lead.isJunk) || lead.progressStatus === "junk";

@@ -130,12 +130,11 @@ export default function CounsellorLeaderboard() {
     enabled: isDialogOpen && !!formMonth && !!formYear,
   });
 
-  const isCounsellorTargetAlreadySet = (counsellorId: number, categoryName: string) => {
-    const cat = categoryName.toLowerCase();
-    return formMonthTargets.some(
-      (t) => t.counsellorId === counsellorId && (t.categoryName ?? "general").toLowerCase() === cat
-    );
-  };
+  const getCounsellorExistingTarget = (counsellorId: number) =>
+    formMonthTargets.find((t) => t.counsellorId === counsellorId);
+
+  const isCounsellorTargetAlreadySet = (counsellorId: number) =>
+    formMonthTargets.some((t) => t.counsellorId === counsellorId);
 
   useEffect(() => {
     if (!socket || !isConnected) return;
@@ -248,10 +247,10 @@ export default function CounsellorLeaderboard() {
   useEffect(() => {
     if (!isDialogOpen || editingTarget || !targetForm.counsellorId) return;
     const id = Number(targetForm.counsellorId);
-    if (isCounsellorTargetAlreadySet(id, targetForm.categoryName)) {
+    if (isCounsellorTargetAlreadySet(id)) {
       setTargetForm((prev) => ({ ...prev, counsellorId: "", counsellorName: "" }));
     }
-  }, [isDialogOpen, editingTarget, targetForm.counsellorId, targetForm.categoryName, formMonthTargets]);
+  }, [isDialogOpen, editingTarget, targetForm.counsellorId, formMonthTargets]);
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
@@ -406,10 +405,14 @@ export default function CounsellorLeaderboard() {
                         const cId = counsellor.id ?? counsellor.userId ?? counsellor.counsellorId;
                         const cName = counsellor.name ?? counsellor.fullName ?? counsellor.full_name ?? "Unknown";
                         const numericId = Number(cId);
-                        const alreadySet = !editingTarget && isCounsellorTargetAlreadySet(numericId, targetForm.categoryName);
+                        const existingTarget = getCounsellorExistingTarget(numericId);
+                        const alreadySet = !editingTarget && !!existingTarget;
+                        const existingCategoryLabel = existingTarget
+                          ? capitalize(existingTarget.categoryName ?? "general")
+                          : "";
                         return (
                           <SelectItem key={cId} value={String(cId)} disabled={alreadySet}>
-                            {cName}{alreadySet ? " — Target already set" : ""}
+                            {cName}{alreadySet ? ` — Target already set (${existingCategoryLabel})` : ""}
                           </SelectItem>
                         );
                       })}
