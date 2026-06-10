@@ -79,6 +79,9 @@ import {
 import { LeadBulkAssignDialog } from "@/components/leads/LeadBulkAssignDialog";
 import {
   getLeadDisplayTags,
+  leadStatusBadgeClassName,
+  LEAD_STATUS_TABLE_HEAD_CLASS,
+  LEAD_STATUS_TABLE_CELL_CLASS,
   isLeadTransferBlocked,
   isLeadReadOnly,
   isLeadJunk,
@@ -537,20 +540,20 @@ export default function LeadList() {
     }
     if (reportBucketFilter === "transferred") {
       return {
-        transferredFrom: range.createdFrom,
-        transferredTo: range.createdTo,
+        transferredFrom: customDateFrom ?? range.createdFrom,
+        transferredTo: customDateTo ?? range.createdTo,
       };
     }
     if (filterAssignmentStatus === "converted" && forReportMode) {
       return {
-        convertedFrom: range.createdFrom,
-        convertedTo: range.createdTo,
+        convertedFrom: customDateFrom ?? range.createdFrom,
+        convertedTo: customDateTo ?? range.createdTo,
       };
     }
     if (filterAssignmentStatus === "dropped" && forReportMode) {
       return {
-        droppedFrom: range.createdFrom,
-        droppedTo: range.createdTo,
+        droppedFrom: customDateFrom ?? range.createdFrom,
+        droppedTo: customDateTo ?? range.createdTo,
       };
     }
     return range;
@@ -610,6 +613,13 @@ export default function LeadList() {
     filterCounsellor,
     // "weekly" is the default => not counted as an active filter
     dateFilter !== "weekly" && dateFilter !== "all" ? "date" : "",
+    forReportMode ? "report" : "",
+    reportBucketFilter ? "bucket" : "",
+    assignedScopeMode ? "assignedScope" : "",
+    excludeUnassigned ? "excludeUnassigned" : "",
+    hasPendingFollowUpOnly ? "pendingFollowUp" : "",
+    counsellorReportDrillMode ? "counsellorDrill" : "",
+    filterWithTelecaller ? "withTelecaller" : "",
   ].filter(Boolean).length;
 
   // ── Data loading ───────────────────────────────────────────────
@@ -899,7 +909,7 @@ const loadLeadTypes = useCallback(async () => {
         assignedCounsellor: "w-[16%]",
         quality: "w-[10%]",
         transferredFrom: "w-[15%]",
-        status: "w-[11%] text-right",
+        status: LEAD_STATUS_TABLE_HEAD_CLASS,
       };
     }
     if (isAdminBulk) {
@@ -914,7 +924,7 @@ const loadLeadTypes = useCallback(async () => {
         assignedCounsellor: "w-[18%]",
         quality: "w-[12%]",
         transferredFrom: "w-[18%]",
-        status: "w-[11%] text-right",
+        status: LEAD_STATUS_TABLE_HEAD_CLASS,
       };
     }
     if (bulkSelectActive) {
@@ -929,7 +939,7 @@ const loadLeadTypes = useCallback(async () => {
         assignedCounsellor: "w-[16%]",
         quality: "w-[11%]",
         transferredFrom: "w-[16%]",
-        status: "w-[12%] text-right",
+        status: LEAD_STATUS_TABLE_HEAD_CLASS,
       };
     }
     return {
@@ -943,12 +953,14 @@ const loadLeadTypes = useCallback(async () => {
       assignedCounsellor: "w-[18%]",
       quality: "w-[12%]",
       transferredFrom: "w-[18%]",
-      status: "w-[14%] text-right",
+      status: LEAD_STATUS_TABLE_HEAD_CLASS,
     };
   }, [isAdminBulk, bulkSelectActive]);
 
   // ── Filter helpers ─────────────────────────────────────────────
   const clearFilters = () => {
+    setSearch("");
+    setDebouncedSearch("");
     setFilterLeadSource("");
     setFilterLeadType("");
     setFilterProgressStatus("");
@@ -956,12 +968,27 @@ const loadLeadTypes = useCallback(async () => {
     setFilterEligibility("");
     setFilterQuality("");
     setFilterTelecaller("");
-    setSearch("");
-    setDebouncedSearch("");
+    setFilterCounsellor("");
     setDateFilter("weekly");
     setCustomDateFrom(undefined);
     setCustomDateTo(undefined);
-    setFilterCounsellor("");
+    setAssignedScopeMode(false);
+    setForReportMode(false);
+    setExcludeUnassigned(false);
+    setFilterWithTelecaller(false);
+    setCounsellorReportDrillMode(false);
+    setReportWithoutTelecaller(false);
+    setReportWithTelecaller(false);
+    setReportBucketFilter("");
+    setHasPendingFollowUpOnly(false);
+    setPage(1);
+    setPerPagePreset("50");
+    setCustomPerPageCommitted(50);
+    setCustomPerPageDraft("50");
+    try {
+      sessionStorage.removeItem(LEADLIST_FILTER_KEY);
+    } catch {}
+    setLocation("/leads");
   };
 
   const closeTransferModal = () => { setTransferLead(null); setSelectedCounsellorId(""); };
@@ -1669,8 +1696,8 @@ const loadLeadTypes = useCallback(async () => {
           </Card>
         ) : (
           <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <div className="overflow-hidden">
-              <Table className="table-fixed w-full border-separate border-spacing-y-2 [&_td]:overflow-hidden [&_td]:py-3 [&_th]:h-8">
+            <div className="overflow-x-auto">
+              <Table className="table-fixed w-full min-w-[56rem] border-separate border-spacing-y-2 [&_td]:overflow-hidden [&_td.lead-status-cell]:overflow-visible [&_td]:py-3 [&_th]:h-8">
                 <TableHeader>
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
                     {bulkSelectActive && (
@@ -1851,13 +1878,13 @@ const loadLeadTypes = useCallback(async () => {
                             </TableCell>
                           </>
                         )}
-                        <TableCell className="text-right">
-                          <div className="flex min-w-0 items-center justify-end gap-1.5 overflow-hidden">
+                        <TableCell className={LEAD_STATUS_TABLE_CELL_CLASS}>
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
                             {statusTags.map((tag) => (
                               <Badge
                                 key={tag.key}
                                 variant="secondary"
-                                className={cn("h-5 max-w-full truncate border-0 text-[10px] font-normal", tag.className)}
+                                className={leadStatusBadgeClassName(tag)}
                                 title={tag.label}
                               >
                                 {tag.label}

@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import {
   buildLeadListUrlFromReport,
   isLeadAssignedToTelecaller,
+  isLeadInTelecallerOutcomePool,
   isLeadAssignedToCounsellor,
   type LeadReportMetricKey,
 } from "@/lib/lead-report-metrics";
@@ -250,6 +251,7 @@ export default function LeadReports() {
     return telecallers
       .map(t => {
         const tLeads = filteredLeads.filter(l => isLeadAssignedToTelecaller(l, t.id));
+        const outcomePool = allLeads.filter((l) => isLeadInTelecallerOutcomePool(l, t.id));
         const tJunkLeads = periodLeads.filter(
           (l) =>
             l.currentTelecallerId === t.id &&
@@ -259,24 +261,22 @@ export default function LeadReports() {
           id: t.id,
           name: t.fullName,
           assigned: tLeads.length,
-          transferred: countTransferredInPeriod(
-            allLeads.filter((l) => isLeadAssignedToTelecaller(l, t.id)),
-            reportBounds
-          ),
-          converted: countConvertedInPeriod(
-            allLeads.filter((l) => isLeadAssignedToTelecaller(l, t.id)),
-            reportBounds
-          ),
-          dropped: countDroppedInPeriod(
-            allLeads.filter((l) => isLeadAssignedToTelecaller(l, t.id)),
-            reportBounds
-          ),
+          transferred: countTransferredInPeriod(outcomePool, reportBounds),
+          converted: countConvertedInPeriod(outcomePool, reportBounds),
+          dropped: countDroppedInPeriod(outcomePool, reportBounds),
           totalFollowUp: tLeads.filter(l => !!l.nextFollowupAt).length,
           pendingFollowUp: tLeads.filter(l => l.progressStatus === "follow_up").length,
           junk: tJunkLeads.length,
         };
       })
-      .filter(t => t.assigned > 0)
+      .filter(
+        (t) =>
+          t.assigned > 0 ||
+          t.transferred > 0 ||
+          t.converted > 0 ||
+          t.dropped > 0 ||
+          t.junk > 0
+      )
       .sort((a, b) => b.transferred - a.transferred || b.assigned - a.assigned);
   }, [filteredLeads, periodLeads, telecallers, allLeads, reportBounds]);
 
@@ -378,7 +378,7 @@ export default function LeadReports() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">Transfers per Telecaller</CardTitle>
               <CardDescription className="text-xs">
-                Transferred = outcomes in period (by transferred / converted / dropped time)
+                Transferred = leads transferred in period (by transferred_at)
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -469,7 +469,15 @@ export default function LeadReports() {
                         >
                           {t.assigned}
                         </span>
-                        <span className="font-bold text-blue-600 w-14 text-center">{t.transferred}</span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className="font-bold text-blue-600 w-14 text-center cursor-pointer hover:underline"
+                          onClick={(e) => { e.stopPropagation(); openLeadList("transferred", t.id); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") openLeadList("transferred", t.id); }}
+                        >
+                          {t.transferred}
+                        </span>
                         <span className="font-bold text-emerald-600 w-14 text-center">{t.converted}</span>
                         <span className="font-bold text-red-500 w-12 text-center">{t.junk}</span>
                       </div>

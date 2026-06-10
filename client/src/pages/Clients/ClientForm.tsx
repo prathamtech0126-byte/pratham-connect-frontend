@@ -2325,6 +2325,22 @@ export default function ClientForm() {
     };
   }, [internalClientId, isClientCreated, clientIdFromUrl]);
 
+  useEffect(() => {
+    if (!isClientCreated) return;
+    const section = new URLSearchParams(searchStr).get("section");
+    if (section === "product") setShowProductSection(true);
+    if (section === "student") {
+      setShowStudentSection(true);
+      requestAnimationFrame(() => {
+        document.getElementById("student-applications-section")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    }
+    if (section === "service") setShowServiceSection(true);
+  }, [searchStr, isClientCreated]);
+
   // Check if service payment data exists: student may save with total 0; other categories need total > 0
   const hasServiceData = useMemo(() => {
     const hasNumericTotal =
@@ -4531,7 +4547,7 @@ export default function ClientForm() {
 
         {/* Student Application Section */}
         {isClientCreated && showStudentSection && (
-          <Card className="border-none shadow-md">
+          <Card id="student-applications-section" className="border-none shadow-md">
             <CardHeader>
               <CardTitle className="text-xl font-bold">Student Applications</CardTitle>
             </CardHeader>

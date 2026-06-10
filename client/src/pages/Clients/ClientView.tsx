@@ -554,7 +554,7 @@ export default function ClientView() {
     };
     for (const payment of (client as any).productPayments ?? []) maybeAdd(payment);
     for (const payment of (client as any).payments ?? []) maybeAdd(payment);
-    return [...ids];
+    return Array.from(ids);
   }, [client, clientCounsellorId]);
 
   const { data: handlerNames = {} } = useQuery({
@@ -817,6 +817,34 @@ export default function ClientView() {
   const isBindingUser = user?.role === "binding_team";
   const canViewDocsVault = isBackendViewRole || isCxUser;
 
+  const studentApplicationTimelineItems: TimelineItem[] = (
+    Array.isArray(studentAppsResponse?.data) ? studentAppsResponse.data : []
+  ).flatMap((app: any) => {
+    const items: TimelineItem[] = [
+      {
+        id: `student-app-${app.applicationId}`,
+        title: "Student Application Added",
+        subtitle: [
+          app.universityName,
+          app.courseName,
+          app.saleType,
+        ].filter(Boolean).join(" • "),
+        date: app.applicationDate || app.createdAt,
+      },
+    ];
+
+    if (app.tuitionDepositStatus) {
+      items.push({
+        id: `tuition-deposit-${app.applicationId}`,
+        title: app.tuitionDepositTaken ? "Tuition Deposit Taken" : "Tuition Deposit Recorded",
+        subtitle: `${app.universityName} • Status: ${String(app.tuitionDepositStatus).replace(/_/g, " ")}`,
+        date: app.tuitionDepositDate || app.updatedAt || app.createdAt,
+      });
+    }
+
+    return items;
+  });
+
   const timelineItems: TimelineItem[] = [
     {
       id: "enrollment",
@@ -830,6 +858,7 @@ export default function ClientView() {
       subtitle: "Client profile created",
       date: clientData.createdAt,
     },
+    ...studentApplicationTimelineItems,
     ...(client.payments || []).map((payment: any, index: number) => ({
       id: `payment-${payment.paymentId || index}`,
       title: `Payment ${payment.stage ? `(${String(payment.stage).replace(/_/g, " ")})` : ""}`.trim(),
@@ -966,6 +995,37 @@ export default function ClientView() {
                 </Card>
               ),
             },
+            ...(showStudentApplicationsSection
+              ? [{
+                value: "student-applications",
+                label: "Student Applications",
+                content: (
+                  <Card className="border-none shadow-md overflow-hidden bg-white">
+                    <CardHeader className="pb-4 border-b border-gray-50">
+                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                        <GraduationCap className="h-6 w-6 text-emerald-600" />
+                        Student Applications
+                        <Badge variant="secondary" className="ml-1">
+                          {studentAppCount}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      <StudentApplicationTracker
+                        clientId={clientId ?? clientData?.clientId}
+                        variant="clientInfo"
+                        readOnly
+                        onAddApplication={
+                          clientId
+                            ? () => setLocation(`/clients/${clientId}/edit?section=student`)
+                            : undefined
+                        }
+                      />
+                    </CardContent>
+                  </Card>
+                ),
+              }]
+              : []),
             {
               value: "payment-details",
               label: "Payment Details",
@@ -1122,27 +1182,6 @@ export default function ClientView() {
                       </div>
                     </CardContent>
                   </Card>
-
-                  {showStudentApplicationsSection && (
-                    <Card className="border-none shadow-md overflow-hidden bg-white">
-                      <CardHeader className="pb-4 border-b border-gray-50">
-                        <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
-                          <GraduationCap className="h-6 w-6 text-emerald-600" />
-                          Student Applications
-                          <Badge variant="secondary" className="ml-1">
-                            {studentAppCount}
-                          </Badge>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-6">
-                        <StudentApplicationTracker
-                          clientId={clientId ?? clientData?.clientId}
-                          compact
-                          readOnly
-                        />
-                      </CardContent>
-                    </Card>
-                  )}
                 </div>
               ),
             },

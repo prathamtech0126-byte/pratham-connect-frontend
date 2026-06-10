@@ -9,6 +9,25 @@ export const isLeadAssignedToTelecaller = (
   !lead.isJunk &&
   lead.progressStatus !== "junk";
 
+/**
+ * Pool for telecaller transferred/converted/dropped KPIs.
+ * Includes leads still on the telecaller, plus handoffs where telecaller was cleared but assignedBy matches.
+ */
+export const isLeadInTelecallerOutcomePool = (
+  lead: {
+    currentTelecallerId?: number | null;
+    assignedBy?: number | null;
+    isJunk?: boolean;
+    progressStatus?: string;
+  },
+  telecallerId: number
+) => {
+  if (lead.isJunk || lead.progressStatus === "junk") return false;
+  if (lead.currentTelecallerId === telecallerId) return true;
+  if (lead.currentTelecallerId == null && lead.assignedBy === telecallerId) return true;
+  return false;
+};
+
 /** Lead is assigned to a counsellor if current_counsellor_id matches (any status). */
 export const isLeadAssignedToCounsellor = (
   lead: { currentCounsellorId?: number | null; isJunk?: boolean; progressStatus?: string },

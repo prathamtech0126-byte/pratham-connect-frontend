@@ -484,11 +484,10 @@ export default function Dashboard() {
     ];
   }, [leaderboardCategories]);
 
+  // "assigned" = each counsellor's enrollments/target use their assigned target category
   const leaderboardApiCategory =
-    selectedLeaderboardCategory === "all" ? "general" : selectedLeaderboardCategory;
+    selectedLeaderboardCategory === "all" ? "assigned" : selectedLeaderboardCategory;
 
-  // Category-aware leaderboard — skipped for "All" (uses full list from dashboard stats)
-  const useAllLeaderboardFromStats = selectedLeaderboardCategory === "all";
   const { data: leaderboardResponse, isLoading: isLoadingLeaderboardQuery } = useQuery({
     queryKey: ["leaderboard", leaderboardPeriod.month, leaderboardPeriod.year, leaderboardApiCategory],
     queryFn: () =>
@@ -498,11 +497,10 @@ export default function Dashboard() {
         leaderboardApiCategory
       ),
     staleTime: 1000 * 60 * 2,
-    enabled: !!user && user?.role !== "tech_support" && !useAllLeaderboardFromStats,
+    enabled: !!user && user?.role !== "tech_support",
   });
 
-  const isLoadingLeaderboard =
-    useAllLeaderboardFromStats ? isLoading : isLoadingLeaderboardQuery;
+  const isLoadingLeaderboard = isLoadingLeaderboardQuery;
 
   const isManagerRoleUser = user?.role === "manager";
   // Supervisor managers can see all counsellors and all managers (same as admin view)
@@ -567,7 +565,6 @@ export default function Dashboard() {
 
   const managerTargetsList: any[] = managerTargetsQueryData?.data ?? [];
 
-  const statsLeaderboard = (stats as any)?.leaderboard;
   const leaderboardArray =
     leaderboardResponse && typeof leaderboardResponse === "object" && Array.isArray(leaderboardResponse.data)
       ? leaderboardResponse.data
@@ -575,11 +572,7 @@ export default function Dashboard() {
         ? leaderboardResponse
         : null;
 
-  // "All" uses dashboard stats — full counsellor list with enrollments even when target is not set
-  const finalLeaderboardData =
-    useAllLeaderboardFromStats && Array.isArray(statsLeaderboard)
-      ? statsLeaderboard
-      : leaderboardArray;
+  const finalLeaderboardData = leaderboardArray;
 
   // Transform leaderboard API data to display format
   const transformedLeaderboardData = useMemo(() => {

@@ -57,11 +57,18 @@ export function isDroppedInPeriod(lead: LeadEntity, bounds: ReportPeriodBounds):
   return isTimestampInReportPeriod(lead.droppedAt ?? null, bounds);
 }
 
-/** Transfer KPI: each outcome uses its own timestamp in the period. */
-export function isTransferredInPeriod(lead: LeadEntity, bounds: ReportPeriodBounds): boolean {
+/** Transfer outcome in period (transferred / converted / dropped timestamp). For telecaller targets. */
+export function isTransferOutcomeInPeriod(lead: LeadEntity, bounds: ReportPeriodBounds): boolean {
   if (lead.isJunk || lead.progressStatus === "junk") return false;
   if (!TRANSFER_OUTCOME_STATUSES.has(lead.assignmentStatus ?? "")) return false;
   return isTimestampInReportPeriod(outcomeTimestampForLead(lead), bounds);
+}
+
+/** Report "Transferred" KPI: transferred_at in the selected period. */
+export function isTransferredInPeriod(lead: LeadEntity, bounds: ReportPeriodBounds): boolean {
+  if (lead.isJunk || lead.progressStatus === "junk") return false;
+  if (!lead.transferredAt) return false;
+  return isTimestampInReportPeriod(lead.transferredAt, bounds);
 }
 
 export function countTransferredInPeriod(
