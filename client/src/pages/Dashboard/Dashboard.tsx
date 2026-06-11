@@ -57,6 +57,7 @@ import { format, parseISO } from "date-fns";
 import { RevenueChart } from "@/components/charts/RevenueChart";
 import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
 import { ITSupportKanbanDashboard } from "@/pages/tech-support/ITSupportKanbanDashboard";
+import { BackendDashboard } from "@/pages/Dashboard/BackendDashboard";
 import { assignLeadApi, getLeads, type LeadEntity } from "@/api/leads.api";
 import { SearchableAssigneePicker } from "@/components/leads/SearchableAssigneePicker";
 import api from "@/lib/api";
@@ -97,6 +98,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const isCounsellor = user?.role === "counsellor";
   const isTechSupport = user?.role === "tech_support";
+  // Backend managers get the Backend (Visa Case) dashboard directly, including the team leaderboard.
+  const isBackendManager = user?.role === "backend_manager";
   /** Full-screen canvas so confetti renders above layout/sidebar (default confetti can sit behind). */
   const confettiCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [, setLocation] = useLocation();
@@ -104,8 +107,42 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [selectedBranch, setSelectedBranch] = useState("all");
-  const [timeFilter, setTimeFilter] = useState("monthly");
-  const [customDateRange, setCustomDateRange] = useState<[Date | null, Date | null]>([null, null]);
+  // Persist the period + view tab in sessionStorage so navigating away (e.g. to a
+  // KPI deep-link) and back restores the same selection instead of resetting.
+  const [timeFilter, setTimeFilter] = useState<string>(
+    () => (typeof window !== "undefined" && sessionStorage.getItem("dashboard-time-filter")) || "monthly"
+  );
+  // Admin/developer dashboard view tabs: "counsellor" (current data) vs "backend" (backend team data)
+  const [dashboardTab, setDashboardTab] = useState<"counsellor" | "backend">(
+    () => (typeof window !== "undefined" && (sessionStorage.getItem("dashboard-view-tab") as "counsellor" | "backend")) || "counsellor"
+  );
+  const [customDateRange, setCustomDateRange] = useState<[Date | null, Date | null]>(() => {
+    if (typeof window === "undefined") return [null, null];
+    try {
+      const raw = sessionStorage.getItem("dashboard-custom-range");
+      if (!raw) return [null, null];
+      const [a, b] = JSON.parse(raw) as [number | null, number | null];
+      return [a ? new Date(a) : null, b ? new Date(b) : null];
+    } catch {
+      return [null, null];
+    }
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem("dashboard-time-filter", timeFilter);
+  }, [timeFilter]);
+  useEffect(() => {
+    sessionStorage.setItem("dashboard-view-tab", dashboardTab);
+  }, [dashboardTab]);
+  useEffect(() => {
+    sessionStorage.setItem(
+      "dashboard-custom-range",
+      JSON.stringify([
+        customDateRange[0] ? customDateRange[0].getTime() : null,
+        customDateRange[1] ? customDateRange[1].getTime() : null,
+      ])
+    );
+  }, [customDateRange]);
   // Telecaller: transfer lead modal + admin set target
   const [transferLead, setTransferLead] = useState<DummyLead | null>(null);
   const [transferToId, setTransferToId] = useState("");
@@ -214,7 +251,7 @@ export default function Dashboard() {
     },
     retry: 1,
     staleTime: 1000 * 60 * 2, // Cache for 2 minutes
-    enabled: !!user && user.role !== 'telecaller' && user.role !== "tech_support" && (timeFilter !== 'custom' || (!!customDateRange[0] && !!customDateRange[1])),
+    enabled: !!user && user.role !== 'telecaller' && user.role !== "tech_support" && user.role !== "backend_manager" && (timeFilter !== 'custom' || (!!customDateRange[0] && !!customDateRange[1])),
   });
 
   // Label for monthly chart: "Jan - Feb (Today 2 Feb 2026)". For custom: "1 Jan 2026 - 5 Feb 2026"
@@ -234,7 +271,7 @@ export default function Dashboard() {
   // All roles (admin, manager, counsellor) use POST filtered API; no GET /api/clients/counsellor-clients
   const userId = user?.id ?? (user as any)?.userId ?? (user as any)?.user_id;
   const userNum = typeof userId === "number" ? userId : parseInt(String(userId), 10);
-  const hasUserForFiltered = !!user?.role && !Number.isNaN(userNum) && userNum > 0 && user.role !== "telecaller" && user.role !== "tech_support";
+  const hasUserForFiltered = !!user?.role && !Number.isNaN(userNum) && userNum > 0 && user.role !== "telecaller" && user.role !== "tech_support" && user.role !== "backend_manager";
 
   const { data: recentClientsRaw } = useQuery({
     queryKey: ["recent-clients", "filtered", userNum, user?.role, "monthly"],
@@ -264,6 +301,8 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
+  // Show Counsellor/Backend dashboard tabs only for admin + developer
+  const showDashboardTabs = user?.role === 'superadmin' || user?.role === 'developer';
   const canViewFinancials = user?.role === 'superadmin' ||user?.role === 'developer' || user?.role === 'director' || user?.role === 'manager';
   const canApprovePayments = user?.role === 'superadmin' || user?.role === 'developer' ||user?.role === 'director' || user?.role === 'manager';
   const [processingApproval, setProcessingApproval] = useState<number | null>(null);
@@ -1091,6 +1130,31 @@ export default function Dashboard() {
     return <ITSupportKanbanDashboard />;
   }
 
+  // Backend manager: Backend (Visa Case) dashboard with its own period filter — no Counsellor/Backend toggle.
+  if (isBackendManager) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Backend Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              Welcome back, <span className="font-semibold text-primary">{userProfile?.fullname || user?.name}</span>. Here&apos;s what&apos;s happening.
+            </p>
+          </div>
+          <DashboardDateFilter
+            date={customDateRange}
+            onDateChange={setCustomDateRange}
+            activeTab={timeFilter === 'today' ? 'Today' : timeFilter === 'weekly' ? 'Weekly' : timeFilter === 'monthly' ? 'Monthly' : (timeFilter === 'custom' || timeFilter === 'maximum') ? 'Custom' : 'Monthly'}
+            onTabChange={(tab) => setTimeFilter(tab === 'Today' ? 'today' : tab === 'Custom' ? 'custom' : tab.toLowerCase())}
+            showYearly={false}
+            align="end"
+          />
+        </div>
+        <BackendDashboard timeFilter={timeFilter} customDateRange={customDateRange} />
+      </div>
+    );
+  }
+
   // Telecaller view: full dashboard per system requirements
   if (user?.role === 'telecaller') {
     const displayName = userProfile?.fullname || user?.name || 'Telecaller';
@@ -1590,17 +1654,50 @@ export default function Dashboard() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            {showDashboardTabs
+              ? dashboardTab === "backend"
+                ? "Backend Dashboard"
+                : "Counsellor Dashboard"
+              : "Dashboard"}
+          </h1>
           <p className="text-muted-foreground mt-1">
             Welcome back, <span className="font-semibold text-primary">{userProfile?.fullname || user?.name}</span>. Here's what's happening.
           </p>
         </div>
 
-        <div className="flex items-center">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Dashboard view tabs (admin + developer only) */}
+          {showDashboardTabs ? (
+            <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setDashboardTab("counsellor")}
+                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  dashboardTab === "counsellor"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Counsellor
+              </button>
+              <button
+                type="button"
+                onClick={() => setDashboardTab("backend")}
+                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  dashboardTab === "backend"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Backend
+              </button>
+            </div>
+          ) : null}
           <DashboardDateFilter
             date={customDateRange}
             onDateChange={setCustomDateRange}
-            activeTab={timeFilter === 'today' ? 'Today' : timeFilter === 'weekly' ? 'Weekly' : timeFilter === 'monthly' ? 'Monthly' : timeFilter === 'yearly' ? 'Yearly' : timeFilter === 'custom' ? 'Custom' : 'Today'}
+            activeTab={timeFilter === 'today' ? 'Today' : timeFilter === 'weekly' ? 'Weekly' : timeFilter === 'monthly' ? 'Monthly' : timeFilter === 'yearly' ? 'Yearly' : (timeFilter === 'custom' || timeFilter === 'maximum') ? 'Custom' : 'Today'}
             onTabChange={(tab) => setTimeFilter(tab === 'Today' ? 'today' : tab === 'Custom' ? 'custom' : tab.toLowerCase())}
             showCustom={!isCounsellor}
             showYearly={false}
@@ -1609,6 +1706,11 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Backend team view — Visa Case Dashboard */}
+      {showDashboardTabs && dashboardTab === "backend" ? (
+        <BackendDashboard timeFilter={timeFilter} customDateRange={customDateRange} />
+      ) : (
+      <>
       {(user?.role === "superadmin" ||
      user?.role === "developer" ||
         user?.role === "director" ||
@@ -2816,6 +2918,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div> */}
+      </>
+      )}
     </div>
   );
 }

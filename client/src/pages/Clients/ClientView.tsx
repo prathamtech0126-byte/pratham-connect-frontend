@@ -1,16 +1,40 @@
-import { useRoute, useLocation } from "wouter";
-import { StudentApplicationTracker } from "@/components/students/StudentApplicationTracker";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { clientService } from "@/services/clientService";
-import api from "@/lib/api";
-import { PageWrapper } from "@/layout/PageWrapper";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { SectionTabs } from "@/components/tabs/SectionTabs";
-import { format } from "date-fns";
-import { CreditCard, ClipboardList, Info, ChevronDown, ChevronUp, Edit, ArrowLeft, FolderOpen, ListChecks, Route, BookOpen, GraduationCap } from "lucide-react";
+import {
+  CreditCard,
+  ClipboardList,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Edit,
+  ArrowLeft,
+  FolderOpen,
+  ListChecks,
+  Route,
+  BookOpen,
+  GraduationCap,
+  Tag,
+} from "lucide-react";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+import { Label } from "@/components/ui/label";
+import { BACKEND_PROCESSING_STATUS_GROUPS } from "@/data/dummyBackendData";
+
 import { getLatestStageFromPayments } from "@/utils/stageUtils";
 import { useState, useEffect, useMemo } from "react";
 import { useSocket } from "@/context/socket-context";
@@ -19,6 +43,7 @@ import { BACKEND_ALLOWED_ROLES } from "@/constants/roles";
 import { useToast } from "@/hooks/use-toast";
 import { isClientListReturnPath } from "@/lib/clientListReturnPath";
 import { CxDocReviewPanel } from "@/components/cx/CxDocReviewPanel";
+import { RequestFromCxButton } from "@/components/binding/RequestFromCxButton";
 
 /** Parse date-only (YYYY-MM-DD), ISO string, or Date as local calendar date so display is correct in all timezones. */
 function parseDateOnly(val: string | Date | null | undefined): Date | null {
@@ -491,6 +516,9 @@ export default function ClientView() {
   const [documentTitle, setDocumentTitle] = useState<string>("");
   const [selectedDocFile, setSelectedDocFile] = useState<File | null>(null);
   const [customFolders, setCustomFolders] = useState<string[]>([]);
+  // Processing-status change (hidden from counsellor/telecaller — see canChangeStatus).
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [statusValue, setStatusValue] = useState<string>("");
   const { socket, isConnected } = useSocket();
 
   useEffect(() => {
@@ -504,6 +532,13 @@ export default function ClientView() {
       setReturnCounsellorName("");
     }
   }, []);
+  // Load any previously chosen processing status for this client.
+  useEffect(() => {
+    if (!clientId) return;
+    const saved = localStorage.getItem(`client_processing_status_${clientId}`);
+    setStatusValue(saved || "");
+  }, [clientId]);
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -896,6 +931,18 @@ export default function ClientView() {
     toast({ title: "Folder created", description: "New folder added to docs vault." });
   };
 
+  // Counsellors and telecallers may view the case but cannot change its status.
+  const canChangeStatus = !!user && user.role !== "counsellor" && user.role !== "telecaller";
+
+  const saveStatus = () => {
+    if (!statusValue) return;
+    // TODO: replace with a backend mutation once a client processing-status
+    // endpoint exists. For now the choice is persisted locally per client.
+    if (clientId) localStorage.setItem(`client_processing_status_${clientId}`, statusValue);
+    toast({ title: "Status updated", description: `Processing status set to "${statusValue}".` });
+    setStatusOpen(false);
+  };
+
   const mainBreadcrumbs = [
     { label: "Clients", href: "/clients" },
     { label: clientFullName },
@@ -914,9 +961,23 @@ export default function ClientView() {
             </Button>
           )}
           {params?.id && user?.role === "binding_team" && (
+            <RequestFromCxButton
+              clientId={params.id}
+              clientName={clientFullName}
+              size="sm"
+              variant="outline"
+            />
+          )}
+          {params?.id && user?.role === "binding_team" && (
             <Button size="sm" onClick={() => setLocation(`/binding/studio/${params.id}`)} className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
               <BookOpen className="h-4 w-4" />
               Create Binder
+            </Button>
+          )}
+          {params?.id && canChangeStatus && (
+            <Button variant="outline" size="sm" onClick={() => setStatusOpen(true)} className="gap-1.5">
+              <Tag className="h-4 w-4" />
+              Change Status
             </Button>
           )}
           {params?.id && user?.role !== "customer_experience" && user?.role !== "binding_team" && (
@@ -1373,6 +1434,37 @@ export default function ClientView() {
           ]}
         />
       </div>
+
+      {/* Change-status dialog (hidden from counsellor/telecaller) */}
+      <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Status — {clientFullName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Processing Status</Label>
+            <Select value={statusValue} onValueChange={setStatusValue}>
+              <SelectTrigger className="h-9 w-full">
+                <SelectValue placeholder="Select a status" />
+              </SelectTrigger>
+              <SelectContent>
+                {BACKEND_PROCESSING_STATUS_GROUPS.map((g) => (
+                  <SelectGroup key={g.stage}>
+                    <SelectLabel>{g.stage}</SelectLabel>
+                    {g.statuses.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStatusOpen(false)}>Cancel</Button>
+            <Button onClick={saveStatus} disabled={!statusValue}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   );
 }

@@ -1,205 +1,241 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { StatCard } from "@/components/cards/StatCard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import DateRangePicker from "@/components/payments/DateRangePicker";
-import type { PaymentsFilter } from "@/api/payments.api";
-import { format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 import {
-  Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid,
-} from "recharts";
-import {
-  Users, FileText, Clock, CheckCircle2, AlertTriangle, AlertCircle, CalendarDays,
+  Phone, MessageSquare, Mail, Clock, Check, ChevronRight, Trophy,
+  Users, FileText, CheckCircle2, AlertTriangle, ClipboardList,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/auth-context";
 import { usePageHint } from "@/hooks/usePageHint";
 import { ProductTour } from "@/components/ProductTour";
 
-// ── Mock summary data (replace with API calls) ─────────────────────────
+// ── Mock data (replace with API calls) — all scoped to the logged-in CX agent ──
 
-const STATS = {
-  totalClients: 24,
-  processing: 18,
-  completed: 6,
+const SNAPSHOT = {
+  myClients: 24,
   pendingDocs: 31,
-  slaBreaches: 2,
-  slaWarnings: 4,
-  slaGreen: 18,
+  tatAtRisk: 6,
+  openQueries: 3,
+  completed: 6,
 };
 
-const CHART_DATA = [
-  { month: "Jan", enrolled: 8, processing: 5, completed: 3 },
-  { month: "Feb", enrolled: 12, processing: 8, completed: 4 },
-  { month: "Mar", enrolled: 18, processing: 11, completed: 7 },
-  { month: "Apr", enrolled: 15, processing: 10, completed: 5 },
-  { month: "May", enrolled: 22, processing: 14, completed: 8 },
-  { month: "Jun", enrolled: 30, processing: 18, completed: 12 },
+/** The agent's to-do list for today — the heart of the screen. */
+const INITIAL_TASKS = [
+  { id: 1, name: "Aarav Patel", task: "Collect 3 pending documents", due: "TAT due tomorrow", urgent: true },
+  { id: 2, name: "Rahul Mehta", task: "Make overdue follow-up call", due: "Overdue by 1 day", urgent: true },
+  { id: 3, name: "Sneha Shah", task: "Chase passport & photo", due: "TAT due in 3 days", urgent: false },
+  { id: 4, name: "Priya Nair", task: "Review visa file & confirm", due: "Today", urgent: false },
+  { id: 5, name: "Karan Singh", task: "Complete financial docs", due: "TAT due in 2 days", urgent: false },
+  { id: 6, name: "Meera Joshi", task: "Share document checklist", due: "TAT due in 4 days", urgent: false },
 ];
 
-type DateFilter = "today" | "weekly" | "monthly" | "custom";
+/** Today's scheduled client touchpoints. */
+const TODAY_FOLLOWUPS = [
+  { id: 1, name: "Aarav Patel", time: "10:30 AM", channel: "Call" as const, note: "Confirm document upload" },
+  { id: 2, name: "Meera Joshi", time: "12:00 PM", channel: "WhatsApp" as const, note: "Share document checklist" },
+  { id: 3, name: "Rahul Mehta", time: "03:00 PM", channel: "Call" as const, note: "Reschedule submission" },
+  { id: 4, name: "Sneha Shah", time: "04:30 PM", channel: "Email" as const, note: "Send SOP template" },
+  { id: 5, name: "Priya Nair", time: "05:15 PM", channel: "Call" as const, note: "Walk through visa file" },
+];
 
-// ── Main Component ─────────────────────────────────────────────────────
+const CHANNEL_ICON = { Call: Phone, WhatsApp: MessageSquare, Email: Mail };
 
-const FILTER_LABEL: Record<string, string> = {
-  today: "Today", monthly: "This Month", maximum: "All Time",
-};
+// CX users can only scope by Today / Weekly / Monthly — no custom range.
+type DateFilter = "today" | "weekly" | "monthly";
 
 export default function CxDashboard() {
+  const { user } = useAuth();
   const { showHint, dismissHint } = usePageHint("cx_dashboard");
   const [dateFilter, setDateFilter] = useState<DateFilter>("monthly");
-  const [showPicker, setShowPicker] = useState(false);
-  const [customLabel, setCustomLabel] = useState<string | null>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
-  const total = STATS.slaBreaches + STATS.slaWarnings + STATS.slaGreen;
 
-  // Close picker when clicking outside
-  useEffect(() => {
-    if (!showPicker) return;
-    function handleClick(e: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setShowPicker(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showPicker]);
+  // Done state for today's tasks — checking a task fills the progress hero.
+  const [doneIds, setDoneIds] = useState<Set<number>>(new Set());
+  const toggleTask = (id: number) =>
+    setDoneIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
-  function handlePickerApply(filter: PaymentsFilter, startDate?: string, endDate?: string) {
-    setDateFilter("custom");
-    if (filter !== "custom") {
-      setCustomLabel(FILTER_LABEL[filter] ?? filter);
-    } else if (startDate && endDate) {
-      const fmt = (s: string) => format(new Date(s), "d MMM yyyy");
-      setCustomLabel(`${fmt(startDate)} – ${fmt(endDate)}`);
-    }
-    setShowPicker(false);
-  }
+  const firstName = (user?.name || "there").split(" ")[0];
+  const total = INITIAL_TASKS.length;
+  const done = doneIds.size;
+  const remaining = total - done;
+  const urgentLeft = INITIAL_TASKS.filter((t) => t.urgent && !doneIds.has(t.id)).length;
+  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
     <PageWrapper
-      title="Dashboard"
+      title="My Dashboard"
       breadcrumbs={[{ label: "CX Team" }]}
       actions={
         <div className="flex gap-1.5" data-tour="dash-date-filter">
-          {(["today", "weekly", "monthly"] as const).map(f => (
+          {(["today", "weekly", "monthly"] as const).map((f) => (
             <Button
               key={f}
               size="sm"
               variant={dateFilter === f ? "default" : "outline"}
-              onClick={() => { setDateFilter(f); setCustomLabel(null); setShowPicker(false); }}
+              onClick={() => setDateFilter(f)}
             >
               {f.charAt(0).toUpperCase() + f.slice(1)}
             </Button>
           ))}
-          {/* Custom date picker */}
-          <div className="relative" ref={pickerRef}>
-            <Button
-              size="sm"
-              variant={dateFilter === "custom" ? "default" : "outline"}
-              onClick={() => setShowPicker(v => !v)}
-            >
-              <CalendarDays className="h-3.5 w-3.5 mr-1" />
-              {dateFilter === "custom" && customLabel ? customLabel : "Custom"}
-            </Button>
-            {showPicker && (
-              <div className="absolute right-0 top-full mt-2 z-50">
-                <DateRangePicker
-                  onApply={handlePickerApply}
-                  onCancel={() => setShowPicker(false)}
-                />
-              </div>
-            )}
-          </div>
         </div>
       }
     >
       <div className="space-y-6">
 
-        {/* ── 1. Stat Cards ─────────────────────────────────────────── */}
-        <div data-tour="dash-stats" className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-          <StatCard title="Assigned Clients" value={STATS.totalClients} icon={Users} description="total in queue" />
-          <StatCard title="In Processing" value={STATS.processing} icon={Clock} description="active + on hold" />
-          <StatCard title="Completed" value={STATS.completed} icon={CheckCircle2} description="visa granted" trend={{ value: 12, isPositive: true }} />
-          <StatCard title="Pending Docs" value={STATS.pendingDocs} icon={FileText} description="docs awaiting upload" />
-          <StatCard
-            title="Overdue clients"
-            value={STATS.slaBreaches}
-            icon={AlertTriangle}
-            description="TAT breaches"
-            className={STATS.slaBreaches > 0 ? "border border-red-200 dark:border-red-900" : ""}
-          />
-          <StatCard
-            title="At-risk clients"
-            value={STATS.slaWarnings}
-            icon={AlertCircle}
-            description="TAT warnings"
-            className={STATS.slaWarnings > 0 ? "border border-orange-200 dark:border-orange-900" : ""}
-          />
-        </div>
-
-        {/* ── 2. Charts Row ──────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
-          {/* Enrollment Trend */}
-          <Card className="xl:col-span-2 bg-card border-border shadow-sm">
+        {/* ── Progress hero (left) + stat cards (right) ───────────────── */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Today's progress */}
+          <Card className="relative h-full overflow-hidden rounded-xl border-none bg-gradient-to-br from-primary/5 to-primary/10 shadow-card">
+            <div className="absolute right-4 top-4 opacity-10">
+              <ClipboardList className="h-24 w-24 text-primary" />
+            </div>
             <CardHeader>
-              <CardTitle className="text-base">Client Enrollment Trends</CardTitle>
-              <CardDescription>
-                Enrolled vs Processing vs Completed —{" "}
-                {dateFilter === "monthly" ? "last 6 months" : dateFilter}
-              </CardDescription>
+              <CardTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
+                <div className="rounded-lg bg-background/60 p-2 shadow-sm backdrop-blur-sm">
+                  <ClipboardList className="h-5 w-5 text-primary" />
+                </div>
+                Today&apos;s Progress
+              </CardTitle>
+              <CardDescription>{greeting()}, {firstName} — here&apos;s your task queue</CardDescription>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={CHART_DATA} barSize={9} barCategoryGap="30%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 8,
-                    }}
-                  />
-                  <Bar dataKey="enrolled" name="Enrolled" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="processing" name="Processing" fill="#60a5fa" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="completed" name="Completed" fill="#34d399" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-              <div className="flex items-center gap-5 mt-2 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-primary inline-block" />Enrolled</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-400 inline-block" />Processing</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-green-400 inline-block" />Completed</span>
+            <CardContent className="space-y-6">
+              <div className="flex items-end justify-between">
+                <p className="text-5xl font-bold tabular-nums text-foreground">
+                  {done}
+                  <span className="text-xl font-semibold text-muted-foreground"> / {total} done</span>
+                </p>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Remaining</p>
+                  <p className="text-3xl font-bold tabular-nums text-primary">{remaining}</p>
+                </div>
+              </div>
+              <div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+                </div>
+                <p className="mt-1 text-right text-xs text-muted-foreground">{progress}% completed</p>
+              </div>
+              <div className="flex items-center gap-3 rounded-lg bg-background/60 p-3">
+                <div className="rounded-lg bg-primary/10 p-2">
+                  <Trophy className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {remaining === 0 ? "All done — great work! 🎉" : "Keep it up! 🚀"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {remaining === 0
+                      ? "Every task for today is complete."
+                      : <>{remaining} tasks left{urgentLeft > 0 ? ` · ${urgentLeft} urgent` : ""}.</>}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* TAT Risk Summary */}
-          <Card className="bg-card border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">TAT Risk Summary</CardTitle>
-              <CardDescription>Distribution across {total} assigned clients</CardDescription>
+          {/* Snapshot stats */}
+          <div data-tour="dash-stats" className="grid gap-4 sm:grid-cols-2 lg:col-span-2">
+            <StatCard title="My Clients" value={SNAPSHOT.myClients} icon={Users} description="active in my queue" />
+            <StatCard title="Pending Docs" value={SNAPSHOT.pendingDocs} icon={FileText} description="to collect" />
+            <StatCard title="Follow-ups Today" value={TODAY_FOLLOWUPS.length} icon={Phone} description="scheduled" />
+            <StatCard title="TAT At Risk" value={SNAPSHOT.tatAtRisk} icon={AlertTriangle} description="due soon / overdue" />
+            <StatCard title="Open Queries" value={SNAPSHOT.openQueries} icon={MessageSquare} description="awaiting my reply" />
+            <StatCard title="Completed" value={SNAPSHOT.completed} icon={CheckCircle2} description="visa granted" />
+          </div>
+        </div>
+
+        {/* ── My tasks (checklist) + today's follow-ups ───────────────── */}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          {/* My Tasks Today */}
+          <Card className="border-border bg-card shadow-sm xl:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base">My Tasks Today</CardTitle>
+                <CardDescription>Tick items off as you work through your queue</CardDescription>
+              </div>
+              <Badge variant="secondary" className="shrink-0">{done}/{total} done</Badge>
             </CardHeader>
-            <CardContent className="space-y-5">
-              {[
-                { label: "🟢 On Track", count: STATS.slaGreen, bar: "bg-green-500", text: "text-green-700" },
-                { label: "🟠 Warning", count: STATS.slaWarnings, bar: "bg-orange-400", text: "text-orange-600" },
-                { label: "🔴 Breach", count: STATS.slaBreaches, bar: "bg-red-500", text: "text-red-600" },
-              ].map(({ label, count, bar, text }) => (
-                <div key={label} className="space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className={`font-medium ${text}`}>{label}</span>
-                    <span className="text-muted-foreground">{count} / {total}</span>
+            <CardContent className="p-0">
+              <div className="divide-y divide-border">
+                {INITIAL_TASKS.map((t) => {
+                  const isDone = doneIds.has(t.id);
+                  return (
+                    <div key={t.id} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/40">
+                      <button
+                        type="button"
+                        aria-label={isDone ? "Mark not done" : "Mark done"}
+                        onClick={() => toggleTask(t.id)}
+                        className={cn(
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
+                          isDone ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 hover:border-primary"
+                        )}
+                      >
+                        {isDone ? <Check className="h-3 w-3" /> : null}
+                      </button>
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                        {t.name.charAt(0).toUpperCase()}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className={cn("truncate text-sm font-semibold", isDone ? "text-muted-foreground line-through" : "text-foreground")}>
+                            {t.name}
+                          </p>
+                          {t.urgent && !isDone ? (
+                            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                              Urgent
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className={cn("truncate text-xs", isDone ? "text-muted-foreground/70 line-through" : "text-muted-foreground")}>
+                          {t.task}
+                        </p>
+                      </div>
+                      <span className={cn("shrink-0 text-xs font-medium", isDone ? "text-muted-foreground/60" : "text-muted-foreground")}>
+                        {t.due}
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Today's Follow-ups */}
+          <Card className="border-border bg-card shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Clock className="h-4 w-4 text-primary" />
+                Today&apos;s Follow-ups
+              </CardTitle>
+              <CardDescription>{TODAY_FOLLOWUPS.length} touchpoints scheduled</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {TODAY_FOLLOWUPS.map((fu) => {
+                const Icon = CHANNEL_ICON[fu.channel];
+                return (
+                  <div key={fu.id} className="flex items-start gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-semibold text-foreground">{fu.name}</p>
+                        <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">{fu.time}</span>
+                      </div>
+                      <p className="truncate text-xs text-muted-foreground">{fu.channel} · {fu.note}</p>
+                    </div>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${bar}`}
-                      style={{ width: `${total > 0 ? Math.round((count / total) * 100) : 0}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
         </div>
@@ -210,10 +246,17 @@ export default function CxDashboard() {
         open={showHint}
         onClose={dismissHint}
         steps={[
-          { target: '[data-tour="dash-stats"]', title: "Client Stats", content: "Six stat cards show your real-time metrics — total clients, processing, pending docs, and TAT health.", side: "bottom" },
-          { target: '[data-tour="dash-date-filter"]', title: "Date Filters", content: "Filter all charts and stats by Today, Weekly, Monthly, or pick a custom date range.", side: "bottom" },
+          { target: '[data-tour="dash-stats"]', title: "Your Snapshot", content: "These cards summarise your own queue — clients, pending docs, follow-ups, TAT risk, queries, and completed cases.", side: "bottom" },
+          { target: '[data-tour="dash-date-filter"]', title: "Date Filters", content: "Scope your numbers by Today, Weekly, or Monthly.", side: "bottom" },
         ]}
       />
     </PageWrapper>
   );
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
 }

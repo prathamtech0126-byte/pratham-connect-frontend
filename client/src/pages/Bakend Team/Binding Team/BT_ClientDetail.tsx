@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { usePageHint } from "@/hooks/usePageHint";
 import { ProductTour } from "@/components/ProductTour";
+import { RequestFromCxButton } from "@/components/binding/RequestFromCxButton";
 
 // ── Mock client detail ─────────────────────────────────────────────────
 
@@ -171,9 +172,12 @@ export default function BtClientDetail({ params }: { params?: { id?: string } })
         { label: MOCK_CLIENT.name },
       ]}
       actions={
-        <Button variant="outline" size="sm" onClick={() => setLocation("/binding/clients")}>
-          <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Back
-        </Button>
+        <div className="flex items-center gap-2">
+          <RequestFromCxButton clientId={MOCK_CLIENT.id} clientName={MOCK_CLIENT.name} label="Request from CX" />
+          <Button variant="outline" size="sm" onClick={() => setLocation("/binding/clients")}>
+            <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Back
+          </Button>
+        </div>
       }
     >
       <div className="space-y-5">

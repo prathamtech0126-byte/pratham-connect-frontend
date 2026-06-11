@@ -6,8 +6,8 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import fs from "fs";
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+
+
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 /** Build-time version for cache busting: new deploy = new version, so clients reload. */
