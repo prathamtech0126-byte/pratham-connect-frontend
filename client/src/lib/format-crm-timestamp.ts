@@ -29,9 +29,9 @@ export function parseCrmTimestamp(
     return isNaN(d.getTime()) ? null : d;
   }
 
-  // Naive datetime string (no timezone) — backend stores UTC, so treat as UTC
+  // Naive datetime string (no timezone) — backend stores IST wall clock
   const normalized = s.replace(" ", "T").replace(/\.\d+$/, "");
-  const d = new Date(`${normalized}Z`);
+  const d = new Date(`${normalized}${IST_OFFSET}`);
   return isNaN(d.getTime()) ? null : d;
 }
 
@@ -66,7 +66,7 @@ export function formatCrmTimestamp(
 
 /**
  * Serialize a Date for CRM lead/follow-up fields (+05:30 wall clock).
- * Matches backend serializePgNaiveTimestampAsIst.
+ * Matches backend serializeAsIst.
  */
 export function toCrmApiTimestamp(value: Date): string {
   const parts = new Intl.DateTimeFormat("en-GB", {

@@ -590,7 +590,7 @@ export default function CounsellorLeaderboard() {
                     {/* Achievement */}
                     <div className="text-center min-w-[100px] sm:min-w-[120px]">
                       <div className="text-2xl font-bold">{counsellor.currentClients}</div>
-                      <div className="text-xs text-muted-foreground">{isStudentTab ? "Applications" : "Clients"}</div>
+                      <div className="text-xs text-muted-foreground">{isStudentTab ? "Application" : "Clients"}</div>
                     </div>
 
                     {/* Revenue */}
@@ -607,7 +607,7 @@ export default function CounsellorLeaderboard() {
                           {counsellor.applicationTarget != null && counsellor.applicationTarget > 0 && (
                             <div className="space-y-1">
                               <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">Applications (Target: {counsellor.applicationTarget})</span>
+                                <span className="text-muted-foreground">Application (Target: {counsellor.applicationTarget})</span>
                                 <span className={cn("font-semibold shrink-0 ml-2", ((counsellor.studentAppCount ?? 0) / counsellor.applicationTarget) >= 1 ? 'text-green-600' : '')}>
                                   {counsellor.studentAppCount ?? 0}/{counsellor.applicationTarget}
                                 </span>
@@ -618,11 +618,11 @@ export default function CounsellorLeaderboard() {
                               />
                             </div>
                           )}
-                          {/* Final student progress bar */}
+                          {/* Tuition Deposit progress bar */}
                           {counsellor.finalStudentTarget != null && counsellor.finalStudentTarget > 0 && (
                             <div className="space-y-1">
                               <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">Final Students (Target: {counsellor.finalStudentTarget})</span>
+                                <span className="text-muted-foreground">Tuition Deposit (Target: {counsellor.finalStudentTarget})</span>
                                 <span className={cn("font-semibold shrink-0 ml-2", ((counsellor.finalStudentCount ?? 0) / counsellor.finalStudentTarget) >= 1 ? 'text-green-600' : '')}>
                                   {counsellor.finalStudentCount ?? 0}/{counsellor.finalStudentTarget}
                                 </span>

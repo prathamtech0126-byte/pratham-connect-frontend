@@ -1314,21 +1314,39 @@ export default function CounsellorReportPage() {
                             <div className="flex items-center justify-between gap-2">
                               <p className="text-sm font-semibold text-foreground">
                                 {formatCategoryLabel(row.category_name)}
-                                {catLower === "student" && <span className="ml-1 text-xs font-normal text-muted-foreground">(with TD)</span>}
                               </p>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="rounded-md bg-muted/40 p-3">
-                                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Count</p>
-                                <p className="mt-1 text-xl font-bold tabular-nums">{row.count}</p>
+                            {catLower === "student" ? (
+                              <div className="grid grid-cols-3 gap-3">
+                                <div className="rounded-md bg-muted/40 p-3">
+                                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Application</p>
+                                  <p className="mt-1 text-xl font-bold tabular-nums">{(row as any).app_count ?? 0}</p>
+                                </div>
+                                <div className="rounded-md bg-muted/40 p-3">
+                                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">TD</p>
+                                  <p className="mt-1 text-xl font-bold tabular-nums">{row.count}</p>
+                                </div>
+                                <div className="rounded-md bg-muted/40 p-3">
+                                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Amount</p>
+                                  <p className="mt-1 text-base font-bold tabular-nums">
+                                    {formatCurrency(parseAmount(row.amount))}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="rounded-md bg-muted/40 p-3">
-                                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Amount</p>
-                                <p className="mt-1 text-base font-bold tabular-nums">
-                                  {formatCurrency(parseAmount(row.amount))}
-                                </p>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="rounded-md bg-muted/40 p-3">
+                                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Count</p>
+                                  <p className="mt-1 text-xl font-bold tabular-nums">{row.count}</p>
+                                </div>
+                                <div className="rounded-md bg-muted/40 p-3">
+                                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Amount</p>
+                                  <p className="mt-1 text-base font-bold tabular-nums">
+                                    {formatCurrency(parseAmount(row.amount))}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </CardContent>
                         </Card>
                       );

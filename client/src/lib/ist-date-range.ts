@@ -73,6 +73,19 @@ export function istMonthRangeIso(now: Date = new Date()): { createdFrom: string;
   return istYmdInclusiveRangeIso(first, last);
 }
 
+/** Monday–Sunday week in IST containing `now` as `yyyy-MM-dd` strings. */
+export function istWeekYmds(now: Date = new Date()): { from: string; to: string } {
+  const ymd = istCalendarYmd(now);
+  const anchor = new Date(`${ymd}T12:00:00.000${IST_OFFSET}`);
+  const long = IST_WEEKDAY_LONG.format(anchor) as string;
+  const daysSinceMonday: Record<string, number> = {
+    Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6,
+  };
+  const mondayYmd = istAddCalendarDays(ymd, -(daysSinceMonday[long] ?? 0));
+  const sundayYmd = istAddCalendarDays(mondayYmd, 6);
+  return { from: mondayYmd, to: sundayYmd };
+}
+
 /** First / last `yyyy-MM-dd` in IST for month presets (DateRangePicker). */
 export function istMonthPresetYmds(now: Date = new Date()): { from: string; to: string } {
   const ymd = istCalendarYmd(now);

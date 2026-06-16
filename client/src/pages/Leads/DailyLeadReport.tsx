@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { format } from "date-fns";
 import * as XLSX from "xlsx";
 import { Copy, Check, Download, RefreshCw, FileSpreadsheet } from "lucide-react";
 
@@ -8,36 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import DateRangePicker from "@/components/payments/DateRangePicker";
-import { fetchAllLeads, type LeadEntity } from "@/api/leads.api";
+import { fetchAllLeads, type LeadEntity, type LeadListParams } from "@/api/leads.api";
 import { isTransferredInPeriod } from "@/lib/lead-report-period";
+import { getLeadDateBounds, leadDateRangeParams } from "@/lib/lead-date-range";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type DateFilterType = "today" | "weekly" | "monthly" | "custom";
 type UserLite = { id: number; fullName: string };
 type LeadTypeLite = { id: number; leadType: string; displayAlias?: string | null };
-
-function getDateBounds(f: DateFilterType, from?: string, to?: string) {
-  const now = new Date();
-  if (f === "today") return { from: startOfDay(now), to: endOfDay(now) };
-  if (f === "weekly") {
-    const d = new Date(now);
-    d.setDate(d.getDate() - d.getDay() + 1);
-    const start = startOfDay(d);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    return { from: start, to: endOfDay(end) };
-  }
-  if (f === "monthly") {
-    return {
-      from: new Date(now.getFullYear(), now.getMonth(), 1),
-      to: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59),
-    };
-  }
-  if (f === "custom" && from && to)
-    return { from: startOfDay(new Date(from)), to: endOfDay(new Date(to)) };
-  return { from: startOfDay(now), to: endOfDay(now) };
-}
 
 const DIVIDER = "━━━━━━━━━━━━━━━━━━━";
 
@@ -53,27 +32,28 @@ export default function DailyLeadReport() {
   const [generated, setGenerated] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const bounds = useMemo(
-    () => getDateBounds(dateFilter, customFrom, customTo),
-    [dateFilter, customFrom, customTo]
-  );
+  const bounds = useMemo((): { from: Date; to: Date } => {
+    return getLeadDateBounds(dateFilter, customFrom, customTo) ?? getLeadDateBounds("today")!;
+  }, [dateFilter, customFrom, customTo]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setGenerated(false);
     try {
-      const period = {
-        createdFrom: bounds.from.toISOString(),
-        createdTo: bounds.to.toISOString(),
-      };
+      const period = leadDateRangeParams(dateFilter, customFrom, customTo);
+      // Derive ISO strings from afterDate/beforeDate (or fall back to bounds computed from "today")
+      const afterDate  = period.afterDate  ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(bounds.from);
+      const beforeDate = period.beforeDate ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(bounds.to);
+      const isoFrom = new Date(`${afterDate}T00:00:00+05:30`).toISOString();
+      const isoTo   = new Date(`${beforeDate}T23:59:59.999+05:30`).toISOString();
       const [tcRes, ltRes, createdLeads, transferredLeads] = await Promise.all([
         api.get("/api/users/telecallers"),
         api.get("/api/lead-types"),
-        fetchAllLeads({ isJunk: false, ...period }),
+        fetchAllLeads({ isJunk: false, ...period, dateFilter: period.dateFilter as LeadListParams["dateFilter"] }),
         fetchAllLeads({
           isJunk: false,
-          transferredFrom: period.createdFrom,
-          transferredTo: period.createdTo,
+          transferredFrom: isoFrom,
+          transferredTo: isoTo,
         }),
       ]);
       setTelecallers(tcRes?.data?.data || tcRes?.data || []);
@@ -85,7 +65,7 @@ export default function DailyLeadReport() {
       setLoading(false);
       setGenerated(true);
     }
-  }, [bounds]);
+  }, [bounds, dateFilter, customFrom, customTo]);
 
   useEffect(() => {
     void loadData();

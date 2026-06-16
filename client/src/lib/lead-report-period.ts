@@ -1,5 +1,9 @@
 import type { LeadEntity } from "@/api/leads.api";
-import { getLeadDateBounds, type LeadDateFilterType } from "@/lib/lead-date-range";
+import {
+  getLeadDateBounds,
+  leadDateRangeParams,
+  type LeadDateFilterType,
+} from "@/lib/lead-date-range";
 
 /** Telecaller transfer KPI outcomes (matches backend). */
 export const TRANSFER_OUTCOME_STATUSES = new Set([
@@ -97,8 +101,8 @@ export function reportPeriodQueryParams(
   customFrom?: string,
   customTo?: string
 ): {
-  createdFrom?: string;
-  createdTo?: string;
+  afterDate?: string;
+  beforeDate?: string;
   transferredFrom?: string;
   transferredTo?: string;
   convertedFrom?: string;
@@ -106,18 +110,19 @@ export function reportPeriodQueryParams(
   droppedFrom?: string;
   droppedTo?: string;
 } {
-  const bounds = getReportPeriodBounds(filter, customFrom, customTo);
-  if (!bounds) return {};
-  const from = bounds.from.toISOString();
-  const to = bounds.to.toISOString();
+  const { afterDate, beforeDate } = leadDateRangeParams(filter, customFrom, customTo);
+  if (!afterDate || !beforeDate) return {};
+  // ISO strings for outcome columns (backend uses pgNaiveIst for transferred/converted/dropped)
+  const isoFrom = new Date(`${afterDate}T00:00:00+05:30`).toISOString();
+  const isoTo   = new Date(`${beforeDate}T23:59:59.999+05:30`).toISOString();
   return {
-    createdFrom: from,
-    createdTo: to,
-    transferredFrom: from,
-    transferredTo: to,
-    convertedFrom: from,
-    convertedTo: to,
-    droppedFrom: from,
-    droppedTo: to,
+    afterDate,
+    beforeDate,
+    transferredFrom: isoFrom,
+    transferredTo: isoTo,
+    convertedFrom: isoFrom,
+    convertedTo: isoTo,
+    droppedFrom: isoFrom,
+    droppedTo: isoTo,
   };
 }

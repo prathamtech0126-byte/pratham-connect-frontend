@@ -598,7 +598,7 @@ export default function Messages() {
                               <span>•</span>
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                {format(new Date(message.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                                {message.createdAt ? format(new Date(message.createdAt), "MMM d, yyyy 'at' h:mm a") : "—"}
                               </span>
                             </div>
                           </div>
@@ -753,7 +753,7 @@ export default function Messages() {
                                 <span>•</span>
                                 <span className="flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
-                                  {format(new Date(message.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                                  {message.createdAt ? format(new Date(message.createdAt), "MMM d, yyyy 'at' h:mm a") : "—"}
                                 </span>
                               </div>
                             </div>
@@ -1052,7 +1052,7 @@ export default function Messages() {
                   <span className="text-muted-foreground hidden sm:inline">•</span>
                   <span className="flex items-center gap-1">
                     <Clock className="w-3 h-3 flex-shrink-0" />
-                    {format(new Date(selectedMessage.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                    {selectedMessage.createdAt ? format(new Date(selectedMessage.createdAt), "MMM d, yyyy 'at' h:mm a") : "—"}
                   </span>
                 </DialogDescription>
               </DialogHeader>
@@ -1153,7 +1153,7 @@ export default function Messages() {
                                                    (ack.user as any)?.userRole ||
                                                    'counsellor'; // Default to counsellor since these are message recipients
                                       return role.charAt(0).toUpperCase() + role.slice(1);
-                                    })()} • {format(new Date(ack.acknowledgedAt), "MMM d, h:mm a")}
+                                    })()} {ack.acknowledgedAt ? `• ${format(new Date(ack.acknowledgedAt), "MMM d, h:mm a")}` : ""}
                                   </div>
                                 </div>
                                 <Badge variant="outline" className="text-xs capitalize">

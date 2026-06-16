@@ -62,6 +62,7 @@ import {
   getTomorrowMorning1030,
   isFollowupDateTimeAllowed,
 } from "@/lib/followup-datetime";
+import { toCrmApiTimestamp } from "@/lib/format-crm-timestamp";
 import type { LeadDetailMeta } from "@/api/leads.api";
 import {
   resolveLeadSourceSelectValue,
@@ -336,7 +337,7 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
     }
 
     const { lead: updatedLead, activity: createdActivity } = await markLeadFollowupApi(lead.id, {
-      followupAt: scheduled.toISOString(),
+      followupAt: toCrmApiTimestamp(scheduled),
       message: fNote?.trim() || null,
     });
 
@@ -683,6 +684,17 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
   const handlePersonalSave = async () => {
     if (!lead || !personalEditState) return;
+
+    const dob = personalEditState.dateOfBirth?.trim();
+    if (dob && dob.length > 0 && dob.length < 10) {
+      toast({
+        title: "Invalid date of birth",
+        description: "Enter the full date as DD/MM/YYYY.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
       const saved = (await updateLeadApi(lead.id, {
@@ -731,8 +743,15 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       setPersonalEditing(false);
       setPersonalEditState(null);
       toast({ title: "Personal details saved" });
-    } catch {
-      toast({ title: "Failed to save personal details", variant: "destructive" });
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err instanceof Error ? err.message : undefined);
+      toast({
+        title: "Failed to save personal details",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }

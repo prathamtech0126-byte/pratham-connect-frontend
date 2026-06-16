@@ -20,6 +20,7 @@ import {
   fetchAllLeads,
   getTelecallerIndividualReport,
   type LeadEntity,
+  type LeadListParams,
   type TelecallerIndividualReport,
 } from "@/api/leads.api";
 import DateRangePicker from "@/components/payments/DateRangePicker";
@@ -82,8 +83,8 @@ export default function IndividualTelecallerAnalysis() {
     return {
       from,
       dateFilter,
-      customDateFrom: qs.get("createdFrom") ?? undefined,
-      customDateTo: qs.get("createdTo") ?? undefined,
+      customDateFrom: qs.get("afterDate") ?? qs.get("createdFrom") ?? undefined,
+      customDateTo: qs.get("beforeDate") ?? qs.get("createdTo") ?? undefined,
     };
   }, [searchStr]);
 
@@ -132,8 +133,8 @@ export default function IndividualTelecallerAnalysis() {
     if (!cameFromTelecallerWise) return "/leads/reports";
     const qs = new URLSearchParams();
     if (navContext.dateFilter) qs.set("dateFilter", navContext.dateFilter);
-    if (navContext.customDateFrom) qs.set("createdFrom", navContext.customDateFrom);
-    if (navContext.customDateTo) qs.set("createdTo", navContext.customDateTo);
+    if (navContext.customDateFrom) qs.set("afterDate", navContext.customDateFrom);
+    if (navContext.customDateTo) qs.set("beforeDate", navContext.customDateTo);
     const query = qs.toString();
     return query ? `/leads/telecaller-wise?${query}` : "/leads/telecaller-wise";
   }, [cameFromTelecallerWise, navContext]);
@@ -164,6 +165,7 @@ export default function IndividualTelecallerAnalysis() {
         fetchAllLeads({
           currentTelecallerId: telecallerId,
           ...rangeParams,
+          dateFilter: rangeParams.dateFilter as LeadListParams["dateFilter"],
           isJunk: false,
           forReport: true,
           assignedScope: true,
