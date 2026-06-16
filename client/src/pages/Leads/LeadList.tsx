@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLeadSocketRefresh } from "@/hooks/use-lead-socket";
 import { useLocation, useSearch } from "wouter";
 import { format } from "date-fns";
@@ -6,9 +6,7 @@ import { format } from "date-fns";
 import {
   istCalendarYmd,
   istMonthPresetYmds,
-  istMonthRangeIso,
-  istTodayRangeIso,
-  istWeekRangeIso,
+  istWeekYmds,
   istYmdInclusiveRangeIso,
 } from "@/lib/ist-date-range";
 
@@ -89,13 +87,25 @@ import {
   mergeLeadRow,
   canTransferToCounsellor,
 } from "@/lib/lead-status-tags";
-import { consumeLeadListPatches, extractLeadFromSocketPayload } from "@/lib/lead-list-sync";
+import {
+  consumeLeadListPatches,
+  extractLeadFromSocketPayload,
+  saveLeadListCache,
+  readLeadListCache,
+  markLeadListNavAway,
+  consumeLeadListNavReturn,
+  saveLeadListScrollY,
+  consumeLeadListScrollY,
+  getScrollContainerScrollY,
+  restoreLeadListScrollY,
+} from "@/lib/lead-list-sync";
 import { listPatchFromLeadUpdate } from "@/lib/lead-progress-rules";
 import { getLeadSourceLabel } from "@/lib/lead-source-display";
 import {
   getLeadReferenceDisplayLabel,
   leadHasReferenceSource,
 } from "@/lib/lead-reference-display";
+import { toCrmApiTimestamp } from "@/lib/format-crm-timestamp";
 
 type Counsellor = { id: number; fullName: string };
 type LeadType = { id: number; leadType: string; displayAlias?: string | null };
@@ -194,6 +204,30 @@ function shouldIgnoreStoredLeadFilters(): boolean {
   }
 }
 
+/** Read report-drill URL params synchronously on mount so the first API call is correct. */
+function readReportUrlParams() {
+  if (typeof window === "undefined") return null;
+  try {
+    const qs = new URLSearchParams(window.location.search);
+    if (qs.get("clearFilters") !== "1") return null;
+    return {
+      reportBucket: (qs.get("reportBucket") as "" | "contacted" | "transferred") || "",
+      forReport: qs.get("forReport") === "1",
+      transferredFrom: qs.get("transferredFrom") ?? undefined,
+      transferredTo: qs.get("transferredTo") ?? undefined,
+      convertedFrom: qs.get("convertedFrom") ?? undefined,
+      convertedTo: qs.get("convertedTo") ?? undefined,
+      droppedFrom: qs.get("droppedFrom") ?? undefined,
+      droppedTo: qs.get("droppedTo") ?? undefined,
+      dateFilter: (qs.get("dateFilter") as DateFilterType) || "weekly",
+      afterDate: qs.get("afterDate") ?? undefined,
+      beforeDate: qs.get("beforeDate") ?? undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function readLeadListFilters(): Record<string, unknown> {
   if (shouldIgnoreStoredLeadFilters()) return {};
   try {
@@ -207,6 +241,17 @@ export default function LeadList() {
   const [, setLocation] = useLocation();
   const searchStr = useSearch();
   const { toast } = useToast();
+
+  // Detect back-navigation from lead detail (consumed once on mount).
+  const isReturnFromDetail = useRef(consumeLeadListNavReturn());
+  const cachedLeadsRef = useRef<LeadEntity[] | null>(
+    isReturnFromDetail.current ? readLeadListCache() : null
+  );
+  // Skip the first run of the page-reset useLayoutEffect when restoring from cache,
+  // otherwise it fires on mount and resets page → 1 before the cache can be applied.
+  const skipFirstPageReset = useRef(isReturnFromDetail.current && cachedLeadsRef.current !== null);
+  // Pending scroll Y to restore after the list renders from cache.
+  const [pendingScrollY, setPendingScrollY] = useState<number | null>(null);
 
   const [leads, setLeads] = useState<LeadEntity[]>([]);
   const [loading, setLoading] = useState(false);
@@ -269,17 +314,23 @@ export default function LeadList() {
   const [filterEligibility, setFilterEligibility] = useState(() => String(readLeadListFilters().filterEligibility ?? ""));
   const [filterQuality, setFilterQuality] = useState(() => String(readLeadListFilters().filterQuality ?? ""));
 
-  // Date filter
+  // Date filter — prefer URL params on report drill-down so the first API call is correct
   const [dateFilter, setDateFilter] = useState<DateFilterType>(() => {
+    const rp = readReportUrlParams();
+    if (rp) return rp.dateFilter;
     const stored = readLeadListFilters().dateFilter as DateFilterType;
     return (["all", "today", "weekly", "monthly", "custom"] as const).includes(stored) ? stored : "weekly";
   });
-  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>(() =>
-    readLeadListFilters().customDateFrom as string | undefined
-  );
-  const [customDateTo, setCustomDateTo] = useState<string | undefined>(() =>
-    readLeadListFilters().customDateTo as string | undefined
-  );
+  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>(() => {
+    const rp = readReportUrlParams();
+    if (rp) return rp.afterDate;
+    return readLeadListFilters().customDateFrom as string | undefined;
+  });
+  const [customDateTo, setCustomDateTo] = useState<string | undefined>(() => {
+    const rp = readReportUrlParams();
+    if (rp) return rp.beforeDate;
+    return readLeadListFilters().customDateTo as string | undefined;
+  });
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
@@ -311,13 +362,15 @@ export default function LeadList() {
     return stored === true || stored === "true" || stored === "1";
   });
   const [assignedScopeMode, setAssignedScopeMode] = useState(false);
-  const [forReportMode, setForReportMode] = useState(false);
+  const [forReportMode, setForReportMode] = useState(() => readReportUrlParams()?.forReport ?? false);
   const [filterWithTelecaller, setFilterWithTelecaller] = useState(false);
   const [counsellorReportDrillMode, setCounsellorReportDrillMode] = useState(false);
   const [reportWithoutTelecaller, setReportWithoutTelecaller] = useState(false);
   const [reportWithTelecaller, setReportWithTelecaller] = useState(false);
-  const [reportBucketFilter, setReportBucketFilter] = useState<"" | "contacted" | "transferred">("");
+  const [reportBucketFilter, setReportBucketFilter] = useState<"" | "contacted" | "transferred">(() => readReportUrlParams()?.reportBucket ?? "");
   const [hasPendingFollowUpOnly, setHasPendingFollowUpOnly] = useState(false);
+  // Blocks loadLeads until the URL-params useEffect has run and applied all filters.
+  const [filtersReady, setFiltersReady] = useState(false);
 
   /**
    * Authoritative current-user id, fetched directly from `/api/users/me`.
@@ -349,6 +402,8 @@ export default function LeadList() {
     const progress = params.get("progress");
     const assignment = params.get("assignment");
     const dateFilterParam = params.get("dateFilter");
+    const afterDate = params.get("afterDate");
+    const beforeDate = params.get("beforeDate");
     const createdFrom = params.get("createdFrom");
     const createdTo = params.get("createdTo");
     const transferredFrom = params.get("transferredFrom");
@@ -433,13 +488,21 @@ export default function LeadList() {
     ) {
       setDateFilter(dateFilterParam as DateFilterType);
     }
-    if (transferredFrom || convertedFrom || droppedFrom || createdFrom) {
+    // afterDate/beforeDate are yyyy-MM-dd (new style)
+    if (afterDate) setCustomDateFrom(afterDate);
+    if (beforeDate) setCustomDateTo(beforeDate);
+    // Legacy: extract IST yyyy-MM-dd from ISO strings for transferred/converted/dropped/createdFrom
+    const rawDateFrom = transferredFrom ?? convertedFrom ?? droppedFrom ?? createdFrom;
+    const rawDateTo   = transferredTo   ?? convertedTo   ?? droppedTo   ?? createdTo;
+    if (!afterDate && rawDateFrom) {
       setCustomDateFrom(
-        transferredFrom ?? convertedFrom ?? droppedFrom ?? createdFrom ?? undefined
+        rawDateFrom.includes("T") ? istCalendarYmd(new Date(rawDateFrom)) : rawDateFrom
       );
     }
-    if (transferredTo || convertedTo || droppedTo || createdTo) {
-      setCustomDateTo(transferredTo ?? convertedTo ?? droppedTo ?? createdTo ?? undefined);
+    if (!beforeDate && rawDateTo) {
+      setCustomDateTo(
+        rawDateTo.includes("T") ? istCalendarYmd(new Date(rawDateTo)) : rawDateTo
+      );
     }
     setAssignedScopeMode(assignedScope === "1");
     if (reportBucket === "contacted" || reportBucket === "transferred") {
@@ -451,6 +514,7 @@ export default function LeadList() {
       hasPendingFollowUp === "1" || hasPendingFollowUp === "true"
     );
     setFilterWithTelecaller(params.get("hasTelecaller") === "1");
+    setFiltersReady(true);
   }, [searchStr]);
 
   // Persist filter state to sessionStorage whenever any filter changes
@@ -505,16 +569,16 @@ export default function LeadList() {
     : PROGRESS_STATUS_OPTIONS;
 
   /**
-   * ISO bounds for the active date filter (full IST calendar days, inclusive).
+   * Date filter params for API calls.
    *
-   * The same range is sent as `nextFollowupFrom/To` when the user is filtering by
-   * the "Follow Up" progress status (so the date picker targets the scheduled
-   * follow-up date), and as `createdFrom/To` otherwise (default: filter by lead
-   * creation date).
+   * - today/weekly/monthly → sends `dateFilter=today/weekly/monthly` only; backend computes IST bounds.
+   * - custom → sends `afterDate`/`beforeDate` as yyyy-MM-dd; backend converts to naive IST strings.
+   * - Sub-filters (transferred/converted/dropped/followup) → ISO UTC strings (backend uses pgNaiveIst).
    */
   const dateRangeParams = useMemo((): {
-    createdFrom?: string;
-    createdTo?: string;
+    dateFilter?: string;
+    afterDate?: string;
+    beforeDate?: string;
     transferredFrom?: string;
     transferredTo?: string;
     convertedFrom?: string;
@@ -525,38 +589,48 @@ export default function LeadList() {
     nextFollowupTo?: string;
   } => {
     if (dateFilter === "all") return {};
-    const now = new Date();
-    let range: { createdFrom: string; createdTo: string } | undefined;
-    if (dateFilter === "today") range = istTodayRangeIso(now);
-    else if (dateFilter === "weekly") range = istWeekRangeIso(now);
-    else if (dateFilter === "monthly") range = istMonthRangeIso(now);
-    else if (dateFilter === "custom" && customDateFrom && customDateTo) {
-      range = istYmdInclusiveRangeIso(customDateFrom, customDateTo);
-    }
-    if (!range) return {};
 
-    if (filterProgressStatus === "follow_up") {
-      return { nextFollowupFrom: range.createdFrom, nextFollowupTo: range.createdTo };
+    // For sub-filters we still need the ISO range (backend uses pgNaiveIst for outcome columns)
+    const isSubFilter =
+      filterProgressStatus === "follow_up" ||
+      reportBucketFilter === "transferred" ||
+      (filterAssignmentStatus === "converted" && forReportMode) ||
+      (filterAssignmentStatus === "dropped" && forReportMode);
+
+    if (isSubFilter) {
+      // Compute ymd bounds then convert to ISO for the sub-filter columns
+      let afterDate: string | undefined;
+      let beforeDate: string | undefined;
+      const now = new Date();
+      if (dateFilter === "today") {
+        const ymd = istCalendarYmd(now); afterDate = ymd; beforeDate = ymd;
+      } else if (dateFilter === "weekly") {
+        const { from, to } = istWeekYmds(now); afterDate = from; beforeDate = to;
+      } else if (dateFilter === "monthly") {
+        const { from, to } = istMonthPresetYmds(now); afterDate = from; beforeDate = to;
+      } else if (dateFilter === "custom" && customDateFrom && customDateTo) {
+        afterDate = customDateFrom.includes("T") ? istCalendarYmd(new Date(customDateFrom)) : customDateFrom;
+        beforeDate = customDateTo.includes("T") ? istCalendarYmd(new Date(customDateTo)) : customDateTo;
+      }
+      if (!afterDate || !beforeDate) return {};
+      const isoFrom = istYmdInclusiveRangeIso(afterDate, beforeDate).createdFrom;
+      const isoTo   = istYmdInclusiveRangeIso(afterDate, beforeDate).createdTo;
+      if (filterProgressStatus === "follow_up") return { nextFollowupFrom: isoFrom, nextFollowupTo: isoTo };
+      if (reportBucketFilter === "transferred") return { transferredFrom: isoFrom, transferredTo: isoTo };
+      if (filterAssignmentStatus === "converted" && forReportMode) return { convertedFrom: isoFrom, convertedTo: isoTo };
+      if (filterAssignmentStatus === "dropped" && forReportMode) return { droppedFrom: isoFrom, droppedTo: isoTo };
     }
-    if (reportBucketFilter === "transferred") {
-      return {
-        transferredFrom: customDateFrom ?? range.createdFrom,
-        transferredTo: customDateTo ?? range.createdTo,
-      };
+
+    // Default created_at filter: send preset name or custom dates
+    if (dateFilter === "today" || dateFilter === "weekly" || dateFilter === "monthly") {
+      return { dateFilter };
     }
-    if (filterAssignmentStatus === "converted" && forReportMode) {
-      return {
-        convertedFrom: customDateFrom ?? range.createdFrom,
-        convertedTo: customDateTo ?? range.createdTo,
-      };
+    if (dateFilter === "custom" && customDateFrom && customDateTo) {
+      const afterDate = customDateFrom.includes("T") ? istCalendarYmd(new Date(customDateFrom)) : customDateFrom;
+      const beforeDate = customDateTo.includes("T") ? istCalendarYmd(new Date(customDateTo)) : customDateTo;
+      return { afterDate, beforeDate };
     }
-    if (filterAssignmentStatus === "dropped" && forReportMode) {
-      return {
-        droppedFrom: customDateFrom ?? range.createdFrom,
-        droppedTo: customDateTo ?? range.createdTo,
-      };
-    }
-    return range;
+    return {};
   }, [
     dateFilter,
     customDateFrom,
@@ -583,6 +657,13 @@ export default function LeadList() {
     search.trim().length >= SEARCH_MIN_LENGTH && search.trim() !== debouncedSearch;
 
   useLayoutEffect(() => {
+    // On mount after back-navigation, filters haven't actually changed — the values
+    // just initialized from sessionStorage. Skip the reset so page stays at the
+    // saved value (e.g. page 2) instead of jumping back to 1.
+    if (skipFirstPageReset.current) {
+      skipFirstPageReset.current = false;
+      return;
+    }
     setPage(1);
   }, [
     debouncedSearch,
@@ -600,6 +681,14 @@ export default function LeadList() {
     customDateTo,
     pageSize,
   ]);
+
+  // Restore scroll position after the lead list renders from cache.
+  useLayoutEffect(() => {
+    if (pendingScrollY !== null && leads.length > 0) {
+      restoreLeadListScrollY(pendingScrollY);
+      setPendingScrollY(null);
+    }
+  }, [pendingScrollY, leads.length]);
 
   const activeFilterCount = [
     debouncedSearch ? "search" : "",
@@ -649,6 +738,7 @@ export default function LeadList() {
         });
         const sorted = sortLeadsForDisplay(merged);
         setLeads(sorted);
+        saveLeadListCache(sorted);
         const total = sorted.length;
         const totalPages = Math.max(1, Math.ceil(total / pageSize));
         setPagination({
@@ -709,9 +799,7 @@ export default function LeadList() {
       // Assignment dropdown "Assigned" means assignment_status=assigned only — skip that when scoping by person.
       if (!isCounsellor && personFilterActive) {
         if (effectiveAssignedScopeMode || !isExplicitAssignmentBucket) {
-          if (!isExplicitAssignmentBucket || assignmentBucket === "assigned") {
-            assignmentStatusParam = undefined;
-          }
+          assignmentStatusParam = undefined;
           if (effectiveAssignedScopeMode) {
             progressStatusParam = undefined;
             counsellorListFilterParam = undefined;
@@ -754,6 +842,7 @@ export default function LeadList() {
       });
       const sorted = sortLeadsForDisplay(merged);
       setLeads(sorted);
+      saveLeadListCache(sorted);
       const total = sorted.length;
       const totalPages = Math.max(1, Math.ceil(total / pageSize));
       setPagination({
@@ -805,15 +894,21 @@ const loadCounsellors = useCallback(async () => {
     ]);
     const raw = cRes?.data?.data ?? cRes?.data ?? [];
     setCounsellors(
-      Array.isArray(raw)
-        ? raw.map((c: { id: number; fullName: string; role?: string }) => ({
-            id: Number(c.id),
-            fullName: String(c.fullName ?? ""),
-            role: c.role ?? null,
-          }))
-        : []
-    );
-    setTelecallers(tRes?.data?.data || tRes?.data || []);
+  Array.isArray(raw)
+    ? raw
+        .map((c) => ({
+          id: Number(c.id),
+          fullName: String(c.fullName ?? ""),
+          role: c.role ?? null,
+          status: c.status,
+        }))
+        .sort((a, b) => Number(b.status) - Number(a.status))
+    : []
+);
+    setTelecallers(
+  [...(tRes?.data?.data || tRes?.data || [])]
+    .sort((a, b) => Number(b.status) - Number(a.status))
+);
   } catch (err) {
     console.error("Fetch error:", err);
     setCounsellors([]);
@@ -836,7 +931,32 @@ const loadLeadTypes = useCallback(async () => {
   }
 }, []);
 
-  useEffect(() => { void loadLeads(); }, [loadLeads]);
+  useEffect(() => {
+    // Block until the URL-params useEffect has committed all filters to state.
+    if (!filtersReady) return;
+
+    // On first mount after returning from a lead detail page, restore from cache
+    // instead of refetching. Patches from the detail page are applied here.
+    if (isReturnFromDetail.current && cachedLeadsRef.current) {
+      isReturnFromDetail.current = false;
+      const cached = cachedLeadsRef.current;
+      cachedLeadsRef.current = null;
+      const patches = consumeLeadListPatches();
+      const merged = cached.map((row) => {
+        const patch = patches[String(row.id)];
+        return patch ? mergeLeadRow(row, patch) : row;
+      });
+      const sorted = sortLeadsForDisplay(merged);
+      setLeads(sorted);
+      const total = sorted.length;
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      setPagination({ page: Math.min(page, totalPages), limit: pageSize, total, totalPages });
+      const scrollY = consumeLeadListScrollY();
+      if (scrollY !== null) setPendingScrollY(scrollY);
+      return;
+    }
+    void loadLeads();
+  }, [filtersReady, loadLeads]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void loadCounsellors(); void loadLeadTypes(); }, [loadCounsellors, loadLeadTypes]);
 
   useLeadSocketRefresh({
@@ -1141,7 +1261,7 @@ const loadLeadTypes = useCallback(async () => {
       });
       return;
     }
-    const followupIso = scheduled.toISOString();
+    const followupIso = toCrmApiTimestamp(scheduled);
     try {
       setSubmitting(true);
       const result = await addLeadActivityApi(targetId, {
@@ -1196,9 +1316,11 @@ const loadLeadTypes = useCallback(async () => {
   };
 
   // ── Derived label for custom date ──────────────────────────────
+  // customDateFrom/To may be "yyyy-MM-dd" (from picker) or a full ISO string (from report drilldown URL)
+  const parseCustomDate = (s: string) => s.includes("T") ? new Date(s) : new Date(`${s}T12:00:00+05:30`);
   const customLabel =
     dateFilter === "custom" && customDateFrom && customDateTo
-      ? `${format(new Date(`${customDateFrom}T12:00:00+05:30`), "d MMM")} – ${format(new Date(`${customDateTo}T12:00:00+05:30`), "d MMM yyyy")}`
+      ? `${format(parseCustomDate(customDateFrom), "d MMM")} – ${format(parseCustomDate(customDateTo), "d MMM yyyy")}`
       : null;
 
   // ── Telecaller-to-telecaller transfer handlers ─────────────────
@@ -1768,6 +1890,9 @@ const loadLeadTypes = useCallback(async () => {
                             toggleLeadSelection(lead.id);
                             return;
                           }
+                          saveLeadListScrollY(getScrollContainerScrollY());
+                          markLeadListNavAway();
+                          restoreLeadListScrollY(0);
                           setLocation(`/leads/${lead.id}`);
                         }}
                       >
