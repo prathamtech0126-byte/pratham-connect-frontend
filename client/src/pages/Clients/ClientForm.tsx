@@ -514,31 +514,6 @@ export default function ClientForm() {
   const fromLeadSourceRef = useRef<string | null>(null);
   const leadConvertedMarkedRef = useRef(false);
 
-  const markOriginatingLeadConverted = useCallback(async () => {
-    if (!fromLeadId || leadConvertedMarkedRef.current) return;
-    try {
-      await updateLeadApi(fromLeadId, {
-        progressStatus: "converted",
-        assignmentStatus: "converted",
-      });
-      pushLeadListPatch(fromLeadId, {
-        progressStatus: "converted",
-        assignmentStatus: "converted",
-      });
-      leadConvertedMarkedRef.current = true;
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Could not mark the lead as converted.";
-      toast({
-        title: "Lead status not updated",
-        description: message,
-        variant: "destructive",
-      });
-    }
-  }, [fromLeadId, toast]);
-
   // Socket listeners for all finance approval/rejection events
   useEffect(() => {
     if (!socket || !isConnected) {
@@ -2656,6 +2631,60 @@ export default function ClientForm() {
     }
   }, [selectedChecklistToSend, internalClientId, toast]);
 
+  const buildClientSavePayload = useCallback(
+    (clientId?: number | null) => {
+      const data = form.getValues();
+      const selectedTypeData = allSaleTypes.find((t) => t.saleType === data.salesType);
+      const isCounsellorRole = user?.role === "counsellor";
+      const effectiveLeadSource = fromLeadId
+        ? (fromLeadSourceRef.current ?? data.leadSource)
+        : data.leadSource;
+      const selectedLeadType = leadTypes.find((lt: any) => lt.leadType === effectiveLeadSource);
+      const leadTypeId = selectedLeadType?.id || selectedLeadType?.leadTypeId || null;
+      const resolvedCounsellorId = isCounsellorRole
+        ? Number(user?.id)
+        : (clientOriginalCounsellorIdRef.current ?? data.counsellorId);
+
+      const payload: Record<string, unknown> = {
+        fullName: data.name,
+        enrollmentDate: data.enrollmentDate,
+        passportDetails: data.passportDetails,
+        saleTypeId: selectedTypeData?.id || null,
+        counsellorId: resolvedCounsellorId,
+        leadTypeId,
+      };
+      if (fromLeadId) payload.convertedLeadId = fromLeadId;
+      if (clientId != null) payload.clientId = clientId;
+      return payload;
+    },
+    [form, allSaleTypes, user, fromLeadId, leadTypes],
+  );
+
+  const markOriginatingLeadConverted = useCallback(async () => {
+    if (!fromLeadId || leadConvertedMarkedRef.current) return;
+    try {
+      await updateLeadApi(fromLeadId, {
+        progressStatus: "converted",
+        assignmentStatus: "converted",
+      });
+      pushLeadListPatch(fromLeadId, {
+        progressStatus: "converted",
+        assignmentStatus: "converted",
+      });
+      leadConvertedMarkedRef.current = true;
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Could not mark the lead as converted.";
+      toast({
+        title: "Lead status not updated",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  }, [fromLeadId, toast]);
+
   const handleCreateClient = async () => {
     if (isSubmitting || requestInFlightRef.current) {
       return;
@@ -2676,28 +2705,8 @@ export default function ClientForm() {
 
     try {
       const data = form.getValues();
-      const selectedTypeData = allSaleTypes.find((t) => t.saleType === data.salesType);
-      const effectiveLeadSource = fromLeadId ? (fromLeadSourceRef.current ?? data.leadSource) : data.leadSource;
-      const selectedLeadType = leadTypes.find((lt: any) => lt.leadType === effectiveLeadSource);
-      const leadTypeId = selectedLeadType?.id || selectedLeadType?.leadTypeId || null;
 
-      // Counsellor: use own ID. Admin/manager/developer: preserve original counsellor from API (don't inject admin's ID).
-      const resolvedCounsellorId = isCounsellorRole
-        ? Number(user?.id)
-        : (clientOriginalCounsellorIdRef.current ?? data.counsellorId);
-
-      const payload: any = {
-        fullName: data.name,
-        enrollmentDate: data.enrollmentDate,
-        passportDetails: data.passportDetails,
-        saleTypeId: selectedTypeData?.id || null,
-        counsellorId: resolvedCounsellorId,
-        leadTypeId: leadTypeId,
-      };
-
-      if (internalClientId != null) {
-        payload.clientId = internalClientId;
-      }
+      const payload = buildClientSavePayload(internalClientId);
 
       const clientRes = await api.post("/api/clients", payload);
       const returnedClient = clientRes.data?.data?.client;
@@ -2780,6 +2789,25 @@ export default function ClientForm() {
     let effectiveClientId: number | null = internalClientId;
 
     try {
+      // Update client info when already created (e.g. passport edited before combined save)
+      if (internalClientId) {
+        const isCounsellorRole = user?.role === "counsellor";
+        const fieldsToValidate: string[] = ["name", "enrollmentDate", "passportDetails"];
+        if (!isCounsellorRole) fieldsToValidate.push("counsellorId");
+        const isValidExisting = await trigger(fieldsToValidate as any);
+        if (!isValidExisting) {
+          toast({
+            title: "Validation Error",
+            description: "Please fill in all required client information fields.",
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          requestInFlightRef.current = false;
+          return;
+        }
+        await api.post("/api/clients", buildClientSavePayload(internalClientId));
+      }
+
       // First, ensure client is created
       if (!internalClientId) {
         // Validate client info first
@@ -2802,28 +2830,8 @@ export default function ClientForm() {
 
         // Create client
         const data = form.getValues();
-        const selectedTypeData = allSaleTypes.find((t) => t.saleType === data.salesType);
-        // When coming from a lead, use the stored leadSource from the lead (ref is authoritative; disabled field may not always be in form values)
-        const effectiveLeadSource = fromLeadId ? (fromLeadSourceRef.current ?? data.leadSource) : data.leadSource;
-        const selectedLeadType = leadTypes.find((lt: any) => lt.leadType === effectiveLeadSource);
-        const leadTypeId = selectedLeadType?.id || selectedLeadType?.leadTypeId || null;
 
-        // Counsellor: use own ID. Admin/manager/developer: preserve original counsellor from API (don't inject admin's ID).
-        const resolvedCounsellorId = isCounsellorRole
-          ? Number(user?.id)
-          : (clientOriginalCounsellorIdRef.current ?? data.counsellorId);
-
-        const payload: any = {
-          fullName: data.name,
-          enrollmentDate: data.enrollmentDate,
-          passportDetails: data.passportDetails,
-          saleTypeId: selectedTypeData?.id || null,
-          counsellorId: resolvedCounsellorId,
-          leadTypeId: leadTypeId,
-        };
-
-     
-        
+        const payload = buildClientSavePayload();
 
         const clientRes = await api.post("/api/clients", payload);
 
@@ -3411,7 +3419,7 @@ export default function ClientForm() {
           control={control}
           label="Passport Details"
           placeholder="e.g. A12345678"
-          disabled={!!fromLeadId}
+          required
         />
         <FormSelectInput
           name="leadSource"
