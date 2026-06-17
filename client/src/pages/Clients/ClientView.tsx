@@ -538,6 +538,17 @@ export default function ClientView() {
     return id != null && !Number.isNaN(id) ? id : null;
   }, [client]);
 
+  const clientHasDirectTuitionDeposit = useMemo(() => {
+    const cd = (client as any)?.client || client;
+    const payments = cd?.productPayments;
+    if (!Array.isArray(payments)) return false;
+    return payments.some(
+      (p: any) =>
+        p?.productName === "TUTION_FEES" &&
+        (p?.entity?.tutionFeesStatus === "paid" || p?.entity?.tutionFeesStatus === "pending"),
+    );
+  }, [client]);
+
   const otherHandlerIds = useMemo(() => {
     if (!client || clientCounsellorId == null) return [];
     const ids = new Set<number>();
@@ -1015,6 +1026,8 @@ export default function ClientView() {
                         clientId={clientId ?? clientData?.clientId}
                         variant="clientInfo"
                         readOnly
+                        enableTuitionDeposit
+                        clientHasDirectTuitionDeposit={clientHasDirectTuitionDeposit}
                         onAddApplication={
                           clientId
                             ? () => setLocation(`/clients/${clientId}/edit?section=student`)
