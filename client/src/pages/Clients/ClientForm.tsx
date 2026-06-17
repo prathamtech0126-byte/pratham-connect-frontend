@@ -1562,12 +1562,15 @@ export default function ClientForm() {
 
           // Store existing product payment IDs for update operations
           const existingProductPaymentIds: Record<string, number> = {};
-          if (clientData.productPayments && Array.isArray(clientData.productPayments)) {
-            clientData.productPayments.forEach((pp: any, index: number) => {
-              if (pp.productPaymentId) {
-                existingProductPaymentIds[pp.productName] = pp.productPaymentId;
-              } else {
-                //  console.warn(`⚠ Product payment ${pp.productName} has no productPaymentId:`, pp);
+          const productPaymentsList = Array.isArray(clientData.productPayments)
+            ? clientData.productPayments
+            : [];
+          setLoadedProductPayments(productPaymentsList);
+          if (productPaymentsList.length > 0) {
+            productPaymentsList.forEach((pp: any) => {
+              const paymentId = pp.productPaymentId ?? pp.id;
+              if (paymentId && pp.productName) {
+                existingProductPaymentIds[pp.productName] = paymentId;
               }
             });
           } else {
@@ -2396,6 +2399,9 @@ export default function ClientForm() {
   const [productPaymentIds, setProductPaymentIds] = useState<
     Record<string, number>
   >({});
+  const [loadedProductPayments, setLoadedProductPayments] = useState<
+    Array<{ productName?: string | null }>
+  >([]);
   const productPaymentIdsRef = useRef<Record<string, number>>({});
   useEffect(() => {
     productPaymentIdsRef.current = productPaymentIds;
@@ -2403,9 +2409,11 @@ export default function ClientForm() {
 
   const clientHasTuitionDepositFromProduct = useMemo(
     () =>
+      (Array.isArray(loadedProductPayments) &&
+        loadedProductPayments.some((p) => p?.productName === "TUTION_FEES")) ||
       !!productPaymentIds["TUTION_FEES"] ||
       addedProducts.some((p) => p.productName === "TUTION_FEES"),
-    [productPaymentIds, addedProducts],
+    [loadedProductPayments, productPaymentIds, addedProducts],
   );
 
   const clientHasTuitionDeposit = useMemo(

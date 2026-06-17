@@ -541,11 +541,9 @@ export default function ClientView() {
   const clientHasDirectTuitionDeposit = useMemo(() => {
     const cd = (client as any)?.client || client;
     const payments = cd?.productPayments;
-    if (!Array.isArray(payments)) return false;
-    return payments.some(
-      (p: any) =>
-        p?.productName === "TUTION_FEES" &&
-        (p?.entity?.tutionFeesStatus === "paid" || p?.entity?.tutionFeesStatus === "pending"),
+    return (
+      Array.isArray(payments) &&
+      payments.some((p: any) => p?.productName === "TUTION_FEES")
     );
   }, [client]);
 
