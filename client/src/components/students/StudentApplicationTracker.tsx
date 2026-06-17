@@ -193,6 +193,10 @@ function mapApiApplication(row: {
   };
 }
 
+function applicationHasTuitionDeposit(app: StudentApplication): boolean {
+  return !!app.tuitionDepositStatus || !!app.tuitionDepositTaken;
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 export const COUNTRIES = [
@@ -696,6 +700,8 @@ function ApplicationCard({
   onDelete,
   onNoteUpdate,
   onOpenTuitionDeposit,
+  clientAlreadyHasTuitionDeposit = false,
+  tuitionDepositAddOnly = false,
   readOnly = false,
   variant = "default",
 }: {
@@ -705,6 +711,9 @@ function ApplicationCard({
   onDelete?: (app: StudentApplication) => void;
   onNoteUpdate?: (app: StudentApplication, note: string) => Promise<void>;
   onOpenTuitionDeposit?: (app: StudentApplication) => void;
+  clientAlreadyHasTuitionDeposit?: boolean;
+  /** View page: allow Add only; hide Update after a deposit exists. */
+  tuitionDepositAddOnly?: boolean;
   readOnly?: boolean;
   variant?: "default" | "clientInfo";
 }) {
@@ -740,6 +749,17 @@ function ApplicationCard({
       : app.tuitionDepositStatus === "pending"
         ? "Tuition Deposit Pending"
         : "Not Recorded";
+
+    const showTuitionDepositOnCard =
+      applicationHasTuitionDeposit(app) || !clientAlreadyHasTuitionDeposit;
+    const showTuitionDepositAction =
+      !!onOpenTuitionDeposit &&
+      showTuitionDepositOnCard &&
+      (!tuitionDepositAddOnly || !applicationHasTuitionDeposit(app));
+    const tuitionDepositActionLabel =
+      applicationHasTuitionDeposit(app) && !tuitionDepositAddOnly
+        ? "Update Tuition Deposit"
+        : "Add Tuition Deposit";
 
     return (
       <div
@@ -777,6 +797,7 @@ function ApplicationCard({
             </Button>
           </div>
 
+          {showTuitionDepositOnCard && (
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 rounded-lg border border-gray-100 bg-gray-50/50 px-3 py-2 text-sm">
             <span className="text-gray-500">Tuition Deposit</span>
             <span
@@ -792,6 +813,7 @@ function ApplicationCard({
               {tuitionDepositLabel}
             </span>
           </div>
+          )}
 
           <div className="space-y-2">
             <h4 className="text-base font-bold text-[#1A2B3B] uppercase leading-snug tracking-wide">
@@ -845,7 +867,7 @@ function ApplicationCard({
           </div>
         </div>
 
-        {onOpenTuitionDeposit && (
+        {showTuitionDepositAction && (
           <div className="mx-5 mb-5 rounded-lg border border-gray-100 bg-gray-50/60 p-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
@@ -856,10 +878,10 @@ function ApplicationCard({
                 variant="outline"
                 size="sm"
                 className="h-9 text-xs font-medium border-gray-200 bg-white hover:bg-gray-50"
-                onClick={() => onOpenTuitionDeposit(app)}
+                onClick={() => onOpenTuitionDeposit!(app)}
               >
                 <Package className="h-3.5 w-3.5 mr-1.5" />
-                {app.tuitionDepositStatus ? "Update Tuition Deposit" : "Add Tuition Deposit"}
+                {tuitionDepositActionLabel}
               </Button>
             </div>
           </div>
@@ -867,6 +889,17 @@ function ApplicationCard({
       </div>
     );
   }
+
+  const showTuitionDepositOnCard =
+    applicationHasTuitionDeposit(app) || !clientAlreadyHasTuitionDeposit;
+  const showTuitionDepositAction =
+    !!onOpenTuitionDeposit &&
+    showTuitionDepositOnCard &&
+    (!tuitionDepositAddOnly || !applicationHasTuitionDeposit(app));
+  const tuitionDepositActionLabel =
+    applicationHasTuitionDeposit(app) && !tuitionDepositAddOnly
+      ? "Update Tuition Deposit"
+      : "Add Tuition Deposit";
 
   return (
     <>
@@ -972,6 +1005,26 @@ function ApplicationCard({
               />
             )}
           </div>
+
+          {showTuitionDepositAction && (
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-muted-foreground" />
+                  Tuition Deposit
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => onOpenTuitionDeposit!(app)}
+                >
+                  <Package className="h-3.5 w-3.5 mr-1.5" />
+                  {tuitionDepositActionLabel}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Expanded note section */}
@@ -1722,6 +1775,11 @@ interface StudentApplicationTrackerProps {
   readOnly?: boolean;
   variant?: "default" | "compact" | "clientInfo";
   onAddApplication?: () => void;
+  /** True when client has a tuition deposit via direct product (not linked to an application row). */
+  clientHasDirectTuitionDeposit?: boolean;
+  onTuitionDepositExistsChange?: (exists: boolean) => void;
+  /** On read-only pages (e.g. client view): allow Add Tuition Deposit only; Update stays on edit page. */
+  enableTuitionDeposit?: boolean;
 }
 
 export const StudentApplicationTracker = forwardRef<StudentApplicationTrackerHandle, StudentApplicationTrackerProps>(
@@ -1735,7 +1793,12 @@ function StudentApplicationTracker({
   readOnly = false,
   variant = "default",
   onAddApplication,
+  clientHasDirectTuitionDeposit = false,
+  onTuitionDepositExistsChange,
+  enableTuitionDeposit,
 }: StudentApplicationTrackerProps, ref) {
+  const canManageTuitionDeposit = enableTuitionDeposit ?? !readOnly;
+  const tuitionDepositAddOnly = readOnly && canManageTuitionDeposit;
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const pendingSubmitRef = useRef<() => Promise<void>>(async () => {});
@@ -1783,6 +1846,18 @@ function StudentApplicationTracker({
     }
     onCountChange?.(applications.length);
   }, [applications.length, clientId, localApplications, onCountChange, useApi, applications]);
+
+  const hasTuitionDepositOnApplications = useMemo(
+    () => applications.some((app) => applicationHasTuitionDeposit(app)),
+    [applications],
+  );
+
+  const clientAlreadyHasTuitionDeposit =
+    clientHasDirectTuitionDeposit || hasTuitionDepositOnApplications;
+
+  useEffect(() => {
+    onTuitionDepositExistsChange?.(clientAlreadyHasTuitionDeposit);
+  }, [clientAlreadyHasTuitionDeposit, onTuitionDepositExistsChange]);
 
   const resolveSaleTypeId = useCallback(
     (saleTypeName: string) => {
@@ -2020,7 +2095,7 @@ function StudentApplicationTracker({
               {applications.length} application{applications.length !== 1 ? "s" : ""}
             </p>
           </div>
-          {onAddApplication && (
+          {readOnly && onAddApplication && (
             <Button
               size="sm"
               className="h-9 bg-[#1A2B3B] hover:bg-[#152232] text-white"
@@ -2031,6 +2106,16 @@ function StudentApplicationTracker({
             </Button>
           )}
         </div>
+
+        {!readOnly && (
+          <AddApplicationForm
+            onAdd={handleAdd}
+            studentSaleTypes={studentSaleTypes}
+            onRegisterSubmit={(fn) => {
+              pendingSubmitRef.current = fn;
+            }}
+          />
+        )}
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground italic text-center py-8 flex items-center justify-center gap-2">
@@ -2044,9 +2129,12 @@ function StudentApplicationTracker({
                 key={app.id}
                 app={app}
                 variant="clientInfo"
+                readOnly={readOnly}
                 onUpdateStage={handleUpdateStage}
                 onView={setViewingApp}
-                onOpenTuitionDeposit={setTuitionDepositApp}
+                onOpenTuitionDeposit={canManageTuitionDeposit ? setTuitionDepositApp : undefined}
+                tuitionDepositAddOnly={tuitionDepositAddOnly}
+                clientAlreadyHasTuitionDeposit={clientAlreadyHasTuitionDeposit}
               />
             ))}
           </div>
@@ -2128,13 +2216,25 @@ function StudentApplicationTracker({
               <ApplicationCard
                 key={app.id}
                 app={app}
+                readOnly={readOnly}
                 onUpdateStage={handleUpdateStage}
                 onView={setViewingApp}
                 onDelete={handleDelete}
                 onNoteUpdate={handleNoteUpdate}
+                onOpenTuitionDeposit={canManageTuitionDeposit ? setTuitionDepositApp : undefined}
+                tuitionDepositAddOnly={tuitionDepositAddOnly}
+                clientAlreadyHasTuitionDeposit={clientAlreadyHasTuitionDeposit}
               />
             ))}
           </div>
+
+          <TuitionDepositDialog
+            app={tuitionDepositApp}
+            open={!!tuitionDepositApp}
+            onClose={() => setTuitionDepositApp(null)}
+            onSave={handleSaveTuitionDeposit}
+            saving={savingTuitionDeposit}
+          />
 
           <div className="grid grid-cols-3 gap-3 rounded-lg border border-border/40 bg-muted/20 p-4">
             <div className="text-center">

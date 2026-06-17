@@ -473,6 +473,7 @@ export default function ClientForm() {
   const [showServiceSection, setShowServiceSection] = useState(false);
   const [showStudentSection, setShowStudentSection] = useState(false);
   const [studentApplicationCount, setStudentApplicationCount] = useState(0);
+  const [tuitionDepositFromApplications, setTuitionDepositFromApplications] = useState(false);
   const hasStudentApplications = studentApplicationCount > 0;
 
   // State for product search and selection
@@ -848,8 +849,11 @@ export default function ClientForm() {
     }
   ];
 
+  // Tuition deposit is recorded via Student Applications — not the product picker.
+  const addableProducts = availableProducts.filter((product) => product.id !== "tuitionFee");
+
   // Filter products based on search
-  const filteredProducts = availableProducts.filter(product => {
+  const filteredProducts = addableProducts.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(
       productSearchQuery.toLowerCase()
     ) || product.description?.toLowerCase().includes(
@@ -874,7 +878,7 @@ export default function ClientForm() {
     // Products that allow multiple instances
     const allowMultipleInstances = ["otherProduct", "trvExtension"];
 
-    const productsToAdd = availableProducts.filter(p => {
+    const productsToAdd = addableProducts.filter(p => {
       if (!selectedProductIds.includes(p.id)) return false;
 
       // For products that allow multiple instances, always allow adding
@@ -2422,6 +2426,18 @@ export default function ClientForm() {
     productPaymentIdsRef.current = productPaymentIds;
   }, [productPaymentIds]);
 
+  const clientHasTuitionDepositFromProduct = useMemo(
+    () =>
+      !!productPaymentIds["TUTION_FEES"] ||
+      addedProducts.some((p) => p.productName === "TUTION_FEES"),
+    [productPaymentIds, addedProducts],
+  );
+
+  const clientHasTuitionDeposit = useMemo(
+    () => clientHasTuitionDepositFromProduct || tuitionDepositFromApplications,
+    [clientHasTuitionDepositFromProduct, tuitionDepositFromApplications],
+  );
+
   const canDeletePayment = user?.role === "superadmin" || user?.role === "director" || user?.role === "manager";
   const emptyPayment = { amount: 0, date: "", invoiceNo: "", remarks: "" };
   const showToggleBySection: Record<string, "showInitialPayment" | "showBeforeVisaPayment" | "showAfterVisaPayment"> = {
@@ -3068,6 +3084,12 @@ export default function ClientForm() {
           setProductPaymentIds((prev) => ({ ...prev, [productName]: newProductPaymentId }));
         }
         return res;
+      }).catch((err: any) => {
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          `Failed to save ${productName}`;
+        throw new Error(msg);
       });
     };
 
@@ -3283,6 +3305,13 @@ export default function ClientForm() {
       productPaymentPromises.push(createOrUpdateProductPayment("FOREX_FEES", forexFeesEntityData, productFields.forexFees.amount));
     }
     if (productFields.tuitionFee && productFields.tuitionFee.status) {
+      const existingTuitionPaymentId = productPaymentIdsRef.current["TUTION_FEES"];
+      if (!existingTuitionPaymentId && tuitionDepositFromApplications) {
+        throw new Error(
+          "This student already has a tuition deposit on file via an application. Only one tuition deposit is allowed per student.",
+        );
+      }
+
       let statusValue = productFields.tuitionFee.status || "";
       statusValue = statusValue.toLowerCase();
       if (statusValue === "panding") statusValue = "pending";
@@ -3323,9 +3352,11 @@ export default function ClientForm() {
 
     if (productPaymentPromises.length > 0) {
       const results = await Promise.allSettled(productPaymentPromises);
-      const hasErrors = results.some(r => r.status === 'rejected');
-      if (hasErrors) {
-        throw new Error("Some product payments failed to save");
+      const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+      if (rejected) {
+        throw new Error(
+          rejected.reason?.message || "Some product payments failed to save",
+        );
       }
     }
   };
@@ -3946,6 +3977,11 @@ export default function ClientForm() {
         return (
           <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
             <Label className="text-base font-semibold">{product.name}</Label>
+            {clientHasTuitionDeposit && !productPaymentIds["TUTION_FEES"] && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                A tuition deposit is already recorded for this student via an application. You can update it from the Student Applications section.
+              </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormSelectInput
                 name="productFields.tuitionFee.status"
@@ -4554,6 +4590,7 @@ export default function ClientForm() {
             <CardContent>
               <StudentApplicationTracker
                 ref={studentTrackerRef}
+                variant="clientInfo"
                 studentSaleTypes={studentSaleTypeNames}
                 saleTypes={allSaleTypes.filter(
                   (t: any) => String(t.category ?? t.categoryName ?? "").toLowerCase() === "student",
@@ -4565,6 +4602,8 @@ export default function ClientForm() {
                     : clientOriginalCounsellorIdRef.current ?? undefined
                 }
                 onCountChange={setStudentApplicationCount}
+                clientHasDirectTuitionDeposit={clientHasTuitionDepositFromProduct}
+                onTuitionDepositExistsChange={setTuitionDepositFromApplications}
               />
             </CardContent>
           </Card>
