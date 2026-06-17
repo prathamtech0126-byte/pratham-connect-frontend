@@ -1828,6 +1828,17 @@ function StudentApplicationTracker({
     refetchOnWindowFocus: false,
   });
 
+  const { data: clientProductPayments = [] } = useQuery({
+    queryKey: ["client-product-payments", numericClientId],
+    queryFn: async () => {
+      const response = await api.get(`/api/client-product-payments/client/${numericClientId}`);
+      return (response.data?.data ?? []) as Array<{ productName?: string | null }>;
+    },
+    enabled: useApi,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
   const [localApplications, setLocalApplications] = useState<StudentApplication[]>(() =>
     useApi ? [] : loadApps(clientId),
   );
@@ -1852,8 +1863,17 @@ function StudentApplicationTracker({
     [applications],
   );
 
+  const hasTuitionFeesProductPayment = useMemo(
+    () =>
+      Array.isArray(clientProductPayments) &&
+      clientProductPayments.some((p) => p?.productName === "TUTION_FEES"),
+    [clientProductPayments],
+  );
+
   const clientAlreadyHasTuitionDeposit =
-    clientHasDirectTuitionDeposit || hasTuitionDepositOnApplications;
+    clientHasDirectTuitionDeposit ||
+    hasTuitionFeesProductPayment ||
+    hasTuitionDepositOnApplications;
 
   useEffect(() => {
     onTuitionDepositExistsChange?.(clientAlreadyHasTuitionDeposit);
@@ -2064,6 +2084,7 @@ function StudentApplicationTracker({
         await refetch();
         if (numericClientId) {
           queryClient.invalidateQueries({ queryKey: ["client-complete", numericClientId] });
+          queryClient.invalidateQueries({ queryKey: ["client-product-payments", numericClientId] });
         }
         toast({
           title: "Tuition deposit saved",
