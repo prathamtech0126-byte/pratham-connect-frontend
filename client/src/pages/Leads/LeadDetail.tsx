@@ -513,7 +513,9 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
   })();
 
   const convertDisabledReason = (() => {
-    if (!lead || user?.role !== "counsellor" || isLeadReadOnly(lead, user?.role)) return undefined;
+    if (!lead || user?.role !== "counsellor") return undefined;
+    if (isLeadConverted(lead)) return "Lead is already converted";
+    if (isLeadReadOnly(lead, user?.role)) return undefined;
     if (!lead.eligibilityStatus || !lead.leadQuality) {
       return "Set lead quality and eligibility before converting";
     }
@@ -994,7 +996,7 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       submitting={submitting}
       transferDisabledReason={transferDisabledReason}
       canTransfer={canTransferToCounsellor(lead, leadMeta)}
-      canConvert={!convertDisabledReason}
+      canConvert={!converted && !convertDisabledReason}
       convertDisabledReason={convertDisabledReason}
       canReassign={!!leadMeta?.canReassignCounsellor}
       canEditLeadSource={["admin", "superadmin", "developer"].includes(user?.role ?? "")}

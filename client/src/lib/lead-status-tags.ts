@@ -219,10 +219,10 @@ export function getLeadDisplayTags(
 export const isLeadConvertedForRole = (lead: LeadEntity, role?: string | null) =>
   role === "telecaller" && isLeadConverted(lead);
 
-/** Junk is read-only for everyone; converted is read-only for telecallers only. */
+/** Junk is read-only for everyone; converted leads are view-only for everyone. */
 export const isLeadReadOnly = (lead: LeadEntity, role?: string | null) =>
   isLeadJunk(lead) ||
-  isLeadConvertedForRole(lead, role) ||
+  isLeadConverted(lead) ||
   (role === "counsellor" && isLeadDropped(lead));
 
 export const isAdminLikeRole = (role?: string | null) =>
