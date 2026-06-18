@@ -252,6 +252,12 @@ export interface LeadListParams {
   nextFollowupTo?: string;
   leadSource?: string;
   leadType?: string;
+  /** Preset filter name — backend computes IST bounds (today/weekly/monthly). */
+  dateFilter?: string;
+  /** New-style date range: yyyy-MM-dd calendar dates (used for custom filter). */
+  afterDate?: string;
+  beforeDate?: string;
+  /** Legacy ISO string dates (still accepted for sub-filters like transferred/converted/dropped). */
   createdFrom?: string;
   createdTo?: string;
   transferredFrom?: string;
@@ -330,11 +336,13 @@ export interface TelecallerLeadSummaryRow {
   notContacted: number;
   transferred: number;
   converted: number;
+  dropped: number;
   followUp: number;
   junk: number;
 }
 
 export const getTelecallerLeadSummary = async (params: {
+  dateFilter?: string;
   createdFrom?: string;
   createdTo?: string;
 }): Promise<TelecallerLeadSummaryRow[]> => {
@@ -375,7 +383,7 @@ export interface TelecallerIndividualReport {
 
 export const getTelecallerIndividualReport = async (
   telecallerId: number,
-  params: { createdFrom?: string; createdTo?: string } = {}
+  params: { dateFilter?: string; afterDate?: string; beforeDate?: string } = {}
 ): Promise<TelecallerIndividualReport> => {
   const res = await api.get(`/api/leads/telecaller/${telecallerId}/report`, { params });
   return res.data.data as TelecallerIndividualReport;
@@ -428,7 +436,7 @@ export interface CounsellorIndividualReport {
 }
 
 export const getCounsellorIndividualReport = async (
-  params: { createdFrom?: string; createdTo?: string; counsellorId?: number } = {}
+  params: { dateFilter?: string; afterDate?: string; beforeDate?: string; counsellorId?: number } = {}
 ): Promise<CounsellorIndividualReport> => {
   const res = await api.get("/api/leads/counsellor-report", { params });
   return res.data.data as CounsellorIndividualReport;
@@ -462,6 +470,28 @@ export const getTelecallerDashboardStats = async (params: {
 }): Promise<TelecallerDashboardStats> => {
   const res = await api.get("/api/leads/telecaller-dashboard-stats", { params });
   return res.data.data as TelecallerDashboardStats;
+};
+
+export type AdminLeadReportStats = {
+  summary: {
+    assigned: number; unassigned: number; contacted: number; notContacted: number;
+    transferred: number; converted: number; dropped: number; pendingFollowUp: number; junk: number;
+  };
+  telecallerStats: { id: number; name: string; assigned: number; transferred: number; converted: number; dropped: number; totalFollowUp: number; pendingFollowUp: number; junk: number }[];
+  counsellorBreakdown: { id: number; name: string; received: number; converted: number; dropped: number; pending: number }[];
+  sourceBreakdown: { source: string; assigned: number; transferred: number; converted: number; dropped: number }[];
+  typeBreakdown: { type: string; assigned: number; transferred: number; converted: number; dropped: number }[];
+};
+
+export const getAdminLeadReportStats = async (params: {
+  dateFilter?: string;
+  afterDate?: string;
+  beforeDate?: string;
+  createdFrom?: string;
+  createdTo?: string;
+}): Promise<AdminLeadReportStats> => {
+  const res = await api.get("/api/leads/admin-report-stats", { params });
+  return res.data.data as AdminLeadReportStats;
 };
 
 export type LeadDetailMeta = {

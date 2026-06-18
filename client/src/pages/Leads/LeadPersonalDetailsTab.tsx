@@ -23,6 +23,7 @@ import type {
   LeadLanguageScoreRow,
   LeadStudentProfile,
 } from "@/api/leads.api";
+import { formatDobDisplay, ymdToDmySlash } from "@/lib/dob-date";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -145,7 +146,7 @@ export function buildPersonalEditState(
 ): PersonalEditState {
   return {
     gender: profile?.gender ?? "",
-    dateOfBirth: profile?.dateOfBirth ? String(profile.dateOfBirth).slice(0, 10) : "",
+    dateOfBirth: profile?.dateOfBirth ? ymdToDmySlash(String(profile.dateOfBirth)) : "",
     alternatePhone: profile?.alternatePhone ?? "",
     hasPassport: profile?.hasPassport ? "yes" : "no",
     passportNumber: profile?.passportNumber ?? "",
@@ -296,7 +297,7 @@ export default function LeadPersonalDetailsTab({
           {!editing ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <InfoField label="Gender" value={profile?.gender} />
-              <InfoField label="Date of Birth" value={profile?.dateOfBirth} />
+              <InfoField label="Date of Birth" value={formatDobDisplay(profile?.dateOfBirth)} />
               <InfoField label="Alternate Phone" value={profile?.alternatePhone} />
               <InfoField label="Has Passport" value={profile?.hasPassport ? "Yes" : "No"} />
               {profile?.hasPassport && (

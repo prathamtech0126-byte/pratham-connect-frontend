@@ -31,7 +31,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-background relative">
         <Topbar />
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+        <main id="main-scroll-container" className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
           <div className="max-w-[min(100%,96rem)] mx-auto w-full animate-in fade-in duration-500 slide-in-from-bottom-4">
             {children}
           </div>

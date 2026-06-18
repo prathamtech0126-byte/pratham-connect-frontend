@@ -662,6 +662,11 @@ export default function Dashboard() {
         isCurrentUser: isCurrentUser,
         counsellorId: counsellorId,
         targetStatus: item.targetStatus,
+        studentAppCount: item.studentAppCount ?? null,
+        finalStudentCount: item.finalStudentCount ?? null,
+        applicationTarget: item.applicationTarget ?? null,
+        finalStudentTarget: item.finalStudentTarget ?? null,
+        categoryName: item.categoryName ?? "general",
       };
     });
   }, [finalLeaderboardData, userCounsellorId, user?.id]);
@@ -1761,25 +1766,66 @@ export default function Dashboard() {
                   </div>
                 ) : currentUserTarget ? (
                   <div className="space-y-6">
-                    <div className="flex items-end justify-between relative z-10">
-                      <div>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-5xl font-bold text-foreground tracking-tight">{currentUserTarget.achieved || 0}</span>
-                          <span className="text-muted-foreground font-medium text-lg">/ {currentUserTarget.target || 0} achieved</span>
+                    {(currentUserTarget as any).categoryName === 'student' ? (
+                      /* Student category: show Application + Tuition Deposit lines */
+                      <div className="space-y-4 relative z-10">
+                        {/* Application line */}
+                        {(currentUserTarget as any).applicationTarget != null && (currentUserTarget as any).applicationTarget > 0 && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground font-medium">Application</span>
+                              <span className="font-bold tabular-nums">
+                                {currentUserTarget.achieved || 0}
+                                <span className="text-muted-foreground font-normal"> / {(currentUserTarget as any).applicationTarget}</span>
+                              </span>
+                            </div>
+                            <Progress
+                              value={Math.min(((currentUserTarget.achieved || 0) / (currentUserTarget as any).applicationTarget) * 100, 100)}
+                              className="h-2.5 bg-background/50"
+                            />
+                          </div>
+                        )}
+                        {/* Tuition Deposit line */}
+                        {(currentUserTarget as any).finalStudentTarget != null && (currentUserTarget as any).finalStudentTarget > 0 && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground font-medium">Tuition Deposit</span>
+                              <span className="font-bold tabular-nums">
+                                {(currentUserTarget as any).finalStudentCount || 0}
+                                <span className="text-muted-foreground font-normal"> / {(currentUserTarget as any).finalStudentTarget}</span>
+                              </span>
+                            </div>
+                            <Progress
+                              value={Math.min((((currentUserTarget as any).finalStudentCount || 0) / (currentUserTarget as any).finalStudentTarget) * 100, 100)}
+                              className="h-2.5 bg-background/50"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* General / other category: single progress bar */
+                      <>
+                        <div className="flex items-end justify-between relative z-10">
+                          <div>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-5xl font-bold text-foreground tracking-tight">{currentUserTarget.achieved || 0}</span>
+                              <span className="text-muted-foreground font-medium text-lg">/ {currentUserTarget.target || 0} achieved</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-medium text-muted-foreground block mb-1">Remaining</span>
+                            <div className="text-3xl font-bold text-primary tabular-nums">{remainingTarget}</div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-sm font-medium text-muted-foreground block mb-1">Remaining</span>
-                        <div className="text-3xl font-bold text-primary tabular-nums">{remainingTarget}</div>
-                      </div>
-                    </div>
 
-                    <div className="space-y-2 relative z-10">
-                      <Progress value={Math.min(progressPercentage, 100)} className="h-3 bg-background/50" />
-                      <p className="text-xs text-muted-foreground text-right font-medium">
-                        {progressPercentage.toFixed(0)}% completed
-                      </p>
-                    </div>
+                        <div className="space-y-2 relative z-10">
+                          <Progress value={Math.min(progressPercentage, 100)} className="h-3 bg-background/50" />
+                          <p className="text-xs text-muted-foreground text-right font-medium">
+                            {progressPercentage.toFixed(0)}% completed
+                          </p>
+                        </div>
+                      </>
+                    )}
 
                     <div
                       className={`rounded-xl p-4 text-sm text-foreground backdrop-blur-md border shadow-sm relative z-10 ${
@@ -1833,15 +1879,36 @@ export default function Dashboard() {
 
           {/* Stats - Takes 2/3 width, displayed as 2x2 grid */}
           <div className="lg:col-span-2 grid gap-6 sm:grid-cols-2" style={{ gridAutoRows: '1fr' }}>
-            <Link
-              href={cardHref('student')}
+            <div
+              role="link"
+              tabIndex={0}
               className="block h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+              onClick={() => setLocation(cardHref('student'))}
+              onKeyDown={(e) => e.key === 'Enter' && setLocation(cardHref('student'))}
             >
               <StatCard
-                title="Students"
-                value={Number((stats as any)?.studentStats?.total ?? 0)}
+                title="Core Students"
+                value={
+                  <span
+                    role="link"
+                    tabIndex={0}
+                    className="hover:underline cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLocation(cardHref('student-core'));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.stopPropagation();
+                        setLocation(cardHref('student-core'));
+                      }
+                    }}
+                  >
+                    {Number((stats as any)?.studentStats?.total ?? 0)}
+                  </span>
+                }
                 icon={GraduationCap}
-                description="under application"
+              
                 extra={
                   <div className="flex flex-wrap gap-x-3 gap-y-1">
                     <a
@@ -1849,31 +1916,31 @@ export default function Dashboard() {
                       className="text-[12px] text-foreground hover:underline"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <span>Application + TD</span>
+                      <span>Tuition Deposit</span>
                       <span className="text-muted-foreground">:</span>{" "}
                       <span className="font-semibold tabular-nums">{Number((stats as any)?.studentStats?.withTD ?? 0)}</span>
                     </a>
                     <a
-                      href={cardHref('student-no-td')}
+                      href={cardHref('student-app')}
                       className="text-[12px] text-foreground hover:underline"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <span>Application Only</span>
+                      <span>Application</span>
                       <span className="text-muted-foreground">:</span>{" "}
-                      <span className="font-semibold tabular-nums">{Number((stats as any)?.studentStats?.withoutTD ?? 0)}</span>
+                      <span className="font-semibold tabular-nums">{Number((stats as any)?.studentStats?.appCount ?? 0)}</span>
                     </a>
                   </div>
                 }
                 className="shadow-card hover:shadow-lg transition-shadow border-none h-full cursor-pointer"
               />
-            </Link>
+            </div>
 
             <Link
               href={cardHref('core')}
               className="block h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
             >
               <StatCard
-                title="Core Sale"
+                title="Core Sale (Visitor & Spouse)"
                 value={Number((stats as any)?.coreSale?.number ?? 0)}
                 secondaryValue={(stats as any)?.coreSale?.amount ? `₹${Number((stats as any)?.coreSale?.amount).toLocaleString('en-IN')}` : undefined}
                 icon={CreditCard}
@@ -1881,7 +1948,7 @@ export default function Dashboard() {
                   value: (stats as any)?.coreSale?.change ?? 0,
                   isPositive: (stats as any)?.coreSale?.changeType === "increase" || (stats as any)?.coreSale?.changeType === "no-change"
                 } : undefined}
-                description="core sales"
+                
                 className="shadow-card hover:shadow-lg transition-shadow border-none h-full cursor-pointer"
               />
             </Link>
@@ -1946,39 +2013,68 @@ export default function Dashboard() {
       ) : (
         /* Admin/Manager View: 6 stats in a grid */
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" style={{ gridAutoRows: '1fr' }}>
-          <Link
-            href={cardHref('student')}
+          <div
+            role="link"
+            tabIndex={0}
             className="block h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+            onClick={() => setLocation(cardHref('student'))}
+            onKeyDown={(e) => e.key === 'Enter' && setLocation(cardHref('student'))}
           >
             <StatCard
-              title="Students"
-              value={Number((stats as any)?.studentStats?.total ?? 0)}
+              title=" Core Students"
+              value={
+                <span
+                  role="link"
+                  tabIndex={0}
+                  className="hover:underline cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLocation(cardHref('student-core'));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.stopPropagation();
+                      setLocation(cardHref('student-core'));
+                    }
+                  }}
+                >
+                  {Number((stats as any)?.studentStats?.total ?? 0)}
+                </span>
+              }
               icon={GraduationCap}
-              description="Student Applications"
+              
               extra={
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  <div className="text-[12px] text-foreground">
-                    <span>Confirm Student (TD)</span>
+                  <a
+                    href={cardHref('student-td')}
+                    className="text-[12px] text-foreground hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span>Tuition Deposit</span>
                     <span className="text-muted-foreground">:</span>{" "}
                     <span className="font-semibold tabular-nums">{Number((stats as any)?.studentStats?.withTD ?? 0)}</span>
-                  </div>
-                  <div className="text-[12px] text-foreground">
-                    <span>Application (No TD)</span>
+                  </a>
+                  <a
+                    href={cardHref('student-app')}
+                    className="text-[12px] text-foreground hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span>Application</span>
                     <span className="text-muted-foreground">:</span>{" "}
-                    <span className="font-semibold tabular-nums">{Number((stats as any)?.studentStats?.withoutTD ?? 0)}</span>
-                  </div>
+                    <span className="font-semibold tabular-nums">{Number((stats as any)?.studentStats?.appCount ?? 0)}</span>
+                  </a>
                 </div>
               }
               className="shadow-card hover:shadow-lg transition-shadow border-none h-full cursor-pointer"
             />
-          </Link>
+          </div>
 
           <Link
             href={cardHref('core')}
             className="block h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
           >
             <StatCard
-              title="Core Sale"
+              title="Core Sale (Visitor & Spouse)"
               value={Number((stats as any)?.coreSale?.number ?? 0)}
               secondaryValue={(stats as any)?.coreSale?.amount ? `₹ ${Number((stats as any)?.coreSale?.amount).toLocaleString('en-IN')}` : undefined}
               icon={CreditCard}

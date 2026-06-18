@@ -31,6 +31,7 @@ import {
   type CounsellorReportSegment,
   type CounsellorReportStats,
   type CounsellorTelecallerBreakdownRow,
+  type LeadListParams,
 } from "@/api/leads.api";
 import DateRangePicker from "@/components/payments/DateRangePicker";
 import api from "@/lib/api";
@@ -258,7 +259,7 @@ export default function CounsellorLeadReport() {
   );
 
   const reportParams = useMemo(() => {
-    const p: { createdFrom?: string; createdTo?: string; counsellorId?: number } = { ...rangeParams };
+    const p: { dateFilter?: string; afterDate?: string; beforeDate?: string; counsellorId?: number } = { ...rangeParams };
     if (isAdminView && effectiveCounsellorId) {
       p.counsellorId = effectiveCounsellorId;
     }
@@ -280,8 +281,9 @@ export default function CounsellorLeadReport() {
     try {
       setLoading(true);
 
-      const leadParams: Parameters<typeof getLeads>[0] = {
+      const leadParams: LeadListParams = {
         ...rangeParams,
+        dateFilter: rangeParams.dateFilter as LeadListParams["dateFilter"],
         page,
         limit: pageSize,
         sortBy: "created_at",
@@ -385,8 +387,8 @@ export default function CounsellorLeadReport() {
       qs.set("counsellorReportDrill", "1");
       qs.set("forReport", "1");
       qs.set("dateFilter", dateFilter);
-      if (rangeParams.createdFrom) qs.set("createdFrom", rangeParams.createdFrom);
-      if (rangeParams.createdTo) qs.set("createdTo", rangeParams.createdTo);
+      if (rangeParams.afterDate) qs.set("afterDate", rangeParams.afterDate);
+      if (rangeParams.beforeDate) qs.set("beforeDate", rangeParams.beforeDate);
       if (effectiveCounsellorId != null) qs.set("counsellorId", String(effectiveCounsellorId));
 
       if (segment === "direct") {
@@ -409,7 +411,7 @@ export default function CounsellorLeadReport() {
 
       setLocation(`/leads?${qs.toString()}`);
     },
-    [dateFilter, rangeParams.createdFrom, rangeParams.createdTo, effectiveCounsellorId, setLocation]
+    [dateFilter, rangeParams.afterDate, rangeParams.beforeDate, effectiveCounsellorId, setLocation]
   );
 
   const applyTelecallerFilter = (row: CounsellorTelecallerBreakdownRow) => {

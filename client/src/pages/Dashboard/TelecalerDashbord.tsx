@@ -12,12 +12,18 @@ import { useLeadSocketRefresh, type LeadAssignmentNotify } from "@/hooks/use-lea
 import api from "@/lib/api";
 import { format } from "date-fns";
 import { PhoneCall, Target, Trophy, ChevronDown, ChevronUp, ArrowRightLeft, CheckCircle2, Bell, X } from "lucide-react";
+import DateRangePicker from "@/components/payments/DateRangePicker";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   istTodayRangeIso,
   istWeekRangeIso,
   istMonthRangeIso,
+  istCalendarYmd,
+  istYmdInclusiveRangeIso,
+  istWeekYmds,
+  istMonthPresetYmds,
 } from "@/lib/ist-date-range";
 import { getLeadSourceLabel, type LeadSourceOption } from "@/lib/lead-source-display";
 
@@ -48,6 +54,9 @@ export default function TelecalerDashbord() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [timeFilter, setTimeFilter] = useState("monthly");
+  const [customDateFrom, setCustomDateFrom] = useState<string | undefined>(undefined);
+  const [customDateTo, setCustomDateTo] = useState<string | undefined>(undefined);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [assignmentAlerts, setAssignmentAlerts] = useState<LeadEntity[]>([]);
   const [achievementMoment, setAchievementMoment] = useState<{
@@ -85,21 +94,37 @@ export default function TelecalerDashbord() {
     enabled: !!user && hasValidTelecallerId,
   });
 
-  const periodRangeParams = useMemo((): { createdFrom?: string; createdTo?: string } => {
+  // yyyy-MM-dd period bounds used for lead-list redirects (afterDate/beforeDate params)
+  const periodRangeParams = useMemo((): { afterDate?: string; beforeDate?: string } => {
     const now = new Date();
-    if (timeFilter === "today") return istTodayRangeIso(now);
-    if (timeFilter === "weekly") return istWeekRangeIso(now);
-    if (timeFilter === "monthly") return istMonthRangeIso(now);
+    if (timeFilter === "today") {
+      const ymd = istCalendarYmd(now);
+      return { afterDate: ymd, beforeDate: ymd };
+    }
+    if (timeFilter === "weekly") {
+      const { from, to } = istWeekYmds(now);
+      return { afterDate: from, beforeDate: to };
+    }
+    if (timeFilter === "monthly") {
+      const { from, to } = istMonthPresetYmds(now);
+      return { afterDate: from, beforeDate: to };
+    }
+    if (timeFilter === "custom" && customDateFrom && customDateTo) {
+      return { afterDate: customDateFrom, beforeDate: customDateTo };
+    }
     return {};
-  }, [timeFilter]);
+  }, [timeFilter, customDateFrom, customDateTo]);
 
   const followupRangeParams = useMemo((): { createdFrom?: string; createdTo?: string } => {
     const now = new Date();
     if (timeFilter === "today") return istTodayRangeIso(now);
     if (timeFilter === "weekly") return istWeekRangeIso(now);
     if (timeFilter === "monthly") return istMonthRangeIso(now);
+    if (timeFilter === "custom" && customDateFrom && customDateTo) {
+      return istYmdInclusiveRangeIso(customDateFrom, customDateTo);
+    }
     return {};
-  }, [timeFilter]);
+  }, [timeFilter, customDateFrom, customDateTo]);
 
   /** Counts only — no full lead list (fast, accurate). */
   const { data: dashStats, isLoading } = useQuery({
@@ -110,13 +135,17 @@ export default function TelecalerDashbord() {
       periodRangeParams,
       followupRangeParams,
     ],
-    queryFn: () =>
-      getTelecallerDashboardStats({
-        createdFrom: periodRangeParams.createdFrom,
-        createdTo: periodRangeParams.createdTo,
+    queryFn: () => {
+      const { afterDate, beforeDate } = periodRangeParams;
+      const createdFrom = afterDate ? new Date(`${afterDate}T00:00:00+05:30`).toISOString() : undefined;
+      const createdTo   = beforeDate ? new Date(`${beforeDate}T23:59:59.999+05:30`).toISOString() : undefined;
+      return getTelecallerDashboardStats({
+        createdFrom,
+        createdTo,
         followupFrom: followupRangeParams.createdFrom,
         followupTo: followupRangeParams.createdTo,
-      }),
+      });
+    },
     enabled: !!user && user.role === "telecaller",
     staleTime: 0,
   });
@@ -340,6 +369,96 @@ export default function TelecalerDashbord() {
     setLocation("/leads?followupToday=1");
   };
 
+  // LeadList expects customDateFrom/To as yyyy-MM-dd IST calendar dates, not full ISO strings
+  const toYmd = (iso: string | undefined): string | undefined => {
+    if (!iso) return undefined;
+    return istCalendarYmd(new Date(iso));
+  };
+
+  const buildLeadsUrl = (extra: Record<string, string | undefined>) => {
+    const params = new URLSearchParams({ clearFilters: "1" });
+    // ISO date params are converted to IST yyyy-MM-dd so LeadList can use them correctly
+    const isoDateKeys = ["transferredFrom", "transferredTo", "convertedFrom", "convertedTo", "droppedFrom", "droppedTo"];
+    for (const [k, v] of Object.entries(extra)) {
+      if (!v) continue;
+      params.set(k, isoDateKeys.includes(k) ? (toYmd(v) ?? v) : v);
+    }
+    return `/leads?${params.toString()}`;
+  };
+
+  const goToAssignedLeads = () => {
+    const { afterDate, beforeDate } = periodRangeParams;
+    setLocation(buildLeadsUrl({
+      dateFilter: afterDate ? "custom" : timeFilter,
+      afterDate,
+      beforeDate,
+    }));
+  };
+
+  const goToUncontactedLeads = () => {
+    const { afterDate, beforeDate } = periodRangeParams;
+    setLocation(buildLeadsUrl({
+      progress: "not_contacted",
+      dateFilter: afterDate ? "custom" : timeFilter,
+      afterDate,
+      beforeDate,
+    }));
+  };
+
+  const goToContactedLeads = () => {
+    const { afterDate, beforeDate } = periodRangeParams;
+    setLocation(buildLeadsUrl({
+      reportBucket: "contacted",
+      dateFilter: afterDate ? "custom" : timeFilter,
+      afterDate,
+      beforeDate,
+    }));
+  };
+
+  const goToTransferredLeads = () => {
+    const { afterDate, beforeDate } = periodRangeParams;
+    // Transferred uses ISO strings so backend path uses pgNaiveIst on transferred_at
+    const from = afterDate ? new Date(`${afterDate}T00:00:00+05:30`).toISOString() : undefined;
+    const to   = beforeDate ? new Date(`${beforeDate}T23:59:59.999+05:30`).toISOString() : undefined;
+    setLocation(buildLeadsUrl({
+      reportBucket: "transferred",
+      dateFilter: afterDate ? "custom" : timeFilter,
+      transferredFrom: from,
+      transferredTo: to,
+    }));
+  };
+
+  const goToConvertedLeads = () => {
+    const { afterDate, beforeDate } = periodRangeParams;
+    const from = afterDate ? new Date(`${afterDate}T00:00:00+05:30`).toISOString() : undefined;
+    const to   = beforeDate ? new Date(`${beforeDate}T23:59:59.999+05:30`).toISOString() : undefined;
+    setLocation(buildLeadsUrl({
+      assignment: "converted",
+      forReport: "1",
+      dateFilter: afterDate ? "custom" : timeFilter,
+      convertedFrom: from,
+      convertedTo: to,
+    }));
+  };
+
+  const handleDateRangeApply = (filter: any, startDate?: string, endDate?: string) => {
+    if (filter === "today") {
+      const d = istCalendarYmd(new Date());
+      setCustomDateFrom(d);
+      setCustomDateTo(d);
+    } else if (filter === "monthly") {
+      const now = new Date();
+      const first = istCalendarYmd(new Date(now.getFullYear(), now.getMonth(), 1));
+      const last = istCalendarYmd(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+      setCustomDateFrom(first);
+      setCustomDateTo(last);
+    } else if (startDate && endDate) {
+      setCustomDateFrom(startDate);
+      setCustomDateTo(endDate);
+    }
+    setShowDatePicker(false);
+  };
+
   const totalAssigned = dashStats?.assigned ?? 0;
   const uncontactedCount = dashStats?.uncontacted ?? 0;
   const contactedCount = dashStats?.contacted ?? 0;
@@ -355,7 +474,11 @@ export default function TelecalerDashbord() {
         ? "today"
         : timeFilter === "weekly"
           ? "this week"
-          : "this month";
+          : timeFilter === "custom"
+            ? customDateFrom && customDateTo
+              ? `${format(new Date(`${customDateFrom}T12:00:00+05:30`), "d MMM")} – ${format(new Date(`${customDateTo}T12:00:00+05:30`), "d MMM yyyy")}`
+              : "custom range"
+            : "this month";
 
   const leaderboardRows = [...leaderboardData]
     .sort((a, b) => b.transferTargetAchieved - a.transferTargetAchieved || a.fullName.localeCompare(b.fullName));
@@ -374,21 +497,35 @@ export default function TelecalerDashbord() {
 </h1>
           
         </div>
-        <div className="flex bg-muted p-1 rounded-lg">
-          {["All", "Today", "Weekly", "Monthly"].map((tab) => (
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex bg-muted p-1 rounded-lg">
+            {["All", "Today", "Weekly", "Monthly", "Custom"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => {
+                  setTimeFilter(tab.toLowerCase());
+                  if (tab === "Custom") setShowDatePicker(true);
+                }}
+                className={cn(
+                  "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
+                  timeFilter === tab.toLowerCase()
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+          {timeFilter === "custom" && customDateFrom && customDateTo && (
             <button
-              key={tab}
-              onClick={() => setTimeFilter(tab.toLowerCase())}
-              className={cn(
-                "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
-                timeFilter === tab.toLowerCase()
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
+              type="button"
+              onClick={() => setShowDatePicker(true)}
+              className="px-3 py-1.5 text-sm rounded-md border border-input bg-background hover:bg-accent transition-colors"
             >
-              {tab}
+              {`${format(new Date(`${customDateFrom}T12:00:00+05:30`), "d MMM")} – ${format(new Date(`${customDateTo}T12:00:00+05:30`), "d MMM yyyy")}`}
             </button>
-          ))}
+          )}
         </div>
       </div>
 
@@ -521,7 +658,12 @@ export default function TelecalerDashbord() {
 
         {/* Stats — 2×2 grid beside target; refetches when Today / Weekly / Monthly changes */}
         <div className="grid grid-cols-2 gap-4 xl:col-span-2">
-          <Card>
+          <Card
+            className="cursor-pointer hover:border-primary/40 transition-colors"
+            role="button" tabIndex={0}
+            onClick={goToAssignedLeads}
+            onKeyDown={(e) => e.key === "Enter" && goToAssignedLeads()}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">Assigned</CardTitle>
             </CardHeader>
@@ -530,7 +672,12 @@ export default function TelecalerDashbord() {
               <p className="text-[11px] text-muted-foreground mt-1 capitalize">{periodLabel}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className="cursor-pointer hover:border-primary/40 transition-colors"
+            role="button" tabIndex={0}
+            onClick={goToUncontactedLeads}
+            onKeyDown={(e) => e.key === "Enter" && goToUncontactedLeads()}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">Uncontacted</CardTitle>
             </CardHeader>
@@ -539,7 +686,12 @@ export default function TelecalerDashbord() {
               <p className="text-[11px] text-muted-foreground mt-1 capitalize">{periodLabel}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className="cursor-pointer hover:border-primary/40 transition-colors"
+            role="button" tabIndex={0}
+            onClick={goToContactedLeads}
+            onKeyDown={(e) => e.key === "Enter" && goToContactedLeads()}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">Contacted</CardTitle>
             </CardHeader>
@@ -569,7 +721,13 @@ export default function TelecalerDashbord() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className="cursor-pointer hover:border-blue-400/60 transition-colors"
+            role="button"
+            tabIndex={0}
+            onClick={goToTransferredLeads}
+            onKeyDown={(e) => e.key === "Enter" && goToTransferredLeads()}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                 <ArrowRightLeft className="w-4 h-4" /> Transferred
@@ -580,7 +738,12 @@ export default function TelecalerDashbord() {
               <p className="text-[11px] text-muted-foreground mt-1 capitalize">{periodLabel}</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card
+            className="cursor-pointer hover:border-emerald-400/60 transition-colors"
+            role="button" tabIndex={0}
+            onClick={goToConvertedLeads}
+            onKeyDown={(e) => e.key === "Enter" && goToConvertedLeads()}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">Converted</CardTitle>
             </CardHeader>
@@ -750,6 +913,16 @@ export default function TelecalerDashbord() {
         </Card>
 
       </div>
+
+      <Dialog open={showDatePicker} onOpenChange={setShowDatePicker}>
+        <DialogContent className="p-0 max-w-[800px] overflow-hidden rounded-xl border-0">
+          <DialogTitle className="sr-only">Select Date Range</DialogTitle>
+          <DateRangePicker
+            onApply={handleDateRangeApply}
+            onCancel={() => setShowDatePicker(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

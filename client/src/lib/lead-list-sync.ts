@@ -2,6 +2,79 @@ import type { LeadEntity } from "@/api/leads.api";
 import { mergeLeadRow } from "@/lib/lead-status-tags";
 
 const PATCHES_KEY = "lead-list-optimistic-patches";
+const LEADS_CACHE_KEY = "leadlist_data_cache";
+const LEADS_NAV_TS_KEY = "leadlist_nav_ts";
+const LEADLIST_SCROLL_KEY = "leadlist_scroll_y";
+const LEADS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+interface LeadsDataCache {
+  leads: LeadEntity[];
+  ts: number;
+}
+
+export function saveLeadListCache(leads: LeadEntity[]) {
+  try {
+    sessionStorage.setItem(LEADS_CACHE_KEY, JSON.stringify({ leads, ts: Date.now() } satisfies LeadsDataCache));
+  } catch {}
+}
+
+export function readLeadListCache(): LeadEntity[] | null {
+  try {
+    const raw = sessionStorage.getItem(LEADS_CACHE_KEY);
+    if (!raw) return null;
+    const { leads, ts } = JSON.parse(raw) as LeadsDataCache;
+    if (Date.now() - ts > LEADS_CACHE_TTL_MS) return null;
+    return leads;
+  } catch { return null; }
+}
+
+/** Call before navigating away from the list (e.g. into a lead detail). */
+export function markLeadListNavAway() {
+  try {
+    sessionStorage.setItem(LEADS_NAV_TS_KEY, String(Date.now()));
+  } catch {}
+}
+
+/**
+ * Returns true (and clears the flag) when the list is mounting after a
+ * return from the detail page. Returns false on a fresh navigation.
+ */
+export function consumeLeadListNavReturn(): boolean {
+  try {
+    const ts = sessionStorage.getItem(LEADS_NAV_TS_KEY);
+    if (!ts) return false;
+    sessionStorage.removeItem(LEADS_NAV_TS_KEY);
+    return Date.now() - Number(ts) < 10 * 60 * 1000;
+  } catch { return false; }
+}
+
+function getScrollContainer(): Element | null {
+  return document.getElementById("main-scroll-container");
+}
+
+export function saveLeadListScrollY(y: number) {
+  try {
+    sessionStorage.setItem(LEADLIST_SCROLL_KEY, String(y));
+  } catch {}
+}
+
+export function getScrollContainerScrollY(): number {
+  return getScrollContainer()?.scrollTop ?? 0;
+}
+
+export function consumeLeadListScrollY(): number | null {
+  try {
+    const v = sessionStorage.getItem(LEADLIST_SCROLL_KEY);
+    if (v == null) return null;
+    sessionStorage.removeItem(LEADLIST_SCROLL_KEY);
+    return Number(v);
+  } catch { return null; }
+}
+
+export function restoreLeadListScrollY(y: number) {
+  const el = getScrollContainer();
+  if (el) el.scrollTo({ top: y, behavior: "instant" });
+}
 
 type PatchMap = Record<string, Partial<LeadEntity>>;
 

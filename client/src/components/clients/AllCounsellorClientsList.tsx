@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type ClientStageFilter = "all" | "initial" | "before" | "after";
-export type ClientTypeFilter = "all" | "student" | "student-td" | "student-no-td" | "core" | "core-product" | "other-product" | "pending";
+export type ClientTypeFilter = "all" | "student" | "student-core" | "student-app" | "student-td" | "student-no-td" | "student-sale-only" | "core" | "core-product" | "other-product" | "pending";
+
+export type DateColumnMode = "enrollment" | "tuition-deposit" | "application";
 
 export interface AllCounsellorClientRow {
   id: string;
@@ -32,6 +34,8 @@ export interface AllCounsellorClientRow {
   hasStudentApplication: boolean;
   /** application_date values from student applications (dashboard student filter). */
   studentApplicationDates: string[];
+  /** Paid tuition deposit dates (feeDate from TUTION_FEES product payments). */
+  tuitionDepositDates: string[];
   stage: string;
   totalPayment: number;
   amountReceived: number;
@@ -50,9 +54,99 @@ interface AllCounsellorClientsListProps {
   onClientTypeFilterChange: (value: ClientTypeFilter) => void;
   onView: (id: string) => void;
   onEdit: (id: string) => void;
+  onArchive?: (id: string) => void;
   /** Dashboard drill-down period — used for Application/TD suffix labels. */
   periodFromMs?: number | null;
   periodToMs?: number | null;
+  /** Which date to show in the date column when drilling down from dashboard. */
+  dateColumnMode?: DateColumnMode;
+}
+
+export function getDateColumnMode(clientTypeFilter: ClientTypeFilter): DateColumnMode {
+  if (clientTypeFilter === "student-core" || clientTypeFilter === "student-td") {
+    return "tuition-deposit";
+  }
+  if (
+    clientTypeFilter === "student-app" ||
+    clientTypeFilter === "student-no-td"
+  ) {
+    return "application";
+  }
+  return "enrollment";
+}
+
+function getFirstDateMs(dates: string[]): number | null {
+  let min: number | null = null;
+  for (const d of dates) {
+    const t = parseListDate(d);
+    if (t != null && (min == null || t < min)) min = t;
+  }
+  return min;
+}
+
+function getTuitionDepositDateInRange(
+  dates: string[],
+  fromMs: number | null | undefined,
+  toMs: number | null | undefined
+): string {
+  if (fromMs != null && toMs != null) {
+    let bestMs: number | null = null;
+    let best = "";
+    for (const d of dates) {
+      const t = parseListDate(d);
+      if (t != null && t >= fromMs && t <= toMs && (bestMs == null || t < bestMs)) {
+        bestMs = t;
+        best = d;
+      }
+    }
+    if (best) return formatDateForTable(best);
+  }
+  const firstMs = getFirstDateMs(dates);
+  if (firstMs == null) return "—";
+  const first = dates.find((d) => parseListDate(d) === firstMs);
+  return first ? formatDateForTable(first) : "—";
+}
+
+function getFirstApplicationDateDisplay(dates: string[]): string {
+  const firstMs = getFirstDateMs(dates);
+  if (firstMs == null) return "—";
+  const first = dates.find((d) => parseListDate(d) === firstMs);
+  return first ? formatDateForTable(first) : "—";
+}
+
+function formatDateForTable(value: string): string {
+  const t = parseListDate(value);
+  if (t == null) return value || "—";
+  const d = new Date(t);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+
+function getRowDateForColumn(
+  row: AllCounsellorClientRow,
+  mode: DateColumnMode,
+  fromMs: number | null | undefined,
+  toMs: number | null | undefined
+): string {
+  if (mode === "tuition-deposit") {
+    return getTuitionDepositDateInRange(row.tuitionDepositDates, fromMs, toMs);
+  }
+  if (mode === "application") {
+    return getFirstApplicationDateDisplay(row.studentApplicationDates);
+  }
+  return row.enrollmentDate || "—";
+}
+
+function getRowDateSortMs(
+  row: AllCounsellorClientRow,
+  mode: DateColumnMode,
+  fromMs: number | null | undefined,
+  toMs: number | null | undefined
+): number {
+  const display = getRowDateForColumn(row, mode, fromMs, toMs);
+  return parseListDate(display) ?? parseEnrollmentDate(display) ?? 0;
 }
 
 function parseListDate(value: string): number | null {
@@ -79,7 +173,8 @@ function isStudentRowForDisplay(row: AllCounsellorClientRow): boolean {
   return (
     row.saleTypeCategory === "student" ||
     row.hasStudentApplication ||
-    /\bstudent\b/i.test(row.salesType ?? "")
+    /\bstudent\b/i.test(row.salesType ?? "") ||
+    row.hasTutionFees  // Only Products clients with TD paid are also students
   );
 }
 
@@ -121,17 +216,28 @@ export function AllCounsellorClientsList({
   onClientTypeFilterChange,
   onView,
   onEdit,
+  onArchive,
   periodFromMs = null,
   periodToMs = null,
+  dateColumnMode = "enrollment",
 }: AllCounsellorClientsListProps) {
   const [newestFirst, setNewestFirst] = useState(true);
 
+  const dateColumnHeader =
+    dateColumnMode === "tuition-deposit"
+      ? "Tuition Deposit Date"
+      : dateColumnMode === "application"
+        ? "Application Date"
+        : "Enrollment";
+
   const sortedData = useMemo(() => {
     return [...(data ?? [])].sort((a, b) => {
-      const diff = parseEnrollmentDate(a.enrollmentDate) - parseEnrollmentDate(b.enrollmentDate);
+      const diff =
+        getRowDateSortMs(a, dateColumnMode, periodFromMs, periodToMs) -
+        getRowDateSortMs(b, dateColumnMode, periodFromMs, periodToMs);
       return newestFirst ? -diff : diff;
     });
-  }, [data, newestFirst]);
+  }, [data, newestFirst, dateColumnMode, periodFromMs, periodToMs]);
 
   const columns = [
     { header: "Sr No", cell: (_: AllCounsellorClientRow, index: number) => <span className="text-slate-400 font-mono text-xs">{String(index + 1).padStart(2, "0")}</span>, className: "w-[60px]" },
@@ -159,7 +265,14 @@ export function AllCounsellorClientsList({
       ),
     },
     { header: "Counsellor", accessorKey: "counsellor", className: "text-slate-600" },
-    { header: "Enrollment", accessorKey: "enrollmentDate", className: "whitespace-nowrap text-slate-500" },
+    {
+      header: dateColumnHeader,
+      cell: (s: AllCounsellorClientRow) => (
+        <span className="whitespace-nowrap text-slate-500">
+          {getRowDateForColumn(s, dateColumnMode, periodFromMs, periodToMs)}
+        </span>
+      ),
+    },
     {
       header: "Sales Type",
       cell: (s: AllCounsellorClientRow) => {
@@ -195,6 +308,8 @@ export function AllCounsellorClientsList({
         <TableActions
           onView={() => onView(s.id)}
           onEdit={() => onEdit(s.id)}
+          onDelete={onArchive ? () => onArchive(s.id) : undefined}
+          deleteLabel="Archive"
         />
       ),
     },
@@ -221,7 +336,7 @@ export function AllCounsellorClientsList({
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="student">Students (All)</SelectItem>
-              <SelectItem value="student-td">Students (Application + TD)</SelectItem>
+              <SelectItem value="student-td">Students (TD)</SelectItem>
               <SelectItem value="student-no-td">Students (Application Only)</SelectItem>
               <SelectItem value="core">Visitor / Spouse</SelectItem>
               <SelectItem value="core-product">Core Product (All Finance)</SelectItem>
@@ -259,7 +374,7 @@ export function AllCounsellorClientsList({
       </div>
 
       <p className="text-xs text-muted-foreground -mt-1">
-        Enrollment: {newestFirst ? "Newest first" : "Oldest first"}
+        {dateColumnHeader}: {newestFirst ? "Newest first" : "Oldest first"}
       </p>
 
       <DataTable

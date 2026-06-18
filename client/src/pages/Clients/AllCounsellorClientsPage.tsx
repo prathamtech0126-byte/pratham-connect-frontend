@@ -1,17 +1,29 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { AllCounsellorClientsSkeleton } from "@/components/ui/page-skeletons";
 import { clientService } from "@/services/clientService";
 import { getLatestStageFromPayments } from "@/utils/stageUtils";
 import { useAuth } from "@/context/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   AllCounsellorClientsList,
   AllCounsellorClientRow,
   ClientStageFilter,
   ClientTypeFilter,
+  getDateColumnMode,
 } from "@/components/clients/AllCounsellorClientsList";
 
 function flattenYearMonthClients(input: any): any[] {
@@ -57,7 +69,7 @@ function parseStageParam(v: string | null): ClientStageFilter {
 }
 
 function parseClientTypeParam(v: string | null): ClientTypeFilter {
-  const ok: ClientTypeFilter[] = ["all", "student", "student-td", "student-no-td", "core", "core-product", "other-product", "pending"];
+  const ok: ClientTypeFilter[] = ["all", "student", "student-core", "student-app", "student-td", "student-no-td", "student-sale-only", "core", "core-product", "other-product", "pending"];
   if (v && ok.includes(v as ClientTypeFilter)) return v as ClientTypeFilter;
   return "all";
 }
@@ -193,24 +205,41 @@ function collectCoreProductHandlerIds(
   return [...ids];
 }
 
-function hasStudentApplicationDateInRange(
-  applicationDates: string[],
-  fromMs: number,
-  toMs: number
-): boolean {
-  return applicationDates.some((d) => isDateInRange(d, fromMs, toMs));
+function getFirstApplicationMs(applicationDates: string[]): number | null {
+  let min: number | null = null;
+  for (const d of applicationDates) {
+    const t = parseFlexibleDate(d);
+    if (t != null && (min == null || t < min)) min = t;
+  }
+  return min;
 }
 
-/** Matches dashboard getStudentStats pool: application_date in period. */
-function isStudentInDashboardRange(
+/** Matches dashboard app_students: first application_date in period. */
+function isFirstApplicationInDashboardRange(
   row: AllCounsellorClientRow,
   fromMs: number | null,
   toMs: number | null
 ): boolean {
   if (fromMs != null && toMs != null) {
-    return hasStudentApplicationDateInRange(row.studentApplicationDates, fromMs, toMs);
+    const first = getFirstApplicationMs(row.studentApplicationDates);
+    return first != null && first >= fromMs && first <= toMs;
   }
   return row.hasStudentApplication || row.studentApplicationDates.length > 0;
+}
+
+/** Matches dashboard student_core: application on file + paid TD in period. */
+function isStudentCoreInDashboardRange(
+  row: AllCounsellorClientRow,
+  productPayments: any[] | undefined,
+  fromMs: number | null,
+  toMs: number | null
+): boolean {
+  const hasApplication = row.hasStudentApplication || row.studentApplicationDates.length > 0;
+  if (!hasApplication) return false;
+  if (fromMs != null && toMs != null) {
+    return hasTutionFeesInRange(productPayments, fromMs, toMs);
+  }
+  return row.hasTutionFees;
 }
 
 /** Student core sale type enrolled in period (sale type only — no application/TD suffix). */
@@ -227,15 +256,33 @@ function isStudentSaleTypeInEnrollmentRange(
   return isDateInRange(row.enrollmentDate, fromMs, toMs);
 }
 
+function hasTutionFeesInRange(productPayments: any[] | undefined, fromMs: number, toMs: number): boolean {
+  return (productPayments ?? []).some((p) => {
+    if (p?.productName !== "TUTION_FEES") return false;
+    if (p?.entity?.tutionFeesStatus !== "paid") return false;
+    return isDateInRange(p?.entity?.feeDate, fromMs, toMs);
+  });
+}
+
 /** Full student list when drilling down from dashboard Students card. */
-function matchesStudentListFilter(
+function matchesStudentDashboardCardFilter(
   row: AllCounsellorClientRow,
+  productPayments: any[] | undefined,
   fromMs: number | null,
   toMs: number | null
 ): boolean {
+  if (fromMs == null || toMs == null) {
+    return (
+      row.hasStudentApplication ||
+      row.hasTutionFees ||
+      row.saleTypeCategory === "student" ||
+      /\bstudent\b/i.test(row.salesType ?? "")
+    );
+  }
+  // Period = first application date OR tuition deposit date — never enrollment date.
   return (
-    isStudentInDashboardRange(row, fromMs, toMs) ||
-    isStudentSaleTypeInEnrollmentRange(row, fromMs, toMs)
+    isFirstApplicationInDashboardRange(row, fromMs, toMs) ||
+    hasTutionFeesInRange(productPayments, fromMs, toMs)
   );
 }
 
@@ -264,10 +311,13 @@ function matchesDashboardDateFilter(
 
   if (
     clientTypeFilter === "student" ||
+    clientTypeFilter === "student-core" ||
+    clientTypeFilter === "student-app" ||
     clientTypeFilter === "student-td" ||
-    clientTypeFilter === "student-no-td"
+    clientTypeFilter === "student-no-td" ||
+    clientTypeFilter === "student-sale-only"
   ) {
-    // Date range applied in matchClientType (same rules as dashboard studentStats)
+    // Date range applied in matchClientType
     return true;
   }
 
@@ -312,6 +362,17 @@ function mapRawToRow(
           p?.productName === "TUTION_FEES" && p?.entity?.tutionFeesStatus === "paid"
       )
     : false;
+
+  const tuitionDepositDates: string[] = [];
+  if (Array.isArray(raw.productPayments)) {
+    for (const p of raw.productPayments) {
+      if (p?.productName !== "TUTION_FEES" || p?.entity?.tutionFeesStatus !== "paid") continue;
+      const d = p?.entity?.feeDate;
+      if (d != null && String(d).trim() !== "") {
+        tuitionDepositDates.push(String(d));
+      }
+    }
+  }
 
   const hasOtherProduct =
     !hasAllFinance &&
@@ -369,6 +430,7 @@ function mapRawToRow(
     hasTutionFees,
     hasStudentApplication,
     studentApplicationDates,
+    tuitionDepositDates,
     stage,
     totalPayment,
     amountReceived,
@@ -433,8 +495,12 @@ function collectClientsFromApiData(
 
 export default function AllCounsellorClientsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [pathname, setLocation] = useLocation();
   const searchStr = useSearch();
+  const [clientToArchive, setClientToArchive] = useState<AllCounsellorClientRow | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   const mergeQuery = useCallback(
     (mutate: (p: URLSearchParams) => void) => {
@@ -518,13 +584,35 @@ export default function AllCounsellorClientsPage() {
         (stageFilter === "after" && stage === "After Visa");
 
       const cat = row.saleTypeCategory ?? "";
-      const studentInDashboardRange = isStudentInDashboardRange(row, fromMs, toMs);
-      const studentListMatch = matchesStudentListFilter(row, fromMs, toMs);
+      // When no date range (direct page access, not from dashboard), skip date-based checks
+      const hasDates = fromMs != null && toMs != null;
+      const firstAppInDashboardRange = isFirstApplicationInDashboardRange(row, fromMs, toMs);
+      const isStudentSaleOnly =
+        isStudentSaleTypeInEnrollmentRange(row, fromMs, toMs) &&
+        !row.hasStudentApplication &&
+        !row.hasTutionFees;
+
+      const productPayments = productPaymentsById.get(row.id);
+      const tdInRange = hasDates
+        ? hasTutionFeesInRange(productPayments, fromMs!, toMs!)
+        : row.hasTutionFees;
+
       const matchClientType =
         clientTypeFilter === "all" ||
-        (clientTypeFilter === "student" && studentListMatch) ||
-        (clientTypeFilter === "student-td" && studentInDashboardRange && row.hasTutionFees) ||
-        (clientTypeFilter === "student-no-td" && studentInDashboardRange && !row.hasTutionFees) ||
+        (clientTypeFilter === "student" &&
+          matchesStudentDashboardCardFilter(row, productPayments, fromMs, toMs)) ||
+        (clientTypeFilter === "student-core" &&
+          (hasDates
+            ? isStudentCoreInDashboardRange(row, productPayments, fromMs, toMs)
+            : row.hasStudentApplication && row.hasTutionFees)) ||
+        (clientTypeFilter === "student-app" &&
+          (hasDates ? firstAppInDashboardRange : row.hasStudentApplication)) ||
+        (clientTypeFilter === "student-td" && tdInRange) ||
+        (clientTypeFilter === "student-no-td" &&
+          (hasDates
+            ? firstAppInDashboardRange && !tdInRange
+            : row.hasStudentApplication && !row.hasTutionFees)) ||
+        (clientTypeFilter === "student-sale-only" && isStudentSaleOnly) ||
         (clientTypeFilter === "core" && (cat === "visitor" || cat === "spouse")) ||
         (clientTypeFilter === "core-product" && row.hasAllFinance) ||
         (clientTypeFilter === "other-product" && row.hasOtherProduct) ||
@@ -718,6 +806,9 @@ export default function AllCounsellorClientsPage() {
               mergeQuery((p) => {
                 if (v && v !== "all") p.set("clientType", v);
                 else p.delete("clientType");
+                // Clear dashboard date range when manually changing filter
+                p.delete("from");
+                p.delete("to");
               });
             }}
             onView={(id) => {
@@ -732,11 +823,49 @@ export default function AllCounsellorClientsPage() {
               sessionStorage.removeItem("client_list_return_counsellor_name");
               setLocation(`/clients/${id}/edit`);
             }}
+            onArchive={(id) => {
+              const row = displayRows.find((r) => r.id === id) ?? null;
+              setClientToArchive(row);
+            }}
             periodFromMs={dashboardPeriodMs.fromMs}
             periodToMs={dashboardPeriodMs.toMs}
+            dateColumnMode={getDateColumnMode(clientTypeFilter)}
           />
         )}
       </div>
+
+      <AlertDialog open={!!clientToArchive} onOpenChange={(open) => { if (!open) setClientToArchive(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive Client</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to archive <strong>{clientToArchive?.name}</strong>? They will be hidden from active lists.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isArchiving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isArchiving}
+              onClick={async () => {
+                if (!clientToArchive) return;
+                setIsArchiving(true);
+                try {
+                  await clientService.archiveClient(Number(clientToArchive.id), true);
+                  toast({ title: "Client Archived", description: `${clientToArchive.name} has been archived.` });
+                  queryClient.invalidateQueries({ queryKey: ["all-counsellor-clients-direct"] });
+                  setClientToArchive(null);
+                } catch (err: any) {
+                  toast({ variant: "destructive", title: "Archive Failed", description: err?.response?.data?.message || err?.message || "Failed to archive client." });
+                } finally {
+                  setIsArchiving(false);
+                }
+              }}
+            >
+              {isArchiving ? "Archiving..." : "Archive"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageWrapper>
   );
 }

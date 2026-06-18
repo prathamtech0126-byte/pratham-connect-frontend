@@ -473,6 +473,7 @@ export default function ClientForm() {
   const [showServiceSection, setShowServiceSection] = useState(false);
   const [showStudentSection, setShowStudentSection] = useState(false);
   const [studentApplicationCount, setStudentApplicationCount] = useState(0);
+  const [tuitionDepositFromApplications, setTuitionDepositFromApplications] = useState(false);
   const hasStudentApplications = studentApplicationCount > 0;
 
   // State for product search and selection
@@ -512,31 +513,6 @@ export default function ClientForm() {
   // Holds the lead's leadSource for reliable use in submission (disabled fields can be unreliable)
   const fromLeadSourceRef = useRef<string | null>(null);
   const leadConvertedMarkedRef = useRef(false);
-
-  const markOriginatingLeadConverted = useCallback(async () => {
-    if (!fromLeadId || leadConvertedMarkedRef.current) return;
-    try {
-      await updateLeadApi(fromLeadId, {
-        progressStatus: "converted",
-        assignmentStatus: "converted",
-      });
-      pushLeadListPatch(fromLeadId, {
-        progressStatus: "converted",
-        assignmentStatus: "converted",
-      });
-      leadConvertedMarkedRef.current = true;
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Could not mark the lead as converted.";
-      toast({
-        title: "Lead status not updated",
-        description: message,
-        variant: "destructive",
-      });
-    }
-  }, [fromLeadId, toast]);
 
   // Socket listeners for all finance approval/rejection events
   useEffect(() => {
@@ -848,8 +824,11 @@ export default function ClientForm() {
     }
   ];
 
+  // Tuition deposit is recorded via Student Applications — not the product picker.
+  const addableProducts = availableProducts.filter((product) => product.id !== "tuitionFee");
+
   // Filter products based on search
-  const filteredProducts = availableProducts.filter(product => {
+  const filteredProducts = addableProducts.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(
       productSearchQuery.toLowerCase()
     ) || product.description?.toLowerCase().includes(
@@ -874,7 +853,7 @@ export default function ClientForm() {
     // Products that allow multiple instances
     const allowMultipleInstances = ["otherProduct", "trvExtension"];
 
-    const productsToAdd = availableProducts.filter(p => {
+    const productsToAdd = addableProducts.filter(p => {
       if (!selectedProductIds.includes(p.id)) return false;
 
       // For products that allow multiple instances, always allow adding
@@ -1583,12 +1562,15 @@ export default function ClientForm() {
 
           // Store existing product payment IDs for update operations
           const existingProductPaymentIds: Record<string, number> = {};
-          if (clientData.productPayments && Array.isArray(clientData.productPayments)) {
-            clientData.productPayments.forEach((pp: any, index: number) => {
-              if (pp.productPaymentId) {
-                existingProductPaymentIds[pp.productName] = pp.productPaymentId;
-              } else {
-                //  console.warn(`⚠ Product payment ${pp.productName} has no productPaymentId:`, pp);
+          const productPaymentsList = Array.isArray(clientData.productPayments)
+            ? clientData.productPayments
+            : [];
+          setLoadedProductPayments(productPaymentsList);
+          if (productPaymentsList.length > 0) {
+            productPaymentsList.forEach((pp: any) => {
+              const paymentId = pp.productPaymentId ?? pp.id;
+              if (paymentId && pp.productName) {
+                existingProductPaymentIds[pp.productName] = paymentId;
               }
             });
           } else {
@@ -2417,10 +2399,27 @@ export default function ClientForm() {
   const [productPaymentIds, setProductPaymentIds] = useState<
     Record<string, number>
   >({});
+  const [loadedProductPayments, setLoadedProductPayments] = useState<
+    Array<{ productName?: string | null }>
+  >([]);
   const productPaymentIdsRef = useRef<Record<string, number>>({});
   useEffect(() => {
     productPaymentIdsRef.current = productPaymentIds;
   }, [productPaymentIds]);
+
+  const clientHasTuitionDepositFromProduct = useMemo(
+    () =>
+      (Array.isArray(loadedProductPayments) &&
+        loadedProductPayments.some((p) => p?.productName === "TUTION_FEES")) ||
+      !!productPaymentIds["TUTION_FEES"] ||
+      addedProducts.some((p) => p.productName === "TUTION_FEES"),
+    [loadedProductPayments, productPaymentIds, addedProducts],
+  );
+
+  const clientHasTuitionDeposit = useMemo(
+    () => clientHasTuitionDepositFromProduct || tuitionDepositFromApplications,
+    [clientHasTuitionDepositFromProduct, tuitionDepositFromApplications],
+  );
 
   const canDeletePayment = user?.role === "superadmin" || user?.role === "director" || user?.role === "manager";
   const emptyPayment = { amount: 0, date: "", invoiceNo: "", remarks: "" };
@@ -2640,6 +2639,60 @@ export default function ClientForm() {
     }
   }, [selectedChecklistToSend, internalClientId, toast]);
 
+  const buildClientSavePayload = useCallback(
+    (clientId?: number | null) => {
+      const data = form.getValues();
+      const selectedTypeData = allSaleTypes.find((t) => t.saleType === data.salesType);
+      const isCounsellorRole = user?.role === "counsellor";
+      const effectiveLeadSource = fromLeadId
+        ? (fromLeadSourceRef.current ?? data.leadSource)
+        : data.leadSource;
+      const selectedLeadType = leadTypes.find((lt: any) => lt.leadType === effectiveLeadSource);
+      const leadTypeId = selectedLeadType?.id || selectedLeadType?.leadTypeId || null;
+      const resolvedCounsellorId = isCounsellorRole
+        ? Number(user?.id)
+        : (clientOriginalCounsellorIdRef.current ?? data.counsellorId);
+
+      const payload: Record<string, unknown> = {
+        fullName: data.name,
+        enrollmentDate: data.enrollmentDate,
+        passportDetails: data.passportDetails,
+        saleTypeId: selectedTypeData?.id || null,
+        counsellorId: resolvedCounsellorId,
+        leadTypeId,
+      };
+      if (fromLeadId) payload.convertedLeadId = fromLeadId;
+      if (clientId != null) payload.clientId = clientId;
+      return payload;
+    },
+    [form, allSaleTypes, user, fromLeadId, leadTypes],
+  );
+
+  const markOriginatingLeadConverted = useCallback(async () => {
+    if (!fromLeadId || leadConvertedMarkedRef.current) return;
+    try {
+      await updateLeadApi(fromLeadId, {
+        progressStatus: "converted",
+        assignmentStatus: "converted",
+      });
+      pushLeadListPatch(fromLeadId, {
+        progressStatus: "converted",
+        assignmentStatus: "converted",
+      });
+      leadConvertedMarkedRef.current = true;
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Could not mark the lead as converted.";
+      toast({
+        title: "Lead status not updated",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  }, [fromLeadId, toast]);
+
   const handleCreateClient = async () => {
     if (isSubmitting || requestInFlightRef.current) {
       return;
@@ -2660,28 +2713,8 @@ export default function ClientForm() {
 
     try {
       const data = form.getValues();
-      const selectedTypeData = allSaleTypes.find((t) => t.saleType === data.salesType);
-      const effectiveLeadSource = fromLeadId ? (fromLeadSourceRef.current ?? data.leadSource) : data.leadSource;
-      const selectedLeadType = leadTypes.find((lt: any) => lt.leadType === effectiveLeadSource);
-      const leadTypeId = selectedLeadType?.id || selectedLeadType?.leadTypeId || null;
 
-      // Counsellor: use own ID. Admin/manager/developer: preserve original counsellor from API (don't inject admin's ID).
-      const resolvedCounsellorId = isCounsellorRole
-        ? Number(user?.id)
-        : (clientOriginalCounsellorIdRef.current ?? data.counsellorId);
-
-      const payload: any = {
-        fullName: data.name,
-        enrollmentDate: data.enrollmentDate,
-        passportDetails: data.passportDetails,
-        saleTypeId: selectedTypeData?.id || null,
-        counsellorId: resolvedCounsellorId,
-        leadTypeId: leadTypeId,
-      };
-
-      if (internalClientId != null) {
-        payload.clientId = internalClientId;
-      }
+      const payload = buildClientSavePayload(internalClientId);
 
       const clientRes = await api.post("/api/clients", payload);
       const returnedClient = clientRes.data?.data?.client;
@@ -2764,6 +2797,25 @@ export default function ClientForm() {
     let effectiveClientId: number | null = internalClientId;
 
     try {
+      // Update client info when already created (e.g. passport edited before combined save)
+      if (internalClientId) {
+        const isCounsellorRole = user?.role === "counsellor";
+        const fieldsToValidate: string[] = ["name", "enrollmentDate", "passportDetails"];
+        if (!isCounsellorRole) fieldsToValidate.push("counsellorId");
+        const isValidExisting = await trigger(fieldsToValidate as any);
+        if (!isValidExisting) {
+          toast({
+            title: "Validation Error",
+            description: "Please fill in all required client information fields.",
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          requestInFlightRef.current = false;
+          return;
+        }
+        await api.post("/api/clients", buildClientSavePayload(internalClientId));
+      }
+
       // First, ensure client is created
       if (!internalClientId) {
         // Validate client info first
@@ -2786,28 +2838,8 @@ export default function ClientForm() {
 
         // Create client
         const data = form.getValues();
-        const selectedTypeData = allSaleTypes.find((t) => t.saleType === data.salesType);
-        // When coming from a lead, use the stored leadSource from the lead (ref is authoritative; disabled field may not always be in form values)
-        const effectiveLeadSource = fromLeadId ? (fromLeadSourceRef.current ?? data.leadSource) : data.leadSource;
-        const selectedLeadType = leadTypes.find((lt: any) => lt.leadType === effectiveLeadSource);
-        const leadTypeId = selectedLeadType?.id || selectedLeadType?.leadTypeId || null;
 
-        // Counsellor: use own ID. Admin/manager/developer: preserve original counsellor from API (don't inject admin's ID).
-        const resolvedCounsellorId = isCounsellorRole
-          ? Number(user?.id)
-          : (clientOriginalCounsellorIdRef.current ?? data.counsellorId);
-
-        const payload: any = {
-          fullName: data.name,
-          enrollmentDate: data.enrollmentDate,
-          passportDetails: data.passportDetails,
-          saleTypeId: selectedTypeData?.id || null,
-          counsellorId: resolvedCounsellorId,
-          leadTypeId: leadTypeId,
-        };
-
-     
-        
+        const payload = buildClientSavePayload();
 
         const clientRes = await api.post("/api/clients", payload);
 
@@ -3068,6 +3100,12 @@ export default function ClientForm() {
           setProductPaymentIds((prev) => ({ ...prev, [productName]: newProductPaymentId }));
         }
         return res;
+      }).catch((err: any) => {
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          `Failed to save ${productName}`;
+        throw new Error(msg);
       });
     };
 
@@ -3283,6 +3321,13 @@ export default function ClientForm() {
       productPaymentPromises.push(createOrUpdateProductPayment("FOREX_FEES", forexFeesEntityData, productFields.forexFees.amount));
     }
     if (productFields.tuitionFee && productFields.tuitionFee.status) {
+      const existingTuitionPaymentId = productPaymentIdsRef.current["TUTION_FEES"];
+      if (!existingTuitionPaymentId && tuitionDepositFromApplications) {
+        throw new Error(
+          "This student already has a tuition deposit on file via an application. Only one tuition deposit is allowed per student.",
+        );
+      }
+
       let statusValue = productFields.tuitionFee.status || "";
       statusValue = statusValue.toLowerCase();
       if (statusValue === "panding") statusValue = "pending";
@@ -3323,9 +3368,11 @@ export default function ClientForm() {
 
     if (productPaymentPromises.length > 0) {
       const results = await Promise.allSettled(productPaymentPromises);
-      const hasErrors = results.some(r => r.status === 'rejected');
-      if (hasErrors) {
-        throw new Error("Some product payments failed to save");
+      const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+      if (rejected) {
+        throw new Error(
+          rejected.reason?.message || "Some product payments failed to save",
+        );
       }
     }
   };
@@ -3380,7 +3427,7 @@ export default function ClientForm() {
           control={control}
           label="Passport Details"
           placeholder="e.g. A12345678"
-          disabled={!!fromLeadId}
+          required
         />
         <FormSelectInput
           name="leadSource"
@@ -3946,6 +3993,11 @@ export default function ClientForm() {
         return (
           <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
             <Label className="text-base font-semibold">{product.name}</Label>
+            {clientHasTuitionDeposit && !productPaymentIds["TUTION_FEES"] && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                A tuition deposit is already recorded for this student via an application. You can update it from the Student Applications section.
+              </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormSelectInput
                 name="productFields.tuitionFee.status"
@@ -4554,6 +4606,7 @@ export default function ClientForm() {
             <CardContent>
               <StudentApplicationTracker
                 ref={studentTrackerRef}
+                variant="clientInfo"
                 studentSaleTypes={studentSaleTypeNames}
                 saleTypes={allSaleTypes.filter(
                   (t: any) => String(t.category ?? t.categoryName ?? "").toLowerCase() === "student",
@@ -4565,6 +4618,8 @@ export default function ClientForm() {
                     : clientOriginalCounsellorIdRef.current ?? undefined
                 }
                 onCountChange={setStudentApplicationCount}
+                clientHasDirectTuitionDeposit={clientHasTuitionDepositFromProduct}
+                onTuitionDepositExistsChange={setTuitionDepositFromApplications}
               />
             </CardContent>
           </Card>

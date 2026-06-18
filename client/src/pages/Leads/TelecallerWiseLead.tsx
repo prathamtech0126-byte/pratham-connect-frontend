@@ -4,22 +4,14 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import {
-  format,
-  startOfDay,
-  endOfDay,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-} from "date-fns";
+import { format } from "date-fns";
 import {
   Users,
   Phone,
   UserCheck,
   CalendarClock,
   ArrowRightLeft,
-  CheckCircle2,
+
   PhoneOff,
 } from "lucide-react";
 import { useLocation, useSearch } from "wouter";
@@ -28,7 +20,7 @@ import { Toaster } from "sonner";
 import { Breadcrumbs } from "@/layout/Breadcrumbs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import DateRangePicker from "@/components/payments/DateRangePicker";
 import api from "@/lib/api";
@@ -40,8 +32,10 @@ import {
   buildLeadListUrlFromReport,
   type LeadReportMetricKey,
 } from "@/lib/lead-report-metrics";
+import { type LeadDateFilterType } from "@/lib/lead-date-range";
+import { istYmdInclusiveRangeIso } from "@/lib/ist-date-range";
 
-type DateFilterType = "all" | "today" | "weekly" | "monthly" | "custom";
+type DateFilterType = LeadDateFilterType;
 type UserLite = { id: number; fullName: string };
 
 type StatRow = UserLite &
@@ -52,6 +46,7 @@ type StatRow = UserLite &
     | "notContacted"
     | "transferred"
     | "converted"
+    | "dropped"
     | "followUp"
     | "junk"
   >;
@@ -62,27 +57,10 @@ const emptyAgg = {
   notContacted: 0,
   transferred: 0,
   converted: 0,
+  dropped: 0,
   followUp: 0,
   junk: 0,
 };
-
-function getDateBounds(
-  dateFilter: DateFilterType,
-  customDateFrom?: string,
-  customDateTo?: string
-) {
-  const now = new Date();
-  if (dateFilter === "all") return null;
-  if (dateFilter === "today") return { from: startOfDay(now), to: endOfDay(now) };
-  if (dateFilter === "weekly") {
-    return { from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) };
-  }
-  if (dateFilter === "monthly") return { from: startOfMonth(now), to: endOfMonth(now) };
-  if (dateFilter === "custom" && customDateFrom && customDateTo) {
-    return { from: startOfDay(new Date(customDateFrom)), to: endOfDay(new Date(customDateTo)) };
-  }
-  return null;
-}
 
 export default function TelecallerWiseLead() {
   const [, setLocation] = useLocation();
@@ -119,12 +97,11 @@ export default function TelecallerWiseLead() {
   const [summaryRows, setSummaryRows] = useState<TelecallerLeadSummaryRow[]>([]);
 
   const rangeParams = useMemo(() => {
-    const bounds = getDateBounds(dateFilter, customDateFrom, customDateTo);
-    if (!bounds) return {};
-    return {
-      createdFrom: bounds.from.toISOString(),
-      createdTo: bounds.to.toISOString(),
-    };
+    if (dateFilter === "custom" && customDateFrom && customDateTo) {
+      return istYmdInclusiveRangeIso(customDateFrom, customDateTo);
+    }
+    if (dateFilter === "all") return {};
+    return { dateFilter };
   }, [dateFilter, customDateFrom, customDateTo]);
 
   const loadData = useCallback(async () => {
@@ -159,6 +136,7 @@ export default function TelecallerWiseLead() {
         notContacted: s?.notContacted ?? 0,
         transferred: s?.transferred ?? 0,
         converted: s?.converted ?? 0,
+        dropped: s?.dropped ?? 0,
         followUp: s?.followUp ?? 0,
         junk: s?.junk ?? 0,
       };
@@ -173,12 +151,13 @@ export default function TelecallerWiseLead() {
         notContacted: acc.notContacted + t.notContacted,
         transferred: acc.transferred + t.transferred,
         converted: acc.converted + t.converted,
+        dropped: acc.dropped + t.dropped,
         followUp: acc.followUp + t.followUp,
         junkCount: acc.junkCount + t.junk,
       }),
       {
         total: 0, contacted: 0, notContacted: 0, transferred: 0,
-        converted: 0, followUp: 0, junkCount: 0,
+        converted: 0, dropped: 0, followUp: 0, junkCount: 0,
       }
     );
   }, [telecallerStats]);
@@ -203,10 +182,10 @@ export default function TelecallerWiseLead() {
   return (
     <div className="space-y-5">
       <Toaster richColors position="top-center" closeButton />
-      <Breadcrumbs items={[{ label: "Leads", href: "/leads" }, { label: "Telecaller Wise Leads" }]} />
+      <Breadcrumbs items={[{ label: "Leads", href: "/leads" }, { label: "Telecaller Assignment Report" }]} />
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold">Telecaller Wise Leads</h1>
+        <h1 className="text-2xl font-bold">Leads Assignment Wise Report — Telecaller</h1>
 
         <div className="flex items-center gap-2">
           {(["all", "today", "weekly", "monthly"] as const).map((filter) => (
@@ -234,42 +213,51 @@ export default function TelecallerWiseLead() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {([
-          { label: "Assigned Leads", value: displayTotals.total,       icon: Users,         color: "text-primary",     metric: "assigned"        },
-          { label: "Not Contacted",  value: displayTotals.notContacted, icon: PhoneOff,      color: "text-slate-600",   metric: "not_contacted"   },
-          { label: "Junk Marked",    value: displayTotals.junkCount,    icon: UserCheck,     color: "text-rose-600",    metric: "junk"            },
-          { label: "Contacted",      value: displayTotals.contacted,    icon: Phone,         color: "text-blue-600",    metric: "contacted"       },
-          { label: "Transferred",    value: displayTotals.transferred,  icon: ArrowRightLeft,color: "text-amber-600",   metric: "transferred"     },
-          { label: "Converted",      value: displayTotals.converted,    icon: CheckCircle2,  color: "text-emerald-600", metric: "converted"       },
-          { label: "Follow Up",      value: displayTotals.followUp,     icon: CalendarClock, color: "text-primary",     metric: "pending_follow_up"},
-        ] as { label: string; value: number; icon: React.ElementType; color: string; metric: LeadReportMetricKey }[]).map((stat) => (
+          { label: "Assigned",      value: displayTotals.total,        icon: Users,         color: "text-primary",     bg: "bg-primary/5",   metric: "assigned"          },
+          { label: "Not Contacted", value: displayTotals.notContacted,  icon: PhoneOff,      color: "text-slate-500",   bg: "bg-slate-50",    metric: "not_contacted"     },
+          { label: "Contacted",     value: displayTotals.contacted,     icon: Phone,         color: "text-sky-600",     bg: "bg-sky-50",      metric: "contacted"         },
+          { label: "Transferred",   value: displayTotals.transferred,   icon: ArrowRightLeft,color: "text-amber-600",   bg: "bg-amber-50",    metric: "transferred"       },
+          { label: "Follow Up",     value: displayTotals.followUp,      icon: CalendarClock, color: "text-violet-600",  bg: "bg-violet-50",   metric: "pending_follow_up" },
+          { label: "Junk",          value: displayTotals.junkCount,     icon: UserCheck,     color: "text-rose-600",    bg: "bg-rose-50",     metric: "junk"              },
+        ] as { label: string; value: number; icon: React.ElementType; color: string; bg: string; metric: LeadReportMetricKey }[]).map((stat) => (
           <Card
             key={stat.metric}
-            className="cursor-pointer hover:bg-muted/30 transition-colors"
+            className={`cursor-pointer border shadow-sm hover:shadow-md transition-all ${stat.bg}`}
             onClick={() => openLeadList(stat.metric)}
           >
-            <CardContent className="p-4">
+            <CardContent className="p-4 flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{stat.label}</p>
                 <stat.icon className={`w-4 h-4 ${stat.color}`} />
               </div>
-              <p className="text-2xl font-bold mt-2">{stat.value}</p>
+              <p className={`text-3xl font-extrabold tabular-nums ${stat.color}`}>{stat.value}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Telecallers</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Telecallers</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="max-h-[560px] overflow-y-auto space-y-2">
+        <CardContent className="p-0">
+          {/* Column headers */}
+          <div className="grid grid-cols-[1.8fr_repeat(6,_1fr)] px-5 py-2 border-b bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span>Telecaller</span>
+            <span className="text-center">Assigned</span>
+            <span className="text-center">Not Contacted</span>
+            <span className="text-center text-sky-600">Contacted</span>
+            <span className="text-center text-amber-600">Transferred</span>
+            <span className="text-center text-violet-600">Follow Up</span>
+            <span className="text-center text-rose-500">Junk</span>
+          </div>
+          <div className="max-h-[560px] overflow-y-auto divide-y">
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <p className="text-sm text-muted-foreground px-5 py-6">Loading...</p>
             ) : telecallerStats.length === 0 ? (
-              <div className="py-12 text-center border-2 border-dashed rounded-lg bg-slate-50/50">
+              <div className="py-12 text-center">
                 <p className="text-sm font-medium text-muted-foreground">No telecallers found.</p>
               </div>
             ) : (
@@ -285,23 +273,15 @@ export default function TelecallerWiseLead() {
                     if (customDateTo) qs.set("createdTo", customDateTo);
                     setLocation(`/leads/telecaller/${telecaller.id}?${qs.toString()}`);
                   }}
-                  className="w-full text-left rounded-lg border px-3 py-2.5 transition-all hover:bg-primary/5"
+                  className="w-full text-left grid grid-cols-[1.8fr_repeat(6,_1fr)] px-5 py-3.5 transition-colors hover:bg-muted/40 items-center"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold text-sm truncate">{telecaller.fullName}</p>
-                    <Badge variant="secondary" className="text-[10px]">
-                      Junk {telecaller.junk}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Assigned:{" "}
-                    <span className="font-medium text-foreground">{telecaller.total}</span> | Contacted:{" "}
-                    <span className="font-medium text-foreground">{telecaller.contacted}</span> |
-                    Transferred:{" "}
-                    <span className="font-medium text-foreground">{telecaller.transferred}</span> |
-                    Follow Up:{" "}
-                    <span className="font-medium text-foreground">{telecaller.followUp}</span>
-                  </p>
+                  <p className="font-semibold text-sm truncate">{telecaller.fullName}</p>
+                  <p className="text-center text-sm font-bold text-foreground tabular-nums">{telecaller.total}</p>
+                  <p className="text-center text-sm font-bold text-slate-500 tabular-nums">{telecaller.notContacted}</p>
+                  <p className="text-center text-sm font-bold text-sky-600 tabular-nums">{telecaller.contacted}</p>
+                  <p className="text-center text-sm font-bold text-amber-600 tabular-nums">{telecaller.transferred}</p>
+                  <p className="text-center text-sm font-bold text-violet-600 tabular-nums">{telecaller.followUp}</p>
+                  <p className="text-center text-sm font-bold text-rose-500 tabular-nums">{telecaller.junk}</p>
                 </button>
               ))
             )}
