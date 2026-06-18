@@ -36,6 +36,13 @@ export function leadDateRangeParams(
   return {};
 }
 
+function boundsFromYmd(fromYmd: string, toYmd: string): { from: Date; to: Date } {
+  return {
+    from: new Date(`${fromYmd}T00:00:00+05:30`),
+    to: new Date(`${toYmd}T23:59:59.999+05:30`),
+  };
+}
+
 /** Return `{ from, to }` as Date objects for in-memory period checks (report drilldowns). */
 export function getLeadDateBounds(
   filter: LeadDateFilterType,
@@ -43,9 +50,22 @@ export function getLeadDateBounds(
   customTo?: string
 ): { from: Date; to: Date } | null {
   const { afterDate, beforeDate } = leadDateRangeParams(filter, customFrom, customTo);
-  if (!afterDate || !beforeDate) return null;
-  return {
-    from: new Date(`${afterDate}T00:00:00+05:30`),
-    to: new Date(`${beforeDate}T23:59:59.999+05:30`),
-  };
+  if (afterDate && beforeDate) {
+    return boundsFromYmd(afterDate, beforeDate);
+  }
+
+  if (filter === "today") {
+    const ymd = istCalendarYmd();
+    return boundsFromYmd(ymd, ymd);
+  }
+  if (filter === "weekly") {
+    const { from, to } = istWeekYmds();
+    return boundsFromYmd(from, to);
+  }
+  if (filter === "monthly") {
+    const { from, to } = istMonthPresetYmds();
+    return boundsFromYmd(from, to);
+  }
+
+  return null;
 }

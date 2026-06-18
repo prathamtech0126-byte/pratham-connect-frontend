@@ -1010,8 +1010,24 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       typeOptions={typeOptions}
       counsellors={counsellors}
       telecallers={telecallers}
-      noteActivities={noteActivities.map((a) => ({ id: a.id, message: a.message ?? "", createdAt: a.createdAt }))}
-      followupActivities={followupActivities.map((a) => ({ id: a.id, followupAt: a.followupAt ?? "", message: a.message ?? "", status: a.status }))}
+      noteActivities={noteActivities.map((a) => ({
+        id: a.id,
+        message: a.message ?? "",
+        createdAt: a.createdAt,
+        userName: a.userName ?? null,
+        canEdit:
+          !readOnly &&
+          (user?.role !== "telecaller" ||
+            a.userId == null ||
+            Number(a.userId) === Number(user?.id)),
+      }))}
+      followupActivities={followupActivities.map((a) => ({
+        id: a.id,
+        followupAt: a.followupAt ?? "",
+        message: a.message ?? "",
+        status: a.status,
+        userName: a.userName ?? null,
+      }))}
       timelineItems={timelineItems}
       showAddNote={showAddNote}
       noteText={noteText}

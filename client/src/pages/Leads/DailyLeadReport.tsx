@@ -32,9 +32,10 @@ export default function DailyLeadReport() {
   const [generated, setGenerated] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const bounds = useMemo((): { from: Date; to: Date } => {
-    return getLeadDateBounds(dateFilter, customFrom, customTo) ?? getLeadDateBounds("today")!;
-  }, [dateFilter, customFrom, customTo]);
+  const bounds = useMemo(
+    () => getLeadDateBounds(dateFilter, customFrom, customTo) ?? getLeadDateBounds("today")!,
+    [dateFilter, customFrom, customTo]
+  );
 
   const loadData = useCallback(async () => {
     setLoading(true);

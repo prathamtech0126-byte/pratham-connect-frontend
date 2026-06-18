@@ -128,12 +128,19 @@ export type LeadDetailLayoutProps = {
   typeOptions: { id: number; saleType: string }[];
   counsellors: { id: number; fullName: string }[];
   telecallers: { id: number; fullName: string }[];
-  noteActivities: { id: number; message?: string; createdAt: string }[];
+  noteActivities: {
+    id: number;
+    message?: string;
+    createdAt: string;
+    userName?: string | null;
+    canEdit?: boolean;
+  }[];
   followupActivities: {
     id: number;
     followupAt?: string;
     message?: string;
     status: string;
+    userName?: string | null;
   }[];
   timelineItems: any[];
   showAddNote: boolean;
@@ -767,11 +774,18 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                         </>
                       ) : (
                         <div className="flex justify-between gap-4">
-                          <p className="text-sm flex-1 break-words break-all min-w-0 [overflow-wrap:anywhere]">
-                            {n.message}
-                          </p>
+                          <div className="min-w-0 flex-1 space-y-1">
+                            {n.userName && (
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                {n.userName}
+                              </p>
+                            )}
+                            <p className="text-sm break-words break-all min-w-0 [overflow-wrap:anywhere]">
+                              {n.message}
+                            </p>
+                          </div>
                           <div className="flex flex-col items-end gap-2 shrink-0">
-                            {!readOnly && (
+                            {!readOnly && n.canEdit !== false && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -820,6 +834,11 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold">{formatDateTime(f.followupAt)}</p>
+                          {f.userName && (
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mt-0.5">
+                              Scheduled by {f.userName}
+                            </p>
+                          )}
                           {f.message && (
                             <p className="text-sm text-muted-foreground mt-0.5 break-words break-all whitespace-pre-wrap">
                               {f.message}

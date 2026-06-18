@@ -329,6 +329,20 @@ export async function fetchAllLeads(
   return all;
 }
 
+/** Note timelines keyed by lead id (for list Excel export). */
+export const getBulkLeadNotesApi = async (
+  leadIds: number[]
+): Promise<Record<number, string>> => {
+  const res = await api.post("/api/leads/bulk-notes", { leadIds });
+  const data = res.data?.data ?? {};
+  const out: Record<number, string> = {};
+  for (const [key, value] of Object.entries(data)) {
+    const id = Number(key);
+    if (Number.isFinite(id) && typeof value === "string") out[id] = value;
+  }
+  return out;
+};
+
 export interface TelecallerLeadSummaryRow {
   telecallerId: number;
   total: number;
