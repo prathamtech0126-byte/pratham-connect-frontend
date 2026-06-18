@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Bell,
   CalendarClock,
+  FileText,
   Megaphone,
   UserPlus,
   Wallet,
@@ -23,6 +24,7 @@ export function getNotificationIcon(type: string): LucideIcon {
     return Megaphone;
   }
   if (type.startsWith("payment_")) return Wallet;
+  if (type.startsWith("visa_case_")) return FileText;
   if (type.includes("deadline") || type.includes("overdue")) return AlertTriangle;
   return Bell;
 }

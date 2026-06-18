@@ -15,11 +15,15 @@ interface StatCardProps {
   className?: string;
   description?: string;
   extra?: React.ReactNode;
+  onClick?: () => void;
 }
 
-export function StatCard({ title, value, secondaryValue, icon: Icon, trend, className, description, extra }: StatCardProps) {
+export function StatCard({ title, value, secondaryValue, icon: Icon, trend, className, description, extra, onClick }: StatCardProps) {
   return (
-    <Card className={cn("overflow-hidden border-none shadow-sm hover:shadow-md transition-shadow bg-card", className)}>
+    <Card
+      onClick={onClick}
+      className={cn("overflow-hidden border-none shadow-sm hover:shadow-md transition-shadow bg-card", onClick && "cursor-pointer", className)}
+    >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-3">
         <CardTitle className="text-sm font-medium text-muted-foreground flex-1 min-w-0">
           {title}

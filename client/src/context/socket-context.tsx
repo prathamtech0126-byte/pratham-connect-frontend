@@ -10,29 +10,8 @@ interface SocketContextType {
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
-// Determine socket URL based on environment
-// WebSocket connections can't use proxy, so we need direct URL
-let SOCKET_URL = import.meta.env.VITE_API_URL ; // Default for localhost
-
-if (typeof window !== "undefined") {
-  const isLocalhost =
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1' ||
-    window.location.hostname.startsWith('192.168.') ||
-    window.location.hostname.startsWith('10.') ||
-    window.location.hostname.startsWith('172.');
-
-  if (isLocalhost) {
-    // On localhost: always use localhost:5000 directly (WebSocket can't use proxy)
-    SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:5000" || "https://csm-backend-59rq.onrender.com";
-  } else {
-    // In production: use environment variable or fallback to Render.com
-    SOCKET_URL = import.meta.env.VITE_API_URL || "https://csm-backend-59rq.onrender.com";
-  }
-} else {
-  // SSR fallback
-  SOCKET_URL = import.meta.env.VITE_API_URL || "https://csm-backend-59rq.onrender.com";
-}
+const SOCKET_URL: string =
+  import.meta.env.VITE_API_URL || "https://csm-backend-59rq.onrender.com";
 
 
 export function SocketProvider({ children }: { children: ReactNode }) {
@@ -57,6 +36,30 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Determine socket URL based on environment
+// WebSocket connections can't use proxy, so we need direct URL
+// let SOCKET_URL = import.meta.env.VITE_API_URL ; // Default for localhost
+
+// if (typeof window !== "undefined") {
+//   const isLocalhost =
+//     window.location.hostname === 'localhost' ||
+//     window.location.hostname === '127.0.0.1' ||
+//     window.location.hostname.startsWith('192.168.') ||
+//     window.location.hostname.startsWith('10.') ||
+//     window.location.hostname.startsWith('172.');
+
+//   if (isLocalhost) {
+//     // On localhost: always use localhost:5000 directly (WebSocket can't use proxy)
+//     SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:5000" || "https://csm-backend-59rq.onrender.com";
+//   } else {
+//     // In production: use environment variable or fallback to Render.com
+//     SOCKET_URL = import.meta.env.VITE_API_URL || "https://csm-backend-59rq.onrender.com";
+//   }
+// } else {
+//   // SSR fallback
+//   SOCKET_URL = import.meta.env.VITE_API_URL || "https://csm-backend-59rq.onrender.com";
+// }
+
     // Get counsellorId from user.id (convert string to number) - only for counsellors
     const isCounsellor = user.role === 'counsellor';
     const isTelecaller = user.role === 'telecaller';
@@ -73,9 +76,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const isTechSupport = user.role === 'tech_support';
     const isBroadcastRecipient =
       user.role === 'front_desk' || user.role === 'marketing_head';
+    const isCxUser = user.role === 'customer_experience';
+    const isOpsTeam =
+      user.role === 'binding_team' || user.role === 'application_team';
 
     // Connect if user needs real-time updates or broadcast messages
-    if (!isCounsellor && !isAdmin && !isTechSupport && !isTelecaller && !isBroadcastRecipient) {
+    if (!isCounsellor && !isAdmin && !isTechSupport && !isTelecaller && !isBroadcastRecipient && !isCxUser && !isOpsTeam) {
       return;
     }
 
@@ -228,6 +234,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         if (!isNaN(userId)) {
           newSocket.emit('join:user', userId);
         }
+      } else if (isCxUser) {
+        newSocket.emit('join:role', 'customer_experience');
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          newSocket.emit('join:user', userId);
+        }
+      } else if (isOpsTeam) {
+        newSocket.emit('join:role', user.role);
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          newSocket.emit('join:user', userId);
+        }
       } else if (isTechSupport) {
         // Tech support users need role + user rooms for request/ticket updates
         newSocket.emit('join:role', 'tech_support');
@@ -317,6 +335,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         if (!isNaN(userId)) {
           newSocket.emit('join:user', userId);
         }
+      } else if (isCxUser) {
+        newSocket.emit('join:role', 'customer_experience');
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          newSocket.emit('join:user', userId);
+        }
+      } else if (isOpsTeam) {
+        newSocket.emit('join:role', user.role);
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          newSocket.emit('join:user', userId);
+        }
       } else if (isTechSupport) {
         newSocket.emit('join:role', 'tech_support');
         const userId = Number(user.id);
@@ -395,6 +425,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const isTechSupport = user.role === 'tech_support';
     const isBroadcastRecipient2 =
       user.role === 'front_desk' || user.role === 'marketing_head';
+    const isCxUser2 = user.role === 'customer_experience';
+    const isOpsTeam2 =
+      user.role === 'binding_team' || user.role === 'application_team';
 
     // Ensure role rooms are joined for message system (with delay to ensure socket is ready)
     // This is a safety mechanism that runs whenever socket connects
@@ -419,6 +452,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           socket.emit('join:user', userId);
         }
       } else if (isBroadcastRecipient2) {
+        socket.emit('join:role', user.role);
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          socket.emit('join:user', userId);
+        }
+      } else if (isCxUser2) {
+        socket.emit('join:role', 'customer_experience');
+        const userId = Number(user.id);
+        if (!isNaN(userId)) {
+          socket.emit('join:user', userId);
+        }
+      } else if (isOpsTeam2) {
         socket.emit('join:role', user.role);
         const userId = Number(user.id);
         if (!isNaN(userId)) {

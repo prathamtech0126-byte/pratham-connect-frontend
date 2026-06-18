@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,18 +12,15 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { MessageSquarePlus } from "lucide-react";
-import { useAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { addDocRequest } from "@/stores/cxDocRequestStore";
+import { postDocumentRequest } from "@/api/visaCases.api";
 
-/**
- * Lets a Binding Team member raise a "document required" request to the CX Team.
- * Drop it anywhere in the binding flow — pass the client, and optionally pre-fill
- * the document name (e.g. from a checklist row).
- */
 export function RequestFromCxButton({
   clientId,
+  legacyClientId,
+  visaCaseId,
   clientName,
+  cxUserName,
   document: presetDoc = "",
   size = "sm",
   variant = "outline",
@@ -30,35 +28,50 @@ export function RequestFromCxButton({
   className,
 }: {
   clientId: string;
+  legacyClientId?: number;
+  visaCaseId?: string;
   clientName: string;
+  cxUserName?: string;
   document?: string;
   size?: "sm" | "default" | "icon";
   variant?: "outline" | "default" | "ghost" | "secondary";
   label?: string;
   className?: string;
 }) {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [doc, setDoc] = useState(presetDoc);
   const [note, setNote] = useState("");
 
-  const submit = () => {
-    if (!doc.trim()) return;
-    addDocRequest({
-      clientId,
-      clientName,
-      document: doc.trim(),
-      note: note.trim(),
-      requestedBy: (user as any)?.fullname || (user as any)?.name || "Binding Team",
-    });
-    toast({
-      title: "Request sent to CX",
-      description: `CX team has been asked for "${doc.trim()}" on ${clientName}'s file.`,
-    });
-    setOpen(false);
-    setDoc(presetDoc);
-    setNote("");
+  const mutation = useMutation({
+    mutationFn: () =>
+      postDocumentRequest(visaCaseId!, {
+        clientId,
+        legacyClientId: legacyClientId,
+        documentType: doc.trim(),
+        notes: note.trim() || undefined,
+      }),
+    onSuccess: () => {
+      toast({
+        title: "Request sent to CX",
+        description: `CX team has been notified to provide "${doc.trim()}" for ${clientName}.`,
+      });
+      setOpen(false);
+      setDoc(presetDoc);
+      setNote("");
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Failed to send request",
+        description: err?.response?.data?.message ?? "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!doc.trim() || !visaCaseId) return;
+    mutation.mutate();
   };
 
   return (
@@ -80,9 +93,17 @@ export function RequestFromCxButton({
             <DialogTitle>Request document from CX</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">Client</Label>
-              <p className="text-sm font-semibold text-foreground">{clientName}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">Client</Label>
+                <p className="text-sm font-semibold text-foreground">{clientName}</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">CX In-Charge</Label>
+                <p className="text-sm font-semibold text-foreground">
+                  {cxUserName ?? <span className="font-normal text-muted-foreground">CX Team</span>}
+                </p>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">Document needed</Label>
@@ -104,8 +125,15 @@ export function RequestFromCxButton({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={submit} disabled={!doc.trim()}>Send to CX</Button>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={mutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!doc.trim() || !visaCaseId || mutation.isPending}
+            >
+              {mutation.isPending ? "Sending…" : "Send to CX"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

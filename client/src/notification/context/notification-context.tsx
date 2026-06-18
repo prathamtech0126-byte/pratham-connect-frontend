@@ -17,6 +17,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "../api/notifications.api";
+import { ToastAction } from "@/components/ui/toast";
 import type { NotificationCategory, NotificationItem } from "../types/notification.types";
 import { useNotificationQueue } from "../hooks/useNotificationQueue";
 import { BlockingNotificationModal } from "../components/BlockingNotificationModal";
@@ -175,7 +176,30 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         new Notification(item.title, { body, icon: "/favicon.ico" });
       }
 
-      if (isBlockingPriority(item.priority)) {
+      if (item.type === "visa_case_document_request") {
+        const isCx = user?.role === "customer_experience" || (user?.role as string) === "cx";
+        const url = isCx
+          ? "/cx/document-requests"
+          : (item.actionUrl ?? null);
+        toast({
+          title: item.title,
+          description:
+            displayBody.length > 120 ? `${displayBody.slice(0, 120)}…` : displayBody,
+          action: url
+            ? (
+                <ToastAction
+                  altText={isCx ? "View Requests" : "View Case"}
+                  onClick={() => {
+                    setLocation(url);
+                    markNotificationRead(item.id).catch(() => {/* ignore */});
+                  }}
+                >
+                  {isCx ? "View Requests" : "View Case"}
+                </ToastAction>
+              )
+            : undefined,
+        });
+      } else if (isBlockingPriority(item.priority)) {
         enqueueBlocking(item);
       } else {
         toast({
@@ -185,7 +209,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [mergeNotificationInCache, playNotificationSoundDebounced, enqueueBlocking, toast]
+    [mergeNotificationInCache, playNotificationSoundDebounced, enqueueBlocking, toast, setLocation]
   );
 
   const handleUpdated = useCallback(
@@ -264,11 +288,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (item.type === "visa_case_document_request") {
+        const isCx = user?.role === "customer_experience" || (user?.role as string) === "cx";
+        setLocation(isCx ? "/cx/document-requests" : (item.actionUrl ?? "/cx/document-requests"));
+        return;
+      }
+
       if (item.actionUrl) {
         setLocation(item.actionUrl);
       }
     },
-    [setLocation, invalidate]
+    [setLocation, invalidate, user?.role]
   );
 
   const markAllRead = useCallback(

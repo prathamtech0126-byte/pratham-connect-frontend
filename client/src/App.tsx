@@ -277,12 +277,12 @@ function Router() {
         <Route path="/cx/document-requests">
           {() => <ProtectedRoute component={CxDocumentRequestsPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
         </Route>
-        <Route path="/cx/kanban">
+        {/* <Route path="/cx/kanban">
           {() => <ProtectedRoute component={CxKanbanPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
-        </Route>
-        <Route path="/binding/kanban">
+        </Route> */}
+        {/* <Route path="/binding/kanban">
           {() => <ProtectedRoute component={BtKanbanPage} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
-        </Route>
+        </Route> */}
         <Route path="/cx/my-report">
           {() => <ProtectedRoute component={CxMyReportPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
         </Route>

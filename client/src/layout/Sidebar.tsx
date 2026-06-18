@@ -147,7 +147,7 @@ const sidebarItems: SidebarItem[] = [
   },
 
   // ── CX Team items ──────────────────────────────────────────────────
-  { icon: KanbanIcon,    label: "Board",          href: "/cx/kanban",          roles: ["customer_experience"] },
+  // { icon: KanbanIcon,    label: "Board",          href: "/cx/kanban",          roles: ["customer_experience"] },
   { icon: Inbox,         label: "Document Requests", href: "/cx/document-requests", roles: ["customer_experience"] },
   { icon: FileBarChart,  label: " Report",     href: "/cx/my-report",     roles: ["customer_experience"] },
   { icon: Activity,      label: "Activity Feed", href: "/cx/activity-feed", roles: ["customer_experience"] },
@@ -156,7 +156,7 @@ const sidebarItems: SidebarItem[] = [
 
   // ── Binding Team items ─────────────────────────────────────────────
   { icon: Users,         label: "My Clients",       href: "/binding/clients",            roles: ["binding_team"] },
-  { icon: KanbanIcon,    label: "Board",            href: "/binding/kanban",             roles: ["binding_team"] },
+  // { icon: KanbanIcon,    label: "Board",            href: "/binding/kanban",             roles: ["binding_team"] },
   { icon: FileBarChart,  label: "My Report",        href: "/binding/my-report",          roles: ["binding_team"] },
   { icon: Activity,      label: "Activity Feed",    href: "/binding/activity",           roles: ["binding_team"] },
   { icon: Headset,       label: "IT Support",       href: "/tech-support",               roles: ["binding_team"] },
@@ -560,7 +560,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                         )}
                       >
                         <FileText className="w-4 h-4" />
-                        <span className="truncate">Backend Clients</span>
+                        <span className="truncate">Visa Processing</span>
                       </Link>
                     )}
                   </CollapsibleContent>

@@ -10,7 +10,11 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, 
  */
 
 export const inr = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
-export const pct = (n: number | null) => (n == null ? "—" : `${n.toFixed(1)}%`);
+export const pct = (n: number | null | string) => {
+  if (n == null) return "—";
+  if (typeof n === "string" && n.includes("%")) return n; // already formatted by API
+  return `${Number(n).toFixed(1)}%`;
+};
 
 /** Resolve YMD bounds for a dashboard/report period filter. null/null = all dates. */
 export function resolvePeriodBounds(
@@ -66,6 +70,7 @@ export function KpiCard({
   icon: Icon,
   accent,
   onClick,
+  breakdown,
 }: {
   label: string;
   value: string;
@@ -73,6 +78,8 @@ export function KpiCard({
   icon: React.ComponentType<{ className?: string }>;
   accent: Accent;
   onClick?: () => void;
+  /** Optional per-segment split (e.g. by sale type) shown as chips under the value. */
+  breakdown?: { label: string; value: string; onClick?: () => void }[];
 }) {
   const a = ACCENT[accent];
   return (
@@ -83,15 +90,42 @@ export function KpiCard({
         onClick && "cursor-pointer"
       )}
     >
-      <CardContent className="relative flex items-center justify-between gap-4 p-6">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-          <p className="mt-2 text-4xl font-bold tabular-nums tracking-tight text-foreground">{value}</p>
-          {sub ? <p className="mt-1 text-xs text-muted-foreground">{sub}</p> : null}
+      <CardContent className="relative flex flex-col p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+            <p className="mt-2 text-4xl font-bold tabular-nums tracking-tight text-foreground">{value}</p>
+            {sub ? <p className="mt-1 text-xs text-muted-foreground">{sub}</p> : null}
+          </div>
+          <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full", a.chip)}>
+            <Icon className="h-5 w-5" />
+          </div>
         </div>
-        <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full", a.chip)}>
-          <Icon className="h-5 w-5" />
-        </div>
+        {breakdown && breakdown.length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-border/50 pt-3">
+            {breakdown.map((b) => (
+              <button
+                type="button"
+                key={b.label}
+                onClick={
+                  b.onClick
+                    ? (e) => {
+                        e.stopPropagation();
+                        b.onClick?.();
+                      }
+                    : undefined
+                }
+                className={cn(
+                  "rounded-lg bg-muted/50 px-2.5 py-1 text-left",
+                  b.onClick && "transition-colors hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                <span className="text-[11px] font-medium text-muted-foreground">{b.label}</span>{" "}
+                <span className="text-xs font-bold tabular-nums text-foreground">{b.value}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -127,23 +161,25 @@ export function Panel({
 /** Ranked list with proportional mini-bars (great for destination / sponsor / travel breakdowns). */
 export function BreakdownList({ rows, accent }: { rows: { name: string; count: number }[]; accent: Accent }) {
   const max = Math.max(1, ...rows.map((r) => r.count));
-  const a = ACCENT[accent];
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {rows.map((r) => (
         <div key={r.name}>
-          <div className="mb-1 flex items-center justify-between text-sm">
+          <div className="mb-1.5 flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{r.name}</span>
-            <span className="font-semibold tabular-nums text-foreground">{r.count}</span>
+            <span className="font-bold tabular-nums text-foreground">{r.count}</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+          <div className="h-2 overflow-hidden rounded-full bg-muted/50">
             <div
-              className={cn("h-full rounded-full transition-all", a.bar)}
+              className="h-full rounded-full bg-primary transition-all duration-500"
               style={{ width: `${(r.count / max) * 100}%` }}
             />
           </div>
         </div>
       ))}
+      {rows.length === 0 && (
+        <p className="py-4 text-center text-sm text-muted-foreground">No data for this period.</p>
+      )}
     </div>
   );
 }

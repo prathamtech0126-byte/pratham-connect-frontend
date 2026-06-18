@@ -19,8 +19,11 @@ import { differenceInCalendarDays, format, isSameMonth, parseISO, subMonths } fr
 
 export const BACKEND_DESTINATIONS = ["Canada", "UK", "USA", "Australia", "Schengen", "South Korea", "Japan"];
 export const BACKEND_SPONSORS = ["Son", "Daughter", "Brother", "Sister", "Friend", "Self-Sponsored"];
-export const BACKEND_TRAVEL_REASONS = ["Tourism", "Family Visit", "Business", "Convocation", "Wedding", "Medical", "Other"];
+export const BACKEND_TRAVEL_REASONS = ["Tourism", "Family Visit", "Business Visit", "Convocation", "Wedding", "Medical", "Other"];
 export const BACKEND_DECISIONS = ["Pending", "Approved", "Refused", "Withdrawn"];
+
+// Sale type (product category) a case was sold under.
+export const BACKEND_SALE_TYPES = ["Visitor", "Spouse", "Student"];
 
 // High-level pipeline stages (used by the dashboard "Cases by Stage" funnel).
 export const BACKEND_STAGES = ["Documentation", "Financial Assessment", "Case Preparation", "Filing Preparation", "Submission"];
@@ -87,9 +90,21 @@ export interface VisaClient {
   sponsor: string;
   status: string; // processing stage (one of BACKEND_STAGES)
   decision: string; // one of BACKEND_DECISIONS
+  saleType: string; // one of BACKEND_SALE_TYPES (Visitor / Spouse / Student)
   enrollmentDate: string; // YYYY-MM-DD
   counsellor: string;
   handledBy: string; // backend team member who last acted on this case
+
+  // Live assignment (from the visa-case API). `handledBy` keeps the team label
+  // for the dashboard leaderboard; these carry the assigned individual so the
+  // Backend Clients list can show the assignee and offer (re)assignment.
+  visaCaseId?: string;
+  assignedUserId?: number | null;
+  assignedUserName?: string | null;
+  assignedTeam?: string | null;
+  // Raw processing sub-status enum (e.g. "CHECKLIST_SHARED") — drives the
+  // Change Status picker / PATCH payload.
+  subStatus?: string;
 
   // Financials
   totalCharges: number;
@@ -125,6 +140,19 @@ export interface BackendDashboardData {
   bySponsor: { name: string; count: number }[];
   byTravelReason: { name: string; count: number }[];
   casesByStage: { name: string; count: number }[];
+
+  // Breakdown per sale type (Visitor / Spouse / Student) for the KPI + outcome cards.
+  bySaleType: {
+    type: string;
+    total: number;
+    approved: number;
+    refused: number;
+    withdrawn: number;
+    pending: number;
+    filesSubmitted: number;
+    approvalRate: number | null;
+    outstandingBalance: number;
+  }[];
 
   financial: {
     totalCharges: number;
@@ -187,7 +215,7 @@ export interface BackendDashboardData {
  *   22 → Karan Shah · 23 → Sarah Jones · 25 → Mike Brown
  *   27 → Rahul Verma · 28 → Neha Patel · 29 → Amit Kumar · 34 → Priya Singh
  */
-export const DUMMY_BACKEND_CLIENTS: VisaClient[] = [
+const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
   {
     id: "3", name: "Mujeebur Rahman", passport: "V7503234",
     destination: "Canada", travelReason: "Tourism", sponsor: "Self-Sponsored",
@@ -214,7 +242,7 @@ export const DUMMY_BACKEND_CLIENTS: VisaClient[] = [
   },
   {
     id: "6", name: "Pinkesh Kiritbhai Patel", passport: "C1667376",
-    destination: "Canada", travelReason: "Business", sponsor: "Self-Sponsored",
+    destination: "Canada", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Case Preparation: SOP / Cover Letter Under Preparation", decision: "Pending", enrollmentDate: "2025-12-23", counsellor: "Priya Singh",
     handledBy: "Sahid",
     totalCharges: 106200, initialReceived: 64900, financeCharges: 0, balanceDue: 41300,
@@ -286,7 +314,7 @@ export const DUMMY_BACKEND_CLIENTS: VisaClient[] = [
   },
   {
     id: "15", name: "Sejad Vohra", passport: "T5929196",
-    destination: "USA", travelReason: "Business", sponsor: "Self-Sponsored",
+    destination: "USA", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Financial Assessment: Under Review", decision: "Pending", enrollmentDate: "2026-02-11", counsellor: "Amit Kumar",
     handledBy: "Harsh",
     totalCharges: 35400, initialReceived: 0, financeCharges: 0, balanceDue: 35400,
@@ -326,7 +354,7 @@ export const DUMMY_BACKEND_CLIENTS: VisaClient[] = [
   },
   {
     id: "20", name: "Tenzin Kunsen", passport: "Y0118217",
-    destination: "Australia", travelReason: "Business", sponsor: "Self-Sponsored",
+    destination: "Australia", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Submission: File Submitted", decision: "Approved", enrollmentDate: "2026-02-11", counsellor: "Amit Kumar",
     handledBy: "Janak",
     totalCharges: 35400, initialReceived: 5900, financeCharges: 0, balanceDue: 29500,
@@ -350,7 +378,7 @@ export const DUMMY_BACKEND_CLIENTS: VisaClient[] = [
   },
   {
     id: "24", name: "Hani Mansoor Hussein", passport: "14082383",
-    destination: "Canada", travelReason: "Business", sponsor: "Self-Sponsored",
+    destination: "Canada", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Submission: File Submitted", decision: "Approved", enrollmentDate: "2025-12-04", counsellor: "Rahul Verma",
     handledBy: "Janak",
     totalCharges: 21240, initialReceived: 21240, financeCharges: 0, balanceDue: 0,
@@ -374,7 +402,7 @@ export const DUMMY_BACKEND_CLIENTS: VisaClient[] = [
   },
   {
     id: "27", name: "NehabenBabubhai Solanki", passport: "C7132782",
-    destination: "USA", travelReason: "Business", sponsor: "Self-Sponsored",
+    destination: "USA", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Submission: File Submitted", decision: "Approved", enrollmentDate: "2026-01-30", counsellor: "Mike Brown",
     handledBy: "Saurav",
     totalCharges: 23600, initialReceived: 23600, financeCharges: 0, balanceDue: 0,
@@ -454,7 +482,7 @@ export const DUMMY_BACKEND_CLIENTS: VisaClient[] = [
   },
   {
     id: "38", name: "PATEL DIYA PARTH", passport: "X2897776",
-    destination: "Canada", travelReason: "Business", sponsor: "Self-Sponsored",
+    destination: "Canada", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Financial Assessment: Documents Pending", decision: "Pending", enrollmentDate: "2026-02-06", counsellor: "Karan Shah",
     handledBy: "Sahid",
     totalCharges: 76700, initialReceived: 70800, financeCharges: 0, balanceDue: 5900,
@@ -462,7 +490,7 @@ export const DUMMY_BACKEND_CLIENTS: VisaClient[] = [
   },
   {
     id: "39", name: "Hari Ashokkumar Patel", passport: "U3987619",
-    destination: "USA", travelReason: "Business", sponsor: "Self-Sponsored",
+    destination: "USA", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Case Preparation: SOP / Cover Letter Review", decision: "Pending", enrollmentDate: "2026-01-19", counsellor: "Rahul Verma",
     handledBy: "Harsh",
     totalCharges: 82600, initialReceived: 59000, financeCharges: 0, balanceDue: 23600,
@@ -502,7 +530,7 @@ export const DUMMY_BACKEND_CLIENTS: VisaClient[] = [
   },
   {
     id: "44", name: "Tejas Jayeshbhai Patel", passport: "S2544066",
-    destination: "Canada", travelReason: "Business", sponsor: "Self-Sponsored",
+    destination: "Canada", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Submission: File Submitted", decision: "Approved", enrollmentDate: "2026-01-23", counsellor: "Rahul Verma",
     handledBy: "Saurav",
     totalCharges: 11800, initialReceived: 11800, financeCharges: 0, balanceDue: 0,
@@ -517,6 +545,27 @@ export const DUMMY_BACKEND_CLIENTS: VisaClient[] = [
     accompanyingMembers: 0, decidedOn: "2026-03-10",
   },
 ];
+
+/**
+ * Sale type per case id. `saleType` does not exist in the backend yet, so it is
+ * mapped here until the column is added. Defaults to "Visitor" for any unmapped id.
+ */
+const SALE_TYPE_BY_ID: Record<string, string> = {
+  "3": "Visitor", "4": "Spouse", "5": "Visitor", "6": "Visitor", "7": "Visitor",
+  "8": "Student", "9": "Spouse", "10": "Student", "11": "Visitor", "12": "Spouse",
+  "13": "Visitor", "14": "Visitor", "15": "Student", "16": "Visitor", "17": "Spouse",
+  "18": "Visitor", "19": "Spouse", "20": "Student", "21": "Visitor", "23": "Student",
+  "24": "Visitor", "25": "Visitor", "26": "Spouse", "27": "Visitor", "28": "Student",
+  "29": "Visitor", "30": "Spouse", "31": "Visitor", "32": "Visitor", "34": "Spouse",
+  "35": "Student", "36": "Visitor", "37": "Spouse", "38": "Visitor", "39": "Visitor",
+  "40": "Visitor", "41": "Visitor", "42": "Spouse", "43": "Visitor", "44": "Visitor",
+  "45": "Student",
+};
+
+export const DUMMY_BACKEND_CLIENTS: VisaClient[] = RAW_BACKEND_CLIENTS.map((c) => ({
+  ...c,
+  saleType: SALE_TYPE_BY_ID[c.id] ?? "Visitor",
+}));
 
 /* ------------------------------------------------------------------ */
 /* Aggregation — turns the case list into dashboard widgets           */
@@ -561,6 +610,24 @@ export function computeBackendDashboardData(clients: VisaClient[]): BackendDashb
 
   const totalMembers = clients.reduce((s, c) => s + (c.accompanyingMembers || 0), 0);
   const casesWithAccompanying = clients.filter((c) => (c.accompanyingMembers || 0) > 0).length;
+
+  const bySaleType = BACKEND_SALE_TYPES.map((type) => {
+    const rows = clients.filter((c) => c.saleType === type);
+    const a = rows.filter((c) => c.decision === "Approved").length;
+    const r = rows.filter((c) => c.decision === "Refused").length;
+    const dec = a + r;
+    return {
+      type,
+      total: rows.length,
+      approved: a,
+      refused: r,
+      withdrawn: rows.filter((c) => c.decision === "Withdrawn").length,
+      pending: rows.filter((c) => c.decision === "Pending").length,
+      filesSubmitted: rows.filter((c) => stageOfStatus(c.status) === "Submission").length,
+      approvalRate: dec > 0 ? (a / dec) * 100 : null,
+      outstandingBalance: rows.reduce((s, c) => s + (c.balanceDue || 0), 0),
+    };
+  });
 
   const byDestination = countByKey(clients, BACKEND_DESTINATIONS, "destination");
   const byTravelReason = countByKey(clients, BACKEND_TRAVEL_REASONS, "travelReason");
@@ -609,6 +676,7 @@ export function computeBackendDashboardData(clients: VisaClient[]): BackendDashb
     byDestination,
     bySponsor,
     byTravelReason,
+    bySaleType,
     casesByStage: BACKEND_STAGES.map((name) => ({
       name,
       count: clients.filter((c) => stageOfStatus(c.status) === name).length,

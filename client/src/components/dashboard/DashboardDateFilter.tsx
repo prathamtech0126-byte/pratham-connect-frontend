@@ -66,6 +66,9 @@ interface DashboardDateFilterProps {
   align?: "center" | "start" | "end";
   showCustom?: boolean;
   showYearly?: boolean;
+  maxResults?: number;
+  onMaxResultsChange?: (n: number) => void;
+  maxResultsLimit?: number;
 }
 
 export function DashboardDateFilter({
@@ -78,6 +81,9 @@ export function DashboardDateFilter({
   align = "end",
   showCustom = true,
   showYearly = true,
+  maxResults,
+  onMaxResultsChange,
+  maxResultsLimit,
 }: DashboardDateFilterProps) {
   const [internalTab, setInternalTab] = React.useState<string>("Custom");
   const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
@@ -113,11 +119,16 @@ export function DashboardDateFilter({
   };
 
   const handlePickerApply = (filter: string, startDate?: string, endDate?: string) => {
-    if (filter === "custom" && startDate && endDate) {
+    if (filter === "maximum") {
+      // API has no "maximum" filter — use a wide custom range (2020-01-01 → today)
+      const today = new Date();
+      const earliest = new Date("2020-01-01");
+      if (onTabChange) onTabChange("Custom");
+      if (onDateChange) onDateChange([earliest, today]);
+    } else if (filter === "custom" && startDate && endDate) {
       if (onTabChange) onTabChange("Custom");
       if (onDateChange) onDateChange([parseISO(startDate), parseISO(endDate)]);
     } else if (filter !== "custom") {
-      // non-custom presets (today, monthly, maximum, etc.) — pass the filter value directly
       if (onTabChange) onTabChange(filter);
       if (onDateChange) onDateChange([null, null]);
     }
@@ -143,7 +154,7 @@ export function DashboardDateFilter({
 
   return (
     <div className={cn("flex items-center bg-muted/50 p-1 rounded-lg border border-border/50", className)}>
-      {(["Today", "Weekly", "Monthly", "Yearly"] as const)
+{(["Today", "Weekly", "Monthly", "Yearly"] as const)
         .filter((tab) => (showYearly ? true : tab !== "Yearly"))
         .map((tab) => (
         <button
@@ -179,6 +190,9 @@ export function DashboardDateFilter({
             <DateRangePicker
               onApply={handlePickerApply}
               onCancel={handlePickerCancel}
+              maxResults={maxResults}
+              onMaxResultsChange={onMaxResultsChange}
+              maxResultsLimit={maxResultsLimit}
             />
           </PopoverContent>
         </Popover>

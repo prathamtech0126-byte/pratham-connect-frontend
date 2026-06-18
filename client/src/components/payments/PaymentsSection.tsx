@@ -250,9 +250,9 @@ export default function PaymentsSection() {
 
   {/* Right: Total + Export */}
   <div className="flex items-center gap-3 sm:ml-auto">
-    <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
+    <span className="text-sm font-medium text-foreground whitespace-nowrap">
       Total Amount :
-      <span className="ml-1.5 font-semibold text-green-700">
+      <span className="ml-1.5 font-semibold text-green-600 dark:text-green-400">
         ₹ {formattedTotal}
       </span>
     </span>

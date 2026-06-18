@@ -1,242 +1,420 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { StatCard } from "@/components/cards/StatCard";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Users, FileText, CheckCircle2, AlertTriangle, PackageCheck, Ban,
-  ClipboardList, Trophy, Check, ChevronRight, ArrowRightCircle,
-} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/context/auth-context";
+import {
+  Users, ArrowRightCircle, PackageCheck, AlertTriangle,
+  GitBranch, CheckCircle2, XCircle, Undo2, Hourglass, Send, List,
+} from "lucide-react";
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
+  PieChart, Pie,
+} from "recharts";
 import { usePageHint } from "@/hooks/usePageHint";
 import { ProductTour } from "@/components/ProductTour";
+import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
+import { useOpsDashboard } from "@/hooks/useVisaCases";
+import { format } from "date-fns";
 
-// ── Mock data (replace with API calls) — scoped to the logged-in binding agent ──
+const STAGE_COLORS = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--primary))",
+];
 
-const SNAPSHOT = {
-  activeClients: 18,   // files currently in binding
-  readyToHandoff: 5,   // all docs approved, ready to pass on
-  pendingDocs: 8,      // documents still missing / awaiting
-  tatAtRisk: 6,        // approaching / past TAT
-  blocked: 3,          // files stuck on a blocker
-  handedOff: 14,       // completed handoffs this period
+const SUB_COLORS = [
+  "hsl(var(--primary))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-1))",
+];
+
+type OpsFilter = "today" | "weekly" | "monthly" | "custom";
+
+const TAB_TO_FILTER: Record<string, OpsFilter> = {
+  Today: "today", Weekly: "weekly", Monthly: "monthly", Custom: "custom",
+};
+const FILTER_TO_TAB: Record<OpsFilter, string> = {
+  today: "Today", weekly: "Weekly", monthly: "Monthly", custom: "Custom",
 };
 
-/** The agent's binding to-do list for today — the heart of the screen. */
-const INITIAL_TASKS = [
-  { id: 1, name: "Aarav Patel", task: "Verify & bind final document set", due: "TAT due tomorrow", urgent: true },
-  { id: 2, name: "Rahul Mehta", task: "Resolve blocked file — missing affidavit", due: "Overdue by 1 day", urgent: true },
-  { id: 3, name: "Sneha Shah", task: "Assemble application package", due: "TAT due in 3 days", urgent: false },
-  { id: 4, name: "Priya Nair", task: "Final QC before handoff", due: "Today", urgent: false },
-  { id: 5, name: "Karan Singh", task: "Bind financial section", due: "TAT due in 2 days", urgent: false },
-  { id: 6, name: "Meera Joshi", task: "Request missing documents", due: "TAT due in 4 days", urgent: false },
-];
-
-/** Files with all docs approved, waiting to be handed off to the application team. */
-const HANDOFF_QUEUE = [
-  { id: 1, name: "Vikram Rao", docs: "12 / 12 docs", route: "Canada · SDS" },
-  { id: 2, name: "Anita Desai", docs: "9 / 9 docs", route: "UK · Student" },
-  { id: 3, name: "Rohit Kapoor", docs: "15 / 15 docs", route: "Australia · 500" },
-  { id: 4, name: "Neha Verma", docs: "8 / 8 docs", route: "USA · F-1" },
-  { id: 5, name: "Sahil Khan", docs: "11 / 11 docs", route: "Schengen · Visit" },
-];
-
-// Binding users can only scope by Today / Weekly / Monthly — no custom range.
-type DateFilter = "today" | "weekly" | "monthly";
+const pct = (n: number | null | string) => {
+  if (n == null) return "—";
+  if (typeof n === "string" && n.includes("%")) return n;
+  return `${Number(n).toFixed(1)}%`;
+};
 
 export default function BtDashboard() {
-  const { user } = useAuth();
+  const [, navigate] = useLocation();
   const { showHint, dismissHint } = usePageHint("bt_dashboard");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("monthly");
+  const [filter, setFilter] = useState<OpsFilter>("monthly");
+  const [customRange, setCustomRange] = useState<[Date | null, Date | null]>([null, null]);
 
-  // Done state for today's tasks — checking a task fills the progress hero.
-  const [doneIds, setDoneIds] = useState<Set<number>>(new Set());
-  const toggleTask = (id: number) =>
-    setDoneIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const fromDate = filter === "custom" && customRange[0] ? format(customRange[0], "yyyy-MM-dd") : undefined;
+  const toDate = filter === "custom" && customRange[1] ? format(customRange[1], "yyyy-MM-dd") : undefined;
 
-  const firstName = (user?.name || "there").split(" ")[0];
-  const total = INITIAL_TASKS.length;
-  const done = doneIds.size;
-  const remaining = total - done;
-  const urgentLeft = INITIAL_TASKS.filter((t) => t.urgent && !doneIds.has(t.id)).length;
-  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+  const { data, isLoading } = useOpsDashboard(
+    { filter, fromDate, toDate },
+    filter !== "custom" || (!!fromDate && !!toDate)
+  );
+
+  const s = data?.summary;
+  const casesByStage = data?.casesByStage ?? [];
+  const bySubStatus = data?.bySubStatus ?? [];
+  const co = data?.caseOutcomes;
+
+  // Group sub-statuses by stageLabel for a cleaner grouped view
+  const subStatusByStage = bySubStatus.reduce<Record<string, typeof bySubStatus>>((acc, sub) => {
+    const key = sub.stageLabel ?? sub.stage;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(sub);
+    return acc;
+  }, {});
+  if (isLoading) {
+    return (
+      <PageWrapper title="My Dashboard" breadcrumbs={[{ label: "Binding Team" }]}>
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Skeleton className="h-44 rounded-xl lg:col-span-2" />
+            <Skeleton className="h-44 rounded-xl" />
+          </div>
+          <Skeleton className="h-52 rounded-xl" />
+        </div>
+      </PageWrapper>
+    );
+  }
 
   return (
     <PageWrapper
       title="My Dashboard"
       breadcrumbs={[{ label: "Binding Team" }]}
       actions={
-        <div className="flex gap-1.5" data-tour="bt-dash-date-filter">
-          {(["today", "weekly", "monthly"] as const).map((f) => (
-            <Button
-              key={f}
-              size="sm"
-              variant={dateFilter === f ? "default" : "outline"}
-              onClick={() => setDateFilter(f)}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </Button>
-          ))}
-        </div>
+        <DashboardDateFilter
+          data-tour="bt-dash-date-filter"
+          date={customRange}
+          onDateChange={setCustomRange}
+          activeTab={FILTER_TO_TAB[filter]}
+          onTabChange={(tab) => setFilter(TAB_TO_FILTER[tab] ?? "monthly")}
+          showYearly={false}
+          align="end"
+        />
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-5">
 
-        {/* ── Progress hero (left) + stat cards (right) ───────────────── */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Today's progress */}
-          <Card className="relative h-full overflow-hidden rounded-xl border-none bg-gradient-to-br from-primary/5 to-primary/10 shadow-card">
-            <div className="absolute right-4 top-4 opacity-10">
-              <ClipboardList className="h-24 w-24 text-primary" />
-            </div>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
-                <div className="rounded-lg bg-background/60 p-2 shadow-sm backdrop-blur-sm">
-                  <ClipboardList className="h-5 w-5 text-primary" />
+        {/* KPI Row */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Active Cases"
+            value={s?.activeCases ?? 0}
+            description="assigned to me"
+            icon={Users}
+            onClick={() => navigate("/binding/clients")}
+            extra={
+              s?.clientsByCategory?.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {s.clientsByCategory.map((c) => (
+                    <span key={c.category} className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium">
+                      <span className="text-muted-foreground">{c.label}</span>{" "}
+                      <span className="font-bold text-foreground">{c.count}</span>
+                    </span>
+                  ))}
                 </div>
-                Today&apos;s Progress
-              </CardTitle>
-              <CardDescription>{greeting()}, {firstName} — here&apos;s your binding queue</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-end justify-between">
-                <p className="text-5xl font-bold tabular-nums text-foreground">
-                  {done}
-                  <span className="text-xl font-semibold text-muted-foreground"> / {total} done</span>
-                </p>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">Remaining</p>
-                  <p className="text-3xl font-bold tabular-nums text-primary">{remaining}</p>
+              ) : null
+            }
+          />
+          <StatCard
+            title="Received from CX"
+            value={s?.receivedFromCx ?? 0}
+            description="handed off to binding"
+            icon={ArrowRightCircle}
+          />
+          <StatCard
+            title="Ready for App Work"
+            value={s?.readyForApplicationWork ?? 0}
+            description="ready to proceed"
+            icon={PackageCheck}
+          />
+          <StatCard
+            title="Stuck Cases"
+            value={s?.stuckCases ?? 0}
+            description="need attention"
+            icon={AlertTriangle}
+          />
+        </div>
+
+        {/* Cases by Stage + Case Outcomes */}
+        <div className="grid gap-4 lg:grid-cols-3">
+
+          {/* Pipeline */}
+          {casesByStage.length > 0 && (
+            <Card className="border-none shadow-card lg:col-span-2">
+              <CardContent className="p-5">
+                <div className="mb-4 flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <GitBranch className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-sm font-bold text-foreground">Cases by Stage</h3>
                 </div>
-              </div>
-              <div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progress}%` }} />
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {casesByStage.map((st, i) => (
+                    <div key={st.stage} className="flex flex-col items-center rounded-xl border border-border/50 bg-muted/30 p-3 text-center">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                        {i + 1}
+                      </div>
+                      <span className="mt-2 text-2xl font-bold tabular-nums text-foreground">{st.count}</span>
+                      <span className="mt-1 text-[11px] font-medium leading-tight text-muted-foreground">{st.label}</span>
+                    </div>
+                  ))}
                 </div>
-                <p className="mt-1 text-right text-xs text-muted-foreground">{progress}% completed</p>
-              </div>
-              <div className="flex items-center gap-3 rounded-lg bg-background/60 p-3">
-                <div className="rounded-lg bg-primary/10 p-2">
-                  <Trophy className="h-5 w-5 text-primary" />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Case Outcomes */}
+          {co && (
+            <Card className="border-none shadow-card">
+              <CardContent className="p-5">
+                <div className="mb-4 flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <CheckCircle2 className="h-4 w-4" />
+                  </div>
+                  <h3 className="text-sm font-bold text-foreground">Case Outcomes</h3>
+                </div>
+                <div className="space-y-2.5">
+                  {(
+                    [
+                      { label: "Pending", value: co.pending, icon: Hourglass },
+                      { label: "Approved", value: co.approved, icon: CheckCircle2 },
+                      { label: "Files Submitted", value: co.filesSubmitted, icon: Send },
+                      { label: "Refused", value: co.refused, icon: XCircle },
+                      { label: "Withdrawn", value: co.withdrawn, icon: Undo2 },
+                    ] as const
+                  ).map((o) => (
+                    <div
+                      key={o.label}
+                      className="flex items-center justify-between border-b border-border/40 pb-2 text-sm last:border-0 last:pb-0"
+                    >
+                      <div className="flex items-center gap-2">
+                        <o.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-muted-foreground">{o.label}</span>
+                      </div>
+                      <span className="font-semibold tabular-nums text-foreground">{o.value}</span>
+                    </div>
+                  ))}
+                  <p className="pt-1 text-xs text-muted-foreground">
+                    Approval rate:{" "}
+                    <span className="font-semibold text-foreground">{pct(co.approvalRate)}</span>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Sub-status breakdown — grouped by stage */}
+        {Object.keys(subStatusByStage).length > 0 && (
+          <div className="space-y-5">
+
+            {/* Section header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <List className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {remaining === 0 ? "All done — great work! 🎉" : "Keep it up! 🚀"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {remaining === 0
-                      ? "Every task for today is complete."
-                      : <>{remaining} tasks left{urgentLeft > 0 ? ` · ${urgentLeft} urgent` : ""}.</>}
-                  </p>
+                  <h3 className="text-sm font-bold text-foreground">Status Breakdown</h3>
+                  <p className="text-xs text-muted-foreground">Pipeline distribution across all stages</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                {bySubStatus.reduce((s, i) => s + i.count, 0)} total cases
+              </span>
+            </div>
 
-          {/* Snapshot stats */}
-          <div data-tour="bt-dash-stats" className="grid gap-4 sm:grid-cols-2 lg:col-span-2">
-            <StatCard title="Active Clients" value={SNAPSHOT.activeClients} icon={Users} description="in binding stage" />
-            <StatCard title="Ready to Handoff" value={SNAPSHOT.readyToHandoff} icon={PackageCheck} description="all docs approved" />
-            <StatCard title="Pending Docs" value={SNAPSHOT.pendingDocs} icon={FileText} description="missing / awaiting" />
-            <StatCard title="TAT At Risk" value={SNAPSHOT.tatAtRisk} icon={AlertTriangle} description="due soon / overdue" />
-            <StatCard title="Blocked" value={SNAPSHOT.blocked} icon={Ban} description="stuck on a blocker" />
-            <StatCard title="Handed Off" value={SNAPSHOT.handedOff} icon={CheckCircle2} description="completed" />
-          </div>
-        </div>
+            {/* Stage overview horizontal bar chart */}
+            <Card className="border-none shadow-card">
+              <CardContent className="p-5">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Cases per Stage
+                </p>
+                <p className="mb-4 text-[11px] text-muted-foreground/70">
+                  Comparative view of all pipeline stages
+                </p>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart
+                    layout="vertical"
+                    data={Object.entries(subStatusByStage).map(([label, items]) => ({
+                      stage: label,
+                      count: items.reduce((s, i) => s + i.count, 0),
+                    }))}
+                    barSize={18}
+                    margin={{ left: 8, right: 24, top: 4, bottom: 4 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="stage"
+                      width={130}
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "hsl(var(--accent))" }}
+                      contentStyle={{
+                        background: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                    />
+                    <Bar dataKey="count" name="Cases" radius={[0, 6, 6, 0]}>
+                      {Object.entries(subStatusByStage).map(([label], i) => (
+                        <Cell key={label} fill={STAGE_COLORS[i % STAGE_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
 
-        {/* ── My tasks (checklist) + handoff queue ────────────────────── */}
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          {/* My Tasks Today */}
-          <Card className="border-border bg-card shadow-sm xl:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <div>
-                <CardTitle className="text-base">My Tasks Today</CardTitle>
-                <CardDescription>Tick items off as you work through your queue</CardDescription>
-              </div>
-              <Badge variant="secondary" className="shrink-0">{done}/{total} done</Badge>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y divide-border">
-                {INITIAL_TASKS.map((t) => {
-                  const isDone = doneIds.has(t.id);
-                  return (
-                    <div key={t.id} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/40">
-                      <button
-                        type="button"
-                        aria-label={isDone ? "Mark not done" : "Mark done"}
-                        onClick={() => toggleTask(t.id)}
-                        className={cn(
-                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
-                          isDone ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40 hover:border-primary"
-                        )}
-                      >
-                        {isDone ? <Check className="h-3 w-3" /> : null}
-                      </button>
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                        {t.name.charAt(0).toUpperCase()}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className={cn("truncate text-sm font-semibold", isDone ? "text-muted-foreground line-through" : "text-foreground")}>
-                            {t.name}
-                          </p>
-                          {t.urgent && !isDone ? (
-                            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                              Urgent
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className={cn("truncate text-xs", isDone ? "text-muted-foreground/70 line-through" : "text-muted-foreground")}>
-                          {t.task}
+            {/* Per-stage donut cards */}
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {Object.entries(subStatusByStage).map(([stageLabel, items], stageIdx) => {
+                const stageTotal = items.reduce((sum, i) => sum + i.count, 0);
+                const stageColor = STAGE_COLORS[stageIdx % STAGE_COLORS.length];
+
+                const pieData = items.map((sub, i) => ({
+                  name: sub.label,
+                  value: sub.count > 0 ? sub.count : 0,
+                  color: sub.count > 0 ? SUB_COLORS[i % SUB_COLORS.length] : "hsl(var(--muted))",
+                }));
+
+                const hasData = stageTotal > 0;
+
+                return (
+                  <Card key={stageLabel} className="border-none shadow-card overflow-hidden">
+                    {/* Thin top accent line per stage */}
+                    <div className="h-[3px] w-full" style={{ background: stageColor }} />
+
+                    <CardContent className="p-4">
+                      {/* Card header */}
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground truncate">
+                          {stageLabel}
                         </p>
+                        <span
+                          className="flex-shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold"
+                          style={{ background: `color-mix(in srgb, ${stageColor} 15%, transparent)`, color: stageColor }}
+                        >
+                          {stageTotal}
+                        </span>
                       </div>
-                      <span className={cn("shrink-0 text-xs font-medium", isDone ? "text-muted-foreground/60" : "text-muted-foreground")}>
-                        {t.due}
-                      </span>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Ready to Hand Off */}
-          <Card className="border-border bg-card shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <PackageCheck className="h-4 w-4 text-primary" />
-                Ready to Hand Off
-              </CardTitle>
-              <CardDescription>{HANDOFF_QUEUE.length} files cleared for the application team</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {HANDOFF_QUEUE.map((h) => (
-                <button
-                  key={h.id}
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted/40"
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                    {h.name.charAt(0).toUpperCase()}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">{h.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{h.docs} · {h.route}</p>
-                  </div>
-                  <ArrowRightCircle className="h-4 w-4 shrink-0 text-primary" />
-                </button>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
+                      {/* Donut chart */}
+                      {hasData ? (
+                        <div className="relative flex items-center justify-center">
+                          <ResponsiveContainer width="100%" height={140}>
+                            <PieChart>
+                              <Pie
+                                data={pieData.filter(d => d.value > 0).length > 0 ? pieData.filter(d => d.value > 0) : [{ name: "empty", value: 1, color: "hsl(var(--muted))" }]}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={42}
+                                outerRadius={62}
+                                dataKey="value"
+                                paddingAngle={3}
+                                strokeWidth={2}
+                                stroke="hsl(var(--card))"
+                                startAngle={90}
+                                endAngle={-270}
+                              >
+                                {pieData.filter(d => d.value > 0).map((entry, i) => (
+                                  <Cell key={i} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                contentStyle={{
+                                  background: "hsl(var(--card))",
+                                  border: "1px solid hsl(var(--border))",
+                                  borderRadius: 8,
+                                  fontSize: 12,
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          {/* Center label */}
+                          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                            <p className="text-2xl font-extrabold leading-none tabular-nums" style={{ color: stageColor }}>
+                              {stageTotal}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">cases</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex h-[140px] flex-col items-center justify-center gap-2">
+                          <div className="h-16 w-16 rounded-full border-4 border-dashed border-border/50" />
+                          <p className="text-xs text-muted-foreground/50">No active cases</p>
+                        </div>
+                      )}
+
+                      {/* Sub-status legend */}
+                      <div className="mt-3 space-y-1.5 border-t border-border/40 pt-3">
+                        {items.map((sub, i) => {
+                          const pct = stageTotal > 0 ? Math.round((sub.count / stageTotal) * 100) : 0;
+                          const dotColor = sub.count > 0 ? SUB_COLORS[i % SUB_COLORS.length] : "hsl(var(--muted-foreground))";
+                          return (
+                            <div key={sub.subStatus} className="flex items-center gap-2 min-w-0">
+                              <div
+                                className="h-2 w-2 flex-shrink-0 rounded-full"
+                                style={{ background: dotColor, opacity: sub.count > 0 ? 1 : 0.25 }}
+                              />
+                              <span className={cn(
+                                "flex-1 truncate text-[11px]",
+                                sub.count > 0 ? "text-muted-foreground" : "text-muted-foreground/40"
+                              )}>
+                                {sub.label}
+                              </span>
+                              <span className={cn(
+                                "text-[11px] font-bold tabular-nums",
+                                sub.count > 0 ? "text-foreground" : "text-muted-foreground/30"
+                              )}>
+                                {sub.count}
+                              </span>
+                              {sub.count > 0 && (
+                                <span className="w-8 text-right text-[10px] text-muted-foreground/60">
+                                  {pct}%
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
       </div>
 
@@ -244,17 +422,9 @@ export default function BtDashboard() {
         open={showHint}
         onClose={dismissHint}
         steps={[
-          { target: '[data-tour="bt-dash-stats"]', title: "Your Snapshot", content: "These cards summarise your binding queue — active files, handoff-ready, pending docs, TAT risk, blocked, and completed handoffs.", side: "bottom" },
-          { target: '[data-tour="bt-dash-date-filter"]', title: "Date Filters", content: "Scope your numbers by Today, Weekly, or Monthly.", side: "bottom" },
+          { target: '[data-tour="bt-dash-date-filter"]', title: "Date Filters", content: "Scope by Workload (all active cases), Today, Weekly, Monthly, or a custom date range.", side: "bottom" },
         ]}
       />
     </PageWrapper>
   );
-}
-
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
 }

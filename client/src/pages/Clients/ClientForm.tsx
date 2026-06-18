@@ -3010,11 +3010,15 @@ export default function ClientForm() {
 
     if (paymentPromises.length > 0) {
       const results = await Promise.allSettled(paymentPromises);
-      results.forEach((result, i) => {
-        if (result.status === "rejected") {
-          console.warn(`Payment stage save failed:`, result.reason?.response?.data?.message || result.reason?.message);
-        }
-      });
+      const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+      if (failures.length > 0) {
+        const firstError = failures[0].reason;
+        const message =
+          firstError?.response?.data?.message ||
+          firstError?.message ||
+          "Failed to save payment data";
+        throw new Error(message);
+      }
     } else {
       const payload: any = {
         clientId: internalClientId,

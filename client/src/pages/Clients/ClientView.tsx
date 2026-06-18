@@ -12,6 +12,7 @@ import {
   BookOpen,
   GraduationCap,
   Tag,
+  UserCheck,
 } from "lucide-react";
 
 import {
@@ -33,6 +34,20 @@ import {
 } from "@/components/ui/select";
 
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useRoute, useLocation } from "wouter";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { StudentApplicationTracker } from "@/components/students/StudentApplicationTracker";
+import { clientService } from "@/services/clientService";
+import api from "@/lib/api";
+import { PageWrapper } from "@/layout/PageWrapper";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SectionTabs } from "@/components/tabs/SectionTabs";
+import { format } from "date-fns";
 import { BACKEND_PROCESSING_STATUS_GROUPS } from "@/data/dummyBackendData";
 
 import { getLatestStageFromPayments } from "@/utils/stageUtils";
@@ -44,6 +59,10 @@ import { useToast } from "@/hooks/use-toast";
 import { isClientListReturnPath } from "@/lib/clientListReturnPath";
 import { CxDocReviewPanel } from "@/components/cx/CxDocReviewPanel";
 import { RequestFromCxButton } from "@/components/binding/RequestFromCxButton";
+import { useVisaCaseByClient, useUpdateSponsorship, useUpdateTravel, useAssignBulkVisaCases, useAssignableUsers, useChangeVisaCaseStatus, useProcessingStages } from "@/hooks/useVisaCases";
+import { SPONSOR_RELATIONSHIP_OPTIONS, REASON_OF_TRAVEL_OPTIONS, normalizeReasonOfTravel } from "@/api/visaCases.api";
+import { useClientTimeline } from "@/hooks/useClientTimeline";
+import { ClientTimeline, JourneyProgress } from "@/components/clients/ClientTimeline";
 
 /** Parse date-only (YYYY-MM-DD), ISO string, or Date as local calendar date so display is correct in all timezones. */
 function parseDateOnly(val: string | Date | null | undefined): Date | null {
@@ -112,25 +131,25 @@ const renderProductDetails = (product: any) => {
       <div className="space-y-2 text-sm">
         {product.amount && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Amount:</span>
+            <span className="text-muted-foreground">Amount:</span>
             <span className="font-semibold">₹{Number(product.amount).toLocaleString('en-IN')}</span>
           </div>
         )}
         {product.paymentDate && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Payment Date:</span>
+            <span className="text-muted-foreground">Payment Date:</span>
             <span className="font-semibold">{formatDateLocal(product.paymentDate)}</span>
           </div>
         )}
         {product.invoiceNo && (
           <div className="flex justify-between">
-            <span className="text-gray-500">Invoice No:</span>
+            <span className="text-muted-foreground">Invoice No:</span>
             <span className="font-semibold">{product.invoiceNo}</span>
           </div>
         )}
         {product.remarks && (
           <div className="flex flex-col">
-            <span className="text-gray-500 mb-1">Remarks:</span>
+            <span className="text-muted-foreground mb-1">Remarks:</span>
             <span className="text-sm">{product.remarks}</span>
           </div>
         )}
@@ -139,7 +158,7 @@ const renderProductDetails = (product: any) => {
   }
 
   if (!entity) {
-    return <p className="text-sm text-gray-400 italic">No details available</p>;
+    return <p className="text-sm text-muted-foreground italic">No details available</p>;
   }
 
   // Render based on product type
@@ -149,7 +168,7 @@ const renderProductDetails = (product: any) => {
         <div className="space-y-2 text-sm">
           {entity.activatedStatus !== undefined && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Activated:</span>
+              <span className="text-muted-foreground">Activated:</span>
               <Badge variant={entity.activatedStatus ? "default" : "secondary"}>
                 {entity.activatedStatus ? "Yes" : "No"}
               </Badge>
@@ -157,25 +176,25 @@ const renderProductDetails = (product: any) => {
           )}
           {entity.simcardPlan && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Plan:</span>
+              <span className="text-muted-foreground">Plan:</span>
               <span className="font-semibold">{entity.simcardPlan}</span>
             </div>
           )}
           {entity.simCardGivingDate && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Giving Date:</span>
+              <span className="text-muted-foreground">Giving Date:</span>
               <span className="font-semibold">{formatDateLocal(entity.simCardGivingDate)}</span>
             </div>
           )}
           {entity.simActivationDate && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Activation Date:</span>
+              <span className="text-muted-foreground">Activation Date:</span>
               <span className="font-semibold">{formatDateLocal(entity.simActivationDate)}</span>
             </div>
           )}
           {entity.remarks && (
             <div className="flex flex-col mt-2">
-              <span className="text-gray-500 mb-1">Remarks:</span>
+              <span className="text-muted-foreground mb-1">Remarks:</span>
               <span className="text-sm">{entity.remarks}</span>
             </div>
           )}
@@ -187,7 +206,7 @@ const renderProductDetails = (product: any) => {
         <div className="space-y-2 text-sm">
           {entity.isTicketBooked !== undefined && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Ticket Booked:</span>
+              <span className="text-muted-foreground">Ticket Booked:</span>
               <Badge variant={entity.isTicketBooked ? "default" : "secondary"}>
                 {entity.isTicketBooked ? "Yes" : "No"}
               </Badge>
@@ -195,25 +214,25 @@ const renderProductDetails = (product: any) => {
           )}
           {entity.amount && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Amount:</span>
+              <span className="text-muted-foreground">Amount:</span>
               <span className="font-semibold">₹{Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.airTicketNumber && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Ticket Number:</span>
+              <span className="text-muted-foreground">Ticket Number:</span>
               <span className="font-semibold">{entity.airTicketNumber}</span>
             </div>
           )}
           {entity.ticketDate && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Ticket Date:</span>
+              <span className="text-muted-foreground">Ticket Date:</span>
               <span className="font-semibold">{formatDateLocal(entity.ticketDate)}</span>
             </div>
           )}
           {entity.remarks && (
             <div className="flex flex-col mt-2">
-              <span className="text-gray-500 mb-1">Remarks:</span>
+              <span className="text-muted-foreground mb-1">Remarks:</span>
               <span className="text-sm">{entity.remarks}</span>
             </div>
           )}
@@ -225,25 +244,25 @@ const renderProductDetails = (product: any) => {
         <div className="space-y-2 text-sm">
           {entity.amount && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Amount:</span>
+              <span className="text-muted-foreground">Amount:</span>
               <span className="font-semibold">₹{Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.policyNumber && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Policy Number:</span>
+              <span className="text-muted-foreground">Policy Number:</span>
               <span className="font-semibold">{entity.policyNumber}</span>
             </div>
           )}
           {entity.insuranceDate && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Insurance Date:</span>
+              <span className="text-muted-foreground">Insurance Date:</span>
               <span className="font-semibold">{formatDateLocal(entity.insuranceDate)}</span>
             </div>
           )}
           {entity.remarks && (
             <div className="flex flex-col mt-2">
-              <span className="text-gray-500 mb-1">Remarks:</span>
+              <span className="text-muted-foreground mb-1">Remarks:</span>
               <span className="text-sm">{entity.remarks}</span>
             </div>
           )}
@@ -255,25 +274,25 @@ const renderProductDetails = (product: any) => {
         <div className="space-y-2 text-sm">
           {entity.openingDate && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Opening Date:</span>
+              <span className="text-muted-foreground">Opening Date:</span>
               <span className="font-semibold">{formatDateLocal(entity.openingDate)}</span>
             </div>
           )}
           {entity.fundingDate && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Funding Date:</span>
+              <span className="text-muted-foreground">Funding Date:</span>
               <span className="font-semibold">{formatDateLocal(entity.fundingDate)}</span>
             </div>
           )}
           {entity.amount && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Amount:</span>
+              <span className="text-muted-foreground">Amount:</span>
               <span className="font-semibold">${Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.remarks && (
             <div className="flex flex-col mt-2">
-              <span className="text-gray-500 mb-1">Remarks:</span>
+              <span className="text-muted-foreground mb-1">Remarks:</span>
               <span className="text-sm">{entity.remarks}</span>
             </div>
           )}
@@ -285,25 +304,25 @@ const renderProductDetails = (product: any) => {
         <div className="space-y-2 text-sm">
           {entity.side && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Side:</span>
+              <span className="text-muted-foreground">Side:</span>
               <span className="font-semibold">{entity.side}</span>
             </div>
           )}
           {entity.feeDate && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Fee Date:</span>
+              <span className="text-muted-foreground">Fee Date:</span>
               <span className="font-semibold">{formatDateLocal(entity.feeDate)}</span>
             </div>
           )}
           {entity.amount && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Amount:</span>
+              <span className="text-muted-foreground">Amount:</span>
               <span className="font-semibold">₹{Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.remarks && (
             <div className="flex flex-col mt-2">
-              <span className="text-gray-500 mb-1">Remarks:</span>
+              <span className="text-muted-foreground mb-1">Remarks:</span>
               <span className="text-sm">{entity.remarks}</span>
             </div>
           )}
@@ -315,19 +334,19 @@ const renderProductDetails = (product: any) => {
         <div className="space-y-2 text-sm">
           {entity.tutionFeesStatus && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Status:</span>
+              <span className="text-muted-foreground">Status:</span>
               <Badge variant="outline">{entity.tutionFeesStatus}</Badge>
             </div>
           )}
           {entity.feeDate && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Fee Date:</span>
+              <span className="text-muted-foreground">Fee Date:</span>
 <span className="font-semibold">{formatDateLocal(entity.feeDate)}</span>
           </div>
           )}
           {entity.remarks && (
             <div className="flex flex-col mt-2">
-              <span className="text-gray-500 mb-1">Remarks:</span>
+              <span className="text-muted-foreground mb-1">Remarks:</span>
               <span className="text-sm">{entity.remarks}</span>
             </div>
           )}
@@ -339,37 +358,37 @@ const renderProductDetails = (product: any) => {
         <div className="space-y-2 text-sm">
           {entity.serviceName && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Service Name:</span>
+              <span className="text-muted-foreground">Service Name:</span>
               <span className="font-semibold">{entity.serviceName}</span>
             </div>
           )}
           {entity.serviceInformation && (
             <div className="flex flex-col">
-              <span className="text-gray-500 mb-1">Service Info:</span>
+              <span className="text-muted-foreground mb-1">Service Info:</span>
               <span className="text-sm">{entity.serviceInformation}</span>
             </div>
           )}
           {entity.amount && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Amount:</span>
+              <span className="text-muted-foreground">Amount:</span>
               <span className="font-semibold">₹{Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.sellDate && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Sell Date:</span>
+              <span className="text-muted-foreground">Sell Date:</span>
               <span className="font-semibold">{formatDateLocal(entity.sellDate)}</span>
             </div>
           )}
           {entity.invoiceNo && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Invoice No:</span>
+              <span className="text-muted-foreground">Invoice No:</span>
               <span className="font-semibold">{entity.invoiceNo}</span>
             </div>
           )}
           {entity.remarks && (
             <div className="flex flex-col mt-2">
-              <span className="text-gray-500 mb-1">Remarks:</span>
+              <span className="text-muted-foreground mb-1">Remarks:</span>
               <span className="text-sm">{entity.remarks}</span>
             </div>
           )}
@@ -386,43 +405,43 @@ const renderProductDetails = (product: any) => {
         <div className="space-y-2 text-sm">
           {entity.financeId && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Finance Id:</span>
+              <span className="text-muted-foreground">Finance Id:</span>
               <span className="font-semibold">{entity.financeId}</span>
             </div>
           )}
           {entity.totalAmount !== undefined && entity.totalAmount !== null && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Total Payment:</span>
+              <span className="text-muted-foreground">Total Payment:</span>
               <span className="font-semibold">₹{Number(entity.totalAmount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.amount && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Amount:</span>
+              <span className="text-muted-foreground">Amount:</span>
               <span className="font-semibold">₹{Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.paymentDate && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Payment Date:</span>
+              <span className="text-muted-foreground">Payment Date:</span>
               <span className="font-semibold">{formatDateLocal(entity.paymentDate)}</span>
             </div>
           )}
           {entity.invoiceNo && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Invoice No:</span>
+              <span className="text-muted-foreground">Invoice No:</span>
               <span className="font-semibold">{entity.invoiceNo}</span>
             </div>
           )}
           {entity.partialPayment !== undefined && entity.partialPayment !== null && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Partial Payment:</span>
+              <span className="text-muted-foreground">Partial Payment:</span>
               <span className="font-semibold">{entity.partialPayment ? 'Yes' : 'No'}</span>
             </div>
           )}
           {entity.approvalStatus && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Approval Status:</span>
+              <span className="text-muted-foreground">Approval Status:</span>
               <span className="font-semibold capitalize">{entity.approvalStatus}</span>
             </div>
           )}
@@ -436,13 +455,13 @@ const renderProductDetails = (product: any) => {
               <div key={row.label} className="space-y-2">
                 {hasAmount && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500">{row.label} Amount:</span>
+                    <span className="text-muted-foreground">{row.label} Amount:</span>
                     <span className="font-semibold">₹{amountNum.toLocaleString('en-IN')}</span>
                   </div>
                 )}
                 {hasDate && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500">{row.label} Date:</span>
+                    <span className="text-muted-foreground">{row.label} Date:</span>
                     <span className="font-semibold">{formatDateLocal(row.date)}</span>
                   </div>
                 )}
@@ -451,13 +470,13 @@ const renderProductDetails = (product: any) => {
           })}
           {entity.remarks && (
             <div className="flex flex-col mt-1">
-              <span className="text-gray-500 mb-1">Remarks:</span>
+              <span className="text-muted-foreground mb-1">Remarks:</span>
               <span className="text-sm">{entity.remarks}</span>
             </div>
           )}
           {entity.approver?.name && (
             <div className="flex justify-between">
-              <span className="text-gray-500">Approver:</span>
+              <span className="text-muted-foreground">Approver:</span>
               <span className="font-semibold">{entity.approver.name}</span>
             </div>
           )}
@@ -483,7 +502,7 @@ const renderProductDetails = (product: any) => {
 
             return (
               <div key={key} className="flex justify-between">
-                <span className="text-gray-500">{displayKey}:</span>
+                <span className="text-muted-foreground">{displayKey}:</span>
                 <span className="font-semibold">{displayValue}</span>
               </div>
             );
@@ -508,6 +527,13 @@ export default function ClientView() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const clientId = params?.id ? parseInt(params.id) : null;
+  // Determine the "Clients" breadcrumb destination based on role.
+  const clientsHref =
+    user?.role === "customer_experience" ? "/cx/clients"
+    : user?.role === "binding_team" ? "/binding/clients"
+    : user?.role === "backend_manager" ? "/backend/clients"
+    : "/clients";
+
   const [expandedProducts, setExpandedProducts] = useState<Set<number>>(new Set());
   const [returnPath, setReturnPath] = useState<string | null>(null);
   const [returnCounsellorName, setReturnCounsellorName] = useState<string>("");
@@ -518,7 +544,22 @@ export default function ClientView() {
   const [customFolders, setCustomFolders] = useState<string[]>([]);
   // Processing-status change (hidden from counsellor/telecaller — see canChangeStatus).
   const [statusOpen, setStatusOpen] = useState(false);
-  const [statusValue, setStatusValue] = useState<string>("");
+  const [statusStage, setStatusStage] = useState<string>("");  // selected main stage label
+  const [statusValue, setStatusValue] = useState<string>("");  // selected sub-status enum value
+  const [statusNotes, setStatusNotes] = useState<string>("");
+  // Edit Basic Details dialog — client fields + visa-case sponsorship/travel
+  const [basicEditOpen, setBasicEditOpen] = useState(false);
+  const [fullNameDraft, setFullNameDraft] = useState<string>("");
+  const [enrollmentDateDraft, setEnrollmentDateDraft] = useState<string>("");
+  const [passportDetailsDraft, setPassportDetailsDraft] = useState<string>("");
+  const [leadTypeIdDraft, setLeadTypeIdDraft] = useState<string>("");
+  const [relDraft, setRelDraft] = useState<string>("");
+  const [membersDraft, setMembersDraft] = useState<string>("0");
+  const [reasonDraft, setReasonDraft] = useState<string>("");
+  // Assign visa case dialog.
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignUserIdDraft, setAssignUserIdDraft] = useState<string>("");
+  const [assignNotesDraft, setAssignNotesDraft] = useState<string>("");
   const { socket, isConnected } = useSocket();
 
   useEffect(() => {
@@ -581,6 +622,62 @@ export default function ClientView() {
       payments.some((p: any) => p?.productName === "TUTION_FEES")
     );
   }, [client]);
+  // Visa case for this client — lets CX/Binding read & edit sponsorship details
+  // (sponsor relationship + accompanying members) without leaving this page.
+  const { data: visaCase, isLoading: isVisaCaseLoading } = useVisaCaseByClient(clientId, clientCounsellorId);
+
+  const { data: journeyTimeline, isLoading: isTimelineLoading } = useClientTimeline(clientId);
+
+  // Find the most recent CX actor from the timeline to display in the "Request from CX" dialog.
+  const cxUserName = (() => {
+    const events = journeyTimeline?.events ?? [];
+    const cxRoles = ["customer_experience", "cx"];
+    const sorted = [...events].sort(
+      (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
+    );
+    return sorted.find((e) => e.actor && cxRoles.includes(e.actor.role))?.actor?.name ?? null;
+  })();
+  const assignBulkMutation = useAssignBulkVisaCases(clientId);
+  const updateSponsorship = useUpdateSponsorship(clientId);
+  const updateTravel = useUpdateTravel(clientId);
+  const changeStatusMutation = useChangeVisaCaseStatus(clientId);
+  const ASSIGN_ROLES_FOR_HOOK = ["superadmin", "developer", "manager", "customer_experience", "cx", "binding_team", "binding"];
+  // Scope the user list to the target team so non-admin roles can see it.
+  // CX → fetch only binding members; Binding → fetch only application_team members.
+  // Admin/manager/developer → no targetRole (backend returns all assignable users).
+  const _userRole = user?.role as string | undefined;
+  const _assignTargetRole =
+    _userRole === "customer_experience" || _userRole === "cx" ? "binding" :
+    undefined;
+  const { data: assignableUsers = [] } = useAssignableUsers(
+    !!user && ASSIGN_ROLES_FOR_HOOK.includes(user.role),
+    _assignTargetRole,
+  );
+  const { data: processingStages } = useProcessingStages(!!visaCase?.visaCaseId);
+
+  // Lead types for the Edit Basic Details dropdown.
+  const { data: leadTypesData } = useQuery({
+    queryKey: ["lead-types"],
+    queryFn: async () => {
+      const res = await api.get<{ data?: any[] } | any[]>("/api/lead-types");
+      const rows: any[] = Array.isArray(res.data) ? res.data : ((res.data as any)?.data ?? []);
+      return rows as { id: number; leadType: string; displayAlias?: string }[];
+    },
+    staleTime: 1000 * 60 * 30,
+  });
+  const leadTypes = leadTypesData ?? [];
+
+  // PATCH /api/clients/{clientId}/basic-details
+  const patchBasicDetailsMutation = useMutation({
+    mutationFn: async (body: { fullName?: string; enrollmentDate?: string; passportDetails?: string; leadTypeId?: number }) => {
+      const { data } = await api.patch(`/api/clients/${clientId}/basic-details`, body);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["client-complete", clientId] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
+  });
 
   const otherHandlerIds = useMemo(() => {
     if (!client || clientCounsellorId == null) return [];
@@ -775,7 +872,7 @@ export default function ClientView() {
   // ─────────────────────────────────────────────────────────────────────────
 
   if (isLoading) {
-    const loadingBreadcrumbs = [{ label: "Clients", href: "/clients" }, { label: "Loading..." }];
+    const loadingBreadcrumbs = [{ label: "Clients", href: clientsHref }, { label: "Loading..." }];
     return (
       <PageWrapper title="Client Details" breadcrumbs={loadingBreadcrumbs}>
         <div className="space-y-6">
@@ -790,12 +887,12 @@ export default function ClientView() {
   }
 
   if (!client) {
-    const errorBreadcrumbs = [{ label: "Clients", href: "/clients" }, { label: "Error" }];
+    const errorBreadcrumbs = [{ label: "Clients", href: clientsHref }, { label: "Error" }];
     return (
       <PageWrapper title="Client Not Found" breadcrumbs={errorBreadcrumbs}>
         <div className="text-center py-20">
-          <h2 className="text-2xl font-bold text-gray-900">Client Not Found</h2>
-          <p className="text-gray-500 mt-2">The client details you are looking for could not be retrieved.</p>
+          <h2 className="text-2xl font-bold text-foreground">Client Not Found</h2>
+          <p className="text-muted-foreground mt-2">The client details you are looking for could not be retrieved.</p>
         </div>
       </PageWrapper>
     );
@@ -857,9 +954,9 @@ export default function ClientView() {
   const clientSaleType = getClientSaleType();
   const showStudentApplicationsSection = studentAppCount > 0;
   const isBackendViewRole = !!user && BACKEND_ALLOWED_ROLES.includes(user.role);
-  const isCxUser = user?.role === "customer_experience";
-  const isBindingUser = user?.role === "binding_team";
-  const canViewDocsVault = isBackendViewRole || isCxUser;
+  const isCxUser = user?.role === "customer_experience" || (user?.role as string) === "cx";
+  const isBindingUser = user?.role === "binding_team" || (user?.role as string) === "binding";
+  const canViewDocsVault = isBackendViewRole || isCxUser || isBindingUser;
 
   const studentApplicationTimelineItems: TimelineItem[] = (
     Array.isArray(studentAppsResponse?.data) ? studentAppsResponse.data : []
@@ -943,17 +1040,201 @@ export default function ClientView() {
   // Counsellors and telecallers may view the case but cannot change its status.
   const canChangeStatus = !!user && user.role !== "counsellor" && user.role !== "telecaller";
 
-  const saveStatus = () => {
+  // Roles that are allowed to call the assign endpoint.
+  const ASSIGN_ALLOWED_ROLES = ["superadmin", "developer", "manager", "customer_experience", "cx"];
+  const canAssign = !!user && ASSIGN_ALLOWED_ROLES.includes(user.role) && !!visaCase?.visaCaseId;
+
+  // CX users may only hand off when the case status is "Fully Received".
+  const isFullyReceived = visaCase?.processing?.subStatus === "FULLY_RECEIVED";
+  // For CX: gate the button behind FULLY_RECEIVED; all other roles can assign freely.
+  const assignEnabled = canAssign && (!isCxUser || isFullyReceived);
+
+  // Derive which team to assign TO based on the caller's role.
+  // CX hands off to Binding; Binding hands off to Application.
+  // Admin/manager/developer can assign to any team.
+  const assignableTargetTeam: string = (() => {
+    if (!user) return "";
+    if (user.role === "customer_experience" || (user.role as string) === "cx") return "binding";
+
+    return ""; // superadmin/manager/developer: show all
+  })();
+
+  // Filter the full user list to only the target team for the picker.
+  const filteredAssignableUsers = assignableTargetTeam
+    ? assignableUsers.filter((u) => u.role === assignableTargetTeam)
+    : assignableUsers;
+
+  const handleAssign = async () => {
+    const visaCaseId = (visaCase as any)?.visaCaseId;
+    if (!visaCaseId || !assignUserIdDraft) return;
+    try {
+      await assignBulkMutation.mutateAsync({
+        visaCaseIds: [visaCaseId],
+        assignedUserId: Number(assignUserIdDraft),
+        notes: assignNotesDraft || undefined,
+      });
+      toast({ title: "Case assigned", description: "Visa case has been assigned successfully." });
+      setAssignOpen(false);
+      setAssignUserIdDraft("");
+      setAssignNotesDraft("");
+      // Navigate away — client moves out of the current team's queue.
+      const role = user?.role as string | undefined;
+      if (role === "customer_experience" || role === "cx") {
+        setLocation("/cx/clients");
+      } else if (role === "binding_team" || role === "binding") {
+        setLocation("/binding/clients");
+      }
+    } catch (err: any) {
+      toast({
+        title: "Assignment failed",
+        description: err?.response?.data?.message || err?.message || "Could not assign the case.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // CX / Binding / Admin / Developer / Manager can edit client basic details.
+  const canEditBasicDetails =
+    !!user &&
+    (["customer_experience", "binding_team", "superadmin", "developer", "manager", "application_team"].includes(user.role) ||
+      (user.role as string) === "cx" ||
+      (user.role as string) === "binding");
+
+  // Visa case fields (sponsorship/travel) can only be edited by the assigned user
+  // or a superadmin/developer who can override any case.
+  const canEditVisaCase =
+    !visaCase ||
+    ["superadmin", "developer"].includes(user?.role ?? "") ||
+   (visaCase.processing.assignedUserId != null &&
+ Number(visaCase.processing.assignedUserId) === Number(user?.id))
+
+  const isViewOnlyDocsVault = !!user && (
+    user.role === "customer_experience" ||
+    user.role === "binding_team" ||
+    (user.role as string) === "cx" ||
+    (user.role as string) === "binding"
+  );
+
+  const openBasicEdit = () => {
+    // Client fields
+    setFullNameDraft(clientData.fullName ?? "");
+    const raw = clientData.enrollmentDate ?? "";
+    setEnrollmentDateDraft(raw.slice(0, 10)); // keep YYYY-MM-DD for input[type=date]
+    setPassportDetailsDraft(clientData.passportDetails ?? "");
+    const existingLeadTypeId =
+      (client as any)?.leadType?.id ??
+      clientData.leadTypeId ??
+      clientData.lead_type_id ??
+      null;
+    setLeadTypeIdDraft(existingLeadTypeId != null ? String(existingLeadTypeId) : "");
+    // Visa-case fields
+    setRelDraft(visaCase?.sponsorship.relationship ?? "");
+    setMembersDraft(String(visaCase?.sponsorship.accompanyingMembersCount ?? 0));
+    setReasonDraft(normalizeReasonOfTravel(visaCase?.travel.reason));
+    setBasicEditOpen(true);
+  };
+
+  const savingBasicDetails = patchBasicDetailsMutation.isPending || updateSponsorship.isPending || updateTravel.isPending;
+
+  const saveBasicDetails = async () => {
+    if (!clientId) return;
+
+    // 1. PATCH client basic details
+    const clientBody: { fullName?: string; enrollmentDate?: string; passportDetails?: string; leadTypeId?: number } = {};
+    if (fullNameDraft.trim()) clientBody.fullName = fullNameDraft.trim();
+    if (enrollmentDateDraft) {
+      const [y, m, d] = enrollmentDateDraft.split("-");
+      if (y && m && d) clientBody.enrollmentDate = `${d}-${m}-${y}`;
+    }
+    if (passportDetailsDraft.trim()) clientBody.passportDetails = passportDetailsDraft.trim();
+    if (leadTypeIdDraft) clientBody.leadTypeId = Number(leadTypeIdDraft);
+
+    try {
+      // Always call the client PATCH if we have at least a fullName.
+      if (Object.keys(clientBody).length > 0) {
+        await patchBasicDetailsMutation.mutateAsync(clientBody);
+      }
+    } catch (err: any) {
+      toast({
+        title: "Update failed",
+        description: err?.response?.data?.message || err?.message || "Could not update client details.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 2. PATCH visa-case sponsorship/travel — only when the current user is assigned.
+    let visaCaseWarning: string | null = null;
+    if (visaCase?.visaCaseId && canEditVisaCase) {
+      try {
+        await updateSponsorship.mutateAsync({
+          visaCaseId: visaCase.visaCaseId,
+          body: {
+            sponsorRelationship: relDraft || null,
+            accompanyingMembersCount: Math.max(0, Math.floor(Number(membersDraft) || 0)),
+          },
+        });
+
+        if ((reasonDraft || null) !== (visaCase.travel.reason ?? null)) {
+          await updateTravel.mutateAsync({
+            visaCaseId: visaCase.visaCaseId,
+            body: { reasonOfTravel: reasonDraft || null },
+          });
+        }
+      } catch (err: any) {
+        visaCaseWarning = err?.response?.data?.message || err?.message || "Visa case details could not be updated.";
+      }
+    }
+
+    // Force-refresh the client page data so the header/cards show the new values immediately.
+    queryClient.invalidateQueries({ queryKey: ["client-complete", clientId] });
+    if (visaCase?.visaCaseId) {
+      queryClient.invalidateQueries({ queryKey: ["visa-case-by-client", clientId] });
+    }
+
+    if (visaCaseWarning) {
+      toast({
+        title: "Client details saved",
+        description: `Visa case details could not be updated: ${visaCaseWarning}`,
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "Basic details updated", description: "Client and visa case details have been saved." });
+    }
+    setBasicEditOpen(false);
+  };
+
+  const saveStatus = async () => {
     if (!statusValue) return;
-    // TODO: replace with a backend mutation once a client processing-status
-    // endpoint exists. For now the choice is persisted locally per client.
-    if (clientId) localStorage.setItem(`client_processing_status_${clientId}`, statusValue);
-    toast({ title: "Status updated", description: `Processing status set to "${statusValue}".` });
-    setStatusOpen(false);
+    const visaCaseId = visaCase?.visaCaseId;
+    if (visaCaseId) {
+      try {
+        await changeStatusMutation.mutateAsync({
+          visaCaseId,
+          body: { subStatus: statusValue, notes: statusNotes || undefined },
+        });
+        const label = processingStages?.viewer.updatableSubStatuses.find((s) => s.value === statusValue)?.displayLabel ?? statusValue;
+        toast({ title: "Status updated", description: `Processing status set to "${label}".` });
+        setStatusOpen(false);
+        setStatusValue("");
+        setStatusNotes("");
+      } catch (err: any) {
+        toast({
+          title: "Status update failed",
+          description: err?.response?.data?.message || err?.message || "Could not update status.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // No visa case — persist locally as fallback
+      if (clientId) localStorage.setItem(`client_processing_status_${clientId}`, statusValue);
+      toast({ title: "Status saved locally", description: `Processing status set to "${statusValue}".` });
+      setStatusOpen(false);
+    }
   };
 
   const mainBreadcrumbs = [
-    { label: "Clients", href: "/clients" },
+    { label: "Clients", href: clientsHref },
     { label: clientFullName },
   ];
 
@@ -971,16 +1252,26 @@ export default function ClientView() {
           )}
           {params?.id && user?.role === "binding_team" && (
             <RequestFromCxButton
-              clientId={params.id}
+              clientId={visaCase?.clientId ?? params.id}
+              legacyClientId={clientId ?? undefined}
+              visaCaseId={(visaCase as any)?.visaCaseId}
               clientName={clientFullName}
+              cxUserName={cxUserName ?? undefined}
               size="sm"
               variant="outline"
             />
           )}
-          {params?.id && user?.role === "binding_team" && (
-            <Button size="sm" onClick={() => setLocation(`/binding/studio/${params.id}`)} className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
-              <BookOpen className="h-4 w-4" />
-              Create Binder
+          {canAssign && (isVisaCaseLoading || visaCase) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAssignOpen(true)}
+              disabled={isVisaCaseLoading || !visaCase || !assignEnabled}
+              title={isCxUser && visaCase && !isFullyReceived ? "Status must be 'Fully Received' before handing off to Binding" : undefined}
+              className="gap-1.5"
+            >
+              <UserCheck className="h-4 w-4" />
+              {isVisaCaseLoading ? "Loading…" : "Assign Team"}
             </Button>
           )}
           {params?.id && canChangeStatus && (
@@ -1006,55 +1297,79 @@ export default function ClientView() {
               value: "basic-details",
               label: "Basic Details",
               content: (
-                <Card className="border-none shadow-md overflow-hidden bg-white">
-                  <CardHeader className="pb-4 border-b border-gray-50">
-                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                <Card className="border-none shadow-md overflow-hidden bg-card">
+                  <CardHeader className="pb-4 border-b border-border flex flex-row items-center justify-between space-y-0">
+                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-card-foreground">
                       <Info className="h-6 w-6 text-blue-500" />
                       Basic Details
                     </CardTitle>
+                    {canEditBasicDetails && visaCase && (
+                      <Button variant="outline" size="sm" onClick={openBasicEdit} className="gap-1.5">
+                        <Edit className="h-4 w-4" />
+                        Edit Basic Details
+                      </Button>
+                    )}
                   </CardHeader>
                   <CardContent className="pt-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <div className="rounded-lg border border-gray-100 p-4">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Client Name</p>
+                      <div className="rounded-lg border border-border p-4">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Client Name</p>
                         <p className="text-sm font-semibold mt-1">{clientFullName}</p>
                       </div>
-                      <div className="rounded-lg border border-gray-100 p-4">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Enrollment Date</p>
+                      <div className="rounded-lg border border-border p-4">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Enrollment Date</p>
                         <p className="text-sm font-semibold mt-1">{formatDateLocal(clientEnrollmentDate)}</p>
                       </div>
-                      <div className="rounded-lg border border-gray-100 p-4">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Status</p>
+                      <div className="rounded-lg border border-border p-4">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Status</p>
                         <p className="text-sm font-semibold mt-1">{clientArchived ? "Archived" : "Active"}</p>
                       </div>
-                      <div className="rounded-lg border border-gray-100 p-4">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Current Stage</p>
+                      <div className="rounded-lg border border-border p-4">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Current Stage</p>
                         <p className="text-sm font-semibold mt-1 text-blue-600">{getLatestStageFromPayments(
                           client.payments,
                           client.client?.stage || client.stage,
                           client.client?.visaSubmitted || client.visaSubmitted
                         ) || "N/A"}</p>
                       </div>
-                      <div className="rounded-lg border border-gray-100 p-4">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Lead Type</p>
+                      <div className="rounded-lg border border-border p-4">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Lead Type</p>
                         <p className="text-sm font-semibold mt-1">{client.leadType?.leadType || clientData.leadType || "N/A"}</p>
                       </div>
-                      <div className="rounded-lg border border-gray-100 p-4">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Passport Details</p>
+                      <div className="rounded-lg border border-border p-4">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Passport Details</p>
                         <p className="text-sm font-semibold mt-1">{clientData.passportDetails || "N/A"}</p>
                       </div>
-                      <div className="rounded-lg border border-gray-100 p-4">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Counsellor</p>
+                      <div className="rounded-lg border border-border p-4">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Counsellor</p>
                         <p className="text-sm font-semibold mt-1">{originalCounsellorName}</p>
                       </div>
-                      <div className="rounded-lg border border-gray-100 p-4">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide">Sale Type</p>
+                      <div className="rounded-lg border border-border p-4">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">Sale Type</p>
                         <p className="text-sm font-semibold mt-1">{clientSaleType}</p>
                       </div>
+                      {visaCase && (
+                        <div className="rounded-lg border border-border p-4">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Reason of Travel</p>
+                          <p className="text-sm font-semibold mt-1">{visaCase.travel.reasonLabel || "N/A"}</p>
+                        </div>
+                      )}
+                      {visaCase && (
+                        <div className="rounded-lg border border-border p-4">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Sponsor Relationship</p>
+                          <p className="text-sm font-semibold mt-1">{visaCase.sponsorship.relationshipLabel || "N/A"}</p>
+                        </div>
+                      )}
+                      {visaCase && (
+                        <div className="rounded-lg border border-border p-4">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Accompanying Members</p>
+                          <p className="text-sm font-semibold mt-1">{visaCase.sponsorship.accompanyingMembersCount ?? 0}</p>
+                        </div>
+                      )}
                       {isDuplicateClient && (
-                        <div className="rounded-lg border border-gray-100 p-4 md:col-span-2 lg:col-span-3">
-                          <p className="text-xs text-gray-500 uppercase tracking-wide">Shared Client Details</p>
-                          <p className="text-sm font-semibold mt-1 text-gray-900">
+                        <div className="rounded-lg border border-border p-4 md:col-span-2 lg:col-span-3">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wide">Shared Client Details</p>
+                          <p className="text-sm font-semibold mt-1 text-foreground">
                             Original counsellor: {originalCounsellorName}
                             {transferedToCounsellorName ? ` • Shared to: ${transferedToCounsellorName}` : ""}
                           </p>
@@ -1070,9 +1385,9 @@ export default function ClientView() {
                 value: "student-applications",
                 label: "Student Applications",
                 content: (
-                  <Card className="border-none shadow-md overflow-hidden bg-white">
-                    <CardHeader className="pb-4 border-b border-gray-50">
-                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                  <Card className="border-none shadow-md overflow-hidden bg-card">
+                    <CardHeader className="pb-4 border-b border-border">
+                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-card-foreground">
                         <GraduationCap className="h-6 w-6 text-emerald-600" />
                         Student Applications
                         <Badge variant="secondary" className="ml-1">
@@ -1103,9 +1418,9 @@ export default function ClientView() {
               label: "Payment Details",
               content: (
                 <div className="space-y-8">
-                  <Card className="border-none shadow-md overflow-hidden bg-white">
-                    <CardHeader className="pb-4 border-b border-gray-50">
-                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                  <Card className="border-none shadow-md overflow-hidden bg-card">
+                    <CardHeader className="pb-4 border-b border-border">
+                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-card-foreground">
                         <CreditCard className="h-6 w-6 text-blue-500" />
                         Core Service Payment Summary
                       </CardTitle>
@@ -1120,9 +1435,9 @@ export default function ClientView() {
                           const totalPending = Number(totalPayment) - Number(totalReceived);
                           return (
                             <>
-                              <div className="flex-1 min-w-[200px] p-4 rounded-2xl bg-gray-50/50 border border-gray-100 flex flex-col items-center text-center">
-                                <p className="text-[10px] text-gray-400 uppercase font-black tracking-wider">Total Fees</p>
-                                <p className="text-xl font-black mt-1 text-[#1A2B3B]">₹{Number(totalPayment).toLocaleString('en-IN')}</p>
+                              <div className="flex-1 min-w-[200px] p-4 rounded-2xl bg-muted/50 border border-border flex flex-col items-center text-center">
+                                <p className="text-[10px] text-muted-foreground uppercase font-black tracking-wider">Total Fees</p>
+                                <p className="text-xl font-black mt-1 text-card-foreground">₹{Number(totalPayment).toLocaleString('en-IN')}</p>
                               </div>
                               <div className="flex-1 min-w-[200px] p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 flex flex-col items-center text-center">
                                 <p className="text-[10px] text-emerald-600 uppercase font-black tracking-wider">Received</p>
@@ -1137,8 +1452,8 @@ export default function ClientView() {
                         })()}
                       </div>
 
-                      <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-sm">
-                        <ClipboardList className="h-4 w-4 text-gray-400" />
+                      <h4 className="font-bold text-foreground mb-4 flex items-center gap-2 text-sm">
+                        <ClipboardList className="h-4 w-4 text-muted-foreground" />
                         Payment History
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1150,10 +1465,10 @@ export default function ClientView() {
                               handlerNames
                             );
                             return (
-                            <div key={idx} className="flex justify-between items-center p-4 rounded-xl border border-gray-100 bg-white shadow-sm">
+                            <div key={idx} className="flex justify-between items-center p-4 rounded-xl border border-border bg-card shadow-sm">
                               <div>
-                                <p className="font-bold text-[#1A2B3B]">{payment.invoiceNo || "Invoice not added yet"}</p>
-                                <p className="text-xs text-gray-400 font-medium">{formatDateLocal(payment.paymentDate)}</p>
+                                <p className="font-bold text-card-foreground">{payment.invoiceNo || "Invoice not added yet"}</p>
+                                <p className="text-xs text-muted-foreground font-medium">{formatDateLocal(payment.paymentDate)}</p>
                                 {otherHandler && (
                                   <div className="mt-1">
                                     <PaymentTakenByOtherTag handlerName={otherHandler} />
@@ -1161,8 +1476,8 @@ export default function ClientView() {
                                 )}
                               </div>
                               <div className="text-right flex flex-col items-end gap-1">
-                                <p className="font-black text-lg text-[#1A2B3B]">₹{Number(payment.amount).toLocaleString('en-IN')}</p>
-                                <Badge variant="outline" className="text-[12px] font-black uppercase tracking-tighter px-2 h-7 rounded-md border-gray-200 text-gray-500 bg-gray-50">
+                                <p className="font-black text-lg text-card-foreground">₹{Number(payment.amount).toLocaleString('en-IN')}</p>
+                                <Badge variant="outline" className="text-[12px] font-black uppercase tracking-tighter px-2 h-7 rounded-md border-border text-muted-foreground bg-muted">
                                   {payment.stage?.replace(/_/g, " ")}
                                 </Badge>
                               </div>
@@ -1170,23 +1485,23 @@ export default function ClientView() {
                             );
                           })
                         ) : (
-                          <p className="col-span-full text-center py-8 text-gray-400 italic text-sm">No payment records found.</p>
+                          <p className="col-span-full text-center py-8 text-muted-foreground italic text-sm">No payment records found.</p>
                         )}
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card className="border-none shadow-md overflow-hidden bg-white">
-                    <CardHeader className="pb-4 border-b border-gray-50">
-                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                  <Card className="border-none shadow-md overflow-hidden bg-card">
+                    <CardHeader className="pb-4 border-b border-border">
+                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-card-foreground">
                         <Info className="h-6 w-6 text-indigo-500" />
                         Product Details
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-6">
                       <div>
-                        <h4 className="font-bold text-gray-700 mb-4 flex items-center gap-2 text-sm">
-                          <ClipboardList className="h-4 w-4 text-gray-400" />
+                        <h4 className="font-bold text-foreground mb-4 flex items-center gap-2 text-sm">
+                          <ClipboardList className="h-4 w-4 text-muted-foreground" />
                           Service Breakdown
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1219,28 +1534,28 @@ export default function ClientView() {
                               return (
                                 <div
                                   key={idx}
-                                  className={`rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden transition-all ${isExpanded ? "shadow-md" : "hover:bg-gray-50/50"}`}
+                                  className={`rounded-xl border border-border bg-card shadow-sm overflow-hidden transition-all ${isExpanded ? "shadow-md" : "hover:bg-accent/30"}`}
                                 >
                                   <div
                                     className={`p-4 flex flex-col justify-between gap-2 ${hasDetails ? "cursor-pointer" : ""}`}
                                     onClick={() => hasDetails && toggleProduct(idx)}
                                   >
                                     <div className="flex items-start justify-between gap-2">
-                                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider line-clamp-2 flex-1">
+                                      <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider line-clamp-2 flex-1">
                                         {prod.productName?.replace(/_/g, " ")}
                                       </span>
                                       {hasDetails && (
-                                        <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                                        <button className="text-muted-foreground hover:text-foreground transition-colors">
                                           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                                         </button>
                                       )}
                                     </div>
-                                    <span className="font-black text-lg text-[#1A2B3B]">₹{Number(productAmount).toLocaleString('en-IN')}</span>
+                                    <span className="font-black text-lg text-card-foreground">₹{Number(productAmount).toLocaleString('en-IN')}</span>
                                     {otherHandler && <PaymentTakenByOtherTag handlerName={otherHandler} />}
                                   </div>
 
                                   {hasDetails && isExpanded && (
-                                    <div className="px-4 pb-4 pt-2 border-t border-gray-100 bg-gray-50/50">
+                                    <div className="px-4 pb-4 pt-2 border-t border-border bg-muted/40">
                                       {renderProductDetails(prod)}
                                     </div>
                                   )}
@@ -1248,7 +1563,7 @@ export default function ClientView() {
                               );
                             })
                           ) : (
-                            <p className="col-span-full text-center py-8 text-gray-400 italic text-sm">No service breakdown available.</p>
+                            <p className="col-span-full text-center py-8 text-muted-foreground italic text-sm">No service breakdown available.</p>
                           )}
                         </div>
                       </div>
@@ -1268,75 +1583,79 @@ export default function ClientView() {
                     canReviewDocuments={isCxUser}
                   />
                 ) : (
-                  <Card className="border-none shadow-md overflow-hidden bg-white">
-                    <CardHeader className="pb-4 border-b border-gray-50">
-                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                  <Card className="border-none shadow-md overflow-hidden bg-card">
+                    <CardHeader className="pb-4 border-b border-border">
+                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-card-foreground">
                         <FolderOpen className="h-6 w-6 text-blue-500" />
                         Docs Vault
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-6">
                       <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
-                        <div className="rounded-lg border border-gray-100 p-3">
-                          <p className="px-2 pb-2 text-xs font-semibold uppercase text-gray-500">Folder Structure</p>
+                        <div className="rounded-lg border border-border p-3">
+                          <p className="px-2 pb-2 text-xs font-semibold uppercase text-muted-foreground">Folder Structure</p>
                           <div className="space-y-1">
                             {allFolderKeys.length > 0 ? allFolderKeys.map((folderName) => (
                               <button
                                 key={folderName}
                                 type="button"
                                 onClick={() => setSelectedFolder(folderName)}
-                                className={`w-full rounded-md px-3 py-2 text-left text-sm ${selectedFolder === folderName ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50 text-gray-700"}`}
+                                className={`w-full rounded-md px-3 py-2 text-left text-sm ${selectedFolder === folderName ? "bg-primary/10 text-primary" : "hover:bg-accent text-foreground"}`}
                               >
                                 <div className="flex items-center justify-between">
                                   <span>{folderName.replace(/_/g, " ")}</span>
-                                  <span className="text-xs text-gray-500">{(documentsByFolder[folderName] || []).length}</span>
+                                  <span className="text-xs text-muted-foreground">{(documentsByFolder[folderName] || []).length}</span>
                                 </div>
                               </button>
                             )) : (
-                              <p className="px-2 py-2 text-sm text-gray-500">No folders yet.</p>
+                              <p className="px-2 py-2 text-sm text-muted-foreground">No folders yet.</p>
                             )}
                           </div>
 
-                          <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
-                            <p className="text-xs font-semibold uppercase text-gray-500">Create Folder</p>
-                            <input
-                              value={newFolderName}
-                              onChange={(e) => setNewFolderName(e.target.value)}
-                              placeholder="Folder name"
-                              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                            />
-                            <Button type="button" className="w-full" size="sm" onClick={handleCreateFolder}>
-                              Create Folder
-                            </Button>
-                          </div>
+                          {!isViewOnlyDocsVault && (
+                            <div className="mt-3 border-t border-border pt-3 space-y-2">
+                              <p className="text-xs font-semibold uppercase text-muted-foreground">Create Folder</p>
+                              <input
+                                value={newFolderName}
+                                onChange={(e) => setNewFolderName(e.target.value)}
+                                placeholder="Folder name"
+                                className="w-full rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground px-3 py-2 text-sm"
+                              />
+                              <Button type="button" className="w-full" size="sm" onClick={handleCreateFolder}>
+                                Create Folder
+                              </Button>
+                            </div>
+                          )}
                         </div>
 
-                        <div className="rounded-lg border border-gray-100 p-4">
-                          <div className="mb-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-                            <input
-                              value={documentTitle}
-                              onChange={(e) => setDocumentTitle(e.target.value)}
-                              placeholder="Document title (optional)"
-                              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-                            />
-                            <input
-                              type="file"
-                              accept=".pdf,image/*"
-                              onChange={(e) => setSelectedDocFile(e.target.files?.[0] || null)}
-                              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-                            />
-                            <Button type="button" onClick={() => uploadDocumentMutation.mutate()} disabled={uploadDocumentMutation.isPending || !selectedDocFile}>
-                              {uploadDocumentMutation.isPending ? "Uploading..." : "Upload File"}
-                            </Button>
-                          </div>
+                        <div className="rounded-lg border border-border p-4">
+                          {!isViewOnlyDocsVault && (
+                            <div className="mb-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                              <input
+                                value={documentTitle}
+                                onChange={(e) => setDocumentTitle(e.target.value)}
+                                placeholder="Document title (optional)"
+                                className="rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground px-3 py-2 text-sm"
+                              />
+                              <input
+                                type="file"
+                                accept=".pdf,image/*"
+                                onChange={(e) => setSelectedDocFile(e.target.files?.[0] || null)}
+                                className="rounded-md border border-border bg-background text-foreground px-3 py-2 text-sm"
+                              />
+                              <Button type="button" onClick={() => uploadDocumentMutation.mutate()} disabled={uploadDocumentMutation.isPending || !selectedDocFile}>
+                                {uploadDocumentMutation.isPending ? "Uploading..." : "Upload File"}
+                              </Button>
+                            </div>
+                          )}
 
                           {(documentsByFolder[selectedFolder] || []).length > 0 ? (
                             <div className="space-y-2">
                               {(documentsByFolder[selectedFolder] || []).map((doc: any, idx: number) => (
-                                <div key={`${selectedFolder}-${idx}`} className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2">
+                                <div key={`${selectedFolder}-${idx}`} className="flex items-center justify-between rounded-md bg-muted px-3 py-2">
                                   <div>
-                                    <p className="text-sm text-gray-800">{doc.documentName || doc.name || doc.fileName || "Document"}</p>
-                                    <p className="text-xs text-gray-500">{formatDateLocal(doc.createdAt || doc.uploadedAt || "")}</p>
+                                    <p className="text-sm text-foreground">{doc.documentName || doc.name || doc.fileName || "Document"}</p>
+                                    <p className="text-xs text-muted-foreground">{formatDateLocal(doc.createdAt || doc.uploadedAt || "")}</p>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {(doc.fileUrl || doc.url || doc.path) && (
@@ -1354,7 +1673,7 @@ export default function ClientView() {
                               ))}
                             </div>
                           ) : (
-                            <p className="text-sm text-gray-500">No files in this folder.</p>
+                            <p className="text-sm text-muted-foreground">No files in this folder.</p>
                           )}
                         </div>
                       </div>
@@ -1367,27 +1686,24 @@ export default function ClientView() {
               value: "timeline",
               label: "Timeline",
               content: (
-                <Card className="border-none shadow-md overflow-hidden bg-white">
-                  <CardHeader className="pb-4 border-b border-gray-50">
-                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
-                      <Route className="h-6 w-6 text-violet-500" />
-                      Full Timeline
-                    </CardTitle>
+                <Card className="border-none shadow-md overflow-hidden bg-card">
+                  <CardHeader className="py-3 px-6 border-b border-border">
+                    <div className="flex items-center justify-between gap-4">
+                      <CardTitle className="text-xl font-bold flex items-center gap-2 text-card-foreground shrink-0">
+                        <Route className="h-5 w-5 text-violet-500" />
+                        Timeline
+                      </CardTitle>
+                      {!isTimelineLoading && (
+                        <JourneyProgress events={journeyTimeline?.events ?? []} />
+                      )}
+                    </div>
                   </CardHeader>
-                  <CardContent className="pt-6">
-                    {timelineItems.length > 0 ? (
-                      <div className="space-y-3">
-                        {timelineItems.map((item) => (
-                          <div key={item.id} className="rounded-lg border border-gray-100 p-4">
-                            <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-                            <p className="text-xs text-gray-500 mt-1">{item.subtitle}</p>
-                            <p className="text-xs text-gray-400 mt-1">{formatDateLocal(item.date || "")}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center py-8 text-gray-400 italic text-sm">No timeline events found.</p>
-                    )}
+                  <CardContent className="pt-3 px-4 pb-4">
+                    <ClientTimeline
+                      events={journeyTimeline?.events ?? []}
+                      isLoading={isTimelineLoading}
+                      counsellorName={originalCounsellorName}
+                    />
                   </CardContent>
                 </Card>
               ),
@@ -1397,17 +1713,17 @@ export default function ClientView() {
 
               label: "Task & Followup",
               content: (
-                <Card className="border-none shadow-md overflow-hidden bg-white">
-                  <CardHeader className="pb-4 border-b border-gray-50">
-                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                <Card className="border-none shadow-md overflow-hidden bg-card">
+                  <CardHeader className="pb-4 border-b border-border">
+                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-card-foreground">
                       <ListChecks className="h-6 w-6 text-amber-500" />
                       Task & Followup
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-6">
-                    <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center">
-                      <p className="text-sm font-semibold text-gray-700">Task and followup section is ready for client-side task data.</p>
-                      <p className="text-xs text-gray-500 mt-1">Connect this tab with task/followup API when backend is finalized.</p>
+                    <div className="rounded-lg border border-dashed border-border p-6 text-center">
+                      <p className="text-sm font-semibold text-foreground">Task and followup section is ready for client-side task data.</p>
+                      <p className="text-xs text-muted-foreground mt-1">Connect this tab with task/followup API when backend is finalized.</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1417,9 +1733,9 @@ export default function ClientView() {
               value: "application-tracker",
               label: "Application Tracker",
               content: (
-                <Card className="border-none shadow-md overflow-hidden bg-white">
-                  <CardHeader className="pb-4 border-b border-gray-50">
-                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-[#1A2B3B]">
+                <Card className="border-none shadow-md overflow-hidden bg-card">
+                  <CardHeader className="pb-4 border-b border-border">
+                    <CardTitle className="text-xl font-bold flex items-center gap-2 text-card-foreground">
                       <Route className="h-6 w-6 text-emerald-500" />
                       Application Tracker
                     </CardTitle>
@@ -1428,15 +1744,15 @@ export default function ClientView() {
                     {timelineItems.length > 0 ? (
                       <div className="space-y-3">
                         {timelineItems.map((item) => (
-                          <div key={`tracker-${item.id}`} className="rounded-lg border border-gray-100 p-4">
-                            <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-                            <p className="text-xs text-gray-500 mt-1">{item.subtitle}</p>
-                            <p className="text-xs text-gray-400 mt-1">{formatDateLocal(item.date || "")}</p>
+                          <div key={`tracker-${item.id}`} className="rounded-lg border border-border p-4">
+                            <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{item.subtitle}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{formatDateLocal(item.date || "")}</p>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-center py-8 text-gray-400 italic text-sm">No tracker events found.</p>
+                      <p className="text-center py-8 text-muted-foreground italic text-sm">No tracker events found.</p>
                     )}
                   </CardContent>
                 </Card>
@@ -1446,33 +1762,276 @@ export default function ClientView() {
         />
       </div>
 
-      {/* Change-status dialog (hidden from counsellor/telecaller) */}
-      <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
+      {/* Change-status dialog */}
+      <Dialog open={statusOpen} onOpenChange={(open) => { setStatusOpen(open); if (!open) { setStatusStage(""); setStatusValue(""); setStatusNotes(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Change Status — {clientFullName}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Processing Status</Label>
-            <Select value={statusValue} onValueChange={setStatusValue}>
-              <SelectTrigger className="h-9 w-full">
-                <SelectValue placeholder="Select a status" />
-              </SelectTrigger>
-              <SelectContent>
-                {BACKEND_PROCESSING_STATUS_GROUPS.map((g) => (
-                  <SelectGroup key={g.stage}>
-                    <SelectLabel>{g.stage}</SelectLabel>
-                    {g.statuses.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+          <div className="space-y-4 py-2">
+            {visaCase?.processing?.label && (
+              <div className="rounded-md bg-muted/50 border border-border px-3 py-2 text-sm text-muted-foreground">
+                Current: <span className="font-semibold text-foreground">{visaCase.processing.label}</span>
+              </div>
+            )}
+            {/* Step 1 — Stage */}
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Stage</Label>
+              {visaCase?.visaCaseId && processingStages ? (
+                <Select
+                  value={statusStage}
+                  onValueChange={(v) => { setStatusStage(v); setStatusValue(""); }}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Select a stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {processingStages.stages.map((s) => (
+                      <SelectItem key={s.stage} value={s.label}>{s.label}</SelectItem>
                     ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Select value={statusStage} onValueChange={(v) => { setStatusStage(v); setStatusValue(""); }}>
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Select a stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BACKEND_PROCESSING_STATUS_GROUPS.map((g) => (
+                      <SelectItem key={g.stage} value={g.stage}>{g.stage}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            {/* Step 2 — Sub-status (visible only after stage is chosen) */}
+            {statusStage && (
+              <div className="space-y-2">
+                <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Status</Label>
+                {visaCase?.visaCaseId && processingStages ? (
+                  <Select value={statusValue} onValueChange={setStatusValue}>
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder="Select a status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(processingStages.stages.find((s) => s.label === statusStage)?.subStatuses ?? []).map((s) => (
+                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select value={statusValue} onValueChange={setStatusValue}>
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder="Select a status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(BACKEND_PROCESSING_STATUS_GROUPS.find((g) => g.stage === statusStage)?.statuses ?? []).map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+            {visaCase?.visaCaseId && (
+              <div className="space-y-2">
+                <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Notes (optional)</Label>
+                <Textarea
+                  value={statusNotes}
+                  onChange={(e) => setStatusNotes(e.target.value)}
+                  placeholder="Add a note for this status change…"
+                  rows={3}
+                  className="resize-none text-sm"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStatusOpen(false)}>Cancel</Button>
-            <Button onClick={saveStatus} disabled={!statusValue}>Save</Button>
+            <Button onClick={saveStatus} disabled={!statusValue || changeStatusMutation.isPending}>
+              {changeStatusMutation.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Basic Details — client fields + visa-case sponsorship/travel */}
+      <Dialog open={basicEditOpen} onOpenChange={setBasicEditOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Basic Details — {clientFullName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+
+            {/* ── Client Information ── */}
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Client Information</p>
+              <div className="space-y-2">
+                <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Full Name</Label>
+                <Input
+                  value={fullNameDraft}
+                  onChange={(e) => setFullNameDraft(e.target.value)}
+                  placeholder="Client full name"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Enrollment Date</Label>
+                <Input
+                  type="date"
+                  value={enrollmentDateDraft}
+                  onChange={(e) => setEnrollmentDateDraft(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Passport Details</Label>
+                <Input
+                  value={passportDetailsDraft}
+                  onChange={(e) => setPassportDetailsDraft(e.target.value)}
+                  placeholder="e.g. A1234567"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Lead Type</Label>
+                <Select value={leadTypeIdDraft} onValueChange={setLeadTypeIdDraft}>
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Select a lead type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leadTypes.map((lt) => (
+                      <SelectItem key={lt.id} value={String(lt.id)}>
+                        {lt.displayAlias?.trim() || lt.leadType}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* ── Visa Case Details (only when a visa case exists) ── */}
+            {visaCase && (
+              <div className="space-y-3 border-t border-border pt-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Visa Case Details</p>
+                  {!canEditVisaCase && (
+                    <span className="text-[11px] text-muted-foreground italic">Not assigned to you</span>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Reason of Travel</Label>
+                  <Select value={reasonDraft} onValueChange={setReasonDraft} disabled={!canEditVisaCase}>
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder="Select a reason" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {REASON_OF_TRAVEL_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Sponsor Relationship</Label>
+                  <Select value={relDraft} onValueChange={setRelDraft} disabled={!canEditVisaCase}>
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder="Select a relationship" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SPONSOR_RELATIONSHIP_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Accompanying Members</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={membersDraft}
+                    onChange={(e) => setMembersDraft(e.target.value)}
+                    className="h-9"
+                    disabled={!canEditVisaCase}
+                  />
+                  <p className="text-[11px] text-muted-foreground">Number of members travelling with the applicant.</p>
+                </div>
+              </div>
+            )}
+
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBasicEditOpen(false)}>Cancel</Button>
+            <Button onClick={saveBasicDetails} disabled={savingBasicDetails || !fullNameDraft.trim()}>
+              {savingBasicDetails ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Assign visa case dialog */}
+      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Case — {clientFullName}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2 text-sm text-blue-700 space-y-0.5">
+              {visaCase?.processing?.assignedTeam && (
+                <p>Currently with: <span className="font-semibold">{visaCase.processing.assignedTeam.toUpperCase()}</span>
+                  {visaCase.processing.assignedUser?.fullName ? ` — ${visaCase.processing.assignedUser.fullName}` : ""}
+                </p>
+              )}
+              {assignableTargetTeam ? (
+                <p>Handing off to: <span className="font-semibold">{assignableTargetTeam.replace(/_/g, " ").toUpperCase()}</span> team</p>
+              ) : (
+                <p>Select any team member to assign this case.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Assign to
+              </Label>
+              <Select value={assignUserIdDraft} onValueChange={setAssignUserIdDraft}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder={filteredAssignableUsers.length === 0 ? "No users available" : "Select a team member"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredAssignableUsers.length > 0 ? (
+                    filteredAssignableUsers.map((u) => (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {u.fullName}
+                        {u.empId ? ` (${u.empId})` : ""}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No team members found</div>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Notes (optional)
+              </Label>
+              <Textarea
+                value={assignNotesDraft}
+                onChange={(e) => setAssignNotesDraft(e.target.value)}
+                placeholder="Add a note for this assignment…"
+                rows={3}
+                className="resize-none text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleAssign}
+              disabled={!assignUserIdDraft || assignBulkMutation.isPending}
+            >
+              {assignBulkMutation.isPending ? "Assigning…" : "Assign"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
