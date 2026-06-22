@@ -196,6 +196,8 @@ export interface LeadEntity {
   customAnswers?: Record<string, unknown>;
   nextFollowupAt?: string | null;
   pendingFollowUp?: boolean;
+  /** Student lead converted by counsellor but TD not yet taken — telecaller metrics stay transferred. */
+  pendingConverted?: boolean;
   transferredAt?: string | null;
   convertedAt?: string | null;
   droppedAt?: string | null;
@@ -214,6 +216,9 @@ export interface LeadActivityEntity {
   leadId: number;
   userId?: number | null;
   userName?: string | null;
+  userRole?: string | null;
+  /** Telecaller viewers: whether this pending follow-up may be marked done. */
+  canComplete?: boolean;
   activityType:
     | "note"
     | "followup"
@@ -511,6 +516,8 @@ export const getAdminLeadReportStats = async (params: {
 export type LeadDetailMeta = {
   pendingFollowUp: boolean;
   counsellorHasActivity: boolean;
+  /** Lead transferred to counsellor — telecaller can view timeline only. */
+  telecallerTransferredViewOnly?: boolean;
   canTransfer: boolean;
   canReassignCounsellor: boolean;
   canRevertJunk?: boolean;

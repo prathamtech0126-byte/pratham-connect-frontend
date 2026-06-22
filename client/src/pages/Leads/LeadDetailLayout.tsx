@@ -109,6 +109,7 @@ export type LeadDetailLayoutProps = {
   lead: LeadEntity;
   leadMeta: LeadDetailMeta | null;
   readOnly: boolean;
+  telecallerTransferredViewOnly?: boolean;
   isCounsellor: boolean;
   isJunk: boolean;
   isConverted: boolean;
@@ -188,6 +189,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
     lead,
     leadMeta,
     readOnly,
+    telecallerTransferredViewOnly,
     isCounsellor,
     isJunk,
     isConverted,
@@ -301,9 +303,11 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
 
   const readOnlyLabel = isJunk
     ? "Read only — junk"
-    : isConverted
-      ? "Read only — converted"
-      : "Read only";
+    : telecallerTransferredViewOnly
+      ? "View only — Lead Is Transferred To Counsellor"
+      : isConverted
+        ? "Read only — converted"
+        : "Read only";
 
   const showTransferHint =
     !readOnly && !isCounsellor && (!lead.eligibilityStatus || !lead.leadQuality);
@@ -311,6 +315,13 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
   return (
     <div className="space-y-5 pb-8 animate-in fade-in-50 duration-500">
       <Breadcrumbs items={[{ label: "Leads", href: "/leads" }, { label: lead.fullName }]} />
+
+      {telecallerTransferredViewOnly && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          This lead is with a counsellor. You can view notes, follow-ups, and the full timeline, but
+          you cannot add or edit notes or complete counsellor follow-ups.
+        </div>
+      )}
 
       {/* Hero header */}
       <div className="rounded-xl border bg-card shadow-sm p-5 md:p-6">
@@ -797,6 +808,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                               </Button>
                             )}
                             <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                              {n.userName ? `${n.userName} · ` : ""}
                               {formatDateTime(n.createdAt)}
                             </span>
                           </div>
@@ -846,7 +858,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                           )}
                         </div>
                       </div>
-                      {isPending && !readOnly && (
+                      {isPending && f.canComplete && (
                         <Button
                           size="sm"
                           variant="outline"

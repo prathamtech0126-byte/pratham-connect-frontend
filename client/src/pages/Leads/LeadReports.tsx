@@ -199,7 +199,7 @@ export default function LeadReports() {
               </div>
             </CardHeader>
             <CardContent className="flex-1 p-0">
-              <div className="divide-y max-h-[420px] overflow-y-auto">
+              <div className="divide-y max-h-[22rem] overflow-y-auto">
                 {isLoading ? (
                   <p className="text-sm text-muted-foreground text-center py-8">Loading…</p>
                 ) : telecallerStats.length === 0 ? (
@@ -344,9 +344,10 @@ export default function LeadReports() {
             <CardDescription className="text-xs">Click a counsellor to open their full lead report</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
+            <div className="max-h-[22rem] overflow-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableRow className="bg-muted/50 hover:bg-muted/50 sticky top-0 z-10">
                   <TableHead className="text-xs uppercase pl-4 w-12">Rank</TableHead>
                   <TableHead className="text-xs uppercase">Counsellor</TableHead>
                   <TableHead className="text-xs uppercase text-center">Received</TableHead>
@@ -394,6 +395,7 @@ export default function LeadReports() {
                 })}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
 
@@ -404,10 +406,11 @@ export default function LeadReports() {
             <CardDescription className="text-xs">Click any row to view individual telecaller analysis</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <div className="max-h-[22rem] overflow-auto">
+            <div className="overflow-x-auto min-w-0">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableRow className="bg-muted/50 hover:bg-muted/50 sticky top-0 z-10">
                     <TableHead className="text-xs uppercase w-12 pl-4">Rank</TableHead>
                     <TableHead className="text-xs uppercase">Telecaller</TableHead>
                     <TableHead className="text-xs uppercase text-center">Assigned</TableHead>
@@ -456,6 +459,7 @@ export default function LeadReports() {
                   ))}
                 </TableBody>
               </Table>
+            </div>
             </div>
           </CardContent>
         </Card>

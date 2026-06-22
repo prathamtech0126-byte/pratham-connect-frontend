@@ -959,7 +959,8 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
   }
 
   const isCounsellor = user?.role === "counsellor";
-  const readOnly = isLeadReadOnly(lead, user?.role);
+  const telecallerTransferredViewOnly = Boolean(leadMeta?.telecallerTransferredViewOnly);
+  const readOnly = isLeadReadOnly(lead, user?.role) || telecallerTransferredViewOnly;
   const junk = isLeadJunk(lead);
   const converted = isLeadConverted(lead);
 
@@ -990,6 +991,7 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       lead={lead}
       leadMeta={leadMeta}
       readOnly={readOnly}
+      telecallerTransferredViewOnly={telecallerTransferredViewOnly}
       isCounsellor={isCounsellor}
       isJunk={junk}
       isConverted={converted}
