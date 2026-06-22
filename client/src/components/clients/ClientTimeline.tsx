@@ -8,10 +8,9 @@ import {
 import { cn } from "@/lib/utils";
 import type { TimelineEvent, TimelineEventPhase } from "@/api/clientTimeline.api";
 
-// Converts a UTC date string/Date to IST (UTC+5:30) for display
+// Parse UTC date string/Date — date-fns format() displays in local time (IST on this machine)
 function toIST(utc: string | Date): Date {
-  const d = typeof utc === "string" ? new Date(utc) : utc;
-  return new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+  return typeof utc === "string" ? new Date(utc) : utc;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────

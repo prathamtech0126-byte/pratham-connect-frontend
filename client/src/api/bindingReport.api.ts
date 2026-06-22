@@ -25,7 +25,8 @@ export interface BindingReportData {
     tatThresholds: { safeDays: number; warningDays: number; breachDays: number };
   };
   performanceSummary: {
-    filesBound: { value: number; trend: FileBoundTrend };
+    filesBound: { value: number; trend: FileBoundTrend; subtitle?: string };
+    filesReceivedFromCx: { value: number; subtitle: string };
     avgDaysInBinding: { value: number | null; subtitle: string };
     docCompletenessAtHandoff: { value: number; display: string };
     tatBreachRate: { value: number | null; display: string | null; subtitle: string };

@@ -164,8 +164,8 @@ export default function CxDashboard() {
               ) : null
             }
           />
-          <StatCard title="Ready for Handoff"   value={s?.readyForHandoff ?? 0}    description="docs complete, ready to move" icon={PackageCheck}  />
-          <StatCard title="Handoffs Completed"  value={s?.handoffsCompleted ?? 0}  description="handed off this period"      icon={CheckCircle2}  />
+          <StatCard title="Ready for Handover"   value={s?.readyForHandoff ?? 0}    description="docs complete, ready to move" icon={PackageCheck}  />
+          <StatCard title="Handovers Completed"  value={s?.handoffsCompleted ?? 0}  description="handed over this period"      icon={CheckCircle2}  />
           <StatCard title="Stuck Cases"         value={s?.stuckCases ?? 0}         description="need attention"              icon={AlertTriangle} />
         </div>
 
@@ -187,7 +187,11 @@ export default function CxDashboard() {
                     <DonutChart data={casesByStage} total={stageTotal} />
                     <div className="flex-1 space-y-2.5">
                       {casesByStage.map((st, i) => (
-                        <div key={st.stage} className="flex items-center justify-between text-sm">
+                        <div
+                          key={st.stage}
+                          onClick={() => navigate(`/cx/clients?stage=${encodeURIComponent(st.stage)}`)}
+                          className="flex items-center justify-between text-sm cursor-pointer rounded-lg px-2 py-1 -mx-2 hover:bg-accent transition-colors"
+                        >
                           <div className="flex items-center gap-2">
                             <div
                               className="h-2.5 w-2.5 flex-shrink-0 rounded-full"

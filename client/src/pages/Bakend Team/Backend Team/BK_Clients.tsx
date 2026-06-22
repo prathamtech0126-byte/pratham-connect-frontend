@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { PageWrapper } from "@/layout/PageWrapper";
@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, startOfWeek, endOfWeek } from "date-fns";
-import { Download, Search, ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, ChevronRight, X, UserPlus, Loader2, MoreVertical, ListChecks, Gavel, ArrowRightLeft } from "lucide-react";
+import { Download, Search, ChevronDown, ChevronUp, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, X, UserPlus, Loader2, MoreVertical, ListChecks, Gavel, ArrowRightLeft } from "lucide-react";
 import {
   type VisaClient,
   BACKEND_DESTINATIONS,
@@ -57,7 +57,7 @@ import {
   BACKEND_STAGES,
   stageOfStatus,
 } from "@/data/dummyBackendData";
-import { useVisaCases, useVisaCountries, useAllBackendUsers, useProcessingStages } from "@/hooks/useVisaCases";
+import { useVisaCases, useVisaCountries, useAllBackendUsers, useAssignableUsers, useProcessingStages } from "@/hooks/useVisaCases";
 import { assignBulkVisaCases, changeVisaCaseStatus, changeVisaCaseDecision } from "@/api/visaCases.api";
 import type { ProcessingSubStatus } from "@/api/visaCases.api";
 import {
@@ -105,9 +105,9 @@ const SALE_TYPE_OPTIONS: { value: "all" | "visitor" | "spouse" | "student"; labe
   { value: "student", label: "Student" },
 ];
 
-// Only Admin / Developer may assign a Backend (CX/Binding) member to a case.
+// Admin, Developer, and CX may assign a Backend (CX/Binding) member to a case.
 // (The backend maps role "admin" → "superadmin" in auth-context.)
-const ASSIGN_ALLOWED_ROLES = ["superadmin", "developer"];
+const ASSIGN_ALLOWED_ROLES = ["superadmin", "developer", "customer_experience"];
 
 const TEAM_LABEL: Record<string, string> = { cx: "CX", binding: "Binding", application: "Application" };
 
@@ -138,15 +138,18 @@ export default function BackendClients({
   breadcrumbLabel = "Backend",
   statusScope = "all",
   defaultPageSize,
+  ownTeam,
 }: {
   title?: string;
   breadcrumbLabel?: string;
   statusScope?: "all" | "documentation";
   defaultPageSize?: number;
+  ownTeam?: string;
 } = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const topRef = useRef<HTMLDivElement>(null);
 
   // Initial filters can be pre-set via URL query params (e.g. dashboard cards
   // link to /backend/clients?decision=Approved or ?balance=due).
@@ -198,8 +201,11 @@ export default function BackendClients({
         : "all"))
   );
   // Current API page (1-based) + rows-per-page. Server-side pagination.
-  const [page, setPage] = useState(stored.page ? Number(stored.page) : 1);
-  const [pageSize, setPageSize] = useState(defaultPageSize ?? (stored.pageSize ? Number(stored.pageSize) : MAX_PER_PAGE));
+  // Always start at page 1 when navigating from a deep-link (URL has filter params)
+  // so we don't restore a stale page from sessionStorage and fire multiple API calls.
+  const hasUrlFilterParam = !!(initialParams.get("stage") || initialParams.get("status") || initialParams.get("decision") || initialParams.get("balance"));
+  const [page, setPage] = useState(hasUrlFilterParam ? 1 : (stored.page ? Number(stored.page) : 1));
+  const [pageSize, setPageSize] = useState(defaultPageSize ?? (stored.pageSize ? Number(stored.pageSize) : 20));
   const handleMaxResultsChange = (n: number) => {
     setPageSize(n);
     setPage(1);
@@ -258,11 +264,39 @@ export default function BackendClients({
 
   const { data: stagesMeta } = useProcessingStages();
 
+  // Once stagesMeta loads, if stageFilter is still a raw label from the URL
+  // (e.g. "On Hold" from ?stage=On+Hold), resolve it to the proper enum so the
+  // Select shows the correct option.
+  useEffect(() => {
+    if (!stagesMeta || stageFilter === "all") return;
+    const isKnownEnum =
+      STAGE_ENUMS.has(stageFilter) ||
+      DECISION_VALUES.has(stageFilter) ||
+      stagesMeta.stages.some((s) => s.stage === stageFilter) ||
+      stagesMeta.stages.some((s) => s.subStatuses.some((sub) => sub.value === stageFilter));
+    if (isKnownEnum) return;
+
+    // Try to match as a stage label (e.g. "On Hold" → "ON_HOLD").
+    const byStageLabel = stagesMeta.stages.find((s) => s.label === stageFilter);
+    if (byStageLabel) { setStageFilter(byStageLabel.stage); return; }
+
+    // Try to match as a sub-status label (e.g. "Checklist Shared").
+    for (const stage of stagesMeta.stages) {
+      const sub = stage.subStatuses.find((s) => s.label === stageFilter);
+      if (sub) { setStageFilter(sub.value); return; }
+    }
+  }, [stagesMeta]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Map the stageFilter enum value → API params.
   // For sub-statuses the backend expects the human label ("Pending"), not the enum ("DECISION_PENDING").
   const stageApiParam = useMemo<{ currentStage?: string; currentSubStatus?: string; decision?: string }>(() => {
     if (stageFilter === "all") return {};
     if (STAGE_ENUMS.has(stageFilter)) return { currentStage: stageFilter };
+    // Also cover stages not in the hardcoded set (e.g. On Hold, Refiling, Client Drop) — matched by enum.
+    if (stagesMeta?.stages.some((s) => s.stage === stageFilter)) return { currentStage: stageFilter };
+    // Deep-links pass the stage label (e.g. ?stage=On+Hold) — resolve label → enum.
+    const stageByLabel = stagesMeta?.stages.find((s) => s.label === stageFilter);
+    if (stageByLabel) return { currentStage: stageByLabel.stage };
     if (DECISION_VALUES.has(stageFilter)) return { decision: stageFilter };
     // Look up the label for this enum value from stagesMeta; fall back to the enum if not loaded yet.
     let label: string | undefined;
@@ -287,7 +321,15 @@ export default function BackendClients({
     }),
     [page, pageSize, saleType, destinationFilter, dateFrom, dateTo, stageApiParam]
   );
-  const { data, isLoading, isError, isFetching, error } = useVisaCases(visaFilters);
+  // Wait for stagesMeta before firing the query when the filter is a raw stage label from the URL
+  // (e.g. ?stage=On+Hold). Without this, the first render sends currentSubStatus=On+Hold → 400.
+  const stageNeedsMetaResolution =
+    stageFilter !== "all" &&
+    !STAGE_ENUMS.has(stageFilter) &&
+    !DECISION_VALUES.has(stageFilter);
+  const visaQueryEnabled = !stageNeedsMetaResolution || !!stagesMeta;
+
+  const { data, isLoading, isError, isFetching, error } = useVisaCases(visaFilters, visaQueryEnabled);
   const pagination = data?.pagination;
 
   // We seed a local copy so the existing in-list edit / delete / status-change
@@ -302,6 +344,11 @@ export default function BackendClients({
   useEffect(() => {
     setPage(1);
   }, [saleType, destinationFilter, dateFrom, dateTo, stageFilter]);
+
+  // Scroll to top of the list whenever the user navigates to a different page.
+  useEffect(() => {
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [page]);
 
   // Destination options come from GET /api/modules/countries. The filter uses the
   // country UUID (server-side `countryId` param); the edit dialog uses plain names.
@@ -444,12 +491,15 @@ export default function BackendClients({
   // from the CX/Binding user list (also feeds the assign dropdown and the
   // "Handled By" filter). Loaded whenever the Handled By column is visible.
   const showHandledByCol = !["customer_experience", "binding_team"].includes((user as any)?.role);
-  const { data: assignableUsers, isLoading: loadingAssignable } = useAllBackendUsers(showHandledByCol || canAssign);
+  // useAllBackendUsers (/api/users/users) is admin-only — used only for the "Handled By" name lookup column.
+  const { data: allBackendUsers } = useAllBackendUsers(showHandledByCol);
+  // useAssignableUsers (/api/modules/visa-cases/assignable-users) works for CX too — used for the assign dialog.
+  const { data: assignableUsers, isLoading: loadingAssignable } = useAssignableUsers(canAssign);
   const userNameById = useMemo(() => {
     const m = new Map<number, string>();
-    for (const u of assignableUsers ?? []) m.set(u.id, u.fullName);
+    for (const u of allBackendUsers ?? []) m.set(u.id, u.fullName);
     return m;
-  }, [assignableUsers]);
+  }, [allBackendUsers]);
 
   const [selectMode, setSelectMode] = useState(false);
   const [selectedCaseIds, setSelectedCaseIds] = useState<Set<string>>(new Set());
@@ -725,7 +775,7 @@ export default function BackendClients({
         </div>
       }
     >
-      <div className="space-y-5">
+      <div ref={topRef} className="space-y-5">
         {/* Search + filter chips */}
         <div className="space-y-4 rounded-xl border border-border/50 bg-card p-4 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -775,6 +825,13 @@ export default function BackendClients({
                       ))}
                     </SelectGroup>
                   ))}
+                  <SelectGroup>
+                    <SelectLabel>Decision Outcome</SelectLabel>
+                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="APPROVED">Approved</SelectItem>
+                    <SelectItem value="REFUSED">Refused</SelectItem>
+                    <SelectItem value="WITHDRAWN">Withdrawn</SelectItem>
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
@@ -836,7 +893,7 @@ export default function BackendClients({
                     <SelectItem value="all">All</SelectItem>
                     <SelectItem value="unassigned">Unassigned</SelectItem>
                     {["cx", "binding"].map((team) => {
-                      const members = (assignableUsers ?? []).filter((u) => u.role === team);
+                      const members = (allBackendUsers ?? []).filter((u) => u.role === team);
                       if (!members.length) return null;
                       return (
                         <SelectGroup key={team}>
@@ -860,6 +917,26 @@ export default function BackendClients({
                 Clear ({activeFilterCount})
               </Button>
             ) : null}
+
+            {/* Rows per page — lives in the filter bar so it's always visible */}
+            <div className="ml-auto flex items-center gap-2">
+              <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap">
+                Rows per page
+              </Label>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => handleMaxResultsChange(Number(v))}
+              >
+                <SelectTrigger className="h-9 w-[80px] text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {[10, 20, 50, 100].map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
@@ -951,7 +1028,9 @@ export default function BackendClients({
                   </TableRow>
                 ) : (
                   filtered.map((c, i) => {
-                    const handedOff = statusScope === "documentation" && isCxHandedOff(c);
+                    const handedOff =
+                      (statusScope === "documentation" && isCxHandedOff(c)) ||
+                      (!!ownTeam && !!c.assignedTeam && c.assignedTeam.toLowerCase() !== ownTeam.toLowerCase());
                     const stageKey = stageOfStatus(c.status);
                     const stageColor = STAGE_COLORS[stageKey];
                     return (
@@ -1099,32 +1178,93 @@ export default function BackendClients({
           </div>
         </div>
 
-        {/* Pagination */}
+        {/* Pagination bar — always visible when there is at least 1 page */}
         {pagination && pagination.total > 0 ? (
-          <div className="flex items-center justify-center gap-2 px-1">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1"
-              disabled={pagination.page <= 1 || isFetching}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <span className="px-2 text-xs tabular-nums text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-card px-4 py-2.5">
+
+            {/* Left: spacer to balance the right-side page info */}
+            <div className="w-24" />
+
+            {/* Center: numbered page buttons (only when >1 page) */}
+            {pagination.totalPages > 1 ? (
+              <div className="flex items-center gap-1 flex-wrap justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={pagination.page <= 1 || isFetching}
+                  onClick={() => setPage(1)}
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1 px-2"
+                  disabled={pagination.page <= 1 || isFetching}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline text-xs">Previous</span>
+                </Button>
+
+                {(() => {
+                  const total = pagination.totalPages;
+                  const cur = pagination.page;
+                  const pages: (number | "…")[] = [];
+                  if (total <= 7) {
+                    for (let i = 1; i <= total; i++) pages.push(i);
+                  } else {
+                    pages.push(1);
+                    if (cur > 3) pages.push("…");
+                    for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i);
+                    if (cur < total - 2) pages.push("…");
+                    pages.push(total);
+                  }
+                  return pages.map((p, idx) =>
+                    p === "…" ? (
+                      <span key={`ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground select-none">…</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        variant={p === cur ? "default" : "outline"}
+                        size="sm"
+                        className="h-8 w-8 p-0 text-xs"
+                        disabled={isFetching}
+                        onClick={() => setPage(p as number)}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  );
+                })()}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1 px-2"
+                  disabled={pagination.page >= pagination.totalPages || isFetching}
+                  onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+                >
+                  <span className="hidden sm:inline text-xs">Next</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  disabled={pagination.page >= pagination.totalPages || isFetching}
+                  onClick={() => setPage(pagination.totalPages)}
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : null}
+
+            {/* Right: page info */}
+            <span className="text-xs tabular-nums text-muted-foreground whitespace-nowrap">
               Page {pagination.page} of {pagination.totalPages}
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1"
-              disabled={pagination.page >= pagination.totalPages || isFetching}
-              onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
           </div>
         ) : null}
       </div>
@@ -1247,7 +1387,7 @@ export default function BackendClients({
               <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                 Backend Team Member
               </Label>
-              <Select value={assignUserId} onValueChange={setAssignUserId} disabled={loadingAssignable}>
+              <Select value={assignUserId || undefined} onValueChange={setAssignUserId} disabled={loadingAssignable}>
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder={loadingAssignable ? "Loading members…" : "Select a CX or Binding member"} />
                 </SelectTrigger>

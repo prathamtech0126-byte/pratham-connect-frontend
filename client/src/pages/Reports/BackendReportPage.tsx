@@ -50,7 +50,8 @@ import {
   type Accent,
 } from "@/pages/Dashboard/backendDashboardShared";
 import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
-import { useBackendReport } from "@/hooks/useVisaCases";
+import { useBackendReport, useEnrollmentTrend } from "@/hooks/useVisaCases";
+import type { EnrollmentTrendRange } from "@/api/visaCases.api";
 
 /* ---------- KPI tile ---------- */
 
@@ -443,10 +444,15 @@ export default function BackendReportPage() {
   const data = apiResult?.data ?? EMPTY_DATA;
   const decisionTotals = apiResult?.decisionTotals ?? EMPTY_TOTALS;
 
-  // Enrollment Trend has its own range selector, independent of the page period filter.
-  const fullTrend = data.enrollmentTrend;
+  // Map UI range selector → API range param. "4m" and "year" use a larger API
+  // bucket then slice/filter client-side since the API has no 4-month range.
+  const apiTrendRange: EnrollmentTrendRange =
+    trendRange === "6m" || trendRange === "4m" ? "6_month" : "12_month";
+
+  const { data: trendResult } = useEnrollmentTrend(apiTrendRange);
+  const fullTrend = trendResult?.enrollmentTrend ?? [];
+
   const trend = useMemo(() => {
-    if (trendRange === "6m") return fullTrend.slice(-6);
     if (trendRange === "4m") return fullTrend.slice(-4);
     if (trendRange === "year") {
       const yr = String(new Date().getFullYear());

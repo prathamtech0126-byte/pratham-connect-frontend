@@ -14,6 +14,7 @@ import {
   fetchVisaCaseDashboard,
   fetchBackendReportsDashboard,
   fetchBackendReport,
+  fetchEnrollmentTrend,
   fetchVisaCategoryCount,
   fetchOpsDashboard,
   type VisaCaseFilters,
@@ -25,6 +26,7 @@ import {
   type VisaCaseDashboardFilters,
   type BackendReportsDashboardFilters,
   type BackendReportFilters,
+  type EnrollmentTrendRange,
   type OpsDashboardFilters,
   type FetchDocumentRequestsParams,
   fetchDocumentRequests,
@@ -37,12 +39,13 @@ import {
  * shape used by the Backend / CX list tables. Previous page data is kept while
  * the next page loads so the table doesn't flash empty during pagination.
  */
-export function useVisaCases(filters: VisaCaseFilters = {}) {
+export function useVisaCases(filters: VisaCaseFilters = {}, enabled = true) {
   return useQuery({
     queryKey: ["visa-cases", filters],
     queryFn: () => fetchVisaCases(filters),
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 2,
+    enabled,
   });
 }
 
@@ -173,6 +176,20 @@ export function useBackendReport(filters: BackendReportFilters = {}, enabled = t
     queryFn: () => fetchBackendReport(filters),
     enabled,
     staleTime: 1000 * 60 * 2,
+  });
+}
+
+/**
+ * Fetches the enrollment trend chart data from the dedicated endpoint
+ * (GET /api/modules/reports/enrollment-trend).
+ * range: "6_month" | "12_month" | "maximum"
+ */
+export function useEnrollmentTrend(range: EnrollmentTrendRange = "12_month", enabled = true) {
+  return useQuery({
+    queryKey: ["enrollment-trend", range],
+    queryFn: () => fetchEnrollmentTrend(range),
+    enabled,
+    staleTime: 1000 * 60 * 5,
   });
 }
 

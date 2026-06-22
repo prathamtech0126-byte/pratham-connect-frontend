@@ -76,9 +76,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const isTechSupport = user.role === 'tech_support';
     const isBroadcastRecipient =
       user.role === 'front_desk' || user.role === 'marketing_head';
-    const isCxUser = user.role === 'customer_experience';
+    const isCxUser =
+      user.role === 'customer_experience' || user.role === 'cx';
     const isOpsTeam =
-      user.role === 'binding_team' || user.role === 'application_team';
+      user.role === 'binding_team' ||
+      user.role === 'application_team' ||
+      user.role === 'binding' ||
+      user.role === 'application';
 
     // Connect if user needs real-time updates or broadcast messages
     if (!isCounsellor && !isAdmin && !isTechSupport && !isTelecaller && !isBroadcastRecipient && !isCxUser && !isOpsTeam) {
@@ -235,7 +239,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           newSocket.emit('join:user', userId);
         }
       } else if (isCxUser) {
-        newSocket.emit('join:role', 'customer_experience');
+        newSocket.emit('join:role', user.role);
         const userId = Number(user.id);
         if (!isNaN(userId)) {
           newSocket.emit('join:user', userId);
@@ -336,7 +340,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           newSocket.emit('join:user', userId);
         }
       } else if (isCxUser) {
-        newSocket.emit('join:role', 'customer_experience');
+        newSocket.emit('join:role', user.role);
         const userId = Number(user.id);
         if (!isNaN(userId)) {
           newSocket.emit('join:user', userId);
@@ -425,9 +429,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const isTechSupport = user.role === 'tech_support';
     const isBroadcastRecipient2 =
       user.role === 'front_desk' || user.role === 'marketing_head';
-    const isCxUser2 = user.role === 'customer_experience';
+    const isCxUser2 =
+      user.role === 'customer_experience' || user.role === 'cx';
     const isOpsTeam2 =
-      user.role === 'binding_team' || user.role === 'application_team';
+      user.role === 'binding_team' ||
+      user.role === 'application_team' ||
+      user.role === 'binding' ||
+      user.role === 'application';
 
     // Ensure role rooms are joined for message system (with delay to ensure socket is ready)
     // This is a safety mechanism that runs whenever socket connects
@@ -458,7 +466,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           socket.emit('join:user', userId);
         }
       } else if (isCxUser2) {
-        socket.emit('join:role', 'customer_experience');
+        socket.emit('join:role', user.role);
         const userId = Number(user.id);
         if (!isNaN(userId)) {
           socket.emit('join:user', userId);

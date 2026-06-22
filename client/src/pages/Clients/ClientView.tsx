@@ -1194,13 +1194,15 @@ export default function ClientView() {
 
     if (visaCaseWarning) {
       toast({
-        title: "Client details saved",
-        description: `Visa case details could not be updated: ${visaCaseWarning}`,
+        title: "Visa case update failed",
+        description: visaCaseWarning,
         variant: "destructive",
       });
-    } else {
-      toast({ title: "Basic details updated", description: "Client and visa case details have been saved." });
+      // Keep the dialog open so the user can retry without re-entering their changes.
+      return;
     }
+
+    toast({ title: "Basic details updated", description: "Client and visa case details have been saved." });
     setBasicEditOpen(false);
   };
 
@@ -1910,8 +1912,13 @@ export default function ClientView() {
               </div>
             </div>
 
-            {/* ── Visa Case Details (only when a visa case exists) ── */}
-            {visaCase && (
+            {/* ── Visa Case Details (only when a visa case exists or is loading) ── */}
+            {isVisaCaseLoading ? (
+              <div className="border-t border-border pt-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Visa Case Details</p>
+                <p className="text-sm text-muted-foreground">Loading visa case…</p>
+              </div>
+            ) : visaCase && (
               <div className="space-y-3 border-t border-border pt-4">
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Visa Case Details</p>

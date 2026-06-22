@@ -7,5 +7,5 @@ import BackendClients from "@/pages/Bakend Team/Backend Team/BK_Clients";
  * should only move cases through specific stages.
  */
 export default function BtClients() {
-  return <BackendClients title="My Clients" breadcrumbLabel="Binding Team" statusScope="all" defaultPageSize={500} />;
+  return <BackendClients title="My Clients" breadcrumbLabel="Binding Team" statusScope="all" defaultPageSize={20} ownTeam="binding" />;
 }

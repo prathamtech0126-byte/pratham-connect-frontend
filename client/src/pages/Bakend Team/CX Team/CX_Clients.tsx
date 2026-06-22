@@ -6,5 +6,5 @@ import BackendClients from "@/pages/Bakend Team/Backend Team/BK_Clients";
  * Driven by the shared DUMMY_BACKEND_CLIENTS data via the BackendClients table.
  */
 export default function CxClients() {
-  return <BackendClients title="My Clients" breadcrumbLabel="CX Team" statusScope="documentation" defaultPageSize={500} />;
+  return <BackendClients title="My Clients" breadcrumbLabel="CX Team" statusScope="documentation" defaultPageSize={20} />;
 }

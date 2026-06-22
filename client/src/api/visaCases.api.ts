@@ -1211,7 +1211,7 @@ function mapBackendReportRaw(raw: BackendReportRaw): BackendReportResult {
       total: r.total,
     })),
 
-    enrollmentTrend: raw.enrollmentTrend,
+    enrollmentTrend: raw.enrollmentTrend ?? [],
   };
 
   const totals = raw.decisionByDestination.totals;
@@ -1240,4 +1240,33 @@ export async function fetchBackendReport(
     `/api/modules/reports/backend-report?${q}`
   );
   return mapBackendReportRaw(data.data);
+}
+
+/* ------------------------------------------------------------------ */
+/* GET /api/modules/reports/enrollment-trend                           */
+/* ------------------------------------------------------------------ */
+
+export type EnrollmentTrendRange = "6_month" | "12_month" | "maximum";
+
+export interface EnrollmentTrendResult {
+  enrollmentTrend: { month: string; enrollments: number }[];
+  meta: {
+    range: string;
+    rangeLabel: string;
+    totalEnrollments: number;
+  };
+}
+
+export async function fetchEnrollmentTrend(
+  range: EnrollmentTrendRange = "12_month",
+  branchCode?: string
+): Promise<EnrollmentTrendResult> {
+  const q = new URLSearchParams();
+  q.set("range", range);
+  if (branchCode) q.set("branchCode", branchCode);
+  const { data } = await api.get<{
+    success: boolean;
+    data: { meta: EnrollmentTrendResult["meta"] & Record<string, unknown>; enrollmentTrend: { month: string; enrollments: number }[] };
+  }>(`/api/modules/reports/enrollment-trend?${q}`);
+  return { enrollmentTrend: data.data.enrollmentTrend ?? [], meta: data.data.meta };
 }

@@ -139,7 +139,7 @@ export function BackendDashboard({
       {/* KPI heroes */}
       <div className="grid gap-4 md:grid-cols-3">
         <KpiCard label="Total Clients" value={String(data.totalClients)} sub="Enrolled visa cases" icon={Users} accent="blue" onClick={() => go()} breakdown={categoryChips} />
-        <KpiCard label="Approval Rate" value={pct(data.approvalRate)} sub="Approved of decided" icon={CheckCircle2} accent="emerald" onClick={() => go("status=DECISION_APPROVED")} />
+        <KpiCard label="Approval Rate" value={pct(data.approvalRate)} sub="Approved of decided" icon={CheckCircle2} accent="emerald" onClick={() => go("status=APPROVED")} />
         <KpiCard label="Outstanding Balance" value={inr(data.outstandingBalance)} sub="Across all cases" icon={IndianRupee} accent="amber" onClick={() => go("balance=due")} />
       </div>
 
@@ -155,10 +155,10 @@ export function BackendDashboard({
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                 {[
-                  { label: "Approved",        value: co.approved,       dot: "bg-emerald-500", text: "text-foreground", query: "status=DECISION_APPROVED" },
-                  { label: "Refused",         value: co.refused,        dot: "bg-rose-500",    text: "text-foreground", query: "status=DECISION_REFUSED" },
-                  { label: "Withdrawn",       value: co.withdrawn,      dot: "bg-amber-500",   text: "text-foreground", query: "status=DECISION_WITHDRAWN" },
-                  { label: "Pending",         value: co.pending,        dot: "bg-blue-500",    text: "text-foreground", query: "status=DECISION_PENDING" },
+                  { label: "Approved",        value: co.approved,       dot: "bg-emerald-500", text: "text-foreground", query: "status=APPROVED" },
+                  { label: "Refused",         value: co.refused,        dot: "bg-rose-500",    text: "text-foreground", query: "status=REFUSED" },
+                  { label: "Withdrawn",       value: co.withdrawn,      dot: "bg-amber-500",   text: "text-foreground", query: "status=WITHDRAWN" },
+                  { label: "Pending",         value: co.pending,        dot: "bg-blue-500",    text: "text-foreground", query: "status=PENDING" },
                   { label: "Files Submitted", value: co.filesSubmitted, dot: "bg-violet-500",  text: "text-foreground", query: "status=FILE_SUBMITTED" },
                 ].map((c) => (
                   <button
@@ -177,14 +177,14 @@ export function BackendDashboard({
                 ))}
               </div>
               <div className="mt-3 grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => go("status=DECISION_APPROVED")} className="card-hover flex flex-col gap-1 rounded-xl border border-border/50 bg-card p-4 text-left transition-all hover:border-primary/30 hover:bg-accent/40">
+                <button type="button" onClick={() => go("status=APPROVED")} className="card-hover flex flex-col gap-1 rounded-xl border border-border/50 bg-card p-4 text-left transition-all hover:border-primary/30 hover:bg-accent/40">
                   <div className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0" />
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Approval Rate</span>
                   </div>
                   <span className="text-3xl font-bold tabular-nums leading-none text-foreground">{pct(co.approvalRate)}</span>
                 </button>
-                <button type="button" onClick={() => go("status=DECISION_REFUSED")} className="card-hover flex flex-col gap-1 rounded-xl border border-border/50 bg-card p-4 text-left transition-all hover:border-primary/30 hover:bg-accent/40">
+                <button type="button" onClick={() => go("status=REFUSED")} className="card-hover flex flex-col gap-1 rounded-xl border border-border/50 bg-card p-4 text-left transition-all hover:border-primary/30 hover:bg-accent/40">
                   <div className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-rose-500 flex-shrink-0" />
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Refusal Rate</span>

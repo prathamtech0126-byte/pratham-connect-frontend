@@ -137,7 +137,7 @@ export default function BtDashboard() {
           <StatCard
             title="Received from CX"
             value={s?.receivedFromCx ?? 0}
-            description="handed off to binding"
+            description="handed over to binding"
             icon={ArrowRightCircle}
           />
           <StatCard
@@ -161,22 +161,51 @@ export default function BtDashboard() {
           {casesByStage.length > 0 && (
             <Card className="border-none shadow-card lg:col-span-2">
               <CardContent className="p-5">
-                <div className="mb-4 flex items-center gap-2.5">
+                <div className="mb-5 flex items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <GitBranch className="h-4 w-4" />
                   </div>
                   <h3 className="text-sm font-bold text-foreground">Cases by Stage</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {casesByStage.map((st, i) => (
-                    <div key={st.stage} className="flex flex-col items-center rounded-xl border border-border/50 bg-muted/30 p-3 text-center">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                        {i + 1}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {casesByStage.map((st, idx) => {
+                    const dotColors = [
+                      "bg-blue-500", "bg-violet-500", "bg-amber-500", "bg-emerald-500",
+                      "bg-sky-500", "bg-rose-500", "bg-orange-500", "bg-teal-500", "bg-pink-500",
+                    ];
+                    const bgColors = [
+                      "bg-blue-50 dark:bg-blue-500/10", "bg-violet-50 dark:bg-violet-500/10",
+                      "bg-amber-50 dark:bg-amber-500/10", "bg-emerald-50 dark:bg-emerald-500/10",
+                      "bg-sky-50 dark:bg-sky-500/10", "bg-rose-50 dark:bg-rose-500/10",
+                      "bg-orange-50 dark:bg-orange-500/10", "bg-teal-50 dark:bg-teal-500/10",
+                      "bg-pink-50 dark:bg-pink-500/10",
+                    ];
+                    const textColors = [
+                      "text-blue-600 dark:text-blue-400", "text-violet-600 dark:text-violet-400",
+                      "text-amber-600 dark:text-amber-400", "text-emerald-600 dark:text-emerald-400",
+                      "text-sky-600 dark:text-sky-400", "text-rose-600 dark:text-rose-400",
+                      "text-orange-600 dark:text-orange-400", "text-teal-600 dark:text-teal-400",
+                      "text-pink-600 dark:text-pink-400",
+                    ];
+                    const color = idx % dotColors.length;
+                    return (
+                      <div
+                        key={st.stage}
+                        onClick={() => navigate(`/binding/clients?stage=${encodeURIComponent(st.stage)}`)}
+                        className={cn(
+                          "flex flex-col gap-2 rounded-xl border border-transparent p-4 cursor-pointer transition-all hover:ring-2 hover:ring-primary/40 hover:shadow-md",
+                          bgColors[color]
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn("h-2 w-2 rounded-full flex-shrink-0", dotColors[color])} />
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground leading-tight">{st.label}</span>
+                        </div>
+                        <span className={cn("text-3xl font-bold tabular-nums leading-none", textColors[color])}>{st.count}</span>
+                        <span className="text-[11px] text-muted-foreground">{st.count === 1 ? "case" : "cases"}</span>
                       </div>
-                      <span className="mt-2 text-2xl font-bold tabular-nums text-foreground">{st.count}</span>
-                      <span className="mt-1 text-[11px] font-medium leading-tight text-muted-foreground">{st.label}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -243,7 +272,7 @@ export default function BtDashboard() {
               </span>
             </div>
 
-            {/* Stage overview horizontal bar chart */}
+            {/* Stage overview — vertical bar chart */}
             <Card className="border-none shadow-card">
               <CardContent className="p-5">
                 <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -252,41 +281,43 @@ export default function BtDashboard() {
                 <p className="mb-4 text-[11px] text-muted-foreground/70">
                   Comparative view of all pipeline stages
                 </p>
-                <ResponsiveContainer width="100%" height={200}>
+                <ResponsiveContainer width="100%" height={220}>
                   <BarChart
-                    layout="vertical"
                     data={Object.entries(subStatusByStage).map(([label, items]) => ({
                       stage: label,
                       count: items.reduce((s, i) => s + i.count, 0),
                     }))}
-                    barSize={18}
-                    margin={{ left: 8, right: 24, top: 4, bottom: 4 }}
+                    barSize={36}
+                    margin={{ left: 0, right: 0, top: 20, bottom: 8 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                     <XAxis
-                      type="number"
-                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                      dataKey="stage"
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                       axisLine={false}
                       tickLine={false}
+                      interval={0}
+                      height={40}
+                      tickFormatter={(v: string) => v.length > 10 ? v.slice(0, 9) + "…" : v}
                     />
                     <YAxis
-                      type="category"
-                      dataKey="stage"
-                      width={130}
+                      allowDecimals={false}
                       tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                       axisLine={false}
                       tickLine={false}
+                      width={24}
                     />
                     <Tooltip
-                      cursor={{ fill: "hsl(var(--accent))" }}
+                      cursor={{ fill: "hsl(var(--accent))", radius: 6 }}
                       contentStyle={{
                         background: "hsl(var(--card))",
                         border: "1px solid hsl(var(--border))",
                         borderRadius: 8,
                         fontSize: 12,
                       }}
+                      formatter={(value: number) => [value, "Cases"]}
                     />
-                    <Bar dataKey="count" name="Cases" radius={[0, 6, 6, 0]}>
+                    <Bar dataKey="count" name="Cases" radius={[6, 6, 0, 0]} label={{ position: "top", fontSize: 11, fill: "hsl(var(--muted-foreground))", fontWeight: 700 }}>
                       {Object.entries(subStatusByStage).map(([label], i) => (
                         <Cell key={label} fill={STAGE_COLORS[i % STAGE_COLORS.length]} />
                       ))}
