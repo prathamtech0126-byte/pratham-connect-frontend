@@ -51,6 +51,7 @@ export function isTransferOutcomeLead(lead: LeadEntity): boolean {
 
 export function isConvertedInPeriod(lead: LeadEntity, bounds: ReportPeriodBounds): boolean {
   if (lead.isJunk || lead.progressStatus === "junk") return false;
+  if (lead.pendingConverted) return false;
   if (lead.assignmentStatus !== "converted") return false;
   return isTimestampInReportPeriod(lead.convertedAt ?? null, bounds);
 }

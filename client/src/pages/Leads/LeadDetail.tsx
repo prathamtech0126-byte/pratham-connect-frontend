@@ -959,7 +959,8 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
   }
 
   const isCounsellor = user?.role === "counsellor";
-  const readOnly = isLeadReadOnly(lead, user?.role);
+  const telecallerTransferredViewOnly = Boolean(leadMeta?.telecallerTransferredViewOnly);
+  const readOnly = isLeadReadOnly(lead, user?.role) || telecallerTransferredViewOnly;
   const junk = isLeadJunk(lead);
   const converted = isLeadConverted(lead);
 
@@ -990,6 +991,7 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       lead={lead}
       leadMeta={leadMeta}
       readOnly={readOnly}
+      telecallerTransferredViewOnly={telecallerTransferredViewOnly}
       isCounsellor={isCounsellor}
       isJunk={junk}
       isConverted={converted}
@@ -1010,8 +1012,26 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       typeOptions={typeOptions}
       counsellors={counsellors}
       telecallers={telecallers}
-      noteActivities={noteActivities.map((a) => ({ id: a.id, message: a.message ?? "", createdAt: a.createdAt }))}
-      followupActivities={followupActivities.map((a) => ({ id: a.id, followupAt: a.followupAt ?? "", message: a.message ?? "", status: a.status }))}
+      noteActivities={noteActivities.map((a) => ({
+        id: a.id,
+        message: a.message ?? "",
+        createdAt: a.createdAt,
+        userName: a.userName ?? null,
+        canEdit:
+          !readOnly &&
+          (user?.role !== "telecaller" || a.userId == null || a.userId === user?.id),
+      }))}
+      followupActivities={followupActivities.map((a) => ({
+        id: a.id,
+        followupAt: a.followupAt ?? "",
+        message: a.message ?? "",
+        status: a.status,
+        userName: a.userName ?? null,
+        canComplete:
+          user?.role === "telecaller"
+            ? Boolean(a.canComplete)
+            : !readOnly && a.status === "pending",
+      }))}
       timelineItems={timelineItems}
       showAddNote={showAddNote}
       noteText={noteText}

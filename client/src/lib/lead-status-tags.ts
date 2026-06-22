@@ -36,6 +36,12 @@ export const isLeadDropped = (lead: LeadEntity) =>
 export const isLeadConverted = (lead: LeadEntity) =>
   lead.progressStatus === "converted" || lead.assignmentStatus === "converted";
 
+/** Telecaller conversion KPI — finalized only (TD taken for student category). */
+export const isLeadTelecallerConverted = (lead: LeadEntity) =>
+  lead.assignmentStatus === "converted" && !lead.pendingConverted;
+
+export const isPendingConverted = (lead: LeadEntity) => Boolean(lead.pendingConverted);
+
 export const hasPendingFollowUp = (
   lead: LeadEntity,
   options?: LeadDisplayTagOptions
@@ -122,6 +128,14 @@ function transferredToTag(_lead: LeadEntity): LeadDisplayTag {
   };
 }
 
+function pendingConvertedTag(): LeadDisplayTag {
+  return {
+    key: "pending_converted",
+    label: "Pending Converted",
+    className: "bg-amber-600 text-white border-0",
+  };
+}
+
 function convertedTag(): LeadDisplayTag {
   return {
     key: "converted",
@@ -193,7 +207,15 @@ export function getLeadDisplayTags(
     return [clientDroppedTag()];
   }
 
-  if (isLeadConverted(lead)) {
+  if (isPendingConverted(lead)) {
+    return [pendingConvertedTag()];
+  }
+
+  if (isLeadTelecallerConverted(lead)) {
+    return [convertedTag()];
+  }
+
+  if (lead.progressStatus === "converted") {
     return [convertedTag()];
   }
 
@@ -217,7 +239,7 @@ export function getLeadDisplayTags(
 }
 
 export const isLeadConvertedForRole = (lead: LeadEntity, role?: string | null) =>
-  role === "telecaller" && isLeadConverted(lead);
+  role === "telecaller" ? isLeadTelecallerConverted(lead) : isLeadConverted(lead);
 
 /** Junk is read-only for everyone; converted leads are view-only for everyone. */
 export const isLeadReadOnly = (lead: LeadEntity, role?: string | null) =>
@@ -285,6 +307,8 @@ export const mergeLeadRow = (prev: LeadEntity, patch: Partial<LeadEntity>): Lead
       : prev.counsellorName,
   pendingFollowUp:
     patch.pendingFollowUp !== undefined ? patch.pendingFollowUp : prev.pendingFollowUp,
+  pendingConverted:
+    patch.pendingConverted !== undefined ? patch.pendingConverted : prev.pendingConverted,
 });
 
 export const sortLeadsForDisplay = (items: LeadEntity[]): LeadEntity[] =>
@@ -294,9 +318,17 @@ export const sortLeadsForDisplay = (items: LeadEntity[]): LeadEntity[] =>
     if (aJunk !== bJunk) return aJunk - bJunk;
 
     const aDone =
-      a.assignmentStatus === "transferred" || isLeadConverted(a) || isLeadDropped(a) ? 1 : 0;
+      a.assignmentStatus === "transferred" ||
+      isLeadTelecallerConverted(a) ||
+      isLeadDropped(a)
+        ? 1
+        : 0;
     const bDone =
-      b.assignmentStatus === "transferred" || isLeadConverted(b) || isLeadDropped(b) ? 1 : 0;
+      b.assignmentStatus === "transferred" ||
+      isLeadTelecallerConverted(b) ||
+      isLeadDropped(b)
+        ? 1
+        : 0;
     if (aDone !== bDone) return aDone - bDone;
     const aRank = PROGRESS_SORT_RANK[a.progressStatus] ?? 99;
     const bRank = PROGRESS_SORT_RANK[b.progressStatus] ?? 99;
@@ -325,14 +357,16 @@ export const sortLeadsForTelecallerReport = (items: LeadEntity[]): LeadEntity[] 
 export const getTelecallerReportAssignmentTag = (lead: LeadEntity): LeadDisplayTag | null => {
   const status = lead.assignmentStatus;
   if (!status || status === "assigned" || status === "not_assigned") return null;
-  if (status === "transferred") {
+  if (status === "transferred" || isPendingConverted(lead)) {
     return {
-      key: "transferred",
-      label: "Transferred",
-      className: "bg-blue-600 text-white border-0",
+      key: isPendingConverted(lead) ? "pending_converted" : "transferred",
+      label: isPendingConverted(lead) ? "Pending Converted" : "Transferred",
+      className: isPendingConverted(lead)
+        ? "bg-amber-600 text-white border-0"
+        : "bg-blue-600 text-white border-0",
     };
   }
-  if (status === "converted" || isLeadConverted(lead)) {
+  if (status === "converted" || isLeadTelecallerConverted(lead)) {
     return {
       key: "converted",
       label: "Converted",
