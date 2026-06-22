@@ -109,6 +109,7 @@ export type LeadDetailLayoutProps = {
   lead: LeadEntity;
   leadMeta: LeadDetailMeta | null;
   readOnly: boolean;
+  telecallerTransferredViewOnly?: boolean;
   isCounsellor: boolean;
   isJunk: boolean;
   isConverted: boolean;
@@ -128,12 +129,19 @@ export type LeadDetailLayoutProps = {
   typeOptions: { id: number; saleType: string }[];
   counsellors: { id: number; fullName: string }[];
   telecallers: { id: number; fullName: string }[];
-  noteActivities: { id: number; message?: string; createdAt: string }[];
+  noteActivities: {
+    id: number;
+    message?: string;
+    createdAt: string;
+    userName?: string | null;
+    canEdit?: boolean;
+  }[];
   followupActivities: {
     id: number;
     followupAt?: string;
     message?: string;
     status: string;
+    userName?: string | null;
   }[];
   timelineItems: any[];
   showAddNote: boolean;
@@ -181,6 +189,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
     lead,
     leadMeta,
     readOnly,
+    telecallerTransferredViewOnly,
     isCounsellor,
     isJunk,
     isConverted,
@@ -294,9 +303,11 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
 
   const readOnlyLabel = isJunk
     ? "Read only — junk"
-    : isConverted
-      ? "Read only — converted"
-      : "Read only";
+    : telecallerTransferredViewOnly
+      ? "View only — Lead Is Transferred To Counsellor"
+      : isConverted
+        ? "Read only — converted"
+        : "Read only";
 
   const showTransferHint =
     !readOnly && !isCounsellor && (!lead.eligibilityStatus || !lead.leadQuality);
@@ -304,6 +315,13 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
   return (
     <div className="space-y-5 pb-8 animate-in fade-in-50 duration-500">
       <Breadcrumbs items={[{ label: "Leads", href: "/leads" }, { label: lead.fullName }]} />
+
+      {telecallerTransferredViewOnly && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          This lead is with a counsellor. You can view notes, follow-ups, and the full timeline, but
+          you cannot add or edit notes or complete counsellor follow-ups.
+        </div>
+      )}
 
       {/* Hero header */}
       <div className="rounded-xl border bg-card shadow-sm p-5 md:p-6">
@@ -767,11 +785,18 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                         </>
                       ) : (
                         <div className="flex justify-between gap-4">
-                          <p className="text-sm flex-1 break-words break-all min-w-0 [overflow-wrap:anywhere]">
-                            {n.message}
-                          </p>
+                          <div className="min-w-0 flex-1 space-y-1">
+                            {n.userName && (
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                {n.userName}
+                              </p>
+                            )}
+                            <p className="text-sm break-words break-all min-w-0 [overflow-wrap:anywhere]">
+                              {n.message}
+                            </p>
+                          </div>
                           <div className="flex flex-col items-end gap-2 shrink-0">
-                            {!readOnly && (
+                            {!readOnly && n.canEdit !== false && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -783,6 +808,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                               </Button>
                             )}
                             <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                              {n.userName ? `${n.userName} · ` : ""}
                               {formatDateTime(n.createdAt)}
                             </span>
                           </div>
@@ -820,6 +846,11 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold">{formatDateTime(f.followupAt)}</p>
+                          {f.userName && (
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mt-0.5">
+                              Scheduled by {f.userName}
+                            </p>
+                          )}
                           {f.message && (
                             <p className="text-sm text-muted-foreground mt-0.5 break-words break-all whitespace-pre-wrap">
                               {f.message}
@@ -827,7 +858,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                           )}
                         </div>
                       </div>
-                      {isPending && !readOnly && (
+                      {isPending && f.canComplete && (
                         <Button
                           size="sm"
                           variant="outline"

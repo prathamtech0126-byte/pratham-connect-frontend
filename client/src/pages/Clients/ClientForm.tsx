@@ -2671,13 +2671,15 @@ export default function ClientForm() {
   const markOriginatingLeadConverted = useCallback(async () => {
     if (!fromLeadId || leadConvertedMarkedRef.current) return;
     try {
-      await updateLeadApi(fromLeadId, {
+      const updated = await updateLeadApi(fromLeadId, {
         progressStatus: "converted",
         assignmentStatus: "converted",
       });
       pushLeadListPatch(fromLeadId, {
-        progressStatus: "converted",
-        assignmentStatus: "converted",
+        progressStatus: updated.progressStatus ?? "converted",
+        assignmentStatus: updated.assignmentStatus ?? "converted",
+        convertedAt: updated.convertedAt ?? null,
+        pendingConverted: updated.pendingConverted,
       });
       leadConvertedMarkedRef.current = true;
     } catch (err: unknown) {

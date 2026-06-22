@@ -60,13 +60,17 @@ import {
   Star,
   UserCheck,
   RotateCcw,
+  FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
 
+import { downloadLeadsExcel } from "@/lib/export-leads-excel";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import {
   fetchAllLeads,
+  getBulkLeadNotesApi,
   assignLeadApi,
   addLeadActivityApi,
   updateLeadFieldsApi,
@@ -556,6 +560,7 @@ export default function LeadList() {
   const [ttSubmitting, setTtSubmitting] = useState(false);
 
   const [adminTransferOpen, setAdminTransferOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const canBulkSelect =
     user?.role === "telecaller" ||
@@ -1357,9 +1362,11 @@ const loadLeadTypes = useCallback(async () => {
 
   const getAdminTransferableLeads = useCallback(
     () =>
-      leads.filter(
-        (l) => selectedLeadIds.has(l.id) && !isAdminJunkRestoreMode && !isLeadTransferBlocked(l)
-      ),
+      leads.filter((l) => {
+        if (!selectedLeadIds.has(l.id)) return false;
+        if (isAdminJunkRestoreMode) return isLeadJunk(l);
+        return !isLeadTransferBlocked(l);
+      }),
     [leads, selectedLeadIds, isAdminJunkRestoreMode]
   );
 
@@ -1434,9 +1441,36 @@ const loadLeadTypes = useCallback(async () => {
   const ttTargetName = telecallers.find((t) => String(t.id) === ttTargetId)?.fullName ?? "";
 
   const adminTransferableCount = getAdminTransferableLeads().length;
-  const adminSkippedTransferCount = isAdminJunkRestoreMode
-    ? 0
-    : Math.max(0, selectedLeadIds.size - adminTransferableCount);
+  const adminSkippedTransferCount = Math.max(0, selectedLeadIds.size - adminTransferableCount);
+
+  const handleExportLeads = async () => {
+    if (leads.length === 0) {
+      toast({
+        title: "No leads to export",
+        description: "Adjust filters or wait for the list to load.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setExporting(true);
+      const notesByLeadId = await getBulkLeadNotesApi(leads.map((l) => l.id));
+      await downloadLeadsExcel({
+        leads,
+        notesByLeadId,
+        sourceOptions: leadTypes,
+        saleTypes,
+      });
+      toast({
+        title: "Export complete",
+        description: `${leads.length} lead${leads.length === 1 ? "" : "s"} exported to Excel.`,
+      });
+    } catch {
+      toast({ title: "Export failed", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const eligibilityLabel = (v?: string | null) =>
     ELIGIBILITY_OPTIONS.find((o) => o.value === v)?.label;
@@ -1491,6 +1525,18 @@ const loadLeadTypes = useCallback(async () => {
               </Button>
             </>
           )}
+          <Button
+            variant="outline"
+            onClick={() => void handleExportLeads()}
+            disabled={exporting || loading || leads.length === 0}
+          >
+            {exporting ? (
+              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 mr-1.5" />
+            )}
+            Export Excel
+          </Button>
           <Button onClick={() => setIsAddLeadOpen(true)}>Add New Lead</Button>
         </div>
       </div>

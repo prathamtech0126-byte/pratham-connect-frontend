@@ -389,8 +389,10 @@ export function LeadBulkAssignDialog({
       }
       if (transferableCount === 0) {
         toast({
-          title: "No leads to transfer",
-          description: "Transferred or converted leads cannot be reassigned.",
+          title: isJunkRestoreMode ? "No junk leads to restore" : "No leads to transfer",
+          description: isJunkRestoreMode
+            ? "Select junk leads from the list to restore and assign."
+            : "Transferred or converted leads cannot be reassigned.",
           variant: "destructive",
         });
         return;
@@ -445,12 +447,14 @@ export function LeadBulkAssignDialog({
         </DialogHeader>
 
         <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm shrink-0">
-          <span className="font-semibold">{transferableCount}</span> transferable lead
+          <span className="font-semibold">{transferableCount}</span>{" "}
+          {isJunkRestoreMode ? "junk lead" : "transferable lead"}
           {transferableCount !== 1 ? "s" : ""}
           {blockedCount > 0 && (
             <span className="text-muted-foreground">
               {" "}
-              · {blockedCount} skipped (transferred or converted)
+              · {blockedCount} skipped
+              {isJunkRestoreMode ? " (not junk)" : " (transferred or converted)"}
             </span>
           )}
         </div>
