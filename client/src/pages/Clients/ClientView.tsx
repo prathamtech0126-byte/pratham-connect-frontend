@@ -1215,6 +1215,12 @@ export default function ClientView() {
           visaCaseId,
           body: { subStatus: statusValue, notes: statusNotes || undefined },
         });
+        // Optimistically patch the cached visa case so derived flags (isFullyReceived, etc.)
+        // update immediately without waiting for the slow paginated refetch scan.
+        queryClient.setQueryData(
+          ["visa-case-by-client", clientId],
+          (old: any) => old ? { ...old, processing: { ...old.processing, subStatus: statusValue } } : old
+        );
         const label = processingStages?.viewer.updatableSubStatuses.find((s) => s.value === statusValue)?.displayLabel ?? statusValue;
         toast({ title: "Status updated", description: `Processing status set to "${label}".` });
         setStatusOpen(false);
@@ -1249,7 +1255,7 @@ export default function ClientView() {
           {returnPath && (
             <Button variant="outline" size="sm" onClick={() => setLocation(returnPath)} className="gap-1.5">
               <ArrowLeft className="h-4 w-4" />
-              {user?.role === "customer_experience" || user?.role === "binding_team" ? "Back to my clients" : "Back to clients"}
+              {user?.role === "customer_experience" || user?.role === "binding_team" ? "Back to my clients" : user?.role === "backend_manager" ? "Back to Visa Processing" : "Back to clients"}
             </Button>
           )}
           {params?.id && user?.role === "binding_team" && (
@@ -1579,11 +1585,20 @@ export default function ClientView() {
                 value: "docs-vault",
                 label: "Docs Vault",
                 content: (isCxUser || isBindingUser) ? (
-                  <CxDocReviewPanel
-                    rawDocuments={documents}
-                    clientName={clientFullName}
-                    canReviewDocuments={isCxUser}
-                  />
+                  // {/* <CxDocReviewPanel
+                  //   rawDocuments={documents}
+                  //   clientName={clientFullName}
+                  //   canReviewDocuments={isCxUser}
+                  // /> */}
+                  <Card className="border-none shadow-md overflow-hidden bg-card">
+                    <CardContent className="flex flex-col items-center justify-center py-20 gap-4">
+                      <FolderOpen className="h-14 w-14 text-muted-foreground/40" />
+                      <p className="text-xl font-bold text-foreground">Coming Soon</p>
+                      <p className="text-sm text-muted-foreground text-center max-w-sm">
+                        The Docs Vault feature is currently under development. Check back soon.
+                      </p>
+                    </CardContent>
+                  </Card>
                 ) : (
                   <Card className="border-none shadow-md overflow-hidden bg-card">
                     <CardHeader className="pb-4 border-b border-border">
@@ -1960,6 +1975,7 @@ export default function ClientView() {
                     inputMode="numeric"
                     value={membersDraft}
                     onChange={(e) => setMembersDraft(e.target.value)}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
                     className="h-9"
                     disabled={!canEditVisaCase}
                   />

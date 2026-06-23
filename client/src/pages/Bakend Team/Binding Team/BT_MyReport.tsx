@@ -62,9 +62,9 @@ export default function BtMyReport() {
       color: VISA_COLOR_MAP[s.color] ?? "#94a3b8",
     }));
 
-  const docCompletenessValue = ps?.docCompletenessAtHandoff.value ?? 0;
-  const tatBreachDisplay = ps?.tatBreachRate.display;
-  const tatBreachValue = ps?.tatBreachRate.value ?? 0;
+  const docCompletenessValue = ps?.docCompletenessAtHandoff?.value ?? 0;
+  const tatBreachDisplay = ps?.tatBreachRate?.display;
+  const tatBreachValue = ps?.tatBreachRate?.value ?? 0;
 
   return (
     <PageWrapper
@@ -116,7 +116,7 @@ export default function BtMyReport() {
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
                       <p className="text-xs text-muted-foreground">Received from CX</p>
-                      <p className="text-3xl font-bold text-foreground mt-1">{ps?.filesReceivedFromCx.value ?? 0}</p>
+                      <p className="text-3xl font-bold text-foreground mt-1">{ps?.filesReceivedFromCx?.value ?? 0}</p>
                     </div>
                     <ArrowDownToLine className="h-7 w-7 text-violet-400 opacity-70 flex-shrink-0 ml-2" />
                   </div>
@@ -130,7 +130,7 @@ export default function BtMyReport() {
                     <div className="min-w-0 flex-1">
                       <p className="text-xs text-muted-foreground">Avg. Days in Binding</p>
                       <p className="text-3xl font-bold text-foreground mt-1">
-                        {ps?.avgDaysInBinding.value != null ? ps.avgDaysInBinding.value : "—"}
+                        {ps?.avgDaysInBinding?.value != null ? ps.avgDaysInBinding.value : "—"}
                       </p>
                     </div>
                     <Clock className="h-7 w-7 text-blue-400 opacity-70 flex-shrink-0 ml-2" />
@@ -145,7 +145,7 @@ export default function BtMyReport() {
                     <div className="min-w-0 flex-1">
                       <p className="text-xs text-muted-foreground">Doc Completeness at Handoff</p>
                       <p className="text-3xl font-bold text-foreground mt-1">
-                        {ps?.docCompletenessAtHandoff.display ?? "—"}
+                        {ps?.docCompletenessAtHandoff?.display ?? "—"}
                       </p>
                       <div className="mt-2">
                         <Progress value={docCompletenessValue} className="h-1.5" />

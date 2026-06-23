@@ -474,7 +474,10 @@ export default function BackendClients({
 
   // Clicking a client (row or name) navigates to the full client detail page
   // instead of opening the in-list dialog.
-  const goToClient = (c: VisaClient) => setLocation(`/clients/${c.id}/view`);
+  const goToClient = (c: VisaClient) => {
+    sessionStorage.setItem("client_list_return_path", "/backend/clients");
+    setLocation(`/clients/${c.id}/view`);
+  };
 
   const openEdit = (c: VisaClient) => {
     setDialogClient(c);

@@ -7,6 +7,7 @@ export function isClientListReturnPath(path: string | null): boolean {
     base.startsWith("/clients/archive/counsellor/") ||
     base.startsWith("/clients/all-counsellor-clients") ||
     base === "/cx/clients" ||
-    base === "/binding/clients"
+    base === "/binding/clients" ||
+    base === "/backend/clients"
   );
 }
