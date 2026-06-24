@@ -1019,7 +1019,9 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
         userName: a.userName ?? null,
         canEdit:
           !readOnly &&
-          (user?.role !== "telecaller" || a.userId == null || a.userId === user?.id),
+          (user?.role !== "telecaller" ||
+            a.userId == null ||
+            (user?.id != null && a.userId === Number(user.id))),
       }))}
       followupActivities={followupActivities.map((a) => ({
         id: a.id,
