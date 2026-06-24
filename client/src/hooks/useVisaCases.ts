@@ -10,6 +10,7 @@ import {
   changeVisaCaseStatus,
   fetchAssignableUsers,
   fetchAllBackendUsers,
+  fetchAllSystemUsers,
   fetchProcessingStages,
   fetchVisaCaseDashboard,
   fetchBackendReportsDashboard,
@@ -104,6 +105,19 @@ export function useAllBackendUsers(enabled = true) {
   return useQuery({
     queryKey: ["all-backend-users"],
     queryFn: fetchAllBackendUsers,
+    enabled,
+    staleTime: 1000 * 60 * 10,
+  });
+}
+
+/**
+ * Fetch ALL system users (every role) from /api/users/users.
+ * Used in CSV export to resolve counsellor names (stored as userId on visa cases).
+ */
+export function useAllSystemUsers(enabled = true) {
+  return useQuery({
+    queryKey: ["all-system-users"],
+    queryFn: fetchAllSystemUsers,
     enabled,
     staleTime: 1000 * 60 * 10,
   });

@@ -57,7 +57,7 @@ import {
   BACKEND_STAGES,
   stageOfStatus,
 } from "@/data/dummyBackendData";
-import { useVisaCases, useVisaCountries, useAllBackendUsers, useAssignableUsers, useProcessingStages } from "@/hooks/useVisaCases";
+import { useVisaCases, useVisaCountries, useAllBackendUsers, useAllSystemUsers, useAssignableUsers, useProcessingStages } from "@/hooks/useVisaCases";
 import { assignBulkVisaCases, changeVisaCaseStatus, changeVisaCaseDecision } from "@/api/visaCases.api";
 import type { ProcessingSubStatus } from "@/api/visaCases.api";
 import {
@@ -510,6 +510,14 @@ export default function BackendClients({
     return m;
   }, [allBackendUsers]);
 
+  // Broader lookup (all roles incl. counsellors) — used in CSV export to resolve counsellor names.
+  const { data: allSystemUsers } = useAllSystemUsers();
+  const allUserNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const u of allSystemUsers ?? []) m.set(u.id, u.fullName);
+    return m;
+  }, [allSystemUsers]);
+
   const [selectMode, setSelectMode] = useState(false);
   const [selectedCaseIds, setSelectedCaseIds] = useState<Set<string>>(new Set());
   const [assignOpen, setAssignOpen] = useState(false);
@@ -711,10 +719,24 @@ export default function BackendClients({
 
   const handleExport = () => {
     if (filtered.length === 0) return;
-    const headers = ["ID", "Name", "Passport", "Destination", "Travel Reason", "Sponsor", "Status", "Decision", "Enrollment Date", "Balance Due", "Counsellor", ...(showHandledBy ? ["Handled By"] : [])];
-    const rows = filtered.map((c) => [
-      c.id, c.name, c.passport, c.destination, c.travelReason, c.sponsor, c.status, c.decision, fmtDate(c.enrollmentDate), c.balanceDue, c.counsellor, ...(showHandledBy ? [c.handledBy] : []),
-    ]);
+    const dash = (v: string) => (v === "—" ? "" : v);
+    const headers = [
+      "ID", "Name", "Passport", "Destination", "Travel Reason", "Sponsor",
+      "Status", "Decision", "Enrollment Date",
+      "Total Charges", "Initial Received", "Before Visa", "Balance Due",
+      ...(showHandledBy ? ["Handled By"] : []),
+    ];
+    const rows = filtered.map((c) => {
+      const handledByName = c.assignedUserId == null
+        ? "Unassigned"
+        : (c.assignedUserName ?? userNameById.get(c.assignedUserId) ?? "Unassigned");
+      return [
+        c.id, c.name, c.passport, c.destination, dash(c.travelReason), dash(c.sponsor),
+        c.status, c.decision, fmtDate(c.enrollmentDate),
+        c.totalCharges, c.initialReceived, c.beforeVisaCharges, c.balanceDue,
+        ...(showHandledBy ? [handledByName] : []),
+      ];
+    });
     const csv = [headers, ...rows]
       .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
       .join("\n");

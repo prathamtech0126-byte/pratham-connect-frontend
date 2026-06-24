@@ -524,6 +524,24 @@ export async function fetchAllBackendUsers(): Promise<AssignableUser[]> {
     .filter((u) => u.role === "cx" || u.role === "binding" || u.role === "application");
 }
 
+/**
+ * Fetch ALL system users (all roles, no filter) from GET /api/users/users.
+ * Used to resolve counsellor names in the CSV export (counsellors are stored
+ * as userId on each visa case but are not returned by fetchAllBackendUsers).
+ */
+export async function fetchAllSystemUsers(): Promise<AssignableUser[]> {
+  const { data } = await api.get<{ success: boolean; data: any[] | { users: any[] } }>(
+    "/api/users/users"
+  );
+  const raw: any[] = Array.isArray(data?.data) ? data.data : (data?.data as any)?.users ?? [];
+  return raw.map((u) => ({
+    id: u.id,
+    fullName: u.fullName ?? u.name ?? `User ${u.id}`,
+    role: String(u.role ?? ""),
+    empId: u.empId ?? u.emp_id ?? u.empID ?? null,
+  }));
+}
+
 export interface DocumentRequestPayload {
   clientId: string;
   legacyClientId?: number;

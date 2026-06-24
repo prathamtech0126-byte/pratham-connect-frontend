@@ -492,7 +492,7 @@ const renderProductDetails = (product: any) => {
           {entity.amount && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Amount:</span>
-              <span className="font-semibold">${Number(entity.amount).toLocaleString('en-IN')}</span>
+              <span className="font-semibold">₹{Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.remarks && (
