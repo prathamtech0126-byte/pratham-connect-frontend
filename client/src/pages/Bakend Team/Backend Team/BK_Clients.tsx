@@ -123,7 +123,7 @@ const fmtDate = (iso: string) => {
   return `${d}-${m}-${y}`;
 };
 
-type SortKey = "name" | "destination" | "travelReason" | "status" | "decision" | "enrollmentDate" | "balanceDue" | "handledBy";
+type SortKey = "name" | "destination" | "travelReason" | "status" | "decision" | "enrollmentDate" | "totalCharges" | "initialReceived" | "beforeVisaCharges" | "financeCharges" | "balanceDue" | "handledBy";
 type SortDir = "asc" | "desc";
 
 /* ------------------------------------------------------------------ */
@@ -380,6 +380,7 @@ export default function BackendClients({
 
   // Dialog state
   const [dialogClient, setDialogClient] = useState<VisaClient | null>(null);
+  const [financialExpanded, setFinancialExpanded] = useState(false);
   const [dialogMode, setDialogMode] = useState<"view" | "edit">("view");
   const [draft, setDraft] = useState<VisaClient | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VisaClient | null>(null);
@@ -405,8 +406,12 @@ export default function BackendClients({
       // Destination is filtered server-side via `countryId` (see visaFilters).
       if (decisionFilter !== "all" && c.decision !== decisionFilter) return false;
       if (reasonFilter !== "all" && c.travelReason !== reasonFilter) return false;
-      if (balanceFilter === "due" && !(c.balanceDue > 0)) return false;
-      if (balanceFilter === "paid" && c.balanceDue > 0) return false;
+      if (balanceFilter === "due"               && !(c.balanceDue > 0))        return false;
+      if (balanceFilter === "paid"              && c.balanceDue > 0)           return false;
+      if (balanceFilter === "initial_received"  && !(c.initialReceived > 0))   return false;
+      if (balanceFilter === "initial_pending"   && c.initialReceived > 0)      return false;
+      if (balanceFilter === "bv_received"       && !(c.beforeVisaCharges > 0)) return false;
+      if (balanceFilter === "bv_pending"        && c.beforeVisaCharges > 0)    return false;
       if (handledByFilter !== "all") {
         if (handledByFilter === "unassigned") {
           if (c.assignedUserId != null) return false;
@@ -422,10 +427,11 @@ export default function BackendClients({
     rows = [...rows].sort((a, b) => {
       let av: string | number = a[sortKey];
       let bv: string | number = b[sortKey];
-      if (sortKey === "balanceDue") {
-        av = a.balanceDue;
-        bv = b.balanceDue;
-      }
+      if (sortKey === "balanceDue")    { av = a.balanceDue;      bv = b.balanceDue; }
+      if (sortKey === "totalCharges")  { av = a.totalCharges;    bv = b.totalCharges; }
+      if (sortKey === "initialReceived")   { av = a.initialReceived;   bv = b.initialReceived; }
+      if (sortKey === "beforeVisaCharges") { av = a.beforeVisaCharges; bv = b.beforeVisaCharges; }
+      if (sortKey === "financeCharges") { av = a.financeCharges;  bv = b.financeCharges; }
       if (typeof av === "string" && typeof bv === "string") {
         return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
       }
@@ -875,13 +881,26 @@ export default function BackendClients({
             <div className="space-y-1.5">
               <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Payment</Label>
               <Select value={balanceFilter} onValueChange={setBalanceFilter}>
-                <SelectTrigger className={cn("h-9 w-[170px]", balanceFilter !== "all" && "border-primary/40 bg-primary/5 text-primary")}>
+                <SelectTrigger className={cn("h-9 w-[190px]", balanceFilter !== "all" && "border-primary/40 bg-primary/5 text-primary")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="due">With Balance Due</SelectItem>
-                  <SelectItem value="paid">Fully Paid</SelectItem>
+                  <SelectGroup>
+                    <SelectLabel>Balance Due</SelectLabel>
+                    <SelectItem value="due">With Balance Due</SelectItem>
+                    <SelectItem value="paid">Fully Paid</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Initial</SelectLabel>
+                    <SelectItem value="initial_received">Initial Received</SelectItem>
+                    <SelectItem value="initial_pending">Initial Pending</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Before Visa</SelectLabel>
+                    <SelectItem value="bv_received">Before Visa Received</SelectItem>
+                    <SelectItem value="bv_pending">Before Visa Pending</SelectItem>
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
@@ -1013,7 +1032,29 @@ export default function BackendClients({
                   <SortHeader label="Travel Reason" k="travelReason" />
                   <SortHeader label="Status" k="status" />
                   <SortHeader label="Enrollment" k="enrollmentDate" />
-                  <SortHeader label="Balance Due" k="balanceDue" className="text-right" />
+                  <TableHead className="whitespace-nowrap py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <div className="flex items-center justify-end gap-1">
+                      <button type="button" onClick={() => toggleSort("balanceDue")} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        Balance Due
+                        {sortKey === "balanceDue" ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : <ChevronsUpDown className="w-3 h-3 opacity-50" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFinancialExpanded((v) => !v)}
+                        className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors shrink-0", financialExpanded ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:bg-muted hover:text-foreground")}
+                        title={financialExpanded ? "Collapse financial columns" : "Expand financial columns"}
+                      >
+                        {financialExpanded ? <ChevronsLeft className="h-3.5 w-3.5" /> : <ChevronsRight className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
+                  </TableHead>
+                  {financialExpanded && (
+                    <>
+                      <SortHeader label="Total" k="totalCharges" className="text-right" />
+                      <SortHeader label="Initial" k="initialReceived" className="text-right" />
+                      <SortHeader label="Before Visa" k="beforeVisaCharges" className="text-right" />
+                    </>
+                  )}
                   {showHandledBy ? <SortHeader label="Handled By" k="handledBy" /> : null}
                   <TableHead className="py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</TableHead>
                 </TableRow>
@@ -1021,7 +1062,7 @@ export default function BackendClients({
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={(showHandledBy ? 10 : 9) + (selectMode && canAssign ? 1 : 0)} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={(showHandledBy ? (financialExpanded ? 13 : 10) : (financialExpanded ? 12 : 9)) + (selectMode && canAssign ? 1 : 0)} className="h-32 text-center text-muted-foreground py-12">
                       {isLoading
                         ? "Loading cases…"
                         : isError
@@ -1077,10 +1118,23 @@ export default function BackendClients({
                       </TableCell>
                       <TableCell className="py-3 whitespace-nowrap text-sm text-muted-foreground">{fmtDate(c.enrollmentDate)}</TableCell>
                       <TableCell className="py-3 text-right tabular-nums">
-                        <span className={c.balanceDue > 0 ? "font-semibold text-foreground" : "text-muted-foreground"}>
-                          {c.balanceDue > 0 ? inr(c.balanceDue) : c.balanceDue === 0 ? "₹0" : "—"}
+                        <span className={cn("text-sm font-semibold", c.balanceDue > 0 ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground")}>
+                          {c.balanceDue > 0 ? inr(c.balanceDue) : "₹0"}
                         </span>
                       </TableCell>
+                      {financialExpanded && (
+                        <>
+                          <TableCell className="py-3 text-right tabular-nums text-sm text-foreground">
+                            {c.totalCharges > 0 ? inr(c.totalCharges) : "—"}
+                          </TableCell>
+                          <TableCell className="py-3 text-right tabular-nums text-sm text-emerald-600 dark:text-emerald-400">
+                            {c.initialReceived > 0 ? inr(c.initialReceived) : "₹0"}
+                          </TableCell>
+                          <TableCell className="py-3 text-right tabular-nums text-sm text-violet-600 dark:text-violet-400">
+                            {c.beforeVisaCharges > 0 ? inr(c.beforeVisaCharges) : "—"}
+                          </TableCell>
+                        </>
+                      )}
                       {showHandledBy ? (
                         <TableCell className="py-3">
                           {(() => {
@@ -1153,6 +1207,7 @@ export default function BackendClients({
                                       <span className="text-[11px] text-muted-foreground">Move the processing stage</span>
                                     </span>
                                   </DropdownMenuItem>
+                                  {/* Change Decision — temporarily hidden from all users
                                   <DropdownMenuSeparator className="my-1" />
                                   <DropdownMenuItem
                                     onClick={() => openDecisionChange(c)}
@@ -1166,6 +1221,7 @@ export default function BackendClients({
                                       <span className="text-[11px] text-muted-foreground">Record the embassy outcome</span>
                                     </span>
                                   </DropdownMenuItem>
+                                  */}
                                 </>
                               ) : null}
                             </DropdownMenuContent>

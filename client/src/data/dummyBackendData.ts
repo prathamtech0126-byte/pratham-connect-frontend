@@ -109,6 +109,7 @@ export interface VisaClient {
   // Financials
   totalCharges: number;
   initialReceived: number;
+  beforeVisaCharges: number;
   financeCharges: number;
   balanceDue: number;
 
@@ -157,6 +158,7 @@ export interface BackendDashboardData {
   financial: {
     totalCharges: number;
     initialReceived: number;
+    beforeVisaCharges: number;
     financeCharges: number;
     totalBalanceDue: number;
     collectionPct: number | null;
@@ -221,7 +223,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Tourism", sponsor: "Self-Sponsored",
     status: "Documentation: Partially Received", decision: "Pending", enrollmentDate: "2026-01-16", counsellor: "Priya Singh",
     handledBy: "Harsh",
-    totalCharges: 35400, initialReceived: 5900, financeCharges: 0, balanceDue: 29500,
+    totalCharges: 35400, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 29500,
     accompanyingMembers: 1,
   },
   {
@@ -229,7 +231,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "UK", travelReason: "Family Visit", sponsor: "Brother",
     status: "Documentation: Checklist Shared", decision: "Pending", enrollmentDate: "2026-02-03", counsellor: "Priya Singh",
     handledBy: "Saurav",
-    totalCharges: 17700, initialReceived: 5900, financeCharges: 0, balanceDue: 11800,
+    totalCharges: 17700, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 11800,
     accompanyingMembers: 0,
   },
   {
@@ -237,7 +239,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Tourism", sponsor: "Son",
     status: "Financial Assessment: Under Review", decision: "Pending", enrollmentDate: "2026-02-06", counsellor: "Priya Singh",
     handledBy: "Janak",
-    totalCharges: 25960, initialReceived: 5900, financeCharges: 0, balanceDue: 20060,
+    totalCharges: 25960, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 20060,
     accompanyingMembers: 2,
   },
   {
@@ -245,7 +247,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Case Preparation: SOP / Cover Letter Under Preparation", decision: "Pending", enrollmentDate: "2025-12-23", counsellor: "Priya Singh",
     handledBy: "Sahid",
-    totalCharges: 106200, initialReceived: 64900, financeCharges: 0, balanceDue: 41300,
+    totalCharges: 106200, beforeVisaCharges: 0, initialReceived:64900, financeCharges: 0, balanceDue: 41300,
     accompanyingMembers: 0,
   },
   {
@@ -253,7 +255,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Schengen", travelReason: "Family Visit", sponsor: "Self-Sponsored",
     status: "Submission: File Submitted", decision: "Approved", enrollmentDate: "2026-01-19", counsellor: "Priya Singh",
     handledBy: "Harsh",
-    totalCharges: 59000, initialReceived: 59000, financeCharges: 0, balanceDue: 0,
+    totalCharges: 59000, beforeVisaCharges: 0, initialReceived:59000, financeCharges: 0, balanceDue: 0,
     accompanyingMembers: 1, submittedOn: "2026-02-18", decidedOn: "2026-03-12",
   },
   {
@@ -261,7 +263,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Australia", travelReason: "Tourism", sponsor: "Friend",
     status: "Documentation: Additional Documents Requested", decision: "Pending", enrollmentDate: "2026-02-11", counsellor: "Priya Singh",
     handledBy: "Saurav",
-    totalCharges: 35400, initialReceived: 5900, financeCharges: 0, balanceDue: 29500,
+    totalCharges: 35400, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 29500,
     accompanyingMembers: 0,
   },
   {
@@ -269,7 +271,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Tourism", sponsor: "Daughter",
     status: "Documentation: Fully Received", decision: "Pending", enrollmentDate: "2026-01-20", counsellor: "Priya Singh",
     handledBy: "Janak",
-    totalCharges: 23600, initialReceived: 5900, financeCharges: 0, balanceDue: 17700,
+    totalCharges: 23600, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 17700,
     accompanyingMembers: 1,
   },
   {
@@ -277,7 +279,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Convocation", sponsor: "Brother",
     status: "Filing Preparation: Application Form Filling", decision: "Pending", enrollmentDate: "2026-01-21", counsellor: "Priya Singh",
     handledBy: "Sahid",
-    totalCharges: 70800, initialReceived: 41300, financeCharges: 0, balanceDue: 29500,
+    totalCharges: 70800, beforeVisaCharges: 0, initialReceived:41300, financeCharges: 0, balanceDue: 29500,
     accompanyingMembers: 2,
   },
   {
@@ -285,7 +287,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Tourism", sponsor: "Sister",
     status: "Case Preparation: SOP Approved by Client", decision: "Approved", enrollmentDate: "2026-01-30", counsellor: "Priya Singh",
     handledBy: "Harsh",
-    totalCharges: 14160, initialReceived: 5900, financeCharges: 0, balanceDue: 8260,
+    totalCharges: 14160, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 8260,
     accompanyingMembers: 0, decidedOn: "2026-03-05",
   },
   {
@@ -293,7 +295,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "UK", travelReason: "Family Visit", sponsor: "Son",
     status: "Documentation: Partially Received", decision: "Pending", enrollmentDate: "2026-01-07", counsellor: "Amit Kumar",
     handledBy: "Saurav",
-    totalCharges: 35400, initialReceived: 5900, financeCharges: 0, balanceDue: 29500,
+    totalCharges: 35400, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 29500,
     accompanyingMembers: 1,
   },
   {
@@ -301,7 +303,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Schengen", travelReason: "Tourism", sponsor: "Daughter",
     status: "Financial Assessment: Review Pending", decision: "Pending", enrollmentDate: "2026-01-16", counsellor: "Amit Kumar",
     handledBy: "Janak",
-    totalCharges: 29500, initialReceived: 5900, financeCharges: 0, balanceDue: 23600,
+    totalCharges: 29500, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 23600,
     accompanyingMembers: 0,
   },
   {
@@ -309,7 +311,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Tourism", sponsor: "Friend",
     status: "Submission: File Submitted", decision: "Refused", enrollmentDate: "2026-01-19", counsellor: "Amit Kumar",
     handledBy: "Sahid",
-    totalCharges: 14160, initialReceived: 5900, financeCharges: 0, balanceDue: 8260,
+    totalCharges: 14160, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 8260,
     accompanyingMembers: 0, submittedOn: "2026-02-19", decidedOn: "2026-03-14",
   },
   {
@@ -317,7 +319,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "USA", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Financial Assessment: Under Review", decision: "Pending", enrollmentDate: "2026-02-11", counsellor: "Amit Kumar",
     handledBy: "Harsh",
-    totalCharges: 35400, initialReceived: 0, financeCharges: 0, balanceDue: 35400,
+    totalCharges: 35400, beforeVisaCharges: 0, initialReceived:0, financeCharges: 0, balanceDue: 35400,
     accompanyingMembers: 0,
   },
   {
@@ -325,7 +327,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Japan", travelReason: "Medical", sponsor: "Sister",
     status: "Documentation: Additional Documents Requested", decision: "Withdrawn", enrollmentDate: "2026-02-11", counsellor: "Amit Kumar",
     handledBy: "Janak",
-    totalCharges: 30000, initialReceived: 0, financeCharges: 0, balanceDue: 30000,
+    totalCharges: 30000, beforeVisaCharges: 0, initialReceived:0, financeCharges: 0, balanceDue: 30000,
     accompanyingMembers: 1, decidedOn: "2026-02-25",
   },
   {
@@ -333,7 +335,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "South Korea", travelReason: "Wedding", sponsor: "Brother",
     status: "Case Preparation: SOP Approved by Client", decision: "Approved", enrollmentDate: "2026-01-21", counsellor: "Amit Kumar",
     handledBy: "Sahid",
-    totalCharges: 94400, initialReceived: 5900, financeCharges: 0, balanceDue: 88500,
+    totalCharges: 94400, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 88500,
     accompanyingMembers: 3, decidedOn: "2026-03-01",
   },
   {
@@ -341,7 +343,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Tourism", sponsor: "Self-Sponsored",
     status: "Documentation: Fully Received", decision: "Pending", enrollmentDate: "2026-01-29", counsellor: "Amit Kumar",
     handledBy: "Harsh",
-    totalCharges: 35400, initialReceived: 5900, financeCharges: 0, balanceDue: 29500,
+    totalCharges: 35400, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 29500,
     accompanyingMembers: 2,
   },
   {
@@ -349,7 +351,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "UK", travelReason: "Family Visit", sponsor: "Son",
     status: "Financial Assessment: Approved", decision: "Pending", enrollmentDate: "2026-02-02", counsellor: "Amit Kumar",
     handledBy: "Saurav",
-    totalCharges: 94400, initialReceived: 5900, financeCharges: 0, balanceDue: 88500,
+    totalCharges: 94400, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 88500,
     accompanyingMembers: 1,
   },
   {
@@ -357,7 +359,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Australia", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Submission: File Submitted", decision: "Approved", enrollmentDate: "2026-02-11", counsellor: "Amit Kumar",
     handledBy: "Janak",
-    totalCharges: 35400, initialReceived: 5900, financeCharges: 0, balanceDue: 29500,
+    totalCharges: 35400, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 29500,
     accompanyingMembers: 0, submittedOn: "2026-03-01", decidedOn: "2026-03-20",
   },
   {
@@ -365,7 +367,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Schengen", travelReason: "Tourism", sponsor: "Husband",
     status: "Case Preparation: SOP / Cover Letter Review", decision: "Pending", enrollmentDate: "2026-02-12", counsellor: "Amit Kumar",
     handledBy: "Sahid",
-    totalCharges: 35400, initialReceived: 5900, financeCharges: 0, balanceDue: 29500,
+    totalCharges: 35400, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 29500,
     accompanyingMembers: 0,
   },
   {
@@ -373,7 +375,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Convocation", sponsor: "Daughter",
     status: "Documentation: Fully Received", decision: "Pending", enrollmentDate: "2026-01-28", counsellor: "Sarah Jones",
     handledBy: "Saurav",
-    totalCharges: 23600, initialReceived: 5900, financeCharges: 0, balanceDue: 17700,
+    totalCharges: 23600, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 17700,
     accompanyingMembers: 2,
   },
   {
@@ -381,7 +383,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Submission: File Submitted", decision: "Approved", enrollmentDate: "2025-12-04", counsellor: "Rahul Verma",
     handledBy: "Janak",
-    totalCharges: 21240, initialReceived: 21240, financeCharges: 0, balanceDue: 0,
+    totalCharges: 21240, beforeVisaCharges: 0, initialReceived:21240, financeCharges: 0, balanceDue: 0,
     accompanyingMembers: 0, submittedOn: "2026-01-05", decidedOn: "2026-01-28",
   },
   {
@@ -389,7 +391,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Tourism", sponsor: "Friend",
     status: "Documentation: Checklist Shared", decision: "Pending", enrollmentDate: "2026-02-13", counsellor: "Rahul Verma",
     handledBy: "Sahid",
-    totalCharges: 35400, initialReceived: 0, financeCharges: 0, balanceDue: 35400,
+    totalCharges: 35400, beforeVisaCharges: 0, initialReceived:0, financeCharges: 0, balanceDue: 35400,
     accompanyingMembers: 1,
   },
   {
@@ -397,7 +399,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Family Visit", sponsor: "Brother",
     status: "Financial Assessment: Under Review", decision: "Pending", enrollmentDate: "2025-12-06", counsellor: "Rahul Verma",
     handledBy: "Harsh",
-    totalCharges: 35400, initialReceived: 11800, financeCharges: 0, balanceDue: 23600,
+    totalCharges: 35400, beforeVisaCharges: 0, initialReceived:11800, financeCharges: 0, balanceDue: 23600,
     accompanyingMembers: 0,
   },
   {
@@ -405,7 +407,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "USA", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Submission: File Submitted", decision: "Approved", enrollmentDate: "2026-01-30", counsellor: "Mike Brown",
     handledBy: "Saurav",
-    totalCharges: 23600, initialReceived: 23600, financeCharges: 0, balanceDue: 0,
+    totalCharges: 23600, beforeVisaCharges: 0, initialReceived:23600, financeCharges: 0, balanceDue: 0,
     accompanyingMembers: 0, submittedOn: "2026-02-20", decidedOn: "2026-03-15",
   },
   {
@@ -413,7 +415,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "South Korea", travelReason: "Wedding", sponsor: "Sister",
     status: "Case Preparation: Profile Assessment Completed", decision: "Pending", enrollmentDate: "2026-02-13", counsellor: "Rahul Verma",
     handledBy: "Janak",
-    totalCharges: 40000, initialReceived: 0, financeCharges: 0, balanceDue: 40000,
+    totalCharges: 40000, beforeVisaCharges: 0, initialReceived:0, financeCharges: 0, balanceDue: 40000,
     accompanyingMembers: 2,
   },
   {
@@ -421,7 +423,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Tourism", sponsor: "Self-Sponsored",
     status: "Filing Preparation: Ready to File", decision: "Pending", enrollmentDate: "2026-01-30", counsellor: "Mike Brown",
     handledBy: "Sahid",
-    totalCharges: 41300, initialReceived: 5900, financeCharges: 0, balanceDue: 35400,
+    totalCharges: 41300, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 35400,
     accompanyingMembers: 1,
   },
   {
@@ -429,7 +431,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "UK", travelReason: "Family Visit", sponsor: "Son",
     status: "Documentation: Partially Received", decision: "Pending", enrollmentDate: "2026-02-13", counsellor: "Rahul Verma",
     handledBy: "Harsh",
-    totalCharges: 45000, initialReceived: 0, financeCharges: 0, balanceDue: 45000,
+    totalCharges: 45000, beforeVisaCharges: 0, initialReceived:0, financeCharges: 0, balanceDue: 45000,
     accompanyingMembers: 0,
   },
   {
@@ -437,7 +439,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Tourism", sponsor: "Daughter",
     status: "Case Preparation: SOP / Cover Letter Under Preparation", decision: "Pending", enrollmentDate: "2026-01-06", counsellor: "Neha Patel",
     handledBy: "Saurav",
-    totalCharges: 70800, initialReceived: 5900, financeCharges: 0, balanceDue: 64900,
+    totalCharges: 70800, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 64900,
     accompanyingMembers: 1,
   },
   {
@@ -445,7 +447,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Tourism", sponsor: "Self-Sponsored",
     status: "Documentation: Fully Received", decision: "Pending", enrollmentDate: "2026-02-02", counsellor: "Karan Shah",
     handledBy: "Janak",
-    totalCharges: 14160, initialReceived: 5900, financeCharges: 0, balanceDue: 8260,
+    totalCharges: 14160, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 8260,
     accompanyingMembers: 0,
   },
   {
@@ -453,7 +455,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Australia", travelReason: "Family Visit", sponsor: "Brother",
     status: "Submission: File Submitted", decision: "Approved", enrollmentDate: "2026-02-05", counsellor: "Karan Shah",
     handledBy: "Sahid",
-    totalCharges: 14160, initialReceived: 14160, financeCharges: 0, balanceDue: 0,
+    totalCharges: 14160, beforeVisaCharges: 0, initialReceived:14160, financeCharges: 0, balanceDue: 0,
     accompanyingMembers: 2, submittedOn: "2026-02-25", decidedOn: "2026-03-18",
   },
   {
@@ -461,7 +463,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Convocation", sponsor: "Self-Sponsored",
     status: "Case Preparation: SOP Approved by Client", decision: "Approved", enrollmentDate: "2025-12-18", counsellor: "Rahul Verma",
     handledBy: "Harsh",
-    totalCharges: 135700, initialReceived: 29500, financeCharges: 0, balanceDue: 106200,
+    totalCharges: 135700, beforeVisaCharges: 0, initialReceived:29500, financeCharges: 0, balanceDue: 106200,
     accompanyingMembers: 3, decidedOn: "2026-02-10",
   },
   {
@@ -469,7 +471,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "UK", travelReason: "Tourism", sponsor: "Friend",
     status: "Documentation: Checklist Shared", decision: "Pending", enrollmentDate: "2026-02-14", counsellor: "Rahul Verma",
     handledBy: "Saurav",
-    totalCharges: 35400, initialReceived: 0, financeCharges: 0, balanceDue: 35400,
+    totalCharges: 35400, beforeVisaCharges: 0, initialReceived:0, financeCharges: 0, balanceDue: 35400,
     accompanyingMembers: 0,
   },
   {
@@ -477,7 +479,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Schengen", travelReason: "Family Visit", sponsor: "Son",
     status: "Filing Preparation: Application Review Pending", decision: "Pending", enrollmentDate: "2025-12-27", counsellor: "Rahul Verma",
     handledBy: "Janak",
-    totalCharges: 11800, initialReceived: 11800, financeCharges: 0, balanceDue: 0,
+    totalCharges: 11800, beforeVisaCharges: 0, initialReceived:11800, financeCharges: 0, balanceDue: 0,
     accompanyingMembers: 1,
   },
   {
@@ -485,7 +487,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Financial Assessment: Documents Pending", decision: "Pending", enrollmentDate: "2026-02-06", counsellor: "Karan Shah",
     handledBy: "Sahid",
-    totalCharges: 76700, initialReceived: 70800, financeCharges: 0, balanceDue: 5900,
+    totalCharges: 76700, beforeVisaCharges: 0, initialReceived:70800, financeCharges: 0, balanceDue: 5900,
     accompanyingMembers: 0,
   },
   {
@@ -493,7 +495,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "USA", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Case Preparation: SOP / Cover Letter Review", decision: "Pending", enrollmentDate: "2026-01-19", counsellor: "Rahul Verma",
     handledBy: "Harsh",
-    totalCharges: 82600, initialReceived: 59000, financeCharges: 0, balanceDue: 23600,
+    totalCharges: 82600, beforeVisaCharges: 0, initialReceived:59000, financeCharges: 0, balanceDue: 23600,
     accompanyingMembers: 0,
   },
   {
@@ -501,7 +503,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Tourism", sponsor: "Self-Sponsored",
     status: "Documentation: Partially Received", decision: "Pending", enrollmentDate: "2026-01-17", counsellor: "Rahul Verma",
     handledBy: "Saurav",
-    totalCharges: 70800, initialReceived: 5900, financeCharges: 0, balanceDue: 64900,
+    totalCharges: 70800, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 64900,
     accompanyingMembers: 1,
   },
   {
@@ -509,7 +511,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Tourism", sponsor: "Daughter",
     status: "Documentation: Fully Received", decision: "Pending", enrollmentDate: "2026-02-06", counsellor: "Karan Shah",
     handledBy: "Janak",
-    totalCharges: 35400, initialReceived: 5900, financeCharges: 0, balanceDue: 29500,
+    totalCharges: 35400, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 29500,
     accompanyingMembers: 0,
   },
   {
@@ -517,7 +519,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "UK", travelReason: "Family Visit", sponsor: "Brother",
     status: "Case Preparation: SOP / Cover Letter Under Preparation", decision: "Pending", enrollmentDate: "2026-02-12", counsellor: "Karan Shah",
     handledBy: "Sahid",
-    totalCharges: 94400, initialReceived: 5900, financeCharges: 0, balanceDue: 88500,
+    totalCharges: 94400, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 88500,
     accompanyingMembers: 2,
   },
   {
@@ -525,7 +527,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Schengen", travelReason: "Tourism", sponsor: "Self-Sponsored",
     status: "Financial Assessment: Review Pending", decision: "Pending", enrollmentDate: "2026-02-12", counsellor: "Karan Shah",
     handledBy: "Harsh",
-    totalCharges: 35400, initialReceived: 5900, financeCharges: 0, balanceDue: 29500,
+    totalCharges: 35400, beforeVisaCharges: 0, initialReceived:5900, financeCharges: 0, balanceDue: 29500,
     accompanyingMembers: 0,
   },
   {
@@ -533,7 +535,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Business Visit", sponsor: "Self-Sponsored",
     status: "Submission: File Submitted", decision: "Approved", enrollmentDate: "2026-01-23", counsellor: "Rahul Verma",
     handledBy: "Saurav",
-    totalCharges: 11800, initialReceived: 11800, financeCharges: 0, balanceDue: 0,
+    totalCharges: 11800, beforeVisaCharges: 0, initialReceived:11800, financeCharges: 0, balanceDue: 0,
     accompanyingMembers: 1, submittedOn: "2026-02-12", decidedOn: "2026-03-05",
   },
   {
@@ -541,7 +543,7 @@ const RAW_BACKEND_CLIENTS: Omit<VisaClient, "saleType">[] = [
     destination: "Canada", travelReason: "Other", sponsor: "Self-Sponsored",
     status: "Case Preparation: SOP Approved by Client", decision: "Approved", enrollmentDate: "2026-01-20", counsellor: "Rahul Verma",
     handledBy: "Janak",
-    totalCharges: 70800, initialReceived: 55900, financeCharges: 0, balanceDue: 14900,
+    totalCharges: 70800, beforeVisaCharges: 0, initialReceived:55900, financeCharges: 0, balanceDue: 14900,
     accompanyingMembers: 0, decidedOn: "2026-03-10",
   },
 ];

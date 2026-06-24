@@ -8,6 +8,7 @@ import type { VisaClient, BackendDashboardData } from "@/data/dummyBackendData";
 export interface VisaCaseFinancial {
   totalCharges: string;
   initialCharges: string;
+  beforeVisaCharges: string;
   financeCharges: string;
   balanceDue: string;
 }
@@ -161,6 +162,7 @@ export function mapVisaCaseToClient(c: VisaCase): VisaClient {
 
     totalCharges: num(c.financial.totalCharges),
     initialReceived: num(c.financial.initialCharges),
+    beforeVisaCharges: num(c.financial.beforeVisaCharges),
     financeCharges: num(c.financial.financeCharges),
     balanceDue: num(c.financial.balanceDue),
 

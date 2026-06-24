@@ -139,7 +139,7 @@ export function BackendDashboard({
       {/* KPI heroes */}
       <div className="grid gap-4 md:grid-cols-3">
         <KpiCard label="Total Clients" value={String(data.totalClients)} sub="Enrolled visa cases" icon={Users} accent="blue" onClick={() => go()} breakdown={categoryChips} />
-        <KpiCard label="Approval Rate" value={pct(data.approvalRate)} sub="Approved of decided" icon={CheckCircle2} accent="emerald" onClick={() => go("status=APPROVED")} />
+        <KpiCard label="Approval Rate" value={pct(data.approvalRate)} sub="Approved" icon={CheckCircle2} accent="emerald" onClick={() => go("status=APPROVED")} />
         <KpiCard label="Outstanding Balance" value={inr(data.outstandingBalance)} sub="Across all cases" icon={IndianRupee} accent="amber" onClick={() => go("balance=due")} />
       </div>
 
