@@ -268,7 +268,7 @@ export default function DailyLeadReport() {
 
   const customLabel =
     dateFilter === "custom" && customFrom && customTo
-      ? `${format(new Date(customFrom), "d MMM")} – ${format(new Date(customTo), "d MMM yyyy")}`
+      ? `${format(new Date(customFrom), "d MMM ''yy")} – ${format(new Date(customTo), "d MMM ''yy")}`
       : null;
 
   return (

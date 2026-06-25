@@ -141,13 +141,13 @@ export function DashboardDateFilter({
 
   const getCustomButtonText = () => {
     if (activeTab === "Custom" && date?.[0] && date?.[1]) {
-      return `${format(date[0], "MMM d")} - ${format(date[1], "MMM d")}`;
+      return `${format(date[0], " d MMM ''yy")} - ${format(date[1], " d MMM ''yy")}`;
     }
     if (activeTab === "Custom" && date?.[0]) {
-      return `After ${format(date[0], "MMM d")}`;
+      return `After ${format(date[0], "d MMM ''yy")}`;
     }
     if (activeTab === "Custom" && date?.[1]) {
-      return `Before ${format(date[1], "MMM d")}`;
+      return `Before ${format(date[1], " d MMM ''yy")}`;
     }
     return "Custom";
   };

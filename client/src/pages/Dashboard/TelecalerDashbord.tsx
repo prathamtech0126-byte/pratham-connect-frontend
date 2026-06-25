@@ -476,7 +476,7 @@ export default function TelecalerDashbord() {
           ? "this week"
           : timeFilter === "custom"
             ? customDateFrom && customDateTo
-              ? `${format(new Date(`${customDateFrom}T12:00:00+05:30`), "d MMM")} – ${format(new Date(`${customDateTo}T12:00:00+05:30`), "d MMM yyyy")}`
+              ? `${format(new Date(`${customDateFrom}T12:00:00+05:30`), "d MMM ''yy")} – ${format(new Date(`${customDateTo}T12:00:00+05:30`), "d MMM ''yy")}`
               : "custom range"
             : "this month";
 
@@ -523,7 +523,7 @@ export default function TelecalerDashbord() {
               onClick={() => setShowDatePicker(true)}
               className="px-3 py-1.5 text-sm rounded-md border border-input bg-background hover:bg-accent transition-colors"
             >
-              {`${format(new Date(`${customDateFrom}T12:00:00+05:30`), "d MMM")} – ${format(new Date(`${customDateTo}T12:00:00+05:30`), "d MMM yyyy")}`}
+              {`${format(new Date(`${customDateFrom}T12:00:00+05:30`), "d MMM ''yy")} – ${format(new Date(`${customDateTo}T12:00:00+05:30`), "d MMM ''yy")}`}
             </button>
           )}
         </div>

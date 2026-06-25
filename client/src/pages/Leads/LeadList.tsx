@@ -1325,7 +1325,7 @@ const loadLeadTypes = useCallback(async () => {
   const parseCustomDate = (s: string) => s.includes("T") ? new Date(s) : new Date(`${s}T12:00:00+05:30`);
   const customLabel =
     dateFilter === "custom" && customDateFrom && customDateTo
-      ? `${format(parseCustomDate(customDateFrom), "d MMM")} – ${format(parseCustomDate(customDateTo), "d MMM yyyy")}`
+      ? `${format(parseCustomDate(customDateFrom), "d MMM ''yy")} – ${format(parseCustomDate(customDateTo), "d MMM ''yy")}`
       : null;
 
   // ── Telecaller-to-telecaller transfer handlers ─────────────────
