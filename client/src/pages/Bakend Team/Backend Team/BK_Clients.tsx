@@ -1071,7 +1071,7 @@ export default function BackendClients({
         ) : null}
 
         {/* Result count */}
-        <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+        <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
           <p className="text-xs text-muted-foreground">
             {isLoading ? (
               "Loading cases…"
@@ -1095,6 +1095,18 @@ export default function BackendClients({
               "0 cases"
             )}
           </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSortKey("enrollmentDate");
+              setSortDir((d) => (sortKey === "enrollmentDate" ? (d === "asc" ? "desc" : "asc") : "desc"));
+            }}
+            className="flex items-center gap-1.5 rounded-md border border-border/60 bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
+            title="Toggle sort order by enrollment date"
+          >
+            <ArrowRightLeft className="h-3 w-3" />
+            {sortKey === "enrollmentDate" && sortDir === "asc" ? "Oldest First" : "Newest First"}
+          </button>
         </div>
 
         {/* Table */}
