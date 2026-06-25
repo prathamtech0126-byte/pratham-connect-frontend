@@ -106,6 +106,7 @@ const EMPTY_DATA: BackendDashboardData = {
   financial: {
     totalCharges: 0,
     initialReceived: 0,
+    beforeVisaCharges: 0,
     financeCharges: 0,
     totalBalanceDue: 0,
     collectionPct: null,
@@ -416,10 +417,14 @@ function PieBreakdownPanel({
  * processing-time SLAs. Has its own period selector; the enrollment trend has a
  * separate range selector independent of that filter.
  */
+type SaleTypeFilter = "all" | "visitor" | "spouse" | "student";
+
+
 export default function BackendReportPage() {
   const [timeFilter, setTimeFilter] = useState("monthly");
   const [customDateRange, setCustomDateRange] = useState<[Date | null, Date | null]>([null, null]);
   const [trendRange, setTrendRange] = useState<"12m" | "6m" | "4m" | "year">("12m");
+  const [saleType, setSaleType] = useState<SaleTypeFilter>("all");
 
   const normalizedFilter = (timeFilter || "monthly").toLowerCase() as
     | "today"
@@ -437,6 +442,7 @@ export default function BackendReportPage() {
       filter: normalizedFilter,
       fromDate: normalizedFilter === "custom" ? (from ?? undefined) : undefined,
       toDate: normalizedFilter === "custom" ? (to ?? undefined) : undefined,
+      category: saleType === "all" ? undefined : saleType,
     },
     normalizedFilter !== "custom" || (!!from && !!to)
   );
@@ -479,31 +485,44 @@ export default function BackendReportPage() {
     },
   ];
 
+  const activeTab =
+    timeFilter === "today" ? "Today"
+    : timeFilter === "weekly" ? "Weekly"
+    : timeFilter === "monthly" ? "Monthly"
+    : timeFilter === "custom" || timeFilter === "maximum" ? "Custom"
+    : "Monthly";
+
+  const actionsBar = (
+    <div className="flex flex-wrap items-center gap-3">
+      {/* Sale type filter */}
+      <Select value={saleType} onValueChange={(v) => setSaleType(v as SaleTypeFilter)}>
+        <SelectTrigger className="h-9 w-[130px] text-sm font-medium bg-muted/50 border-border/50 rounded-lg">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Types</SelectItem>
+          <SelectItem value="visitor">Visitor</SelectItem>
+          <SelectItem value="spouse">Spouse</SelectItem>
+          <SelectItem value="student">Student</SelectItem>
+        </SelectContent>
+      </Select>
+      <DashboardDateFilter
+        date={customDateRange}
+        onDateChange={setCustomDateRange}
+        activeTab={activeTab}
+        onTabChange={(tab) => setTimeFilter(tab === "Today" ? "today" : tab === "Custom" ? "custom" : tab.toLowerCase())}
+        showYearly={false}
+        align="end"
+      />
+    </div>
+  );
+
   if (isLoading) {
     return (
       <PageWrapper
         title="Backend Report"
         breadcrumbs={[{ label: "Reports" }, { label: "Backend Report" }]}
-        actions={
-          <DashboardDateFilter
-            date={customDateRange}
-            onDateChange={setCustomDateRange}
-            activeTab={
-              timeFilter === "today"
-                ? "Today"
-                : timeFilter === "weekly"
-                  ? "Weekly"
-                  : timeFilter === "monthly"
-                    ? "Monthly"
-                    : timeFilter === "custom" || timeFilter === "maximum"
-                      ? "Custom"
-                      : "Monthly"
-            }
-            onTabChange={(tab) => setTimeFilter(tab === "Today" ? "today" : tab === "Custom" ? "custom" : tab.toLowerCase())}
-            showYearly={false}
-            align="end"
-          />
-        }
+        actions={actionsBar}
       >
         <div className="flex flex-col gap-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -530,26 +549,7 @@ export default function BackendReportPage() {
     <PageWrapper
       title="Backend Report"
       breadcrumbs={[{ label: "Reports" }, { label: "Backend Report" }]}
-      actions={
-        <DashboardDateFilter
-          date={customDateRange}
-          onDateChange={setCustomDateRange}
-          activeTab={
-            timeFilter === "today"
-              ? "Today"
-              : timeFilter === "weekly"
-                ? "Weekly"
-                : timeFilter === "monthly"
-                  ? "Monthly"
-                  : timeFilter === "custom" || timeFilter === "maximum"
-                    ? "Custom"
-                    : "Monthly"
-          }
-          onTabChange={(tab) => setTimeFilter(tab === "Today" ? "today" : tab === "Custom" ? "custom" : tab.toLowerCase())}
-          showYearly={false}
-          align="end"
-        />
-      }
+      actions={actionsBar}
     >
       <div className="flex flex-col gap-6">
         {/* Headline KPIs */}

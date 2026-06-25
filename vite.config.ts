@@ -6,6 +6,9 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import fs from "fs";
+import { createRequire } from "module";
+const _require = createRequire(import.meta.url);
+const pkg = _require("./package.json") as { version: string };
 
 
 import { sentryVitePlugin } from "@sentry/vite-plugin";
@@ -21,6 +24,7 @@ function versionPlugin() {
       return {
         define: {
           "import.meta.env.VITE_APP_VERSION": JSON.stringify(version),
+          __APP_VERSION__: JSON.stringify(pkg.version),
         },
       };
     },

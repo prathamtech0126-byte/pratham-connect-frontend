@@ -516,6 +516,8 @@ import api, { setInMemoryToken, setCsrfToken } from "@/lib/api";
 
 import { useToast } from "@/hooks/use-toast";
 
+const APP_VERSION = __APP_VERSION__;
+
 const resolveUserIdFromResponse = (data: any): string | null => {
     const candidates = [
         data?.userId,
@@ -831,6 +833,9 @@ export default function Login() {
                 {/* Footer */}
                 <p className="text-center text-xs text-muted-foreground mt-6">
                     © {new Date().getFullYear()} Pratham International. All rights reserved.
+                </p>
+                <p className="text-center text-xs text-muted-foreground/50 mt-1">
+                    v{APP_VERSION}
                 </p>
             </div>
         </div>

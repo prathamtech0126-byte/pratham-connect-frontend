@@ -832,6 +832,7 @@ export interface BackendReportsDashboardFilters {
   fromDate?: string;  // YYYY-MM-DD (required when filter=custom)
   toDate?: string;    // YYYY-MM-DD (required when filter=custom)
   branchCode?: string;
+  category?: "visitor" | "spouse" | "student";
 }
 
 export interface BackendReportsLeaderboardEntry {
@@ -1033,6 +1034,7 @@ export async function fetchBackendReportsDashboard(
   if (filters.fromDate) q.set("fromDate", filters.fromDate);
   if (filters.toDate) q.set("toDate", filters.toDate);
   if (filters.branchCode) q.set("branchCode", filters.branchCode);
+  if (filters.category) q.set("category", filters.category);
 
   const { data } = await api.get<{ success: boolean; data: BackendReportsDashboardRaw }>(
     `/api/modules/reports/backend-dashboard?${q}`
@@ -1255,6 +1257,7 @@ export async function fetchBackendReport(
   if (filters.fromDate) q.set("fromDate", filters.fromDate);
   if (filters.toDate) q.set("toDate", filters.toDate);
   if (filters.branchCode) q.set("branchCode", filters.branchCode);
+  if (filters.category) q.set("category", filters.category);
 
   const { data } = await api.get<{ success: boolean; data: BackendReportRaw }>(
     `/api/modules/reports/backend-report?${q}`
