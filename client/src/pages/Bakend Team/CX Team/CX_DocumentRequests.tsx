@@ -12,14 +12,30 @@ import {
   CheckCircle2,
   ArrowUpRight,
   User,
+  Users,
   MessageSquare,
   FileStack,
   FolderOpen,
   CircleCheckBig,
+  Send,
+  Loader2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useDocumentRequests, useResolveDocumentRequest } from "@/hooks/useVisaCases";
-import type { DocRequestStatus } from "@/api/visaCases.api";
+import {
+  useDocumentRequests,
+  useResolveDocumentRequest,
+  useAssignableUsers,
+  useAssignBulkVisaCases,
+} from "@/hooks/useVisaCases";
+import type { DocRequestStatus, DocumentRequest } from "@/api/visaCases.api";
 
 type TabFilter = "open" | "resolved" | "all";
 
@@ -33,33 +49,97 @@ function getInitials(str: string) {
   return str.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
+type PendingResolve = {
+  request: DocumentRequest;
+  displayName: string;
+};
+
 export default function CxDocumentRequests() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [tab, setTab] = useState<TabFilter>("open");
+  const [pending, setPending] = useState<PendingResolve | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   const { data, isLoading } = useDocumentRequests(
     TAB_TO_STATUS[tab] ? { status: TAB_TO_STATUS[tab] } : {},
   );
   const requests = data?.data ?? [];
   const resolveMutation = useResolveDocumentRequest();
+  const assignMutation = useAssignBulkVisaCases();
+
+  const { data: bindingUsers = [], isLoading: usersLoading } = useAssignableUsers(
+    !!pending,
+    "binding",
+  );
 
   const { data: openData } = useDocumentRequests({ status: "OPEN" }, tab !== "open");
   const { data: resolvedData } = useDocumentRequests({ status: "FULFILLED" }, tab !== "resolved");
   const { data: allData } = useDocumentRequests({}, tab !== "all");
 
-  const openCount   = tab === "open"     ? (data?.total ?? 0) : (openData?.total ?? 0);
+  const openCount     = tab === "open"     ? (data?.total ?? 0) : (openData?.total ?? 0);
   const resolvedCount = tab === "resolved" ? (data?.total ?? 0) : (resolvedData?.total ?? 0);
-  const totalCount  = tab === "all"      ? (data?.total ?? 0) : (allData?.total ?? 0);
+  const totalCount    = tab === "all"      ? (data?.total ?? 0) : (allData?.total ?? 0);
 
-  const markResolved = (id: string, documentType: string, name: string) => {
-    resolveMutation.mutate({ id }, {
-      onSuccess: () =>
-        toast({ title: "Marked resolved", description: `"${documentType}" for ${name} closed.` }),
-      onError: (err: any) =>
-        toast({ title: "Failed to resolve", description: err?.response?.data?.message ?? "Something went wrong.", variant: "destructive" }),
-    });
+  const openResolveDialog = (request: DocumentRequest, displayName: string) => {
+    const raiserId =
+      request.raisedByUser?.role === "binding_team" || request.raisedByUser?.role === "binding"
+        ? request.raisedByUser.id
+        : null;
+    setSelectedUserId(raiserId);
+    setPending({ request, displayName });
   };
+
+  const confirmResolveAndAssign = () => {
+    if (!pending) return;
+    const { request, displayName } = pending;
+
+    resolveMutation.mutate(
+      { id: request.id },
+      {
+        onSuccess: () => {
+          if (selectedUserId && request.visaCaseId) {
+            assignMutation.mutate(
+              { visaCaseIds: [request.visaCaseId], assignedUserId: selectedUserId },
+              {
+                onSuccess: () => {
+                  const assignee = bindingUsers.find((u) => u.id === selectedUserId);
+                  toast({
+                    title: "Resolved & reassigned",
+                    description: `"${request.documentType}" closed and client sent back to ${assignee?.fullName ?? "Binding Team"}.`,
+                  });
+                  setPending(null);
+                },
+                onError: (err: any) => {
+                  toast({
+                    title: "Resolved but reassign failed",
+                    description: err?.response?.data?.message ?? "Could not reassign to Binding Team.",
+                    variant: "destructive",
+                  });
+                  setPending(null);
+                },
+              },
+            );
+          } else {
+            toast({
+              title: "Marked resolved",
+              description: `"${request.documentType}" for ${displayName} closed.`,
+            });
+            setPending(null);
+          }
+        },
+        onError: (err: any) => {
+          toast({
+            title: "Failed to resolve",
+            description: err?.response?.data?.message ?? "Something went wrong.",
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  };
+
+  const isBusy = resolveMutation.isPending || assignMutation.isPending;
 
   const tabs: { key: TabFilter; label: string; count: number }[] = [
     { key: "open",     label: "Open",     count: openCount },
@@ -311,10 +391,10 @@ export default function CxDocumentRequests() {
                       <Button
                         size="sm"
                         className="w-full gap-2 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border-0 shadow-none font-semibold h-9 transition-all"
-                        disabled={resolveMutation.isPending}
+                        disabled={isBusy}
                         onClick={(e) => {
                           e.stopPropagation();
-                          markResolved(r.id, r.documentType, displayName);
+                          openResolveDialog(r, displayName);
                         }}
                       >
                         <CheckCheck className="h-4 w-4" />
@@ -338,6 +418,135 @@ export default function CxDocumentRequests() {
         )}
 
       </div>
+
+      {/* ── Resolve & Reassign Dialog ── */}
+      <Dialog open={!!pending} onOpenChange={(open) => { if (!open && !isBusy) setPending(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="flex items-center gap-2.5 text-base font-bold">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Send className="h-4 w-4" />
+              </span>
+              Resolve &amp; Return to Binding
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3 rounded-lg bg-muted/60 border border-border px-3 py-2.5">
+                  <span className="text-xs font-medium text-muted-foreground w-16 shrink-0">Document</span>
+                  <span className="text-sm font-semibold text-foreground truncate">
+                    {pending?.request.documentType}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 rounded-lg bg-muted/60 border border-border px-3 py-2.5">
+                  <span className="text-xs font-medium text-muted-foreground w-16 shrink-0">Client</span>
+                  <span className="text-sm font-semibold text-foreground truncate">
+                    {pending?.displayName}
+                  </span>
+                </div>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Section label */}
+            <div className="flex items-center gap-2">
+              <Users className="h-3.5 w-3.5 text-primary shrink-0" />
+              <p className="text-sm font-semibold text-foreground">
+                Assign to Binding Team member
+              </p>
+            </div>
+
+            {/* User cards */}
+            {usersLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-14 w-full rounded-xl" />
+                <Skeleton className="h-14 w-full rounded-xl" />
+              </div>
+            ) : bindingUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">
+                No Binding Team members available.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-52 overflow-y-auto">
+                {bindingUsers.map((u) => {
+                  const initials = u.fullName
+                    .split(" ")
+                    .map((w: string) => w[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase();
+                  const isSelected = selectedUserId === u.id;
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => setSelectedUserId(isSelected ? null : u.id)}
+                      className={cn(
+                        "w-full flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all duration-150",
+                        isSelected
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                          : "border-border bg-background hover:border-primary/30 hover:bg-accent",
+                      )}
+                    >
+                      <div className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold",
+                        isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+                      )}>
+                        {initials}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={cn(
+                          "text-sm font-semibold truncate",
+                          isSelected ? "text-primary" : "text-foreground",
+                        )}>
+                          {u.fullName}
+                        </p>
+                        {u.empId && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{u.empId}</p>
+                        )}
+                      </div>
+                      {isSelected && (
+                        <CheckCheck className="h-4 w-4 shrink-0 text-primary" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {!selectedUserId && !usersLoading && bindingUsers.length > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                No member selected — client will only be resolved, not reassigned.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 pt-1">
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              disabled={isBusy}
+              onClick={() => setPending(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="rounded-xl gap-2"
+              disabled={isBusy || usersLoading}
+              onClick={confirmResolveAndAssign}
+            >
+              {isBusy ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
+              ) : selectedUserId ? (
+                <><Send className="h-4 w-4" /> Resolve &amp; Assign</>
+              ) : (
+                <><CheckCheck className="h-4 w-4" /> Mark Resolved</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </PageWrapper>
   );
 }

@@ -2099,7 +2099,12 @@ export default function Dashboard() {
               extra={canViewFinancials && Array.isArray((stats as any)?.saleTypeCategoryCounts) && (stats as any).saleTypeCategoryCounts.length > 0 ? (
                 <div className="space-y-1">
                   <div className="flex flex-wrap gap-x-3 gap-y-1">
-                    {(stats as any).saleTypeCategoryCounts.map((r: any) => (
+                    {[...(stats as any).saleTypeCategoryCounts].sort((a: any, b: any) => {
+                      const order: Record<string, number> = { visitor: 0, spouse: 1 };
+                      const aKey = (a.categoryName ?? "").toLowerCase();
+                      const bKey = (b.categoryName ?? "").toLowerCase();
+                      return (order[aKey] ?? 99) - (order[bKey] ?? 99);
+                    }).map((r: any) => (
                       <div key={r.categoryId ?? r.categoryName} className="text-[12px] text-foreground">
                         <span className="capitalize">{r.categoryName ?? "—"}</span>
                         <span className="text-muted-foreground">:</span>{" "}
