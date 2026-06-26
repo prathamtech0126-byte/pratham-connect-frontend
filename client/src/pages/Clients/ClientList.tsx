@@ -270,9 +270,14 @@ export default function ClientList() {
     const userId = user?.id ?? (user as any)?.userId ?? (user as any)?.user_id;
     const userNum = typeof userId === "number" ? userId : parseInt(String(userId), 10);
     const hasValidUserNum = !Number.isNaN(userNum) && userNum > 0;
-    const listToShow = canSeeAllUsers || !hasValidUserNum
+    const listToShow = (canSeeAllUsers || !hasValidUserNum
       ? usersDetailsList
-      : usersDetailsList.filter((u: any) => u.managerId === userNum || u.id === userNum);
+      : usersDetailsList.filter((u: any) => u.managerId === userNum || u.id === userNum)
+    ).slice().sort((a: any, b: any) => {
+      const nameA = (a.fullName || a.name || a.full_name || "").toLowerCase();
+      const nameB = (b.fullName || b.name || b.full_name || "").toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
     return (
       <PageWrapper
         title="Clients"
