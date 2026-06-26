@@ -8,7 +8,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { formatCrmTimestamp } from "@/lib/format-crm-timestamp";
+import { formatTimestamp } from "@/lib/format-timestamp";
 import type { NotificationItem } from "../types/notification.types";
 
 export function isBlockingPriority(priority: string): boolean {
@@ -42,10 +42,14 @@ export function getNotificationAccent(priority: string): string {
   }
 }
 
+export function isFollowupNotificationType(type: string): boolean {
+  return type === "lead_followup_reminder" || type === "lead_followup_overdue";
+}
+
 /** Correct IST time in follow-up notification copy (inbox + blocking popup). */
 export function formatFollowupNotificationBody(item: NotificationItem): string {
   const meta = item.meta as { followupAt?: string } | undefined;
-  const when = meta?.followupAt ? formatCrmTimestamp(meta.followupAt, "datetime") : null;
+  const when = meta?.followupAt ? formatTimestamp(meta.followupAt, "datetime") : null;
   if (!when || !item.type.startsWith("lead_followup")) {
     return item.body;
   }

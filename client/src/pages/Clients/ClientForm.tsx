@@ -2671,15 +2671,18 @@ export default function ClientForm() {
   const markOriginatingLeadConverted = useCallback(async () => {
     if (!fromLeadId || leadConvertedMarkedRef.current) return;
     try {
+      const clientName = form.getValues("name")?.trim();
       const updated = await updateLeadApi(fromLeadId, {
         progressStatus: "converted",
         assignmentStatus: "converted",
+        ...(clientName ? { fullName: clientName } : {}),
       });
       pushLeadListPatch(fromLeadId, {
         progressStatus: updated.progressStatus ?? "converted",
         assignmentStatus: updated.assignmentStatus ?? "converted",
         convertedAt: updated.convertedAt ?? null,
         pendingConverted: updated.pendingConverted,
+        ...(clientName ? { fullName: updated.fullName ?? clientName } : {}),
       });
       leadConvertedMarkedRef.current = true;
     } catch (err: unknown) {
@@ -2693,7 +2696,7 @@ export default function ClientForm() {
         variant: "destructive",
       });
     }
-  }, [fromLeadId, toast]);
+  }, [fromLeadId, form, toast]);
 
   const handleCreateClient = async () => {
     if (isSubmitting || requestInFlightRef.current) {

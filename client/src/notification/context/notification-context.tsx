@@ -24,9 +24,15 @@ import { BlockingNotificationModal } from "../components/BlockingNotificationMod
 import {
   formatFollowupNotificationBody,
   isBlockingPriority,
+  isFollowupNotificationType,
 } from "../lib/notification-display";
 import { playNotificationSound, primeNotificationAudio } from "../lib/notification-sound";
 import { useState } from "react";
+
+/** Poll inbox every 2 min (socket handles real-time; poll is fallback only). */
+const NOTIFICATION_POLL_INTERVAL_MS = 120_000;
+/** After login/refresh, alert for pending follow-up notifications once data has loaded. */
+const LOGIN_FOLLOWUP_SOUND_DELAY_MS = 10_000;
 
 type NotificationContextValue = {
   notifications: NotificationItem[];
@@ -52,6 +58,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [inboxFilter, setInboxFilter] = useState<NotificationCategory>("all");
   const unreadCountRef = useRef(0);
   const loginSoundFiredRef = useRef(false);
+  const loginCatchUpDoneRef = useRef(false);
+  const knownNotificationIdsRef = useRef<Set<number>>(new Set());
+  const initialPollSeedDoneRef = useRef(false);
   const lastSoundAtRef = useRef(0);
   const prevSocketConnectedRef = useRef(false);
 
@@ -62,15 +71,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     queryKey: ["notifications", "inbox", user?.id],
     queryFn: () => fetchNotifications({ limit: 50 }),
     enabled: !!user?.id,
-    refetchInterval: 120_000,
-    staleTime: 15_000,
+    refetchInterval: NOTIFICATION_POLL_INTERVAL_MS,
+    staleTime: 60_000,
   });
 
   const countQuery = useQuery({
     queryKey: ["notifications", "unread-count", user?.id],
     queryFn: () => fetchUnreadNotificationCount(),
     enabled: !!user?.id,
-    refetchInterval: 120_000,
+    refetchInterval: NOTIFICATION_POLL_INTERVAL_MS,
   });
 
   const invalidate = useCallback(() => {
@@ -107,20 +116,80 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     unreadCountRef.current = countQuery.data ?? 0;
   }, [countQuery.data]);
 
-  // After login: play sound once after 1 minute if there are unread notifications/alerts
+  const playNotificationSoundDebounced = useCallback(() => {
+    const now = Date.now();
+    if (now - lastSoundAtRef.current < 1500) return;
+    lastSoundAtRef.current = now;
+    playNotificationSound();
+  }, []);
+
+  // After login/refresh: fetch inbox and play sound for unread follow-up reminders/overdue.
   useEffect(() => {
     if (!user?.id) {
       loginSoundFiredRef.current = false;
+      loginCatchUpDoneRef.current = false;
+      initialPollSeedDoneRef.current = false;
+      knownNotificationIdsRef.current = new Set();
       return;
     }
-    const timer = setTimeout(() => {
-      if (unreadCountRef.current > 0) {
-        playNotificationSound();
+
+    primeNotificationAudio();
+
+    const timer = setTimeout(async () => {
+      try {
+        const [list, count] = await Promise.all([
+          fetchNotifications({ limit: 50 }),
+          fetchUnreadNotificationCount(),
+        ]);
+        queryClient.setQueryData(["notifications", "inbox", user.id], list);
+        queryClient.setQueryData(["notifications", "unread-count", user.id], count);
+        unreadCountRef.current = count;
+
+        const hasFollowupAlert = list.data.some(
+          (n) => !n.readAt && isFollowupNotificationType(n.type)
+        );
+        if (hasFollowupAlert) {
+          playNotificationSoundDebounced();
+        }
+
+        list.data.forEach((n) => knownNotificationIdsRef.current.add(n.id));
+        initialPollSeedDoneRef.current = true;
+        loginCatchUpDoneRef.current = true;
+      } catch {
+        /* ignore — polling/socket will retry */
+      } finally {
+        loginSoundFiredRef.current = true;
       }
-      loginSoundFiredRef.current = true;
-    }, 30_000);
+    }, LOGIN_FOLLOWUP_SOUND_DELAY_MS);
+
     return () => clearTimeout(timer);
-  }, [user?.id]);
+  }, [user?.id, queryClient, playNotificationSoundDebounced]);
+
+  // Poll catch-up: play sound when a new follow-up notification appears (socket fallback).
+  useEffect(() => {
+    const items = listQuery.data?.data ?? [];
+    if (!user?.id || items.length === 0) return;
+
+    if (!initialPollSeedDoneRef.current) {
+      items.forEach((n) => knownNotificationIdsRef.current.add(n.id));
+      if (loginCatchUpDoneRef.current) {
+        initialPollSeedDoneRef.current = true;
+      }
+      return;
+    }
+
+    const newcomers = items.filter((n) => !knownNotificationIdsRef.current.has(n.id));
+    if (newcomers.length === 0) return;
+
+    newcomers.forEach((n) => knownNotificationIdsRef.current.add(n.id));
+
+    const hasNewFollowupAlert = newcomers.some(
+      (n) => !n.readAt && isFollowupNotificationType(n.type)
+    );
+    if (hasNewFollowupAlert && loginCatchUpDoneRef.current) {
+      playNotificationSoundDebounced();
+    }
+  }, [listQuery.data, user?.id, playNotificationSoundDebounced]);
 
   const mergeNotificationInCache = useCallback(
     (item: NotificationItem, options: { incrementUnread?: boolean }) => {
@@ -154,15 +223,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     [queryClient, user?.id]
   );
 
-  const playNotificationSoundDebounced = useCallback(() => {
-    const now = Date.now();
-    if (now - lastSoundAtRef.current < 1500) return;
-    lastSoundAtRef.current = now;
-    playNotificationSound();
-  }, []);
-
   const handleIncoming = useCallback(
     (item: NotificationItem) => {
+      knownNotificationIdsRef.current.add(item.id);
       mergeNotificationInCache(item, { incrementUnread: true });
 
       playNotificationSoundDebounced();

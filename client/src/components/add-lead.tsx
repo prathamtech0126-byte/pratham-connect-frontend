@@ -433,9 +433,9 @@ import {
   isClientReferenceSourceSlug,
   isInternalReferenceSourceSlug,
 } from "@/lib/lead-source-display";
+import { isValidLeadCity, LEAD_CITY_ERROR_MESSAGE } from "@/lib/lead-city-validation";
 
 const BLOCKED_SOURCE_SLUGS_FOR_FIELD_ROLES = ["instagram", "facebook","walkin","website"];
-const CITY_ALLOWED_REGEX = /^[A-Za-z\s().,'-]+$/;
 function isBlockedForFieldRole(slug: string): boolean {
   const n = slug.trim().toLowerCase().replace(/[\s_-]+/g, "");
   return BLOCKED_SOURCE_SLUGS_FOR_FIELD_ROLES.some((b) => n.includes(b));
@@ -745,8 +745,8 @@ export function AddLead({ open, onOpenChange, onLeadAdded }: AddLeadProps) {
       next.phone = "Phone must be at least 10 digits";
     }
     if (!form.source) next.source = "Lead source is required";
-    if (form.city.trim() && !CITY_ALLOWED_REGEX.test(form.city.trim())) {
-      next.city = "City can contain English letters, spaces, and symbols like ( ) . , ' -";
+    if (form.city.trim() && !isValidLeadCity(form.city)) {
+      next.city = LEAD_CITY_ERROR_MESSAGE;
     }
     if (needsClientReference && !selectedReference && !manualClientName.trim()) {
       next.source = "Select a client from the list, or enter the client name manually below";
