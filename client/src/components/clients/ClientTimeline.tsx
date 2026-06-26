@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import {
   ChevronDown, ChevronUp, CalendarDays,
   ArrowRight, Check,
-  ChevronsUpDown, Info, Users, User, Layers, Clock,
+  ChevronsUpDown, Info, Users, User, Layers, Clock, StickyNote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TimelineEvent, TimelineEventPhase } from "@/api/clientTimeline.api";
@@ -92,15 +92,47 @@ function EventBody({ event }: { event: TimelineEvent }) {
     const from  = (m.fromSubStatus ?? m.fromStatus ?? m.from ?? m.previousStatus) as string | undefined;
     const to    = (m.toSubStatus   ?? m.toStatus   ?? m.to  ?? m.newStatus)       as string | undefined;
     const stage = m.stage as string | undefined;
-    if (!from && !to && !stage) {
-      return event.description ? <p className="mt-1 text-xs text-muted-foreground">{event.description}</p> : null;
-    }
+    const hasTransition = !!(from || to || stage);
     return (
-      <div className="mt-1 flex flex-wrap items-center gap-1">
-        {from && <span className="text-[10px] text-muted-foreground">{from}</span>}
-        {from && to && <ArrowRight className="h-3 w-3 text-muted-foreground/40 shrink-0" />}
-        {to && <span className="text-[10px] font-medium text-foreground">{to}</span>}
-        {stage && <span className="text-[10px] text-muted-foreground/60">· {stage}</span>}
+      <div className="mt-1 flex flex-col gap-1">
+        {hasTransition && (
+          <div className="flex flex-wrap items-center gap-1">
+            {from && <span className="text-[10px] text-muted-foreground">{from}</span>}
+            {from && to && <ArrowRight className="h-3 w-3 text-muted-foreground/40 shrink-0" />}
+            {to && <span className="text-[10px] font-medium text-foreground">{to}</span>}
+            {stage && <span className="text-[10px] text-muted-foreground/60">· {stage}</span>}
+          </div>
+        )}
+        {event.description && (
+          <div className="flex items-start gap-2 mt-1 rounded-md bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-800/40 px-2.5 py-1.5">
+            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest shrink-0 mt-0.5">Notes:</span>
+            <p className="text-xs text-foreground/85 leading-relaxed">{event.description}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Note
+  if (t.includes("NOTE")) {
+    const noteText = event.description ?? (m.noteText ?? m.content ?? m.note) as string | undefined;
+    const category = (m.noteType ?? m.category) as string | undefined;
+    if (!noteText && !category) return null;
+    return (
+      <div className="mt-2 rounded-md border border-amber-200/70 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2.5">
+        <div className="flex items-start gap-2">
+          <StickyNote className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            {category && (
+              <span className="text-[9px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 block mb-1">
+                {category.replace(/_/g, " ")}
+              </span>
+            )}
+            {noteText && (
+              <p className="text-xs text-foreground leading-relaxed">{noteText}</p>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
@@ -138,10 +170,10 @@ function EventBody({ event }: { event: TimelineEvent }) {
 function ExtraMeta({ event }: { event: TimelineEvent }) {
   const m = event.metadata ?? {};
   const t = event.type?.toUpperCase() ?? "";
+  const isAssignment = t.includes("ASSIGN") || t.includes("ROUTE") || t.includes("ROUTING");
 
   const subStatus = (m.subStatus ?? m.substate) as string | undefined;
   const stage     = (m.stage) as string | undefined;
-  const type      = (m.assignmentType) as string | undefined;
   const pid       = (m.paymentId ?? m.id) as number | string | undefined;
 
   const rows: { label: string; value: string }[] = [];
@@ -150,17 +182,13 @@ function ExtraMeta({ event }: { event: TimelineEvent }) {
     if (subStatus) rows.push({ label: "Sub Status", value: subStatus });
     if (stage)     rows.push({ label: "Stage",      value: stage });
   }
-  if (t.includes("ASSIGN") || t.includes("ROUTE") || t.includes("ROUTING")) {
-    if (type) rows.push({ label: "Type",  value: type });
-  }
   if (t.includes("PAYMENT") && pid) {
     rows.push({ label: "Payment ID", value: `#${pid}` });
   }
-  if (event.source) {
-    rows.push({ label: "Source", value: event.source });
-  }
 
-  if (rows.length === 0) return null;
+  const showDescription = isAssignment && !!event.description;
+
+  if (rows.length === 0 && !showDescription) return null;
 
   return (
     <div className="mt-2 pt-2 border-t border-border/60 flex flex-wrap gap-x-5 gap-y-1">
@@ -170,6 +198,12 @@ function ExtraMeta({ event }: { event: TimelineEvent }) {
           <span className="text-[10px] text-muted-foreground font-medium">{r.value}</span>
         </div>
       ))}
+      {showDescription && (
+        <div className="w-full flex items-start gap-2 mt-1 rounded-md bg-sky-50/60 dark:bg-sky-950/20 border border-sky-200/60 dark:border-sky-800/40 px-3 py-2">
+          <div className="h-3.5 w-0.5 rounded-full bg-sky-400 dark:bg-sky-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-foreground/80 leading-relaxed italic">{event.description}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -365,9 +399,17 @@ function EventRow({
 
   const badgeLabel = getBadgeLabel(event);
   const timeStr    = format(toIST(event.occurredAt), "hh:mm a");
-  const hasExtra   = !!(
-    (event.metadata && Object.keys(event.metadata).length > 0) || event.source
-  );
+  const t = event.type?.toUpperCase() ?? "";
+  const isAssignment = t.includes("ASSIGN") || t.includes("ROUTING") || t.includes("ROUTE");
+  const isNote = t.includes("NOTE");
+  const m2 = event.metadata ?? {};
+  const hasStatusRows = (t.includes("STATUS") || t.includes("STAGE")) && !!(m2.subStatus ?? m2.substate ?? m2.stage);
+  const hasPaymentRow = t.includes("PAYMENT") && !!(m2.paymentId ?? m2.id);
+  const hasExtra = isNote
+    ? false
+    : isAssignment
+    ? !!event.description
+    : hasStatusRows || hasPaymentRow;
 
   // Even index → card on RIGHT; odd → card on LEFT
   const cardOnRight = globalIdx % 2 === 0;

@@ -116,6 +116,7 @@ export default function Dashboard() {
   const [dashboardTab, setDashboardTab] = useState<"counsellor" | "backend">(
     () => (typeof window !== "undefined" && (sessionStorage.getItem("dashboard-view-tab") as "counsellor" | "backend")) || "counsellor"
   );
+  const [backendSaleType, setBackendSaleType] = useState<"all" | "visitor" | "spouse" | "student">("all");
   const [customDateRange, setCustomDateRange] = useState<[Date | null, Date | null]>(() => {
     if (typeof window === "undefined") return [null, null];
     try {
@@ -1146,16 +1147,29 @@ export default function Dashboard() {
               Welcome back, <span className="font-semibold text-primary">{userProfile?.fullname || user?.name}</span>. Here&apos;s what&apos;s happening.
             </p>
           </div>
-          <DashboardDateFilter
-            date={customDateRange}
-            onDateChange={setCustomDateRange}
-            activeTab={timeFilter === 'today' ? 'Today' : timeFilter === 'weekly' ? 'Weekly' : timeFilter === 'monthly' ? 'Monthly' : (timeFilter === 'custom' || timeFilter === 'maximum') ? 'Custom' : 'Monthly'}
-            onTabChange={(tab) => setTimeFilter(tab === 'Today' ? 'today' : tab === 'Custom' ? 'custom' : tab.toLowerCase())}
-            showYearly={false}
-            align="end"
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={backendSaleType} onValueChange={(v) => setBackendSaleType(v as typeof backendSaleType)}>
+              <SelectTrigger className="h-9 w-[130px] text-sm font-medium bg-muted/50 border-border/50 rounded-lg">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="visitor">Visitor</SelectItem>
+                <SelectItem value="spouse">Spouse</SelectItem>
+                <SelectItem value="student">Student</SelectItem>
+              </SelectContent>
+            </Select>
+            <DashboardDateFilter
+              date={customDateRange}
+              onDateChange={setCustomDateRange}
+              activeTab={timeFilter === 'today' ? 'Today' : timeFilter === 'weekly' ? 'Weekly' : timeFilter === 'monthly' ? 'Monthly' : (timeFilter === 'custom' || timeFilter === 'maximum') ? 'Custom' : 'Monthly'}
+              onTabChange={(tab) => setTimeFilter(tab === 'Today' ? 'today' : tab === 'Custom' ? 'custom' : tab.toLowerCase())}
+              showYearly={false}
+              align="end"
+            />
+          </div>
         </div>
-        <BackendDashboard timeFilter={timeFilter} customDateRange={customDateRange} />
+        <BackendDashboard timeFilter={timeFilter} customDateRange={customDateRange} saleType={backendSaleType} />
       </div>
     );
   }
@@ -1672,32 +1686,32 @@ export default function Dashboard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Dashboard view tabs (admin + developer only) */}
+          {/* Dashboard view dropdown (admin + developer only) */}
           {showDashboardTabs ? (
-            <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-muted/40 p-1">
-              <button
-                type="button"
-                onClick={() => setDashboardTab("counsellor")}
-                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                  dashboardTab === "counsellor"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Counsellor
-              </button>
-              <button
-                type="button"
-                onClick={() => setDashboardTab("backend")}
-                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                  dashboardTab === "backend"
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Backend
-              </button>
-            </div>
+            <>
+              {dashboardTab === "backend" && (
+                <Select value={backendSaleType} onValueChange={(v) => setBackendSaleType(v as typeof backendSaleType)}>
+                  <SelectTrigger className="h-9 w-[130px] text-sm font-medium bg-muted/50 border-border/50 rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="visitor">Visitor</SelectItem>
+                    <SelectItem value="spouse">Spouse</SelectItem>
+                    <SelectItem value="student">Student</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              <Select value={dashboardTab} onValueChange={(v) => setDashboardTab(v as "counsellor" | "backend")}>
+                <SelectTrigger className="h-9 w-[140px] text-sm font-medium bg-muted/50 border-border/50 rounded-lg">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="counsellor">Counsellor</SelectItem>
+                  <SelectItem value="backend">Backend</SelectItem>
+                </SelectContent>
+              </Select>
+            </>
           ) : null}
           <DashboardDateFilter
             date={customDateRange}
@@ -1713,7 +1727,7 @@ export default function Dashboard() {
 
       {/* Backend team view — Visa Case Dashboard */}
       {showDashboardTabs && dashboardTab === "backend" ? (
-        <BackendDashboard timeFilter={timeFilter} customDateRange={customDateRange} />
+        <BackendDashboard timeFilter={timeFilter} customDateRange={customDateRange} saleType={backendSaleType} />
       ) : (
       <>
       {(user?.role === "superadmin" ||
@@ -2085,7 +2099,12 @@ export default function Dashboard() {
               extra={canViewFinancials && Array.isArray((stats as any)?.saleTypeCategoryCounts) && (stats as any).saleTypeCategoryCounts.length > 0 ? (
                 <div className="space-y-1">
                   <div className="flex flex-wrap gap-x-3 gap-y-1">
-                    {(stats as any).saleTypeCategoryCounts.map((r: any) => (
+                    {[...(stats as any).saleTypeCategoryCounts].sort((a: any, b: any) => {
+                      const order: Record<string, number> = { visitor: 0, spouse: 1 };
+                      const aKey = (a.categoryName ?? "").toLowerCase();
+                      const bKey = (b.categoryName ?? "").toLowerCase();
+                      return (order[aKey] ?? 99) - (order[bKey] ?? 99);
+                    }).map((r: any) => (
                       <div key={r.categoryId ?? r.categoryName} className="text-[12px] text-foreground">
                         <span className="capitalize">{r.categoryName ?? "—"}</span>
                         <span className="text-muted-foreground">:</span>{" "}

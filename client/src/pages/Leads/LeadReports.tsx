@@ -60,7 +60,7 @@ export default function LeadReports() {
   const typeBreakdown = data?.typeBreakdown ?? [];
 
   const customLabel = dateFilter === "custom" && customDateFrom && customDateTo
-    ? `${format(new Date(`${customDateFrom}T12:00:00+05:30`), "d MMM")} – ${format(new Date(`${customDateTo}T12:00:00+05:30`), "d MMM yyyy")}`
+    ? `${format(new Date(`${customDateFrom}T12:00:00+05:30`), "d MMM ''yy")} – ${format(new Date(`${customDateTo}T12:00:00+05:30`), "d MMM ''yy")}`
     : null;
 
   const openLeadList = useCallback(

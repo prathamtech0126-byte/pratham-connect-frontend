@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearch } from "wouter";
-import { endOfDay, startOfDay, startOfMonth } from "date-fns";
+import { endOfDay, format, startOfDay, startOfMonth } from "date-fns";
 import {
   ArrowLeft,
   CalendarDays,
@@ -344,7 +344,7 @@ export default function FacebookManualDistribution() {
     setFromIso(from);
     setToIso(to);
     setDateTab("custom");
-    setCustomLabel(startDate && endDate ? `${startDate} → ${endDate}` : "");
+    setCustomLabel(startDate && endDate ? `${format(new Date(`${startDate}T12:00:00+05:30`), "d MMM ''yy")} – ${format(new Date(`${endDate}T12:00:00+05:30`), "d MMM ''yy")}` : "");
   };
 
   const applyCustomLimit = () => {

@@ -4,6 +4,10 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Edit,
   ArrowLeft,
   FolderOpen,
@@ -63,6 +67,8 @@ import { useVisaCaseByClient, useUpdateSponsorship, useUpdateTravel, useAssignBu
 import { SPONSOR_RELATIONSHIP_OPTIONS, REASON_OF_TRAVEL_OPTIONS, normalizeReasonOfTravel } from "@/api/visaCases.api";
 import { useClientTimeline } from "@/hooks/useClientTimeline";
 import { ClientTimeline, JourneyProgress } from "@/components/clients/ClientTimeline";
+import { useClientActivityFeed } from "@/hooks/useClientActivityFeed";
+import type { ActivityEvent, ActivityActor } from "@/api/clientActivityFeed.api";
 
 /** Parse date-only (YYYY-MM-DD), ISO string, or Date as local calendar date so display is correct in all timezones. */
 function parseDateOnly(val: string | Date | null | undefined): Date | null {
@@ -119,6 +125,205 @@ function PaymentTakenByOtherTag({ handlerName }: { handlerName: string }) {
     </span>
   );
 }
+
+// ── Activity Tracker helpers ──────────────────────────────────────────────────
+
+const ACTIVITY_PHASE_STYLES: Record<string, string> = {
+  LEAD:       "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  ENROLLMENT: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  PROCESSING: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  ASSIGNMENT: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+  DECISION:   "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+};
+
+const ACTIVITY_PHASE_BORDER: Record<string, string> = {
+  LEAD:       "border-l-4 border-l-purple-400",
+  ENROLLMENT: "border-l-4 border-l-blue-400",
+  PROCESSING: "border-l-4 border-l-amber-400",
+  ASSIGNMENT: "border-l-4 border-l-teal-400",
+  DECISION:   "border-l-4 border-l-green-400",
+};
+
+const ACTIVITY_PHASE_LABELS: Record<string, string> = {
+  LEAD:       "Lead",
+  ENROLLMENT: "Enrollment",
+  PROCESSING: "Processing",
+  ASSIGNMENT: "Assignment",
+  DECISION:   "Decision",
+};
+
+const ACTIVITY_ROLE_LABELS: Record<string, string> = {
+  superadmin:          "Super Admin",
+  developer:           "Developer",
+  manager:             "Manager",
+  counsellor:          "Counsellor",
+  director:            "Director",
+  telecaller:          "Telecaller",
+  tech_support:        "Tech Support",
+  front_desk:          "Front Desk",
+  marketing_head:      "Marketing Head",
+  backend_manager:     "Backend Manager",
+  application_team:    "Application Team",
+  customer_experience: "Customer Experience",
+  binding_team:        "Binding Team",
+  binding:             "Binding Team",
+  cx:                  "Customer Experience",
+};
+
+const ACTIVITY_ENTITY_LABELS: Record<string, string> = {
+  client_payment:         "Payment",
+  client_product_payment: "Product / Service",
+  visa_status_event:      "Visa Status Update",
+  client:                 "Client Profile",
+  student_application:    "Student Application",
+  visa_case:              "Visa Case",
+};
+
+const ACTIVITY_FIELD_LABELS: Record<string, string> = {
+  amount:                   "Amount",
+  totalPayment:             "Total Fees",
+  anotherPaymentAmount:     "2nd Payment Amount",
+  anotherPaymentAmount2:    "3rd Payment Amount",
+  stage:                    "Payment Stage",
+  subStatus:                "Processing Status",
+  invoiceNo:                "Invoice Number",
+  paymentDate:              "Payment Date",
+  anotherPaymentDate:       "2nd Payment Date",
+  anotherPaymentDate2:      "3rd Payment Date",
+  remarks:                  "Remarks",
+  notes:                    "Notes",
+  fullName:                 "Full Name",
+  enrollmentDate:           "Enrollment Date",
+  passportDetails:          "Passport Details",
+  productName:              "Service Name",
+  serviceName:              "Service Name",
+  serviceInformation:       "Service Information",
+  activatedStatus:          "Activated",
+  simcardPlan:              "SIM Plan",
+  simCardGivingDate:        "SIM Giving Date",
+  simActivationDate:        "SIM Activation Date",
+  isTicketBooked:           "Ticket Booked",
+  airTicketNumber:          "Ticket Number",
+  ticketDate:               "Ticket Date",
+  policyNumber:             "Policy Number",
+  insuranceDate:            "Insurance Date",
+  openingDate:              "Account Opening Date",
+  fundingDate:              "Funding Date",
+  tutionFeesStatus:         "Tuition Fees Status",
+  feeDate:                  "Fee Date",
+  financeId:                "Finance ID",
+  approvalStatus:           "Approval Status",
+  partialPayment:           "Partial Payment",
+  side:                     "Side",
+  tutionDepositStatus:      "Tuition Deposit Status",
+  tutionDepositTaken:       "Tuition Deposit Taken",
+  universityName:           "University",
+  courseName:               "Course",
+  saleType:                 "Sale Type",
+  // Human-readable label fields (preferred over raw enum counterparts)
+  relationshipLabel:        "Sponsor Relationship",
+  reasonLabel:              "Reason of Travel",
+  accompanyingMembersCount: "Accompanying Members",
+  statusLabel:              "Processing Status",
+  stageLabel:               "Stage",
+  assignedUserName:         "Assigned To",
+};
+
+const SKIP_ACTIVITY_FIELDS = new Set([
+  "id", "clientId", "visaCaseId", "counsellorId", "handledBy", "handledByUser",
+  "createdAt", "updatedAt", "paymentId", "productPaymentId", "applicationId",
+  "saleTypeId", "leadTypeId", "approver", "entity", "entityType",
+  // Raw enum fields — skipped because their *Label counterparts are shown instead
+  "sponsorRelationship", "relationship", "reasonOfTravel", "assignedUserId",
+]);
+
+/** Convert UTC ISO string to IST (UTC+5:30) Date for display. */
+function toIST(iso: string): Date {
+  return new Date(new Date(iso).getTime() + 5.5 * 60 * 60 * 1000);
+}
+
+function formatActivityFieldValue(key: string, value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  const k = key.toLowerCase();
+  if (k.includes("amount") || key === "totalPayment") {
+    const n = Number(value);
+    return isNaN(n) ? String(value) : `₹${n.toLocaleString("en-IN")}`;
+  }
+  if (k.includes("date") && typeof value === "string") return formatDateLocal(value);
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "string") {
+    // Lowercase first so ALL_CAPS enums like "BROTHER" become "Brother"
+    return value.toLowerCase().replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return String(value);
+}
+
+function ActivityMetadataDisplay({ metadata }: { metadata: ActivityEvent["metadata"] }) {
+  const entityType = metadata.entityType as string | undefined;
+  const newVal = (metadata.newValue ?? null) as Record<string, unknown> | null;
+  const oldVal = (metadata.oldValue ?? null) as Record<string, unknown> | null;
+
+  const entityLabel = entityType
+    ? (ACTIVITY_ENTITY_LABELS[entityType] ?? entityType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()))
+    : null;
+
+  const isCreated = oldVal === null;
+
+  const displayFields = Object.entries(newVal ?? {}).filter(([k, v]) => {
+    if (SKIP_ACTIVITY_FIELDS.has(k)) return false;
+    if (k.endsWith("Id") && k !== "financeId") return false;
+    if (!isCreated && oldVal !== null && oldVal[k] === v) return false;
+    if (isCreated && (v === null || v === undefined || v === "")) return false;
+    return true;
+  });
+
+  if (!entityLabel && displayFields.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      {entityLabel && (
+        <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
+          <p className="text-[10px] uppercase text-muted-foreground font-semibold tracking-widest mb-1">Record Type</p>
+          <p className="text-sm font-semibold text-foreground">{entityLabel}</p>
+        </div>
+      )}
+      {displayFields.length > 0 && (
+        <div>
+          <p className="text-[10px] uppercase text-muted-foreground font-semibold tracking-widest mb-2">
+            {isCreated ? "Details" : "What Changed"}
+          </p>
+          <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
+            {displayFields.map(([key, newValue]) => {
+              const label =
+                ACTIVITY_FIELD_LABELS[key] ??
+                key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+              const oldValue = !isCreated && oldVal ? oldVal[key] : undefined;
+              return (
+                <div key={key} className="flex items-start justify-between gap-4 px-3 py-2.5 bg-card text-xs">
+                  <span className="text-muted-foreground font-medium shrink-0">{label}</span>
+                  <div className="text-right font-semibold">
+                    {oldValue !== undefined && oldValue !== newValue ? (
+                      <>
+                        <span className="text-muted-foreground line-through mr-1.5">
+                          {formatActivityFieldValue(key, oldValue)}
+                        </span>
+                        <span className="text-foreground">→ {formatActivityFieldValue(key, newValue)}</span>
+                      </>
+                    ) : (
+                      <span className="text-foreground">{formatActivityFieldValue(key, newValue)}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Helper function to render product entity details
 const renderProductDetails = (product: any) => {
@@ -287,7 +492,7 @@ const renderProductDetails = (product: any) => {
           {entity.amount && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Amount:</span>
-              <span className="font-semibold">${Number(entity.amount).toLocaleString('en-IN')}</span>
+              <span className="font-semibold">₹{Number(entity.amount).toLocaleString('en-IN')}</span>
             </div>
           )}
           {entity.remarks && (
@@ -534,6 +739,9 @@ export default function ClientView() {
     : user?.role === "backend_manager" ? "/backend/clients"
     : "/clients";
 
+  // backHref is resolved after reading sessionStorage in useEffect below.
+  // Until then it falls back to the role-based default so breadcrumbs render immediately.
+
   const [expandedProducts, setExpandedProducts] = useState<Set<number>>(new Set());
   const [returnPath, setReturnPath] = useState<string | null>(null);
   const [returnCounsellorName, setReturnCounsellorName] = useState<string>("");
@@ -560,6 +768,12 @@ export default function ClientView() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignUserIdDraft, setAssignUserIdDraft] = useState<string>("");
   const [assignNotesDraft, setAssignNotesDraft] = useState<string>("");
+  const [selectedActivity, setSelectedActivity] = useState<ActivityEvent | null>(null);
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityPageSize, setActivityPageSize] = useState(20);
+  const [activityPhaseFilter, setActivityPhaseFilter] = useState<string>("all");
+  const [activityActorFilter, setActivityActorFilter] = useState<string>("all");
+  const [cachedActors, setCachedActors] = useState<ActivityActor[]>([]);
   const { socket, isConnected } = useSocket();
 
   useEffect(() => {
@@ -627,6 +841,26 @@ export default function ClientView() {
   const { data: visaCase, isLoading: isVisaCaseLoading } = useVisaCaseByClient(clientId, clientCounsellorId);
 
   const { data: journeyTimeline, isLoading: isTimelineLoading } = useClientTimeline(clientId);
+  const { data: activityFeed, isLoading: isActivityFeedLoading, isError: isActivityFeedError } = useClientActivityFeed(
+    clientId,
+    activityPage,
+    activityPageSize,
+    {
+      phase: activityPhaseFilter !== "all" ? activityPhaseFilter : undefined,
+      actorId: activityActorFilter !== "all" ? Number(activityActorFilter) : undefined,
+    }
+  );
+
+  // Accumulate actors from activity feed so the dropdown stays populated even when filters are active
+  useEffect(() => {
+    const actors = activityFeed?.actors;
+    if (!actors?.length) return;
+    setCachedActors((prev) => {
+      const existingIds = new Set(prev.map((a) => a.id));
+      const incoming = actors.filter((a) => !existingIds.has(a.id));
+      return incoming.length ? [...prev, ...incoming] : prev;
+    });
+  }, [activityFeed]);
 
   // Find the most recent CX actor from the timeline to display in the "Request from CX" dialog.
   const cxUserName = (() => {
@@ -1241,8 +1475,9 @@ export default function ClientView() {
     }
   };
 
+  const backHref = returnPath ?? clientsHref;
   const mainBreadcrumbs = [
-    { label: "Clients", href: clientsHref },
+    { label: "Clients", href: backHref },
     { label: clientFullName },
   ];
 
@@ -1252,12 +1487,10 @@ export default function ClientView() {
       breadcrumbs={mainBreadcrumbs}
       actions={
         <div className="flex items-center gap-2">
-          {returnPath && (
-            <Button variant="outline" size="sm" onClick={() => setLocation(returnPath)} className="gap-1.5">
-              <ArrowLeft className="h-4 w-4" />
-              {user?.role === "customer_experience" || user?.role === "binding_team" ? "Back to my clients" : user?.role === "backend_manager" ? "Back to Visa Processing" : "Back to clients"}
-            </Button>
-          )}
+          <Button variant="outline" size="sm" onClick={() => setLocation(backHref)} className="gap-1.5">
+            <ArrowLeft className="h-4 w-4" />
+            {user?.role === "customer_experience" || user?.role === "binding_team" ? "Back to my clients" : user?.role === "backend_manager" ? "Back to Visa Processing" : "Back to clients"}
+          </Button>
           {params?.id && user?.role === "binding_team" && (
             <RequestFromCxButton
               clientId={visaCase?.clientId ?? params.id}
@@ -1755,21 +1988,291 @@ export default function ClientView() {
                     <CardTitle className="text-xl font-bold flex items-center gap-2 text-card-foreground">
                       <Route className="h-6 w-6 text-emerald-500" />
                       Application Tracker
+                      {activityFeed && (
+                        <span className="ml-1 text-sm font-normal text-muted-foreground">
+                          ({activityFeed.pagination.total} events)
+                        </span>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-6">
-                    {timelineItems.length > 0 ? (
+                    {isActivityFeedLoading ? (
                       <div className="space-y-3">
-                        {timelineItems.map((item) => (
-                          <div key={`tracker-${item.id}`} className="rounded-lg border border-border p-4">
-                            <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{item.subtitle}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{formatDateLocal(item.date || "")}</p>
-                          </div>
-                        ))}
+                        <Skeleton className="h-[80px] w-full rounded-lg" />
+                        <Skeleton className="h-[80px] w-full rounded-lg" />
+                        <Skeleton className="h-[80px] w-full rounded-lg" />
+                        <Skeleton className="h-[80px] w-full rounded-lg" />
+                        <Skeleton className="h-[80px] w-full rounded-lg" />
                       </div>
+                    ) : isActivityFeedError || !activityFeed ? (
+                      <p className="text-center py-10 text-muted-foreground italic text-sm">
+                        Could not load activity feed. Please try refreshing the page.
+                      </p>
                     ) : (
-                      <p className="text-center py-8 text-muted-foreground italic text-sm">No tracker events found.</p>
+                      <div className="space-y-4">
+
+                        {/* Filter bar — always visible so the user can change filters even when 0 results */}
+                        <div className="flex items-center gap-3 flex-wrap rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+                          {/* Phase filter */}
+                          <div className="flex items-center gap-2">
+                            <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap">
+                              Phase
+                            </Label>
+                            <Select
+                              value={activityPhaseFilter}
+                              onValueChange={(v) => { setActivityPhaseFilter(v); setActivityPage(1); }}
+                            >
+                              <SelectTrigger className="h-8 w-[145px] text-sm">
+                                <SelectValue placeholder="All Phases" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Phases</SelectItem>
+                                <SelectItem value="LEAD">
+                                  <span className="flex items-center gap-1.5">
+                                    <span className="h-2 w-2 rounded-full bg-purple-400 shrink-0" />
+                                    Lead
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="ENROLLMENT">
+                                  <span className="flex items-center gap-1.5">
+                                    <span className="h-2 w-2 rounded-full bg-blue-400 shrink-0" />
+                                    Enrollment
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="PROCESSING">
+                                  <span className="flex items-center gap-1.5">
+                                    <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
+                                    Processing
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="ASSIGNMENT">
+                                  <span className="flex items-center gap-1.5">
+                                    <span className="h-2 w-2 rounded-full bg-teal-400 shrink-0" />
+                                    Assignment
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="DECISION">
+                                  <span className="flex items-center gap-1.5">
+                                    <span className="h-2 w-2 rounded-full bg-green-400 shrink-0" />
+                                    Decision
+                                  </span>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Actor filter */}
+                          <div className="flex items-center gap-2">
+                            <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap">
+                              Done by
+                            </Label>
+                            <Select
+                              value={activityActorFilter}
+                              onValueChange={(v) => { setActivityActorFilter(v); setActivityPage(1); }}
+                            >
+                              <SelectTrigger className="h-8 w-[160px] text-sm">
+                                <SelectValue placeholder="All Users" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Users</SelectItem>
+                                {cachedActors.map((actor) => (
+                                  <SelectItem key={actor.id} value={String(actor.id)}>
+                                    <span className="flex items-center gap-1.5">
+                                      <span className="font-medium">{actor.name}</span>
+                                      <span className="text-[11px] text-muted-foreground">
+                                        · {ACTIVITY_ROLE_LABELS[actor.role] ?? actor.role.replace(/_/g, " ")}
+                                      </span>
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Clear filters */}
+                          {(activityPhaseFilter !== "all" || activityActorFilter !== "all") && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => { setActivityPhaseFilter("all"); setActivityActorFilter("all"); setActivityPage(1); }}
+                            >
+                              Clear filters ×
+                            </Button>
+                          )}
+
+                          {/* Rows per page — pinned to the right */}
+                          <div className="ml-auto flex items-center gap-2">
+                            <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground whitespace-nowrap">
+                              Rows per page
+                            </Label>
+                            <Select
+                              value={String(activityPageSize)}
+                              onValueChange={(v) => { setActivityPageSize(Number(v)); setActivityPage(1); }}
+                            >
+                              <SelectTrigger className="h-8 w-[72px] text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent align="end">
+                                {[10, 20, 50, 100].map((n) => (
+                                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* Result count */}
+                        <p className="text-xs text-muted-foreground">
+                          {activityFeed.pagination.total === 0 ? (
+                            <span>No events found{(activityPhaseFilter !== "all" || activityActorFilter !== "all") ? " for the selected filters" : " for this client"}.</span>
+                          ) : (
+                            <>
+                              Showing{" "}
+                              <span className="font-semibold text-foreground">
+                                {(activityFeed.pagination.page - 1) * activityFeed.pagination.pageSize + 1}–
+                                {Math.min(activityFeed.pagination.page * activityFeed.pagination.pageSize, activityFeed.pagination.total)}
+                              </span>{" "}
+                              of{" "}
+                              <span className="font-semibold text-foreground">{activityFeed.pagination.total}</span> events
+                              {(activityPhaseFilter !== "all" || activityActorFilter !== "all") && (
+                                <span className="text-muted-foreground"> (filtered)</span>
+                              )}
+                            </>
+                          )}
+                        </p>
+
+                        {/* Event cards */}
+                        {activityFeed.events.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-border py-14 text-center">
+                            <p className="text-sm text-muted-foreground italic">
+                              {activityPhaseFilter !== "all" || activityActorFilter !== "all"
+                                ? "No events match the selected filters. Try changing or clearing the filters above."
+                                : "No activity recorded for this client yet."}
+                            </p>
+                          </div>
+                        ) : (
+                        <div className="space-y-2">
+                          {activityFeed.events.map((event) => (
+                            <button
+                              key={event.id}
+                              type="button"
+                              onClick={() => setSelectedActivity(event)}
+                              className={`w-full text-left rounded-lg border border-border bg-card hover:bg-accent/30 transition-colors group overflow-hidden ${ACTIVITY_PHASE_BORDER[event.phase] ?? "border-l-4 border-l-border"}`}
+                            >
+                              <div className="flex items-start justify-between gap-3 px-4 py-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${ACTIVITY_PHASE_STYLES[event.phase] ?? "bg-muted text-muted-foreground"}`}
+                                    >
+                                      {ACTIVITY_PHASE_LABELS[event.phase] ?? event.phase}
+                                    </span>
+                                    <p className="text-sm font-semibold text-foreground">{event.title}</p>
+                                  </div>
+                                  {event.description && (
+                                    <p className="text-xs text-muted-foreground mb-1 line-clamp-2 leading-relaxed">{event.description}</p>
+                                  )}
+                                  {event.actor ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      by{" "}
+                                      <span className="font-medium text-foreground">{event.actor.name}</span>
+                                      {" "}·{" "}
+                                      {ACTIVITY_ROLE_LABELS[event.actor.role] ?? event.actor.role.replace(/_/g, " ")}
+                                    </p>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground italic">System</p>
+                                  )}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-xs font-semibold text-foreground">{formatDateLocal(event.occurredAt)}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">{format(toIST(event.occurredAt), "h:mm a")}</p>
+                                  <p className="text-[10px] text-primary mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    View details →
+                                  </p>
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                        )}
+
+                        {/* Pagination bar */}
+                        {activityFeed.pagination.totalPages > 1 && (
+                          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-card px-4 py-2.5">
+                            <div className="w-24" />
+
+                            {/* Page number buttons */}
+                            <div className="flex items-center gap-1 flex-wrap justify-center">
+                              <Button
+                                variant="outline" size="sm" className="h-8 w-8 p-0"
+                                disabled={activityFeed.pagination.page <= 1}
+                                onClick={() => setActivityPage(1)}
+                              >
+                                <ChevronsLeft className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline" size="sm" className="h-8 gap-1 px-2"
+                                disabled={!activityFeed.pagination.hasPrev}
+                                onClick={() => setActivityPage((p) => p - 1)}
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                                <span className="hidden sm:inline text-xs">Previous</span>
+                              </Button>
+
+                              {(() => {
+                                const total = activityFeed.pagination.totalPages;
+                                const cur = activityFeed.pagination.page;
+                                const pages: (number | "…")[] = [];
+                                if (total <= 7) {
+                                  for (let i = 1; i <= total; i++) pages.push(i);
+                                } else {
+                                  pages.push(1);
+                                  if (cur > 3) pages.push("…");
+                                  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i);
+                                  if (cur < total - 2) pages.push("…");
+                                  pages.push(total);
+                                }
+                                return pages.map((pg, idx) =>
+                                  pg === "…" ? (
+                                    <span key={`ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground select-none">…</span>
+                                  ) : (
+                                    <Button
+                                      key={pg}
+                                      variant={pg === cur ? "default" : "outline"}
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-xs"
+                                      onClick={() => setActivityPage(pg as number)}
+                                    >
+                                      {pg}
+                                    </Button>
+                                  )
+                                );
+                              })()}
+
+                              <Button
+                                variant="outline" size="sm" className="h-8 gap-1 px-2"
+                                disabled={!activityFeed.pagination.hasNext}
+                                onClick={() => setActivityPage((p) => p + 1)}
+                              >
+                                <span className="hidden sm:inline text-xs">Next</span>
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline" size="sm" className="h-8 w-8 p-0"
+                                disabled={activityFeed.pagination.page >= activityFeed.pagination.totalPages}
+                                onClick={() => setActivityPage(activityFeed.pagination.totalPages)}
+                              >
+                                <ChevronsRight className="h-4 w-4" />
+                              </Button>
+                            </div>
+
+                            <span className="text-xs tabular-nums text-muted-foreground whitespace-nowrap">
+                              Page {activityFeed.pagination.page} of {activityFeed.pagination.totalPages}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -1898,6 +2401,7 @@ export default function ClientView() {
                   type="date"
                   value={enrollmentDateDraft}
                   onChange={(e) => setEnrollmentDateDraft(e.target.value)}
+                  min="2020-01-01"
                   className="h-9"
                 />
               </div>
@@ -1993,6 +2497,54 @@ export default function ClientView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Activity event detail dialog */}
+      <Dialog open={!!selectedActivity} onOpenChange={(open) => { if (!open) setSelectedActivity(null); }}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold pr-6">{selectedActivity?.title}</DialogTitle>
+          </DialogHeader>
+          {selectedActivity && (
+            <div className="space-y-4 py-1">
+              {/* Phase + Date/Time */}
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <span
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${ACTIVITY_PHASE_STYLES[selectedActivity.phase] ?? "bg-muted text-muted-foreground"}`}
+                >
+                  {ACTIVITY_PHASE_LABELS[selectedActivity.phase] ?? selectedActivity.phase}
+                </span>
+                <p className="text-xs text-muted-foreground">
+                  {formatDateLocal(selectedActivity.occurredAt)} at {format(toIST(selectedActivity.occurredAt), "h:mm a")} IST
+                </p>
+              </div>
+
+              {/* Actor */}
+              {selectedActivity.actor && (
+                <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
+                  <p className="text-[10px] uppercase text-muted-foreground font-semibold tracking-widest mb-1.5">Done by</p>
+                  <p className="text-sm font-bold text-foreground">{selectedActivity.actor.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {ACTIVITY_ROLE_LABELS[selectedActivity.actor.role] ?? selectedActivity.actor.role.replace(/_/g, " ")}
+                  </p>
+                </div>
+              )}
+
+              {/* Description */}
+              {selectedActivity.description && (
+                <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
+                  <p className="text-[10px] uppercase text-muted-foreground font-semibold tracking-widest mb-1.5">What happened</p>
+                  <p className="text-sm text-foreground leading-relaxed">{selectedActivity.description}</p>
+                </div>
+              )}
+
+              {/* Metadata — displayed in a user-friendly format */}
+              {Object.keys(selectedActivity.metadata ?? {}).length > 0 && (
+                <ActivityMetadataDisplay metadata={selectedActivity.metadata} />
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Assign visa case dialog */}
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent className="max-w-md">

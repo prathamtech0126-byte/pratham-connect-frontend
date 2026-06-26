@@ -57,7 +57,7 @@ import {
   BACKEND_STAGES,
   stageOfStatus,
 } from "@/data/dummyBackendData";
-import { useVisaCases, useVisaCountries, useAllBackendUsers, useAssignableUsers, useProcessingStages } from "@/hooks/useVisaCases";
+import { useVisaCases, useVisaCountries, useAllBackendUsers, useAllSystemUsers, useAssignableUsers, useProcessingStages } from "@/hooks/useVisaCases";
 import { assignBulkVisaCases, changeVisaCaseStatus, changeVisaCaseDecision } from "@/api/visaCases.api";
 import type { ProcessingSubStatus } from "@/api/visaCases.api";
 import {
@@ -123,7 +123,7 @@ const fmtDate = (iso: string) => {
   return `${d}-${m}-${y}`;
 };
 
-type SortKey = "name" | "destination" | "travelReason" | "status" | "decision" | "enrollmentDate" | "balanceDue" | "handledBy";
+type SortKey = "name" | "destination" | "travelReason" | "status" | "decision" | "enrollmentDate" | "totalCharges" | "initialReceived" | "beforeVisaCharges" | "financeCharges" | "balanceDue" | "handledBy";
 type SortDir = "asc" | "desc";
 
 /* ------------------------------------------------------------------ */
@@ -380,6 +380,7 @@ export default function BackendClients({
 
   // Dialog state
   const [dialogClient, setDialogClient] = useState<VisaClient | null>(null);
+  const [financialExpanded, setFinancialExpanded] = useState(false);
   const [dialogMode, setDialogMode] = useState<"view" | "edit">("view");
   const [draft, setDraft] = useState<VisaClient | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<VisaClient | null>(null);
@@ -405,8 +406,12 @@ export default function BackendClients({
       // Destination is filtered server-side via `countryId` (see visaFilters).
       if (decisionFilter !== "all" && c.decision !== decisionFilter) return false;
       if (reasonFilter !== "all" && c.travelReason !== reasonFilter) return false;
-      if (balanceFilter === "due" && !(c.balanceDue > 0)) return false;
-      if (balanceFilter === "paid" && c.balanceDue > 0) return false;
+      if (balanceFilter === "due"               && !(c.balanceDue > 0))        return false;
+      if (balanceFilter === "paid"              && c.balanceDue > 0)           return false;
+      if (balanceFilter === "initial_received"  && !(c.initialReceived > 0))   return false;
+      if (balanceFilter === "initial_pending"   && c.initialReceived > 0)      return false;
+      if (balanceFilter === "bv_received"       && !(c.beforeVisaCharges > 0)) return false;
+      if (balanceFilter === "bv_pending"        && c.beforeVisaCharges > 0)    return false;
       if (handledByFilter !== "all") {
         if (handledByFilter === "unassigned") {
           if (c.assignedUserId != null) return false;
@@ -422,10 +427,11 @@ export default function BackendClients({
     rows = [...rows].sort((a, b) => {
       let av: string | number = a[sortKey];
       let bv: string | number = b[sortKey];
-      if (sortKey === "balanceDue") {
-        av = a.balanceDue;
-        bv = b.balanceDue;
-      }
+      if (sortKey === "balanceDue")    { av = a.balanceDue;      bv = b.balanceDue; }
+      if (sortKey === "totalCharges")  { av = a.totalCharges;    bv = b.totalCharges; }
+      if (sortKey === "initialReceived")   { av = a.initialReceived;   bv = b.initialReceived; }
+      if (sortKey === "beforeVisaCharges") { av = a.beforeVisaCharges; bv = b.beforeVisaCharges; }
+      if (sortKey === "financeCharges") { av = a.financeCharges;  bv = b.financeCharges; }
       if (typeof av === "string" && typeof bv === "string") {
         return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
       }
@@ -490,6 +496,9 @@ export default function BackendClients({
   // POST /visa-cases/{id}/assign (one call per case).
   const queryClient = useQueryClient();
   const canAssign = ASSIGN_ALLOWED_ROLES.includes((user as any)?.role);
+  const canChangeStatus = !!user && (user as any)?.role !== "counsellor";
+  // Either assignment or status-change permission lets the user enter select mode.
+  const canSelect = canAssign || canChangeStatus;
   // The list endpoint only returns assignedUserId, so resolve names client-side
   // from the CX/Binding user list (also feeds the assign dropdown and the
   // "Handled By" filter). Loaded whenever the Handled By column is visible.
@@ -504,12 +513,27 @@ export default function BackendClients({
     return m;
   }, [allBackendUsers]);
 
+  // Broader lookup (all roles incl. counsellors) — used in CSV export to resolve counsellor names.
+  const { data: allSystemUsers } = useAllSystemUsers();
+  const allUserNameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const u of allSystemUsers ?? []) m.set(u.id, u.fullName);
+    return m;
+  }, [allSystemUsers]);
+
   const [selectMode, setSelectMode] = useState(false);
   const [selectedCaseIds, setSelectedCaseIds] = useState<Set<string>>(new Set());
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignUserId, setAssignUserId] = useState<string>("");
   const [assignNotes, setAssignNotes] = useState<string>("");
   const [assignBusy, setAssignBusy] = useState(false);
+
+  // Bulk change-status state (admin/non-counsellor users when ≥2 cases selected).
+  const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+  const [bulkStatusStageDraft, setBulkStatusStageDraft] = useState<string>("");
+  const [bulkStatusDraft, setBulkStatusDraft] = useState<string>("");
+  const [bulkStatusNotes, setBulkStatusNotes] = useState<string>("");
+  const [bulkStatusBusy, setBulkStatusBusy] = useState(false);
 
   const toggleSelectCase = (visaCaseId: string) => {
     setSelectedCaseIds((prev) => {
@@ -567,6 +591,60 @@ export default function BackendClients({
       });
     } finally {
       setAssignBusy(false);
+    }
+  };
+
+  const openBulkStatusChange = () => {
+    setBulkStatusStageDraft("");
+    setBulkStatusDraft("");
+    setBulkStatusNotes("");
+    setBulkStatusOpen(true);
+  };
+
+  const saveBulkStatus = async () => {
+    if (!bulkStatusDraft || selectedCaseIds.size === 0) return;
+    setBulkStatusBusy(true);
+    let succeeded = 0;
+    let failed = 0;
+    const newLabel = subStatusByValue.get(bulkStatusDraft)?.displayLabel ?? bulkStatusDraft;
+    try {
+      await Promise.all(
+        Array.from(selectedCaseIds).map(async (id) => {
+          try {
+            await changeVisaCaseStatus(id, {
+              subStatus: bulkStatusDraft,
+              notes: bulkStatusNotes.trim() || undefined,
+              adminOverride: true,
+            });
+            succeeded++;
+          } catch {
+            failed++;
+          }
+        })
+      );
+      setClients((prev) =>
+        prev.map((c) =>
+          c.visaCaseId && selectedCaseIds.has(c.visaCaseId)
+            ? { ...c, status: newLabel, subStatus: bulkStatusDraft }
+            : c
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: ["visa-cases"] });
+      toast({
+        title: failed === 0 ? "Status updated" : "Partially updated",
+        description: `${succeeded} case${succeeded !== 1 ? "s" : ""} updated to "${newLabel}"${failed ? ` · ${failed} failed` : ""}.`,
+        variant: failed === 0 ? undefined : "destructive",
+      });
+      setBulkStatusOpen(false);
+      exitSelectMode();
+    } catch (err: any) {
+      toast({
+        title: "Status update failed",
+        description: err?.response?.data?.message ?? err?.message ?? "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkStatusBusy(false);
     }
   };
 
@@ -705,10 +783,24 @@ export default function BackendClients({
 
   const handleExport = () => {
     if (filtered.length === 0) return;
-    const headers = ["ID", "Name", "Passport", "Destination", "Travel Reason", "Sponsor", "Status", "Decision", "Enrollment Date", "Balance Due", "Counsellor", ...(showHandledBy ? ["Handled By"] : [])];
-    const rows = filtered.map((c) => [
-      c.id, c.name, c.passport, c.destination, c.travelReason, c.sponsor, c.status, c.decision, fmtDate(c.enrollmentDate), c.balanceDue, c.counsellor, ...(showHandledBy ? [c.handledBy] : []),
-    ]);
+    const dash = (v: string) => (v === "—" ? "" : v);
+    const headers = [
+      "ID", "Name", "Passport", "Destination", "Travel Reason", "Sponsor",
+      "Status", "Decision", "Enrollment Date",
+      "Total Charges", "Initial Received", "Before Visa", "Balance Due",
+      ...(showHandledBy ? ["Handled By"] : []),
+    ];
+    const rows = filtered.map((c) => {
+      const handledByName = c.assignedUserId == null
+        ? "Unassigned"
+        : (c.assignedUserName ?? userNameById.get(c.assignedUserId) ?? "Unassigned");
+      return [
+        c.id, c.name, c.passport, c.destination, dash(c.travelReason), dash(c.sponsor),
+        c.status, c.decision, fmtDate(c.enrollmentDate),
+        c.totalCharges, c.initialReceived, c.beforeVisaCharges, c.balanceDue,
+        ...(showHandledBy ? [handledByName] : []),
+      ];
+    });
     const csv = [headers, ...rows]
       .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
       .join("\n");
@@ -737,8 +829,6 @@ export default function BackendClients({
 
   const userName = (user as any)?.fullname || (user as any)?.name || "Backend";
   const canEdit = !!user; // logged-in users can edit/delete
-  // Counsellors may view cases but cannot change processing status.
-  const canChangeStatus = !!user && (user as any)?.role !== "counsellor";
   // CX and Binding teams only ever see their own cases, so "Handled By" is
   // redundant for them — only admins/backend (who see everyone's) need it.
   const showHandledBy = !["customer_experience", "binding_team"].includes((user as any)?.role);
@@ -749,13 +839,23 @@ export default function BackendClients({
       breadcrumbs={[{ label: breadcrumbLabel }, { label: "Clients" }]}
       actions={
         <div className="flex items-center gap-2">
-          {canAssign ? (
+          {canSelect ? (
             <>
               {selectMode && selectedCaseIds.size > 0 ? (
-                <Button className="gap-1.5" onClick={openAssignDialog}>
-                  <UserPlus className="w-4 h-4" />
-                  Assign ({selectedCaseIds.size})
-                </Button>
+                <>
+                  {canChangeStatus ? (
+                    <Button variant="outline" className="gap-1.5 shadow-sm" onClick={openBulkStatusChange}>
+                      <ListChecks className="w-4 h-4" />
+                      Change Status ({selectedCaseIds.size})
+                    </Button>
+                  ) : null}
+                  {canAssign ? (
+                    <Button className="gap-1.5" onClick={openAssignDialog}>
+                      <UserPlus className="w-4 h-4" />
+                      Assign ({selectedCaseIds.size})
+                    </Button>
+                  ) : null}
+                </>
               ) : null}
               <Button
                 variant={selectMode ? "secondary" : "outline"}
@@ -875,13 +975,26 @@ export default function BackendClients({
             <div className="space-y-1.5">
               <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Payment</Label>
               <Select value={balanceFilter} onValueChange={setBalanceFilter}>
-                <SelectTrigger className={cn("h-9 w-[170px]", balanceFilter !== "all" && "border-primary/40 bg-primary/5 text-primary")}>
+                <SelectTrigger className={cn("h-9 w-[190px]", balanceFilter !== "all" && "border-primary/40 bg-primary/5 text-primary")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="due">With Balance Due</SelectItem>
-                  <SelectItem value="paid">Fully Paid</SelectItem>
+                  <SelectGroup>
+                    <SelectLabel>Balance Due</SelectLabel>
+                    <SelectItem value="due">With Balance Due</SelectItem>
+                    <SelectItem value="paid">Fully Paid</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Initial</SelectLabel>
+                    <SelectItem value="initial_received">Initial Received</SelectItem>
+                    <SelectItem value="initial_pending">Initial Pending</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Before Visa</SelectLabel>
+                    <SelectItem value="bv_received">Before Visa Received</SelectItem>
+                    <SelectItem value="bv_pending">Before Visa Pending</SelectItem>
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
@@ -958,7 +1071,7 @@ export default function BackendClients({
         ) : null}
 
         {/* Result count */}
-        <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+        <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
           <p className="text-xs text-muted-foreground">
             {isLoading ? (
               "Loading cases…"
@@ -982,6 +1095,18 @@ export default function BackendClients({
               "0 cases"
             )}
           </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSortKey("enrollmentDate");
+              setSortDir((d) => (sortKey === "enrollmentDate" ? (d === "asc" ? "desc" : "asc") : "desc"));
+            }}
+            className="flex items-center gap-1.5 rounded-md border border-border/60 bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
+            title="Toggle sort order by enrollment date"
+          >
+            <ArrowRightLeft className="h-3 w-3" />
+            {sortKey === "enrollmentDate" && sortDir === "asc" ? "Oldest First" : "Newest First"}
+          </button>
         </div>
 
         {/* Table */}
@@ -990,7 +1115,7 @@ export default function BackendClients({
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50 border-b border-border/60">
-                  {selectMode && canAssign ? (
+                  {selectMode && canSelect ? (
                     <TableHead className="w-[44px] py-3">
                       <Checkbox
                         aria-label="Select all cases on this page"
@@ -1013,7 +1138,29 @@ export default function BackendClients({
                   <SortHeader label="Travel Reason" k="travelReason" />
                   <SortHeader label="Status" k="status" />
                   <SortHeader label="Enrollment" k="enrollmentDate" />
-                  <SortHeader label="Balance Due" k="balanceDue" className="text-right" />
+                  <TableHead className="whitespace-nowrap py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <div className="flex items-center justify-end gap-1">
+                      <button type="button" onClick={() => toggleSort("balanceDue")} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        Balance Due
+                        {sortKey === "balanceDue" ? (sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />) : <ChevronsUpDown className="w-3 h-3 opacity-50" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFinancialExpanded((v) => !v)}
+                        className={cn("h-5 w-5 rounded flex items-center justify-center transition-colors shrink-0", financialExpanded ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:bg-muted hover:text-foreground")}
+                        title={financialExpanded ? "Collapse financial columns" : "Expand financial columns"}
+                      >
+                        {financialExpanded ? <ChevronsLeft className="h-3.5 w-3.5" /> : <ChevronsRight className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
+                  </TableHead>
+                  {financialExpanded && (
+                    <>
+                      <SortHeader label="Total" k="totalCharges" className="text-right" />
+                      <SortHeader label="Initial" k="initialReceived" className="text-right" />
+                      <SortHeader label="Before Visa" k="beforeVisaCharges" className="text-right" />
+                    </>
+                  )}
                   {showHandledBy ? <SortHeader label="Handled By" k="handledBy" /> : null}
                   <TableHead className="py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</TableHead>
                 </TableRow>
@@ -1021,7 +1168,7 @@ export default function BackendClients({
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={(showHandledBy ? 10 : 9) + (selectMode && canAssign ? 1 : 0)} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={(showHandledBy ? (financialExpanded ? 13 : 10) : (financialExpanded ? 12 : 9)) + (selectMode && canSelect ? 1 : 0)} className="h-32 text-center text-muted-foreground py-12">
                       {isLoading
                         ? "Loading cases…"
                         : isError
@@ -1045,14 +1192,14 @@ export default function BackendClients({
                         handedOff && "bg-accent/30 hover:bg-accent/40"
                       )}
                       onClick={() => {
-                        if (selectMode && canAssign) {
+                        if (selectMode && canSelect) {
                           if (c.visaCaseId) toggleSelectCase(c.visaCaseId);
                         } else {
                           goToClient(c);
                         }
                       }}
                     >
-                      {selectMode && canAssign ? (
+                      {selectMode && canSelect ? (
                         <TableCell className="py-3" onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             aria-label={`Select ${c.name}`}
@@ -1077,10 +1224,23 @@ export default function BackendClients({
                       </TableCell>
                       <TableCell className="py-3 whitespace-nowrap text-sm text-muted-foreground">{fmtDate(c.enrollmentDate)}</TableCell>
                       <TableCell className="py-3 text-right tabular-nums">
-                        <span className={c.balanceDue > 0 ? "font-semibold text-foreground" : "text-muted-foreground"}>
-                          {c.balanceDue > 0 ? inr(c.balanceDue) : c.balanceDue === 0 ? "₹0" : "—"}
+                        <span className={cn("text-sm font-semibold", c.balanceDue > 0 ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground")}>
+                          {c.balanceDue > 0 ? inr(c.balanceDue) : "₹0"}
                         </span>
                       </TableCell>
+                      {financialExpanded && (
+                        <>
+                          <TableCell className="py-3 text-right tabular-nums text-sm text-foreground">
+                            {c.totalCharges > 0 ? inr(c.totalCharges) : "—"}
+                          </TableCell>
+                          <TableCell className="py-3 text-right tabular-nums text-sm text-emerald-600 dark:text-emerald-400">
+                            {c.initialReceived > 0 ? inr(c.initialReceived) : "₹0"}
+                          </TableCell>
+                          <TableCell className="py-3 text-right tabular-nums text-sm text-violet-600 dark:text-violet-400">
+                            {c.beforeVisaCharges > 0 ? inr(c.beforeVisaCharges) : "—"}
+                          </TableCell>
+                        </>
+                      )}
                       {showHandledBy ? (
                         <TableCell className="py-3">
                           {(() => {
@@ -1153,6 +1313,7 @@ export default function BackendClients({
                                       <span className="text-[11px] text-muted-foreground">Move the processing stage</span>
                                     </span>
                                   </DropdownMenuItem>
+                                  {/* Change Decision — temporarily hidden from all users
                                   <DropdownMenuSeparator className="my-1" />
                                   <DropdownMenuItem
                                     onClick={() => openDecisionChange(c)}
@@ -1166,6 +1327,7 @@ export default function BackendClients({
                                       <span className="text-[11px] text-muted-foreground">Record the embassy outcome</span>
                                     </span>
                                   </DropdownMenuItem>
+                                  */}
                                 </>
                               ) : null}
                             </DropdownMenuContent>
@@ -1439,6 +1601,76 @@ export default function BackendClients({
                 </>
               ) : (
                 `Assign (${selectedCaseIds.size})`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk change-status dialog */}
+      <Dialog open={bulkStatusOpen} onOpenChange={(o) => { if (!o && !bulkStatusBusy) { setBulkStatusOpen(false); setBulkStatusStageDraft(""); setBulkStatusDraft(""); setBulkStatusNotes(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Status — {selectedCaseIds.size} Case{selectedCaseIds.size !== 1 ? "s" : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+            <span className="font-semibold">{selectedCaseIds.size}</span> case
+            {selectedCaseIds.size !== 1 ? "s" : ""} selected — all will be moved to the same status.
+          </div>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Stage</Label>
+              <Select
+                value={bulkStatusStageDraft}
+                onValueChange={(v) => { setBulkStatusStageDraft(v); setBulkStatusDraft(""); }}
+              >
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder={stagesMeta ? "Select a stage" : "Loading…"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(stagesMeta?.stages ?? []).map((s) => (
+                    <SelectItem key={s.stage} value={s.label}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {bulkStatusStageDraft && (
+              <div className="space-y-2">
+                <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Status</Label>
+                <Select value={bulkStatusDraft} onValueChange={setBulkStatusDraft}>
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Select a status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(stagesMeta?.stages.find((s) => s.label === bulkStatusStageDraft)?.subStatuses ?? []).map((s) => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Notes <span className="normal-case text-muted-foreground/70">(optional)</span>
+              </Label>
+              <Textarea
+                value={bulkStatusNotes}
+                onChange={(e) => setBulkStatusNotes(e.target.value)}
+                placeholder="e.g. Passport copy received"
+                className="min-h-[64px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkStatusOpen(false)} disabled={bulkStatusBusy}>Cancel</Button>
+            <Button onClick={saveBulkStatus} disabled={!bulkStatusDraft || bulkStatusBusy}>
+              {bulkStatusBusy ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                `Save (${selectedCaseIds.size})`
               )}
             </Button>
           </DialogFooter>

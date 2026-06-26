@@ -238,7 +238,7 @@ export default function IndividualTelecallerAnalysis() {
   const periodTotal = stats.assigned;
 
   const customLabel = dateFilter === "custom" && customDateFrom && customDateTo
-    ? `${format(new Date(customDateFrom), "d MMM")} – ${format(new Date(customDateTo), "d MMM yyyy")}`
+    ? `${format(new Date(customDateFrom), "d MMM ''yy")} – ${format(new Date(customDateTo), "d MMM ''yy")}`
     : null;
 
   const resolveAlias = (slug: string | null | undefined) => {

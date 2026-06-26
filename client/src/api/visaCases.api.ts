@@ -8,6 +8,7 @@ import type { VisaClient, BackendDashboardData } from "@/data/dummyBackendData";
 export interface VisaCaseFinancial {
   totalCharges: string;
   initialCharges: string;
+  beforeVisaCharges: string;
   financeCharges: string;
   balanceDue: string;
 }
@@ -161,6 +162,7 @@ export function mapVisaCaseToClient(c: VisaCase): VisaClient {
 
     totalCharges: num(c.financial.totalCharges),
     initialReceived: num(c.financial.initialCharges),
+    beforeVisaCharges: num(c.financial.beforeVisaCharges),
     financeCharges: num(c.financial.financeCharges),
     balanceDue: num(c.financial.balanceDue),
 
@@ -522,6 +524,24 @@ export async function fetchAllBackendUsers(): Promise<AssignableUser[]> {
     .filter((u) => u.role === "cx" || u.role === "binding" || u.role === "application");
 }
 
+/**
+ * Fetch ALL system users (all roles, no filter) from GET /api/users/users.
+ * Used to resolve counsellor names in the CSV export (counsellors are stored
+ * as userId on each visa case but are not returned by fetchAllBackendUsers).
+ */
+export async function fetchAllSystemUsers(): Promise<AssignableUser[]> {
+  const { data } = await api.get<{ success: boolean; data: any[] | { users: any[] } }>(
+    "/api/users/users"
+  );
+  const raw: any[] = Array.isArray(data?.data) ? data.data : (data?.data as any)?.users ?? [];
+  return raw.map((u) => ({
+    id: u.id,
+    fullName: u.fullName ?? u.name ?? `User ${u.id}`,
+    role: String(u.role ?? ""),
+    empId: u.empId ?? u.emp_id ?? u.empID ?? null,
+  }));
+}
+
 export interface DocumentRequestPayload {
   clientId: string;
   legacyClientId?: number;
@@ -812,6 +832,7 @@ export interface BackendReportsDashboardFilters {
   fromDate?: string;  // YYYY-MM-DD (required when filter=custom)
   toDate?: string;    // YYYY-MM-DD (required when filter=custom)
   branchCode?: string;
+  category?: "visitor" | "spouse" | "student";
 }
 
 export interface BackendReportsLeaderboardEntry {
@@ -1013,6 +1034,7 @@ export async function fetchBackendReportsDashboard(
   if (filters.fromDate) q.set("fromDate", filters.fromDate);
   if (filters.toDate) q.set("toDate", filters.toDate);
   if (filters.branchCode) q.set("branchCode", filters.branchCode);
+  if (filters.category) q.set("category", filters.category);
 
   const { data } = await api.get<{ success: boolean; data: BackendReportsDashboardRaw }>(
     `/api/modules/reports/backend-dashboard?${q}`
@@ -1235,6 +1257,7 @@ export async function fetchBackendReport(
   if (filters.fromDate) q.set("fromDate", filters.fromDate);
   if (filters.toDate) q.set("toDate", filters.toDate);
   if (filters.branchCode) q.set("branchCode", filters.branchCode);
+  if (filters.category) q.set("category", filters.category);
 
   const { data } = await api.get<{ success: boolean; data: BackendReportRaw }>(
     `/api/modules/reports/backend-report?${q}`
