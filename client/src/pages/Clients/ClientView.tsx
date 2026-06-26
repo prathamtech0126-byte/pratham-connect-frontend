@@ -2370,6 +2370,7 @@ export default function ClientView() {
                   type="date"
                   value={statusSubmissionDate}
                   onChange={(e) => setStatusSubmissionDate(e.target.value)}
+                  min="2020-01-01"
                   className="h-9"
                 />
               </div>
@@ -2382,6 +2383,7 @@ export default function ClientView() {
                   type="date"
                   value={statusDecisionDate}
                   onChange={(e) => setStatusDecisionDate(e.target.value)}
+                  min="2020-01-01"
                   className="h-9"
                 />
               </div>
