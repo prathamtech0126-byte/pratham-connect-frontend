@@ -245,6 +245,14 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
     canEditLeadSource = false,
   } = props;
 
+  const showTransferToCounsellor =
+    !isCounsellor &&
+    !canReassign &&
+    !isJunk &&
+    !isConverted &&
+    !readOnly &&
+    lead.assignmentStatus !== "transferred";
+
   const sortedTimelineItems = sortTimelineActivities(timelineItems, timelineNewestFirst);
 
   const customAnswers =
@@ -369,17 +377,24 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                     Junk
                   </Button>
                 )}
-                {!isCounsellor && canTransfer && !canReassign && (
-                  <Button
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={submitting || !canTransfer}
-                    title={transferDisabledReason}
-                    onClick={onTransfer}
-                  >
-                    <Send className="h-4 w-4" />
-                    {transferButtonLabel}
-                  </Button>
+                {showTransferToCounsellor && (
+                  <div className="flex flex-col items-end gap-0.5 shrink-0">
+                    <Button
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={submitting || !canTransfer}
+                      title={leadMeta?.pendingFollowUp ? transferDisabledReason : undefined}
+                      onClick={onTransfer}
+                    >
+                      <Send className="h-4 w-4" />
+                      {transferButtonLabel}
+                    </Button>
+                    {leadMeta?.pendingFollowUp && !canTransfer && (
+                      <p className="text-[11px] font-medium text-amber-700 text-right leading-tight max-w-[220px]">
+                        Complete your follow-up for transfer
+                      </p>
+                    )}
+                  </div>
                 )}
                 {isCounsellor && (
                   <>

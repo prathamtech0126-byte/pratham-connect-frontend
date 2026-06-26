@@ -516,7 +516,7 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
   const transferDisabledReason = (() => {
     if (!lead || isLeadReadOnly(lead, user?.role)) return undefined;
-    if (leadMeta?.pendingFollowUp) return "Complete the follow-up before transfer";
+    if (leadMeta?.pendingFollowUp) return "Complete your follow-up for transfer";
     if (!lead.eligibilityStatus || !lead.leadQuality) {
       return "Set eligibility and lead quality before transfer";
     }
