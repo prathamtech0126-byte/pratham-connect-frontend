@@ -102,8 +102,8 @@ export function reportPeriodQueryParams(
   customFrom?: string,
   customTo?: string
 ): {
-  afterDate?: string;
-  beforeDate?: string;
+  createdFrom?: string;
+  createdTo?: string;
   transferredFrom?: string;
   transferredTo?: string;
   convertedFrom?: string;
@@ -111,19 +111,16 @@ export function reportPeriodQueryParams(
   droppedFrom?: string;
   droppedTo?: string;
 } {
-  const { afterDate, beforeDate } = leadDateRangeParams(filter, customFrom, customTo);
-  if (!afterDate || !beforeDate) return {};
-  // ISO strings for outcome columns (backend uses pgNaiveIst for transferred/converted/dropped)
-  const isoFrom = new Date(`${afterDate}T00:00:00+05:30`).toISOString();
-  const isoTo   = new Date(`${beforeDate}T23:59:59.999+05:30`).toISOString();
+  const { createdFrom, createdTo } = leadDateRangeParams(filter, customFrom, customTo);
+  if (!createdFrom || !createdTo) return {};
   return {
-    afterDate,
-    beforeDate,
-    transferredFrom: isoFrom,
-    transferredTo: isoTo,
-    convertedFrom: isoFrom,
-    convertedTo: isoTo,
-    droppedFrom: isoFrom,
-    droppedTo: isoTo,
+    createdFrom,
+    createdTo,
+    transferredFrom: createdFrom,
+    transferredTo: createdTo,
+    convertedFrom: createdFrom,
+    convertedTo: createdTo,
+    droppedFrom: createdFrom,
+    droppedTo: createdTo,
   };
 }

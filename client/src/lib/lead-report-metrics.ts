@@ -1,5 +1,4 @@
 import { getReportPeriodBounds } from "@/lib/lead-report-period";
-import { istCalendarYmd } from "@/lib/ist-date-range";
 
 /** Lead is assigned to a telecaller if current_telecaller_id matches (any status). */
 export const isLeadAssignedToTelecaller = (
@@ -85,9 +84,8 @@ export const buildLeadListUrlFromReport = (input: {
       qs.set("droppedFrom", from);
       qs.set("droppedTo", to);
     } else {
-      // Use yyyy-MM-dd dates — backend converts to naive IST (no UTC offset mismatch)
-      qs.set("afterDate", istCalendarYmd(bounds.from));
-      qs.set("beforeDate", istCalendarYmd(bounds.to));
+      qs.set("createdFrom", from);
+      qs.set("createdTo", to);
     }
   } else if (input.customDateFrom) {
     qs.set("afterDate", input.customDateFrom);

@@ -17,14 +17,15 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  istTodayRangeIso,
-  istWeekRangeIso,
-  istMonthRangeIso,
-  istCalendarYmd,
-  istYmdInclusiveRangeIso,
-  istWeekYmds,
-  istMonthPresetYmds,
-} from "@/lib/ist-date-range";
+  localTodayRangeIso,
+  localWeekRangeIso,
+  localMonthRangeIso,
+  localCalendarYmd,
+  localYmdInclusiveRangeIso,
+  localWeekYmds,
+  localMonthPresetYmds,
+} from "@/lib/local-date-range";
+import { leadDateRangeParams } from "@/lib/lead-date-range";
 import { getLeadSourceLabel, type LeadSourceOption } from "@/lib/lead-source-display";
 
 type LeaderboardRow = {
@@ -98,15 +99,15 @@ export default function TelecalerDashbord() {
   const periodRangeParams = useMemo((): { afterDate?: string; beforeDate?: string } => {
     const now = new Date();
     if (timeFilter === "today") {
-      const ymd = istCalendarYmd(now);
+      const ymd = localCalendarYmd(now);
       return { afterDate: ymd, beforeDate: ymd };
     }
     if (timeFilter === "weekly") {
-      const { from, to } = istWeekYmds(now);
+      const { from, to } = localWeekYmds(now);
       return { afterDate: from, beforeDate: to };
     }
     if (timeFilter === "monthly") {
-      const { from, to } = istMonthPresetYmds(now);
+      const { from, to } = localMonthPresetYmds(now);
       return { afterDate: from, beforeDate: to };
     }
     if (timeFilter === "custom" && customDateFrom && customDateTo) {
@@ -117,11 +118,11 @@ export default function TelecalerDashbord() {
 
   const followupRangeParams = useMemo((): { createdFrom?: string; createdTo?: string } => {
     const now = new Date();
-    if (timeFilter === "today") return istTodayRangeIso(now);
-    if (timeFilter === "weekly") return istWeekRangeIso(now);
-    if (timeFilter === "monthly") return istMonthRangeIso(now);
+    if (timeFilter === "today") return localTodayRangeIso(now);
+    if (timeFilter === "weekly") return localWeekRangeIso(now);
+    if (timeFilter === "monthly") return localMonthRangeIso(now);
     if (timeFilter === "custom" && customDateFrom && customDateTo) {
-      return istYmdInclusiveRangeIso(customDateFrom, customDateTo);
+      return localYmdInclusiveRangeIso(customDateFrom, customDateTo);
     }
     return {};
   }, [timeFilter, customDateFrom, customDateTo]);
@@ -137,13 +138,20 @@ export default function TelecalerDashbord() {
     ],
     queryFn: () => {
       const { afterDate, beforeDate } = periodRangeParams;
-      const createdFrom = afterDate ? new Date(`${afterDate}T00:00:00+05:30`).toISOString() : undefined;
-      const createdTo   = beforeDate ? new Date(`${beforeDate}T23:59:59.999+05:30`).toISOString() : undefined;
+      const createdFrom = afterDate
+        ? localYmdInclusiveRangeIso(afterDate, afterDate).createdFrom
+        : undefined;
+      const createdTo = beforeDate
+        ? localYmdInclusiveRangeIso(beforeDate, beforeDate).createdTo
+        : undefined;
+      const todayFollowup = localTodayRangeIso();
       return getTelecallerDashboardStats({
         createdFrom,
         createdTo,
         followupFrom: followupRangeParams.createdFrom,
         followupTo: followupRangeParams.createdTo,
+        followupTodayFrom: todayFollowup.createdFrom,
+        followupTodayTo: todayFollowup.createdTo,
       });
     },
     enabled: !!user && user.role === "telecaller",
@@ -369,87 +377,65 @@ export default function TelecalerDashbord() {
     setLocation("/leads?followupToday=1");
   };
 
-  // LeadList expects customDateFrom/To as yyyy-MM-dd IST calendar dates, not full ISO strings
-  const toYmd = (iso: string | undefined): string | undefined => {
-    if (!iso) return undefined;
-    return istCalendarYmd(new Date(iso));
+  const getPeriodIsoRange = () => {
+    const { afterDate, beforeDate } = periodRangeParams;
+    if (afterDate && beforeDate) {
+      return localYmdInclusiveRangeIso(afterDate, beforeDate);
+    }
+    return leadDateRangeParams(timeFilter, customDateFrom, customDateTo);
   };
 
   const buildLeadsUrl = (extra: Record<string, string | undefined>) => {
     const params = new URLSearchParams({ clearFilters: "1" });
-    // ISO date params are converted to IST yyyy-MM-dd so LeadList can use them correctly
-    const isoDateKeys = ["transferredFrom", "transferredTo", "convertedFrom", "convertedTo", "droppedFrom", "droppedTo"];
+    const range = getPeriodIsoRange();
+    if (range.createdFrom) params.set("createdFrom", range.createdFrom);
+    if (range.createdTo) params.set("createdTo", range.createdTo);
     for (const [k, v] of Object.entries(extra)) {
-      if (!v) continue;
-      params.set(k, isoDateKeys.includes(k) ? (toYmd(v) ?? v) : v);
+      if (v) params.set(k, v);
     }
     return `/leads?${params.toString()}`;
   };
 
   const goToAssignedLeads = () => {
-    const { afterDate, beforeDate } = periodRangeParams;
-    setLocation(buildLeadsUrl({
-      dateFilter: afterDate ? "custom" : timeFilter,
-      afterDate,
-      beforeDate,
-    }));
+    setLocation(buildLeadsUrl({}));
   };
 
   const goToUncontactedLeads = () => {
-    const { afterDate, beforeDate } = periodRangeParams;
-    setLocation(buildLeadsUrl({
-      progress: "not_contacted",
-      dateFilter: afterDate ? "custom" : timeFilter,
-      afterDate,
-      beforeDate,
-    }));
+    setLocation(buildLeadsUrl({ progress: "not_contacted" }));
   };
 
   const goToContactedLeads = () => {
-    const { afterDate, beforeDate } = periodRangeParams;
-    setLocation(buildLeadsUrl({
-      reportBucket: "contacted",
-      dateFilter: afterDate ? "custom" : timeFilter,
-      afterDate,
-      beforeDate,
-    }));
+    setLocation(buildLeadsUrl({ reportBucket: "contacted" }));
   };
 
   const goToTransferredLeads = () => {
-    const { afterDate, beforeDate } = periodRangeParams;
-    // Transferred uses ISO strings so backend path uses pgNaiveIst on transferred_at
-    const from = afterDate ? new Date(`${afterDate}T00:00:00+05:30`).toISOString() : undefined;
-    const to   = beforeDate ? new Date(`${beforeDate}T23:59:59.999+05:30`).toISOString() : undefined;
+    const range = getPeriodIsoRange();
     setLocation(buildLeadsUrl({
       reportBucket: "transferred",
-      dateFilter: afterDate ? "custom" : timeFilter,
-      transferredFrom: from,
-      transferredTo: to,
+      transferredFrom: range.createdFrom,
+      transferredTo: range.createdTo,
     }));
   };
 
   const goToConvertedLeads = () => {
-    const { afterDate, beforeDate } = periodRangeParams;
-    const from = afterDate ? new Date(`${afterDate}T00:00:00+05:30`).toISOString() : undefined;
-    const to   = beforeDate ? new Date(`${beforeDate}T23:59:59.999+05:30`).toISOString() : undefined;
+    const range = getPeriodIsoRange();
     setLocation(buildLeadsUrl({
       assignment: "converted",
       forReport: "1",
-      dateFilter: afterDate ? "custom" : timeFilter,
-      convertedFrom: from,
-      convertedTo: to,
+      convertedFrom: range.createdFrom,
+      convertedTo: range.createdTo,
     }));
   };
 
   const handleDateRangeApply = (filter: any, startDate?: string, endDate?: string) => {
     if (filter === "today") {
-      const d = istCalendarYmd(new Date());
+      const d = localCalendarYmd(new Date());
       setCustomDateFrom(d);
       setCustomDateTo(d);
     } else if (filter === "monthly") {
       const now = new Date();
-      const first = istCalendarYmd(new Date(now.getFullYear(), now.getMonth(), 1));
-      const last = istCalendarYmd(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+      const first = localCalendarYmd(new Date(now.getFullYear(), now.getMonth(), 1));
+      const last = localCalendarYmd(new Date(now.getFullYear(), now.getMonth() + 1, 0));
       setCustomDateFrom(first);
       setCustomDateTo(last);
     } else if (startDate && endDate) {

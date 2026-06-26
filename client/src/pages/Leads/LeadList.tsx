@@ -4,11 +4,10 @@ import { useLocation, useSearch } from "wouter";
 import { format } from "date-fns";
 
 import {
-  istCalendarYmd,
-  istMonthPresetYmds,
-  istWeekYmds,
-  istYmdInclusiveRangeIso,
-} from "@/lib/ist-date-range";
+  localCalendarYmd,
+  localMonthPresetYmds,
+} from "@/lib/local-date-range";
+import { leadDateRangeParams } from "@/lib/lead-date-range";
 
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
@@ -109,8 +108,6 @@ import {
   getLeadReferenceDisplayLabel,
   leadHasReferenceSource,
 } from "@/lib/lead-reference-display";
-import { toCrmApiTimestamp } from "@/lib/format-crm-timestamp";
-
 type Counsellor = { id: number; fullName: string };
 type LeadType = { id: number; leadType: string; displayAlias?: string | null };
 
@@ -492,20 +489,20 @@ export default function LeadList() {
     ) {
       setDateFilter(dateFilterParam as DateFilterType);
     }
-    // afterDate/beforeDate are yyyy-MM-dd (new style)
+    // afterDate/beforeDate are yyyy-MM-dd for custom picker state
     if (afterDate) setCustomDateFrom(afterDate);
     if (beforeDate) setCustomDateTo(beforeDate);
-    // Legacy: extract IST yyyy-MM-dd from ISO strings for transferred/converted/dropped/createdFrom
+    // ISO createdFrom or outcome columns → local yyyy-MM-dd for picker when needed
     const rawDateFrom = transferredFrom ?? convertedFrom ?? droppedFrom ?? createdFrom;
     const rawDateTo   = transferredTo   ?? convertedTo   ?? droppedTo   ?? createdTo;
     if (!afterDate && rawDateFrom) {
       setCustomDateFrom(
-        rawDateFrom.includes("T") ? istCalendarYmd(new Date(rawDateFrom)) : rawDateFrom
+        rawDateFrom.includes("T") ? localCalendarYmd(new Date(rawDateFrom)) : rawDateFrom
       );
     }
     if (!beforeDate && rawDateTo) {
       setCustomDateTo(
-        rawDateTo.includes("T") ? istCalendarYmd(new Date(rawDateTo)) : rawDateTo
+        rawDateTo.includes("T") ? localCalendarYmd(new Date(rawDateTo)) : rawDateTo
       );
     }
     setAssignedScopeMode(assignedScope === "1");
@@ -574,14 +571,11 @@ export default function LeadList() {
     : PROGRESS_STATUS_OPTIONS;
 
   /**
-   * Date filter params for API calls.
-   *
-   * - today/weekly/monthly → sends `dateFilter=today/weekly/monthly` only; backend computes IST bounds.
-   * - custom → sends `afterDate`/`beforeDate` as yyyy-MM-dd; backend converts to naive IST strings.
-   * - Sub-filters (transferred/converted/dropped/followup) → ISO UTC strings (backend uses pgNaiveIst).
+   * Date filter params for API calls — all ranges as UTC ISO (local calendar day bounds).
    */
   const dateRangeParams = useMemo((): {
-    dateFilter?: string;
+    createdFrom?: string;
+    createdTo?: string;
     afterDate?: string;
     beforeDate?: string;
     transferredFrom?: string;
@@ -595,47 +589,35 @@ export default function LeadList() {
   } => {
     if (dateFilter === "all") return {};
 
-    // For sub-filters we still need the ISO range (backend uses pgNaiveIst for outcome columns)
+    const baseRange = leadDateRangeParams(
+      dateFilter,
+      customDateFrom,
+      customDateTo
+    );
+    const { createdFrom, createdTo } = baseRange;
+    if (!createdFrom || !createdTo) return {};
+
     const isSubFilter =
       filterProgressStatus === "follow_up" ||
       reportBucketFilter === "transferred" ||
       (filterAssignmentStatus === "converted" && forReportMode) ||
       (filterAssignmentStatus === "dropped" && forReportMode);
 
-    if (isSubFilter) {
-      // Compute ymd bounds then convert to ISO for the sub-filter columns
-      let afterDate: string | undefined;
-      let beforeDate: string | undefined;
-      const now = new Date();
-      if (dateFilter === "today") {
-        const ymd = istCalendarYmd(now); afterDate = ymd; beforeDate = ymd;
-      } else if (dateFilter === "weekly") {
-        const { from, to } = istWeekYmds(now); afterDate = from; beforeDate = to;
-      } else if (dateFilter === "monthly") {
-        const { from, to } = istMonthPresetYmds(now); afterDate = from; beforeDate = to;
-      } else if (dateFilter === "custom" && customDateFrom && customDateTo) {
-        afterDate = customDateFrom.includes("T") ? istCalendarYmd(new Date(customDateFrom)) : customDateFrom;
-        beforeDate = customDateTo.includes("T") ? istCalendarYmd(new Date(customDateTo)) : customDateTo;
-      }
-      if (!afterDate || !beforeDate) return {};
-      const isoFrom = istYmdInclusiveRangeIso(afterDate, beforeDate).createdFrom;
-      const isoTo   = istYmdInclusiveRangeIso(afterDate, beforeDate).createdTo;
-      if (filterProgressStatus === "follow_up") return { nextFollowupFrom: isoFrom, nextFollowupTo: isoTo };
-      if (reportBucketFilter === "transferred") return { transferredFrom: isoFrom, transferredTo: isoTo };
-      if (filterAssignmentStatus === "converted" && forReportMode) return { convertedFrom: isoFrom, convertedTo: isoTo };
-      if (filterAssignmentStatus === "dropped" && forReportMode) return { droppedFrom: isoFrom, droppedTo: isoTo };
+    if (filterProgressStatus === "follow_up") {
+      return { nextFollowupFrom: createdFrom, nextFollowupTo: createdTo };
     }
+    if (reportBucketFilter === "transferred") {
+      return { transferredFrom: createdFrom, transferredTo: createdTo };
+    }
+    if (filterAssignmentStatus === "converted" && forReportMode) {
+      return { convertedFrom: createdFrom, convertedTo: createdTo };
+    }
+    if (filterAssignmentStatus === "dropped" && forReportMode) {
+      return { droppedFrom: createdFrom, droppedTo: createdTo };
+    }
+    if (isSubFilter) return {};
 
-    // Default created_at filter: send preset name or custom dates
-    if (dateFilter === "today" || dateFilter === "weekly" || dateFilter === "monthly") {
-      return { dateFilter };
-    }
-    if (dateFilter === "custom" && customDateFrom && customDateTo) {
-      const afterDate = customDateFrom.includes("T") ? istCalendarYmd(new Date(customDateFrom)) : customDateFrom;
-      const beforeDate = customDateTo.includes("T") ? istCalendarYmd(new Date(customDateTo)) : customDateTo;
-      return { afterDate, beforeDate };
-    }
-    return {};
+    return { createdFrom, createdTo };
   }, [
     dateFilter,
     customDateFrom,
@@ -1266,7 +1248,7 @@ const loadLeadTypes = useCallback(async () => {
       });
       return;
     }
-    const followupIso = toCrmApiTimestamp(scheduled);
+    const followupIso = scheduled.toISOString();
     try {
       setSubmitting(true);
       const result = await addLeadActivityApi(targetId, {
@@ -1305,11 +1287,11 @@ const loadLeadTypes = useCallback(async () => {
   // ── DateRangePicker apply callback ─────────────────────────────
   const handleDateRangeApply = (filter: any, startDate?: string, endDate?: string) => {
     if (filter === "today") {
-      const d = istCalendarYmd(new Date());
+      const d = localCalendarYmd(new Date());
       setCustomDateFrom(d);
       setCustomDateTo(d);
     } else if (filter === "monthly") {
-      const { from, to } = istMonthPresetYmds(new Date());
+      const { from, to } = localMonthPresetYmds(new Date());
       setCustomDateFrom(from);
       setCustomDateTo(to);
     } else if (startDate && endDate) {
@@ -1642,31 +1624,34 @@ const loadLeadTypes = useCallback(async () => {
   {/* Row 2: Filters */}
   <div className="flex flex-wrap gap-2">
 
-    {/* Counsellor + Telecaller — hidden for telecaller role */}
-    {user?.role !== "telecaller" && (
-      <>
-        <Select value={filterCounsellor} onValueChange={setFilterCounsellor}>
-          <SelectTrigger className="h-9 w-44 text-xs">
-            <SelectValue placeholder="Counsellor" />
-          </SelectTrigger>
-          <SelectContent className="max-h-64 overflow-y-auto">
-            {counsellors.map((c) => (
-              <SelectItem key={c.id} value={String(c.id)}>{c.fullName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    {/* Counsellor — telecallers filter transferred leads by counsellor */}
+    <Select
+      value={isTelecaller ? filterCounsellor || "__all__" : filterCounsellor}
+      onValueChange={(v) => setFilterCounsellor(isTelecaller && v === "__all__" ? "" : v)}
+    >
+      <SelectTrigger className="h-9 w-44 text-xs">
+        <SelectValue placeholder="Counsellor" />
+      </SelectTrigger>
+      <SelectContent className="max-h-64 overflow-y-auto">
+        {isTelecaller && <SelectItem value="__all__">All counsellors</SelectItem>}
+        {counsellors.map((c) => (
+          <SelectItem key={c.id} value={String(c.id)}>{c.fullName}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
 
-        <Select value={filterTelecaller} onValueChange={setFilterTelecaller}>
-          <SelectTrigger className="h-9 w-44 text-xs">
-            <SelectValue placeholder="Telecaller" />
-          </SelectTrigger>
-          <SelectContent className="max-h-64 overflow-y-auto">
-            {telecallers.map((t) => (
-              <SelectItem key={t.id} value={String(t.id)}>{t.fullName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </>
+    {/* Telecaller — admin/manager only (telecallers always see their own leads) */}
+    {!isTelecaller && (
+      <Select value={filterTelecaller} onValueChange={setFilterTelecaller}>
+        <SelectTrigger className="h-9 w-44 text-xs">
+          <SelectValue placeholder="Telecaller" />
+        </SelectTrigger>
+        <SelectContent className="max-h-64 overflow-y-auto">
+          {telecallers.map((t) => (
+            <SelectItem key={t.id} value={String(t.id)}>{t.fullName}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     )}
 
     {/* Lead Source (from /api/lead-types) */}

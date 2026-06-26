@@ -1,46 +1,54 @@
 import {
-  istCalendarYmd,
-  istMonthPresetYmds,
-  istWeekYmds,
-} from "@/lib/ist-date-range";
+  localCalendarYmd,
+  localMonthPresetYmds,
+  localWeekYmds,
+  localMonthRangeIso,
+  localTodayRangeIso,
+  localWeekRangeIso,
+  localYmdInclusiveRangeIso,
+} from "@/lib/local-date-range";
 
 export type LeadDateFilterType = "all" | "today" | "weekly" | "monthly" | "custom";
 
 /**
  * Returns query params for the lead date filter.
- * - today/weekly/monthly → `{ dateFilter: "today"|"weekly"|"monthly" }` — backend computes IST bounds.
- * - custom → `{ afterDate, beforeDate }` as yyyy-MM-dd — backend converts to naive IST strings.
+ * All presets send `createdFrom` / `createdTo` as UTC ISO (local calendar day bounds).
  */
 export function leadDateRangeParams(
   filter: LeadDateFilterType,
   customFrom?: string,
   customTo?: string
-): { dateFilter?: string; afterDate?: string; beforeDate?: string } {
+): { createdFrom?: string; createdTo?: string; dateFilter?: string } {
   if (filter === "all") return {};
 
-  if (filter === "today" || filter === "weekly" || filter === "monthly") {
-    return { dateFilter: filter };
+  const now = new Date();
+
+  if (filter === "today") {
+    return localTodayRangeIso(now);
+  }
+  if (filter === "weekly") {
+    return localWeekRangeIso(now);
+  }
+  if (filter === "monthly") {
+    return localMonthRangeIso(now);
   }
 
   if (filter === "custom" && customFrom && customTo) {
-    // If caller passes a full ISO string (e.g. from a redirect URL), extract the IST calendar date.
     const afterDate = customFrom.includes("T")
-      ? istCalendarYmd(new Date(customFrom))
+      ? localCalendarYmd(new Date(customFrom))
       : customFrom;
     const beforeDate = customTo.includes("T")
-      ? istCalendarYmd(new Date(customTo))
+      ? localCalendarYmd(new Date(customTo))
       : customTo;
-    return { afterDate, beforeDate };
+    return localYmdInclusiveRangeIso(afterDate, beforeDate);
   }
 
   return {};
 }
 
 function boundsFromYmd(fromYmd: string, toYmd: string): { from: Date; to: Date } {
-  return {
-    from: new Date(`${fromYmd}T00:00:00+05:30`),
-    to: new Date(`${toYmd}T23:59:59.999+05:30`),
-  };
+  const { createdFrom, createdTo } = localYmdInclusiveRangeIso(fromYmd, toYmd);
+  return { from: new Date(createdFrom), to: new Date(createdTo) };
 }
 
 /** Return `{ from, to }` as Date objects for in-memory period checks (report drilldowns). */
@@ -49,21 +57,21 @@ export function getLeadDateBounds(
   customFrom?: string,
   customTo?: string
 ): { from: Date; to: Date } | null {
-  const { afterDate, beforeDate } = leadDateRangeParams(filter, customFrom, customTo);
-  if (afterDate && beforeDate) {
-    return boundsFromYmd(afterDate, beforeDate);
+  const params = leadDateRangeParams(filter, customFrom, customTo);
+  if (params.createdFrom && params.createdTo) {
+    return { from: new Date(params.createdFrom), to: new Date(params.createdTo) };
   }
 
   if (filter === "today") {
-    const ymd = istCalendarYmd();
+    const ymd = localCalendarYmd();
     return boundsFromYmd(ymd, ymd);
   }
   if (filter === "weekly") {
-    const { from, to } = istWeekYmds();
+    const { from, to } = localWeekYmds();
     return boundsFromYmd(from, to);
   }
   if (filter === "monthly") {
-    const { from, to } = istMonthPresetYmds();
+    const { from, to } = localMonthPresetYmds();
     return boundsFromYmd(from, to);
   }
 

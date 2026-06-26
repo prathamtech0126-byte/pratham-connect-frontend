@@ -1,4 +1,4 @@
-import { formatCrmFollowupShort } from "@/lib/format-crm-timestamp";
+import { formatFollowupShort } from "@/lib/format-timestamp";
 import { cn } from "@/lib/utils";
 import type { LeadEntity } from "@/api/leads.api";
 import type { LeadDetailMeta } from "@/api/leads.api";
@@ -52,7 +52,7 @@ export const hasPendingFollowUp = (
 };
 
 function followUpProgressTag(lead: LeadEntity): LeadDisplayTag {
-  const when = lead.nextFollowupAt ? formatCrmFollowupShort(lead.nextFollowupAt) : null;
+  const when = lead.nextFollowupAt ? formatFollowupShort(lead.nextFollowupAt) : null;
   return {
     key: "follow_up",
     label: when ? `Follow Up · ${when}` : "Follow Up",
@@ -103,9 +103,9 @@ function progressTag(lead: LeadEntity, options?: LeadDisplayTagOptions): LeadDis
 
   if (lead.eligibilityStatus === "not_eligible" && !isLeadDropped(lead)) {
     return {
-      key: "dropped",
-      label: "Drop",
-      className: "bg-red-600 text-white border-0",
+      key: "not_eligible",
+      label: "Not Eligible",
+      className: "bg-rose-100 text-rose-800 border border-rose-200",
     };
   }
 

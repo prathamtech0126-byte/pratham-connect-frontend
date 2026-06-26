@@ -55,14 +55,19 @@ import {
 import { pushLeadListPatch } from "@/lib/lead-list-sync";
 import { resolvePerformerDisplayName } from "@/lib/lead-performer";
 import { listPatchFromLeadUpdate } from "@/lib/lead-progress-rules";
-import { shouldIncludeLeadTimelineActivity } from "@/lib/lead-activity-display";
+import {
+  getLeadNoteDisplayMessage,
+  isLeadNotesSectionActivity,
+  normalizeLeadActivitiesForDisplay,
+  shouldIncludeLeadTimelineActivity,
+} from "@/lib/lead-activity-display";
 import {
   clampFollowupDateTime,
   getMinFollowupDateTime,
   getTomorrowMorning1030,
   isFollowupDateTimeAllowed,
 } from "@/lib/followup-datetime";
-import { toCrmApiTimestamp } from "@/lib/format-crm-timestamp";
+import { isValidLeadCity, LEAD_CITY_ERROR_MESSAGE } from "@/lib/lead-city-validation";
 import type { LeadDetailMeta } from "@/api/leads.api";
 import {
   resolveLeadSourceSelectValue,
@@ -337,7 +342,7 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
     }
 
     const { lead: updatedLead, activity: createdActivity } = await markLeadFollowupApi(lead.id, {
-      followupAt: toCrmApiTimestamp(scheduled),
+      followupAt: scheduled.toISOString(),
       message: fNote?.trim() || null,
     });
 
@@ -371,6 +376,15 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
   // --- Handlers ---
   const handleSaveEdit = async () => {
     if (!lead) return;
+    const cityValue = editForm.city?.trim() ?? "";
+    if (cityValue && !isValidLeadCity(cityValue)) {
+      toast({
+        title: "Update Failed",
+        description: LEAD_CITY_ERROR_MESSAGE,
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       const q = toLeadQualityOrNull(editForm.leadQuality);
       const e = toEligibilityOrNull(editForm.eligibilityStatus);
@@ -502,12 +516,9 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
   const transferDisabledReason = (() => {
     if (!lead || isLeadReadOnly(lead, user?.role)) return undefined;
-    if (leadMeta?.pendingFollowUp) return "Complete the follow-up before transfer";
+    if (leadMeta?.pendingFollowUp) return "Complete your follow-up for transfer";
     if (!lead.eligibilityStatus || !lead.leadQuality) {
       return "Set eligibility and lead quality before transfer";
-    }
-    if (lead.assignmentStatus === "transferred" && leadMeta?.counsellorHasActivity) {
-      return "Counsellor has already worked on this lead — contact admin to re-transfer";
     }
     return undefined;
   })();
@@ -964,14 +975,12 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
   const junk = isLeadJunk(lead);
   const converted = isLeadConverted(lead);
 
-  const isNoteActivity = (a: LeadActivityEntity) =>
-    a.activityType === "note" &&
-    (a.meta?.isReasonNote === true ||
-      (!a.meta?.eventType && !(a.message ?? "").toLowerCase().includes("updated the lead")));
-
-  const noteActivities = activities.filter(isNoteActivity);
-  const followupActivities = activities.filter((a) => a.activityType === "followup");
-  const timelineItems = activities.filter(shouldIncludeLeadTimelineActivity);
+  const displayActivities = normalizeLeadActivitiesForDisplay(activities);
+  const noteActivities = displayActivities.filter(isLeadNotesSectionActivity);
+  const followupActivities = displayActivities.filter(
+    (a) => a.activityType === "followup" && a.status !== "cancelled"
+  );
+  const timelineItems = displayActivities.filter(shouldIncludeLeadTimelineActivity);
 
   const openTransfer = () => {
     if (!canTransferToCounsellor(lead, leadMeta) && !leadMeta?.canReassignCounsellor) {
@@ -1014,10 +1023,11 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       telecallers={telecallers}
       noteActivities={noteActivities.map((a) => ({
         id: a.id,
-        message: a.message ?? "",
+        message: getLeadNoteDisplayMessage(a),
         createdAt: a.createdAt,
         userName: a.userName ?? null,
         canEdit:
+          a.activityType === "note" &&
           !readOnly &&
           (user?.role !== "telecaller" ||
             a.userId == null ||
@@ -1029,6 +1039,11 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
         message: a.message ?? "",
         status: a.status,
         userName: a.userName ?? null,
+        canComplete:
+          a.status === "pending" &&
+          (typeof a.canComplete === "boolean"
+            ? a.canComplete
+            : !readOnly && !telecallerTransferredViewOnly),
       }))}
       timelineItems={timelineItems}
       showAddNote={showAddNote}
@@ -1144,7 +1159,11 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       <Dialog open={showTransferModal} onOpenChange={setShowTransferModal}>
   <DialogContent>
     <DialogHeader>
-      <DialogTitle>Transfer to Counsellor / Manager</DialogTitle>
+      <DialogTitle>
+        {leadMeta?.canReassignCounsellor
+          ? "Transfer to another counsellor"
+          : "Transfer to Counsellor / Manager"}
+      </DialogTitle>
     </DialogHeader>
     <div className="py-4 space-y-4">
       <div className="grid gap-2">

@@ -33,7 +33,7 @@ import {
   type LeadReportMetricKey,
 } from "@/lib/lead-report-metrics";
 import { type LeadDateFilterType } from "@/lib/lead-date-range";
-import { istYmdInclusiveRangeIso } from "@/lib/ist-date-range";
+import { localYmdInclusiveRangeIso } from "@/lib/local-date-range";
 
 type DateFilterType = LeadDateFilterType;
 type UserLite = { id: number; fullName: string };
@@ -98,7 +98,7 @@ export default function TelecallerWiseLead() {
 
   const rangeParams = useMemo(() => {
     if (dateFilter === "custom" && customDateFrom && customDateTo) {
-      return istYmdInclusiveRangeIso(customDateFrom, customDateTo);
+      return localYmdInclusiveRangeIso(customDateFrom, customDateTo);
     }
     if (dateFilter === "all") return {};
     return { dateFilter };

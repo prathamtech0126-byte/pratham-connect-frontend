@@ -222,7 +222,6 @@ export interface LeadActivityEntity {
   activityType:
     | "note"
     | "followup"
-    | "call_log"
     | "assignment_change"
     | "counselor_assign"
     | "lead_update"
@@ -486,6 +485,8 @@ export const getTelecallerDashboardStats = async (params: {
   createdTo?: string;
   followupFrom?: string;
   followupTo?: string;
+  followupTodayFrom?: string;
+  followupTodayTo?: string;
 }): Promise<TelecallerDashboardStats> => {
   const res = await api.get("/api/leads/telecaller-dashboard-stats", { params });
   return res.data.data as TelecallerDashboardStats;
@@ -814,7 +815,6 @@ export const addLeadActivityApi = async (
     activityType:
       | "note"
       | "followup"
-      | "call_log"
       | "assignment_change"
       | "counselor_assign";
     message?: string;

@@ -1,5 +1,4 @@
-import { format } from "date-fns";
-import { formatCrmTimestamp } from "@/lib/format-crm-timestamp";
+import { formatTimestamp } from "@/lib/format-timestamp";
 import type { LeadActivityEntity } from "@/api/leads.api";
 
 export type LeadActivityLike = {
@@ -27,6 +26,8 @@ export type FormattedLeadActivity = {
 
 const TIMELINE_NOTE_BLOCK = /^follow up completed/i;
 const TIMELINE_WORD_LIMIT = 48;
+const ELIGIBILITY_QUALITY_REASON_PREFIX = /^(Eligibility marked as|Lead quality marked as)/i;
+const MERGE_REASON_NOTE_WINDOW_MS = 120_000;
 
 const GENERIC_NAMES = new Set(["user", "system", ""]);
 
@@ -132,20 +133,106 @@ function metaEventType(item: LeadActivityLike): string | undefined {
   return typeof et === "string" ? et : undefined;
 }
 
+export function isEligibilityQualityReasonMessage(message: string | null | undefined): boolean {
+  return ELIGIBILITY_QUALITY_REASON_PREFIX.test(message?.trim() ?? "");
+}
+
+function hasEligibilityOrQualityChange(item: LeadActivityLike): boolean {
+  if (item.activityType !== "lead_update" && metaEventType(item) !== "lead_updated") return false;
+  return getLeadUpdateChanges(item).some((c) => {
+    const field = normalizeFieldName(c.field);
+    return field === "Eligibility" || field === "Lead Quality";
+  });
+}
+
+function getReasonNoteText(item: LeadActivityLike): string {
+  const meta = item.meta ?? {};
+  if (typeof meta.reasonNote === "string" && meta.reasonNote.trim()) return meta.reasonNote.trim();
+  if (isEligibilityQualityReasonMessage(item.message)) return item.message!.trim();
+  return "";
+}
+
+/** Merge legacy duplicate pairs (lead_update + separate reason note) for display. */
+export function normalizeLeadActivitiesForDisplay<T extends LeadActivityLike>(activities: T[]): T[] {
+  const result = [...activities];
+  const toRemove = new Set<number>();
+
+  const reasonNotes = result.filter(
+    (a) =>
+      a.activityType === "note" &&
+      (a.meta?.isReasonNote === true || isEligibilityQualityReasonMessage(a.message))
+  );
+
+  for (const note of reasonNotes) {
+    const noteTime = new Date(note.createdAt).getTime();
+    const matchIdx = result.findIndex((a) => {
+      if (a.activityType !== "lead_update" || a.id === note.id || toRemove.has(a.id)) return false;
+      if (note.userId != null && a.userId != null && note.userId !== a.userId) return false;
+      if (Math.abs(new Date(a.createdAt).getTime() - noteTime) > MERGE_REASON_NOTE_WINDOW_MS) {
+        return false;
+      }
+      return hasEligibilityOrQualityChange(a);
+    });
+
+    if (matchIdx < 0) continue;
+
+    const update = result[matchIdx];
+    const reasonText = note.message?.trim() ?? "";
+    result[matchIdx] = {
+      ...update,
+      message: reasonText || update.message,
+      meta: {
+        ...(update.meta ?? {}),
+        reasonNote: reasonText,
+        reasonType: note.meta?.reasonType ?? update.meta?.reasonType,
+        showInNotes: true,
+      },
+    } as T;
+    toRemove.add(note.id);
+  }
+
+  return result.filter((a) => !toRemove.has(a.id));
+}
+
+export function getLeadNoteDisplayMessage(item: LeadActivityLike): string {
+  const reason = getReasonNoteText(item);
+  if (reason) return reason;
+  return item.message?.trim() ?? "";
+}
+
+export function isLeadNotesSectionActivity(item: LeadActivityLike): boolean {
+  if (item.activityType === "lead_update") {
+    const meta = item.meta ?? {};
+    return Boolean(
+      meta.showInNotes || meta.reasonNote || isEligibilityQualityReasonMessage(item.message)
+    );
+  }
+  if (item.activityType === "note") {
+    if (item.meta?.isReasonNote === true || isEligibilityQualityReasonMessage(item.message)) {
+      return true;
+    }
+    return (
+      !item.meta?.eventType && !(item.message ?? "").toLowerCase().includes("updated the lead")
+    );
+  }
+  return false;
+}
+
 export function shouldIncludeLeadTimelineActivity(activity: LeadActivityEntity): boolean {
   const type = activity.activityType;
   if (
     type === "followup" ||
     type === "assignment_change" ||
     type === "counselor_assign" ||
-    type === "call_log" ||
     type === "lead_created"
   ) {
     return true;
   }
 
   if (type === "note") {
-    if (activity.meta?.isReasonNote === true) return false;
+    if (activity.meta?.isReasonNote === true || isEligibilityQualityReasonMessage(activity.message)) {
+      return true;
+    }
     if (TIMELINE_NOTE_BLOCK.test(activity.message ?? "")) return false;
     return true;
   }
@@ -193,16 +280,34 @@ export function formatLeadActivityDisplay(
 
   if (item.activityType === "lead_update" || meta.eventType === "lead_updated") {
     const rawChanges = getLeadUpdateChanges(item);
+    const reasonNote = getReasonNoteText(item);
+
     if (rawChanges.some(isConversionFieldChange)) {
       const convertedAt =
         parseConvertedAtFromChanges(rawChanges) ?? new Date(item.createdAt);
       return {
         title: `${who} converted to client`,
-        details: [`Converted at ${format(convertedAt, "dd MMM yyyy, hh:mm a")}`],
+        details: [`Converted at ${formatTimestamp(convertedAt.toISOString(), "datetime")}`],
       };
     }
 
     const changes = filterTimelineLeadUpdateChanges(rawChanges);
+    if (reasonNote) {
+      const eligQualityChange = changes.find((c) => {
+        const field = normalizeFieldName(c.field);
+        return field === "Eligibility" || field === "Lead Quality";
+      });
+      if (eligQualityChange) {
+        return {
+          title: formatSetChangeLine(who, eligQualityChange),
+          details: [truncateTimelineText(reasonNote)],
+        };
+      }
+      return {
+        title: `${who} updated the lead`,
+        details: [truncateTimelineText(reasonNote)],
+      };
+    }
     if (changes.length === 1) {
       return { title: formatSetChangeLine(who, changes[0]), details: [] };
     }
@@ -256,7 +361,7 @@ export function formatLeadActivityDisplay(
 
   if (item.activityType === "followup") {
     const when = item.followupAt
-      ? formatCrmTimestamp(item.followupAt, "datetime")
+      ? formatTimestamp(item.followupAt, "datetime")
       : null;
     if (item.status === "completed") {
       const raw = item.message?.trim() ?? "";
@@ -282,29 +387,30 @@ export function formatLeadActivityDisplay(
     };
   }
 
-  if (item.activityType === "call_log") {
-    return {
-      title: `${who} logged a call`,
-      details: item.message?.trim() ? [truncateTimelineText(item.message.trim())] : [],
-    };
-  }
-
   if (item.activityType === "note") {
+    if (item.meta?.isReasonNote === true || isEligibilityQualityReasonMessage(item.message)) {
+      const msg = getLeadNoteDisplayMessage(item);
+      return {
+        title: truncateTimelineText(msg),
+        details: [],
+      };
+    }
     if (/convert|converted|client/i.test(item.message ?? "")) {
       return {
         title: `${who} converted to client`,
         details: [
-          `Converted at ${format(new Date(item.createdAt), "dd MMM yyyy, hh:mm a")}`,
+          `Converted at ${formatTimestamp(item.createdAt, "datetime")}`,
         ],
       };
     }
     const dropMatch = (item.message ?? "").match(/^client dropped:\s*(.*)$/i);
-    if (dropMatch || /dropped|drop/i.test(item.message ?? "")) {
+    const isDropNote = /^\[DROP\]/i.test((item.message ?? "").trim());
+    if (dropMatch || isDropNote) {
       const reason = dropMatch?.[1]?.trim() || "";
       return {
         title: `${who} dropped the client`,
         details: [
-          `Dropped at ${format(new Date(item.createdAt), "dd MMM yyyy, hh:mm a")}`,
+          `Dropped at ${formatTimestamp(item.createdAt, "datetime")}`,
           ...(reason ? [truncateTimelineText(reason)] : []),
         ],
       };
