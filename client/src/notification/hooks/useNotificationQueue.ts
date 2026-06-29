@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { NotificationItem } from "../types/notification.types";
 import { markNotificationRead } from "../api/notifications.api";
-import { isBlockingPriority } from "../lib/notification-display";
+import { shouldShowBlockingModal } from "../lib/notification-display";
 
 export function useNotificationQueue() {
   const [queue, setQueue] = useState<NotificationItem[]>([]);
@@ -9,7 +9,7 @@ export function useNotificationQueue() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const enqueueBlocking = useCallback((item: NotificationItem) => {
-    if (!isBlockingPriority(item.priority)) return;
+    if (!shouldShowBlockingModal(item)) return;
     setQueue((prev) => {
       if (prev.some((n) => n.id === item.id) || current?.id === item.id) return prev;
       return [...prev, item];

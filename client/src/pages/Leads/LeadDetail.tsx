@@ -178,22 +178,40 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
     [user, telecallers, counsellors]
   );
 
+  const activitiesRefreshRef = useRef<Promise<void> | null>(null);
+
   const refreshActivitiesFromServer = useCallback(async () => {
     if (!id || Number.isNaN(Number(id))) return;
-    try {
-      const res = await getLeadDetail(Number(id));
-      if (isMountedRef.current) {
-        setActivities(res.activities || []);
-        if (res.meta) setLeadMeta(res.meta);
+    if (activitiesRefreshRef.current) return activitiesRefreshRef.current;
+
+    activitiesRefreshRef.current = (async () => {
+      try {
+        const res = await getLeadDetail(Number(id));
+        if (isMountedRef.current) {
+          setActivities(res.activities || []);
+          if (res.meta) setLeadMeta(res.meta);
+        }
+      } catch {
+        /* keep existing activities on refresh failure */
+      } finally {
+        activitiesRefreshRef.current = null;
       }
-    } catch {
-      /* keep existing activities on refresh failure */
-    }
+    })();
+
+    return activitiesRefreshRef.current;
   }, [id]);
 
   const addLocalLeadUpdateActivity = useCallback(
-    (changes: { field: string; old: string; new: string }[]) => {
+    (
+      changes: { field: string; old: string; new: string }[],
+      options?: {
+        message?: string;
+        reasonNote?: string;
+        reasonType?: "eligibility" | "quality";
+      }
+    ) => {
       const performer = getPerformerName();
+      const reasonNote = options?.reasonNote?.trim();
       setActivities((prev) => [
         {
           id: -Date.now(),
@@ -201,13 +219,20 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
           userId: user?.id ? Number(user.id) : null,
           userName: performer,
           activityType: "lead_update",
-          message: `${performer} updated the lead`,
+          message: options?.message?.trim() || `${performer} updated the lead`,
           status: "completed",
           createdAt: new Date().toISOString(),
           meta: {
             eventType: "lead_updated",
             changes,
             performedByName: performer,
+            ...(reasonNote
+              ? {
+                  reasonNote,
+                  reasonType: options?.reasonType ?? null,
+                  showInNotes: true,
+                }
+              : {}),
           },
         },
         ...prev,
@@ -249,28 +274,25 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
     });
   }, []);
 
-  const fetchData = useCallback(
-    async (opts?: { silent?: boolean }) => {
-      if (!id || Number.isNaN(Number(id))) {
-        setPageLoading(false);
-        return;
-      }
-      if (!opts?.silent) setPageLoading(true);
-      try {
-        const res = await getLeadDetail(Number(id));
-        if (!isMountedRef.current) return;
-        applyDetailResponse(res);
-      } catch (err: any) {
-        if (!isMountedRef.current) return;
-        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
-        if (!opts?.silent) setLead(null);
-        toast({ title: "Error", description: "Failed to load lead details", variant: "destructive" });
-      } finally {
-        if (isMountedRef.current && !opts?.silent) setPageLoading(false);
-      }
-    },
-    [id, toast, applyDetailResponse]
-  );
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!id || Number.isNaN(Number(id))) {
+      setPageLoading(false);
+      return;
+    }
+    if (!opts?.silent) setPageLoading(true);
+    try {
+      const res = await getLeadDetail(Number(id));
+      if (!isMountedRef.current) return;
+      applyDetailResponse(res);
+    } catch (err: any) {
+      if (!isMountedRef.current) return;
+      if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+      if (!opts?.silent) setLead(null);
+      toast({ title: "Error", description: "Failed to load lead details", variant: "destructive" });
+    } finally {
+      if (isMountedRef.current && !opts?.silent) setPageLoading(false);
+    }
+  }, [id, applyDetailResponse, toast]);
 
   // 2. Fetch Dropdown Data (Mirroring AddLead)
   const fetchDropdownData = async () => {
@@ -307,8 +329,11 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
   useEffect(() => {
     void fetchData();
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     void fetchDropdownData();
-  }, [fetchData]);
+  }, [user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -650,15 +675,28 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
         listPatchFromLeadUpdate(updated, fieldPatch, lead.progressStatus)
       );
 
-      await refreshActivitiesFromServer();
-
-      if (reason?.trim()) {
-        const reasonMsg =
-          type === "eligibility"
-            ? `Eligibility marked as ${humanizeEnum(next)} — ${reason.trim()}`
-            : `Lead quality marked as ${humanizeEnum(next)} — ${reason.trim()}`;
-        await refreshActivitiesFromServer();
-      }
+      const fieldLabel = type === "eligibility" ? "Eligibility" : "Quality";
+      const reasonMsg = reason?.trim()
+        ? type === "eligibility"
+          ? `Eligibility marked as ${humanizeEnum(next)} — ${reason.trim()}`
+          : `Lead quality marked as ${humanizeEnum(next)} — ${reason.trim()}`
+        : undefined;
+      addLocalLeadUpdateActivity(
+        [
+          {
+            field: fieldLabel,
+            old: humanizeEnum(
+              type === "eligibility" ? lead.eligibilityStatus : lead.leadQuality
+            ),
+            new: humanizeEnum(next),
+          },
+        ],
+        {
+          message: reasonMsg,
+          reasonNote: reasonMsg,
+          reasonType: reasonMsg ? type : undefined,
+        }
+      );
 
       toast({ title: type === "eligibility" ? "Eligibility updated" : "Lead quality updated" });
     } catch {
@@ -673,7 +711,8 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
   const handleSetEligibility = (value?: LeadEntity["eligibilityStatus"]) => {
     const next = value ?? eligibilityValue;
-    if (!lead || !next || isLeadReadOnly(lead, user?.role)) return;
+    if (!lead || !next || isLeadReadOnly(lead, user?.role) || submitting) return;
+    if (next === lead.eligibilityStatus) return;
     if (needsReasonForUpdate("eligibility", next)) {
       setPendingFieldUpdate({ type: "eligibility", value: next });
       setReasonText("");
@@ -685,7 +724,8 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
   const handleSetQuality = (value?: LeadEntity["leadQuality"]) => {
     const next = value ?? qualityValue;
-    if (!lead || !next || isLeadReadOnly(lead, user?.role)) return;
+    if (!lead || !next || isLeadReadOnly(lead, user?.role) || submitting) return;
+    if (next === lead.leadQuality) return;
     if (needsReasonForUpdate("quality", next)) {
       setPendingFieldUpdate({ type: "quality", value: next });
       setReasonText("");

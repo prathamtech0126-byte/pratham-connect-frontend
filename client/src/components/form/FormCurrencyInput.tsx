@@ -12,6 +12,7 @@ interface FormCurrencyInputProps<T extends FieldValues> {
   className?: string;
   currencySymbol?: string; // Optional currency symbol (defaults to ₹)
   disabled?: boolean;
+  max?: number;
 }
 
 interface CurrencyFieldProps {
@@ -23,6 +24,7 @@ interface CurrencyFieldProps {
   className?: string;
   currencySymbol: string;
   disabled?: boolean;
+  max?: number;
 }
 
 function CurrencyField({
@@ -34,6 +36,7 @@ function CurrencyField({
   className,
   currencySymbol,
   disabled,
+  max,
 }: CurrencyFieldProps) {
   const { onChange, value, ...inputField } = field;
   const [draftValue, setDraftValue] = useState<string>("");
@@ -67,6 +70,7 @@ function CurrencyField({
           type="number"
           min="0"
           step="0.01"
+          max={max}
           value={displayValue}
           placeholder={placeholder || "Enter amount"}
           disabled={disabled}
@@ -103,8 +107,10 @@ function CurrencyField({
               setDraftValue("");
               return;
             }
-            onChange(numValue);
-            setDraftValue(String(numValue));
+            const capped =
+              max != null && Number.isFinite(max) && numValue > max ? max : numValue;
+            onChange(capped);
+            setDraftValue(String(capped));
           }}
           onWheel={(e) => {
             // Prevent mouse wheel from changing number input value
@@ -126,6 +132,7 @@ export function FormCurrencyInput<T extends FieldValues>({
   className,
   currencySymbol = "₹", // Default to ₹ for backward compatibility
   disabled,
+  max,
 }: FormCurrencyInputProps<T>) {
   return (
     <Controller
@@ -141,6 +148,7 @@ export function FormCurrencyInput<T extends FieldValues>({
           className={className}
           currencySymbol={currencySymbol}
           disabled={disabled}
+          max={max}
         />
       )}
     />

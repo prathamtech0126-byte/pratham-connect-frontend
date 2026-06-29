@@ -8,9 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import DateRangePicker from "@/components/payments/DateRangePicker";
-import { fetchAllLeads, type LeadEntity, type LeadListParams } from "@/api/leads.api";
-import { isTransferredInPeriod } from "@/lib/lead-report-period";
-import { getLeadDateBounds, leadDateRangeParams } from "@/lib/lead-date-range";
+import { fetchAllLeads, type LeadEntity } from "@/api/leads.api";
+import { leadDateRangeParams } from "@/lib/lead-date-range";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +21,7 @@ const DIVIDER = "━━━━━━━━━━━━━━━━━━━";
 
 export default function DailyLeadReport() {
   const [allLeads, setAllLeads] = useState<LeadEntity[]>([]);
+  const [transferredInPeriod, setTransferredInPeriod] = useState<LeadEntity[]>([]);
   const [telecallers, setTelecallers] = useState<UserLite[]>([]);
   const [leadTypes, setLeadTypes] = useState<LeadTypeLite[]>([]);
   const [loading, setLoading] = useState(false);
@@ -32,41 +32,34 @@ export default function DailyLeadReport() {
   const [generated, setGenerated] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const bounds = useMemo(
-    () => getLeadDateBounds(dateFilter, customFrom, customTo) ?? getLeadDateBounds("today")!,
-    [dateFilter, customFrom, customTo]
-  );
-
   const loadData = useCallback(async () => {
     setLoading(true);
     setGenerated(false);
     try {
       const period = leadDateRangeParams(dateFilter, customFrom, customTo);
-      // Derive ISO strings from afterDate/beforeDate (or fall back to bounds computed from "today")
-      const afterDate  = period.afterDate  ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(bounds.from);
-      const beforeDate = period.beforeDate ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(bounds.to);
-      const isoFrom = new Date(`${afterDate}T00:00:00+05:30`).toISOString();
-      const isoTo   = new Date(`${beforeDate}T23:59:59.999+05:30`).toISOString();
       const [tcRes, ltRes, createdLeads, transferredLeads] = await Promise.all([
         api.get("/api/users/telecallers"),
         api.get("/api/lead-types"),
-        fetchAllLeads({ isJunk: false, ...period, dateFilter: period.dateFilter as LeadListParams["dateFilter"] }),
         fetchAllLeads({
           isJunk: false,
-          transferredFrom: isoFrom,
-          transferredTo: isoTo,
+          ...period,
+        }),
+        fetchAllLeads({
+          isJunk: false,
+          ...period,
+          reportBucket: "transferred",
+          forReport: true,
         }),
       ]);
       setTelecallers(tcRes?.data?.data || tcRes?.data || []);
       setLeadTypes(ltRes?.data?.data || ltRes?.data || []);
-      const merged = new Map<number, LeadEntity>();
-      for (const lead of [...createdLeads, ...transferredLeads]) merged.set(lead.id, lead);
-      setAllLeads(Array.from(merged.values()));
+      setAllLeads(createdLeads);
+      setTransferredInPeriod(transferredLeads);
     } finally {
       setLoading(false);
       setGenerated(true);
     }
-  }, [bounds, dateFilter, customFrom, customTo]);
+  }, [dateFilter, customFrom, customTo]);
 
   useEffect(() => {
     void loadData();
@@ -85,15 +78,7 @@ export default function DailyLeadReport() {
     [telecallers]
   );
 
-  // Lead coverage: per lead type, total assigned + how many were contacted (progressStatus !== "not_contacted")
-  const leadsCreatedInPeriod = useMemo(
-    () =>
-      allLeads.filter((l) => {
-        const d = new Date(l.createdAt);
-        return d >= bounds.from && d <= bounds.to;
-      }),
-    [allLeads, bounds]
-  );
+  const leadsCreatedInPeriod = useMemo(() => allLeads, [allLeads]);
 
   const leadCoverage = useMemo(() => {
     const map = new Map<string, { total: number; contacted: number }>();
@@ -109,13 +94,10 @@ export default function DailyLeadReport() {
       .sort((a, b) => b.total - a.total);
   }, [leadsCreatedInPeriod, resolveAlias]);
 
-  // Caller-wise TRF: transfers in period by transferred_at
   const callerTrf = useMemo(() => {
     const map = new Map<number, Map<string, number>>();
-    const periodBounds = { from: bounds.from, to: bounds.to };
-    for (const lead of allLeads) {
-      if (!isTransferredInPeriod(lead, periodBounds)) continue;
-      const tcId = lead.currentTelecallerId;
+    for (const lead of transferredInPeriod) {
+      const tcId = lead.currentTelecallerId ?? lead.assignedBy ?? null;
       if (!tcId) continue;
       if (!map.has(tcId)) map.set(tcId, new Map());
       const ltMap = map.get(tcId)!;
@@ -133,7 +115,7 @@ export default function DailyLeadReport() {
       }))
       .filter((t) => t.total > 0)
       .sort((a, b) => b.total - a.total);
-  }, [allLeads, tcMap, resolveAlias]);
+  }, [transferredInPeriod, tcMap, resolveAlias]);
 
   // Overall TRF summary: total transferred per lead type
   const overallTrf = useMemo(() => {
@@ -163,10 +145,13 @@ export default function DailyLeadReport() {
   );
 
   const dateLabel = useMemo(() => {
-    if (dateFilter === "custom" && customFrom && customTo)
+    if (dateFilter === "custom" && customFrom && customTo) {
       return `${format(new Date(customFrom), "dd/MM/yyyy")} - ${format(new Date(customTo), "dd/MM/yyyy")}`;
-    return format(bounds.from, "dd/MM/yyyy");
-  }, [dateFilter, customFrom, customTo, bounds]);
+    }
+    if (dateFilter === "weekly") return "This week";
+    if (dateFilter === "monthly") return "This month";
+    return format(new Date(), "dd/MM/yyyy");
+  }, [dateFilter, customFrom, customTo]);
 
   const whatsappMessage = useMemo(() => {
     if (!generated) return "";
@@ -262,7 +247,7 @@ export default function DailyLeadReport() {
     const ws3 = XLSX.utils.aoa_to_sheet([detailHeaders, ...detailRows]);
     XLSX.utils.book_append_sheet(wb, ws3, "Lead Detail");
 
-    const filename = `Daily_Lead_Report_${format(bounds.from, "dd-MM-yyyy")}.xlsx`;
+    const filename = `Daily_Lead_Report_${dateLabel.replace(/\//g, "-").replace(/\s+/g, "_")}.xlsx`;
     XLSX.writeFile(wb, filename);
   };
 

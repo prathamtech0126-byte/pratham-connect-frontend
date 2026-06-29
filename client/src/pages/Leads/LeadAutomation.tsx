@@ -118,7 +118,7 @@ const LEAD_AUTOMATIONS: AutomationItem[] = [
 export default function LeadAutomation() {
   const { user } = useAuth();
 
-  if (!user || !canAccessLeadAutomation(user.role)) {
+  if (!user || !canAccessLeadAutomation(user)) {
     return <Redirect to="/" />;
   }
 

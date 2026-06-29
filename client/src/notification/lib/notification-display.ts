@@ -43,7 +43,51 @@ export function getNotificationAccent(priority: string): string {
 }
 
 export function isFollowupNotificationType(type: string): boolean {
-  return type === "lead_followup_reminder" || type === "lead_followup_overdue";
+  return (
+    type === "lead_followup_reminder" ||
+    type === "lead_followup_overdue" ||
+    type === "lead_followup_manager_escalation" ||
+    type === "lead_followup_admin_escalation"
+  );
+}
+
+/** Follow-up is due now (not just "coming up" reminder). */
+export function isFollowupDueNotification(item: NotificationItem): boolean {
+  if (item.type === "lead_followup_overdue") {
+    const phase = (item.meta as { phase?: string } | undefined)?.phase;
+    return phase === "five_hour";
+  }
+  if (item.type !== "lead_followup_reminder") return false;
+  const phase = (item.meta as { phase?: string } | undefined)?.phase;
+  return phase === "due" || item.title === "Follow-up now";
+}
+
+/** Full-screen acknowledge card (partial payment, follow-up due, etc.). */
+export function shouldShowBlockingModal(item: NotificationItem): boolean {
+  if (item.type === "payment_partial" || item.type === "payment_pending_approval") {
+    return true;
+  }
+  if (isFollowupDueNotification(item)) return true;
+  return false;
+}
+
+/** Partial payment / approval requests — always alert with sound. */
+export function isPaymentApprovalNotification(item: NotificationItem): boolean {
+  return item.type === "payment_partial" || item.type === "payment_pending_approval";
+}
+
+/** Play alert sound for these notification types (instant on socket/sync). */
+export function shouldPlayAlertSound(item: NotificationItem): boolean {
+  if (isPaymentApprovalNotification(item)) return true;
+  if (shouldShowBlockingModal(item)) return true;
+  if (isFollowupNotificationType(item.type)) return true;
+  if (
+    item.type === "lead_assignment_batch" ||
+    (item.meta && (item.meta as { batch?: boolean }).batch === true)
+  ) {
+    return true;
+  }
+  return isBlockingPriority(item.priority);
 }
 
 /** Correct IST time in follow-up notification copy (inbox + blocking popup). */
@@ -84,6 +128,8 @@ export function filterByCategory(
       (n) =>
         isBlockingPriority(n.priority) ||
         n.type === "lead_followup_overdue" ||
+        n.type === "lead_followup_manager_escalation" ||
+        n.type === "lead_followup_admin_escalation" ||
         (n.category === "alerts" && n.type !== "lead_followup_reminder")
     );
   }

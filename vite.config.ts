@@ -47,6 +47,7 @@ export default defineConfig(({ mode }) => {
   return {
     // Frontend lives in /client
     root: "client",
+    publicDir: path.resolve(__dirname, "client/public"),
 
     plugins: [
       react(),
@@ -81,6 +82,12 @@ export default defineConfig(({ mode }) => {
         "/api": {
           target: env.VITE_API_URL,
           changeOrigin: true,
+          secure: false,
+        },
+        "/socket.io": {
+          target: env.VITE_API_URL,
+          changeOrigin: true,
+          ws: true,
           secure: false,
         },
       },

@@ -216,17 +216,14 @@ export function Topbar() {
       // console.log("[Topbar] New pending approval created:", data);
 
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     };
 
     const handleAllFinanceApproved = () => {
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     };
 
     const handleAllFinanceRejected = () => {
       queryClient.invalidateQueries({ queryKey: ["pending-all-finance-approvals"] });
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     };
 
     // Register event listeners

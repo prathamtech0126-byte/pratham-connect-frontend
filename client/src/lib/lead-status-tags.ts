@@ -33,6 +33,14 @@ export const isLeadDropped = (lead: LeadEntity) =>
   (lead.eligibilityStatus === "not_eligible" &&
     Boolean(lead.latestNote?.trim().toUpperCase().startsWith("[DROP]")));
 
+/** Admin dropped restore: counsellor-only drops (no telecaller). */
+export const isDroppedLeadRestorable = (lead: LeadEntity) => {
+  if (lead.assignmentStatus !== "dropped") return false;
+  const hasCounsellor = lead.currentCounsellorId != null;
+  const hasTelecaller = lead.currentTelecallerId != null;
+  return hasCounsellor && !hasTelecaller;
+};
+
 export const isLeadConverted = (lead: LeadEntity) =>
   lead.progressStatus === "converted" || lead.assignmentStatus === "converted";
 

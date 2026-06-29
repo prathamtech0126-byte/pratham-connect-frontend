@@ -1057,7 +1057,7 @@ export default function FacebookLeadAutomation() {
   }, []);
 
   useEffect(() => {
-    if (user && canAccessLeadAutomation(user.role)) {
+    if (user && canAccessLeadAutomation(user)) {
       const params = new URLSearchParams(window.location.search);
       const justConnected = params.get("connected") === "1";
       if (justConnected) {

@@ -48,7 +48,12 @@ export default function LeadReports() {
   const apiParams = leadDateRangeParams(dateFilter, customDateFrom, customDateTo);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-lead-report-stats", apiParams.dateFilter, apiParams.afterDate, apiParams.beforeDate],
+    queryKey: [
+      "admin-lead-report-stats",
+      dateFilter,
+      customDateFrom,
+      customDateTo,
+    ],
     queryFn: () => getAdminLeadReportStats(apiParams),
     staleTime: 60_000,
   });

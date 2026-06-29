@@ -42,12 +42,12 @@ import {
   leadStatusBadgeClassName,
   LEAD_STATUS_TABLE_CELL_CLASS,
   LEAD_STATUS_TABLE_HEAD_CLASS,
-  mergeLeadRow,
 } from "@/lib/lead-status-tags";
 import {
   applyLeadListPatches,
   consumeLeadListPatches,
-  extractLeadFromSocketPayload,
+  applyLeadListSocketEvent,
+  createLeadListReloadScheduler,
 } from "@/lib/lead-list-sync";
 import { getLeadSourceLabel } from "@/lib/lead-source-display";
 import {
@@ -62,7 +62,7 @@ import {
   type LeadEligibilityStatus,
   type LeadQuality,
 } from "@/api/leads.api";
-import { getLeadDateBounds, type LeadDateFilterType } from "@/lib/lead-date-range";
+import { leadDateRangeParams, type LeadDateFilterType } from "@/lib/lead-date-range";
 
 type LeadType = { id: number; leadType: string; displayAlias?: string | null };
 type SaleType = { id: number; saleType: string };
@@ -176,22 +176,23 @@ export default function CounsellorLeadsPage() {
 
   const [isAddLeadOpen, setIsAddLeadOpen] = useState(false);
 
-  const loadLeadsRef = useRef<() => Promise<void>>(async () => {});
+  const loadLeadsRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>(async () => {});
+  const reloadSchedulerRef = useRef(
+    createLeadListReloadScheduler((opts) => loadLeadsRef.current(opts))
+  );
+
+  const scheduleSilentReload = useCallback(() => {
+    reloadSchedulerRef.current.schedule();
+  }, []);
+
+  useEffect(() => {
+    return () => reloadSchedulerRef.current.cancel();
+  }, []);
 
   const rangeParams = useMemo(() => {
-    const bounds = getLeadDateBounds(dateFilter, customDateFrom, customDateTo);
-    if (!bounds) return {};
-    if (filterProgressStatus === "follow_up") {
-      return {
-        nextFollowupFrom: bounds.from.toISOString(),
-        nextFollowupTo: bounds.to.toISOString(),
-      };
-    }
-    return {
-      createdFrom: bounds.from.toISOString(),
-      createdTo: bounds.to.toISOString(),
-    };
-  }, [dateFilter, customDateFrom, customDateTo, filterProgressStatus]);
+    if (dateFilter === "all") return {};
+    return leadDateRangeParams(dateFilter, customDateFrom, customDateTo);
+  }, [dateFilter, customDateFrom, customDateTo]);
 
   useEffect(() => {
     setPage(1);
@@ -219,10 +220,10 @@ export default function CounsellorLeadsPage() {
   ].filter(Boolean).length;
 
   // ── Data loading ───────────────────────────────────────────────
-  const loadLeads = useCallback(async () => {
+  const loadLeads = useCallback(async (opts?: { silent?: boolean }) => {
     if (!user?.id) return;
     try {
-      setLoading(true);
+      if (!opts?.silent) setLoading(true);
       const res = await getLeads({
         currentCounsellorId: Number(user.id),
         search: search.trim().length >= 3 ? search.trim() : undefined,
@@ -304,54 +305,22 @@ export default function CounsellorLeadsPage() {
 
       if (event === "lead:transferred:notify") {
         const n = payload as { counsellorId?: number; lead?: LeadEntity };
-        if (n.counsellorId !== myId || !n.lead) return;
-        toast({
-          title: "New lead transferred to you",
-          description: `${n.lead.fullName} · ${n.lead.phone}`,
-        });
-        setLeads((prev) => {
-          if (prev.some((l) => l.id === n.lead!.id)) {
-            return prev.map((l) => (l.id === n.lead!.id ? mergeLeadRow(l, n.lead!) : l));
-          }
-          void loadLeadsRef.current();
-          return prev;
-        });
-        return;
+        if (n.counsellorId === myId && n.lead) {
+          toast({
+            title: "New lead transferred to you",
+            description: `${n.lead.fullName} · ${n.lead.phone}`,
+          });
+        }
       }
 
-      const lead = extractLeadFromSocketPayload(payload);
-      if (lead && Number(lead.currentCounsellorId) === myId) {
-        setLeads((prev) => {
-          const idx = prev.findIndex((l) => l.id === lead.id);
-          if (idx < 0) {
-            void loadLeadsRef.current();
-            return prev;
-          }
-          const patch: Partial<LeadEntity> = { ...lead };
-          if (event === "lead:followup") {
-            patch.progressStatus = "follow_up";
-            patch.pendingFollowUp = true;
-          }
-          const next = [...prev];
-          next[idx] = mergeLeadRow(prev[idx], patch);
-          return next;
-        });
-        return;
-      }
-
-      if (
-        [
-          "lead:followup",
-          "lead:updated",
-          "lead:assigned",
-          "lead:bulk_assigned",
-          "lead:converted",
-          "lead:dropped",
-          "lead:activity_updated",
-        ].includes(event)
-      ) {
-        void loadLeadsRef.current();
-      }
+      applyLeadListSocketEvent({
+        event,
+        payload,
+        scope: "counsellor",
+        viewerUserId: myId,
+        scheduleReload: scheduleSilentReload,
+        setLeads,
+      });
     },
   });
 

@@ -1,6 +1,17 @@
 import type { UserRole } from "@/context/auth-context";
 import { hasFullAccess } from "@/lib/role-access";
 
+type AutomationAccessUser = {
+  role?: string | null;
+  backendRole?: string | null;
+};
+
+function resolveBackendRole(userOrRole?: AutomationAccessUser | string | null): string | null {
+  if (!userOrRole) return null;
+  if (typeof userOrRole === "string") return userOrRole;
+  return userOrRole.backendRole ?? userOrRole.role ?? null;
+}
+
 /** All roles that can access lead list, detail, kanban, assign, notes */
 export function canAccessLeads(role: UserRole): boolean {
   if (hasFullAccess(role)) return true;
@@ -22,11 +33,11 @@ export function canUseCsvImportExport(role: UserRole): boolean {
   return ["superadmin", "developer", "manager", "marketing_head"].includes(role);
 }
 
-/** Lead automation (Facebook, Meta conversions, etc.) — not available to managers. */
-export function canAccessLeadAutomation(role: UserRole | string | undefined | null): boolean {
-  if (hasFullAccess(role)) return true;
-  if (!role) return false;
-  return ["superadmin", "admin", "marketing_head"].includes(role);
+/** Lead automation — backend `admin` only (not superadmin). */
+export function canAccessLeadAutomation(
+  userOrRole?: AutomationAccessUser | string | null
+): boolean {
+  return resolveBackendRole(userOrRole) === "admin";
 }
 
 export function canConvertToClient(role: UserRole): boolean {

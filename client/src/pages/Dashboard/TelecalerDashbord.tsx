@@ -16,15 +16,6 @@ import DateRangePicker from "@/components/payments/DateRangePicker";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import {
-  localTodayRangeIso,
-  localWeekRangeIso,
-  localMonthRangeIso,
-  localCalendarYmd,
-  localYmdInclusiveRangeIso,
-  localWeekYmds,
-  localMonthPresetYmds,
-} from "@/lib/local-date-range";
 import { leadDateRangeParams } from "@/lib/lead-date-range";
 import { getLeadSourceLabel, type LeadSourceOption } from "@/lib/lead-source-display";
 
@@ -95,37 +86,10 @@ export default function TelecalerDashbord() {
     enabled: !!user && hasValidTelecallerId,
   });
 
-  // yyyy-MM-dd period bounds used for lead-list redirects (afterDate/beforeDate params)
-  const periodRangeParams = useMemo((): { afterDate?: string; beforeDate?: string } => {
-    const now = new Date();
-    if (timeFilter === "today") {
-      const ymd = localCalendarYmd(now);
-      return { afterDate: ymd, beforeDate: ymd };
-    }
-    if (timeFilter === "weekly") {
-      const { from, to } = localWeekYmds(now);
-      return { afterDate: from, beforeDate: to };
-    }
-    if (timeFilter === "monthly") {
-      const { from, to } = localMonthPresetYmds(now);
-      return { afterDate: from, beforeDate: to };
-    }
-    if (timeFilter === "custom" && customDateFrom && customDateTo) {
-      return { afterDate: customDateFrom, beforeDate: customDateTo };
-    }
-    return {};
-  }, [timeFilter, customDateFrom, customDateTo]);
-
-  const followupRangeParams = useMemo((): { createdFrom?: string; createdTo?: string } => {
-    const now = new Date();
-    if (timeFilter === "today") return localTodayRangeIso(now);
-    if (timeFilter === "weekly") return localWeekRangeIso(now);
-    if (timeFilter === "monthly") return localMonthRangeIso(now);
-    if (timeFilter === "custom" && customDateFrom && customDateTo) {
-      return localYmdInclusiveRangeIso(customDateFrom, customDateTo);
-    }
-    return {};
-  }, [timeFilter, customDateFrom, customDateTo]);
+  const periodApiParams = useMemo(
+    () => leadDateRangeParams(timeFilter, customDateFrom, customDateTo),
+    [timeFilter, customDateFrom, customDateTo]
+  );
 
   /** Counts only — no full lead list (fast, accurate). */
   const { data: dashStats, isLoading } = useQuery({
@@ -133,27 +97,9 @@ export default function TelecalerDashbord() {
       "telecaller-dashboard-stats",
       user?.id,
       timeFilter,
-      periodRangeParams,
-      followupRangeParams,
+      periodApiParams,
     ],
-    queryFn: () => {
-      const { afterDate, beforeDate } = periodRangeParams;
-      const createdFrom = afterDate
-        ? localYmdInclusiveRangeIso(afterDate, afterDate).createdFrom
-        : undefined;
-      const createdTo = beforeDate
-        ? localYmdInclusiveRangeIso(beforeDate, beforeDate).createdTo
-        : undefined;
-      const todayFollowup = localTodayRangeIso();
-      return getTelecallerDashboardStats({
-        createdFrom,
-        createdTo,
-        followupFrom: followupRangeParams.createdFrom,
-        followupTo: followupRangeParams.createdTo,
-        followupTodayFrom: todayFollowup.createdFrom,
-        followupTodayTo: todayFollowup.createdTo,
-      });
-    },
+    queryFn: () => getTelecallerDashboardStats(periodApiParams),
     enabled: !!user && user.role === "telecaller",
     staleTime: 0,
   });
@@ -377,19 +323,12 @@ export default function TelecalerDashbord() {
     setLocation("/leads?followupToday=1");
   };
 
-  const getPeriodIsoRange = () => {
-    const { afterDate, beforeDate } = periodRangeParams;
-    if (afterDate && beforeDate) {
-      return localYmdInclusiveRangeIso(afterDate, beforeDate);
-    }
-    return leadDateRangeParams(timeFilter, customDateFrom, customDateTo);
-  };
-
   const buildLeadsUrl = (extra: Record<string, string | undefined>) => {
     const params = new URLSearchParams({ clearFilters: "1" });
-    const range = getPeriodIsoRange();
-    if (range.createdFrom) params.set("createdFrom", range.createdFrom);
-    if (range.createdTo) params.set("createdTo", range.createdTo);
+    const range = leadDateRangeParams(timeFilter, customDateFrom, customDateTo);
+    if (range.dateFilter) params.set("dateFilter", range.dateFilter);
+    if (range.afterDate) params.set("afterDate", range.afterDate);
+    if (range.beforeDate) params.set("beforeDate", range.beforeDate);
     for (const [k, v] of Object.entries(extra)) {
       if (v) params.set(k, v);
     }
@@ -409,33 +348,27 @@ export default function TelecalerDashbord() {
   };
 
   const goToTransferredLeads = () => {
-    const range = getPeriodIsoRange();
     setLocation(buildLeadsUrl({
       reportBucket: "transferred",
-      transferredFrom: range.createdFrom,
-      transferredTo: range.createdTo,
     }));
   };
 
   const goToConvertedLeads = () => {
-    const range = getPeriodIsoRange();
     setLocation(buildLeadsUrl({
       assignment: "converted",
       forReport: "1",
-      convertedFrom: range.createdFrom,
-      convertedTo: range.createdTo,
     }));
   };
 
   const handleDateRangeApply = (filter: any, startDate?: string, endDate?: string) => {
     if (filter === "today") {
-      const d = localCalendarYmd(new Date());
+      const d = new Date().toLocaleDateString("en-CA");
       setCustomDateFrom(d);
       setCustomDateTo(d);
     } else if (filter === "monthly") {
       const now = new Date();
-      const first = localCalendarYmd(new Date(now.getFullYear(), now.getMonth(), 1));
-      const last = localCalendarYmd(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+      const first = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString("en-CA");
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString("en-CA");
       setCustomDateFrom(first);
       setCustomDateTo(last);
     } else if (startDate && endDate) {

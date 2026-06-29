@@ -231,7 +231,7 @@ export default function LeadAutomationConfigure() {
   const [, params] = useRoute("/leads/automation/configure/:id");
   const id = params?.id ?? "";
 
-  if (!user || !canAccessLeadAutomation(user.role)) {
+  if (!user || !canAccessLeadAutomation(user)) {
     return <Redirect to="/" />;
   }
 

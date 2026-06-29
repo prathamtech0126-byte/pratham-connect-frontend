@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   bulkAssignLeadsApi,
+  bulkRevertDroppedLeadsApi,
+  bulkRevertJunkLeadsApi,
   bulkStrategyAssignLeadsApi,
   previewBulkStrategyAssignApi,
-  revertLeadJunkApi,
   type BulkStrategyAssignPreview,
   type LeadEntity,
 } from "@/api/leads.api";
@@ -43,12 +44,14 @@ type Step =
   | "strategy_preview"
   | "strategy_confirm";
 
+export type LeadBulkRestoreMode = "junk" | "dropped" | null;
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   transferableLeads: LeadEntity[];
   blockedCount: number;
-  isJunkRestoreMode: boolean;
+  restoreMode: LeadBulkRestoreMode;
   telecallers: TeamMember[];
   counsellors: TeamMember[];
   onSuccess: (updated: LeadEntity[]) => void;
@@ -185,16 +188,28 @@ export function LeadBulkAssignDialog({
   onOpenChange,
   transferableLeads,
   blockedCount,
-  isJunkRestoreMode,
+  restoreMode,
   telecallers,
   counsellors,
   onSuccess,
 }: Props) {
   const { toast } = useToast();
+  const isRestoreMode = restoreMode != null;
+  const restoreLeadLabel = restoreMode === "dropped" ? "dropped lead" : "junk lead";
+  const restoreDialogTitle =
+    restoreMode === "dropped"
+      ? "Restore & Assign Dropped Leads"
+      : "Restore & Assign Junk Leads";
+  const skippedSelectionLabel =
+    restoreMode === "dropped"
+      ? "(not counsellor-only drop)"
+      : "(not junk)";
+  const bulkRestoreApi =
+    restoreMode === "dropped" ? bulkRevertDroppedLeadsApi : bulkRevertJunkLeadsApi;
   const leadIds = useMemo(() => transferableLeads.map((l) => l.id), [transferableLeads]);
   const transferableCount = transferableLeads.length;
 
-  const [step, setStep] = useState<Step>(isJunkRestoreMode ? "direct_assignee" : "mode");
+  const [step, setStep] = useState<Step>("mode");
   const [mode, setMode] = useState<AssignMode>("direct");
   const [submitting, setSubmitting] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -210,7 +225,7 @@ export function LeadBulkAssignDialog({
   const [preview, setPreview] = useState<BulkStrategyAssignPreview | null>(null);
 
   const resetState = useCallback(() => {
-    setStep(isJunkRestoreMode ? "direct_assignee" : "mode");
+    setStep("mode");
     setMode("direct");
     setTargetTelecallerId("");
     setTargetCounsellorId("");
@@ -220,7 +235,7 @@ export function LeadBulkAssignDialog({
     setSelectedCounsellors(new Set());
     setPriorityWeights({});
     setPreview(null);
-  }, [isJunkRestoreMode]);
+  }, []);
 
   useEffect(() => {
     if (!open) resetState();
@@ -244,15 +259,19 @@ export function LeadBulkAssignDialog({
     : 0;
 
   const showRemoveOption =
-    !isJunkRestoreMode &&
+    !isRestoreMode &&
     ((step === "direct_confirm" && directConflictCount > 0) ||
       (step === "strategy_confirm" && strategyConflictCount > 0));
 
   const handleClose = () => onOpenChange(false);
 
   const handleBack = () => {
-    if (step === "direct_assignee" || step === "mode") {
+    if (step === "mode") {
       handleClose();
+      return;
+    }
+    if (step === "direct_assignee") {
+      setStep("mode");
       return;
     }
     if (step === "direct_confirm") {
@@ -260,7 +279,7 @@ export function LeadBulkAssignDialog({
       return;
     }
     if (step === "strategy_setup") {
-      setStep(isJunkRestoreMode ? "direct_assignee" : "mode");
+      setStep("mode");
       return;
     }
     if (step === "strategy_preview") {
@@ -285,11 +304,11 @@ export function LeadBulkAssignDialog({
             ...(removeFromPrevious ? { removeFromCounsellor: true } : {}),
           };
 
-      const result = isJunkRestoreMode
-        ? {
-            updated: await Promise.all(leadIds.map((id) => revertLeadJunkApi(id, assigneePayload))),
-            blocked: [] as number[],
-          }
+      const result = isRestoreMode
+        ? await bulkRestoreApi({ leadIds, ...assigneePayload }).then((data) => ({
+            updated: data.updated,
+            blocked: data.failed.map((row) => row.leadId),
+          }))
         : await bulkAssignLeadsApi({ leadIds, ...assigneePayload });
 
       if (result.blocked.length > 0) {
@@ -299,7 +318,7 @@ export function LeadBulkAssignDialog({
         });
       } else {
         toast({
-          title: `${result.updated.length} lead${result.updated.length === 1 ? "" : "s"} ${isJunkRestoreMode ? "restored and assigned" : "transferred"}`,
+          title: `${result.updated.length} lead${result.updated.length === 1 ? "" : "s"} ${isRestoreMode ? "restored and assigned" : "transferred"}`,
         });
       }
       onSuccess(result.updated);
@@ -346,6 +365,34 @@ export function LeadBulkAssignDialog({
     }
     try {
       setSubmitting(true);
+
+      if (isRestoreMode) {
+        const data = await bulkRestoreApi({
+          assignments: preview.assignments.map((assignment) => ({
+            leadId: assignment.leadId,
+            userId: assignment.userId,
+            userName: assignment.userName,
+            role: assignment.role,
+            ...(assignment.role === "counsellor"
+              ? { counsellorId: assignment.userId }
+              : { telecallerId: assignment.userId }),
+          })),
+        });
+        if (data.failed.length > 0) {
+          toast({
+            title: `${data.updated.length} lead${data.updated.length === 1 ? "" : "s"} restored and distributed`,
+            description: `${data.failed.length} lead${data.failed.length === 1 ? "" : "s"} could not be restored.`,
+          });
+        } else {
+          toast({
+            title: `${data.updated.length} lead${data.updated.length === 1 ? "" : "s"} restored and distributed`,
+          });
+        }
+        onSuccess(data.updated);
+        handleClose();
+        return;
+      }
+
       const result = await bulkStrategyAssignLeadsApi({
         leadIds,
         strategy,
@@ -389,9 +436,11 @@ export function LeadBulkAssignDialog({
       }
       if (transferableCount === 0) {
         toast({
-          title: isJunkRestoreMode ? "No junk leads to restore" : "No leads to transfer",
-          description: isJunkRestoreMode
-            ? "Select junk leads from the list to restore and assign."
+          title: isRestoreMode
+            ? `No ${restoreLeadLabel}s to restore`
+            : "No leads to transfer",
+          description: isRestoreMode
+            ? `Select ${restoreLeadLabel}s from the list to restore and assign.`
             : "Transferred or converted leads cannot be reassigned.",
           variant: "destructive",
         });
@@ -442,19 +491,19 @@ export function LeadBulkAssignDialog({
       >
         <DialogHeader>
           <DialogTitle>
-            {isJunkRestoreMode ? "Restore & Assign Junk Leads" : "Assign Selected Leads"}
+            {isRestoreMode ? restoreDialogTitle : "Assign Selected Leads"}
           </DialogTitle>
         </DialogHeader>
 
         <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm shrink-0">
           <span className="font-semibold">{transferableCount}</span>{" "}
-          {isJunkRestoreMode ? "junk lead" : "transferable lead"}
+          {isRestoreMode ? restoreLeadLabel : "transferable lead"}
           {transferableCount !== 1 ? "s" : ""}
           {blockedCount > 0 && (
             <span className="text-muted-foreground">
               {" "}
               · {blockedCount} skipped
-              {isJunkRestoreMode ? " (not junk)" : " (transferred or converted)"}
+              {isRestoreMode ? ` ${skippedSelectionLabel}` : " (transferred or converted)"}
             </span>
           )}
         </div>
@@ -472,8 +521,9 @@ export function LeadBulkAssignDialog({
             >
               <p className="font-semibold">Direct assign</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Assign all selected leads to one telecaller or one counsellor — same as the current
-                transfer flow.
+                {isRestoreMode
+                  ? `Restore all selected ${restoreLeadLabel}s to one telecaller or one counsellor.`
+                  : "Assign all selected leads to one telecaller or one counsellor — same as the current transfer flow."}
               </p>
             </button>
             <button
@@ -487,8 +537,9 @@ export function LeadBulkAssignDialog({
             >
               <p className="font-semibold">Strategy distribution</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Split leads across a team using round robin, least loaded, priority, or
-                performance-based rules — same strategies as Facebook automation.
+                {isRestoreMode
+                  ? `Restore ${restoreLeadLabel}s and split them across a team using round robin, least loaded, priority, or performance-based rules.`
+                  : "Split leads across a team using round robin, least loaded, priority, or performance-based rules — same strategies as Facebook automation."}
               </p>
             </button>
           </div>
@@ -548,14 +599,14 @@ export function LeadBulkAssignDialog({
         {step === "direct_confirm" && (
           <div className="py-4 space-y-3 text-center">
             <p className="text-sm text-muted-foreground">
-              Confirm {isJunkRestoreMode ? "restore and assignment of" : "transfer of"}
+              Confirm {isRestoreMode ? "restore and assignment of" : "transfer of"}
             </p>
             <p className="text-lg font-bold">
               {transferableCount} lead{transferableCount !== 1 ? "s" : ""}
             </p>
             <p className="text-sm text-muted-foreground">to</p>
             <p className="text-base font-semibold text-primary">{directTargetName}</p>
-            {directConflictCount > 0 && (
+            {directConflictCount > 0 && !isRestoreMode && (
               <div className="text-left rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                 {directConflictCount} lead{directConflictCount !== 1 ? "s are" : " is"} already
                 assigned to a {toTelecaller ? "counsellor" : "telecaller"}. You can remove them from
@@ -723,8 +774,9 @@ export function LeadBulkAssignDialog({
                 ))}
               </div>
             </ScrollArea>
-            {(preview.conflictCounts.withTelecaller > 0 ||
-              preview.conflictCounts.withCounsellor > 0) && (
+            {!isRestoreMode &&
+              (preview.conflictCounts.withTelecaller > 0 ||
+                preview.conflictCounts.withCounsellor > 0) && (
               <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
                 Some leads already have a telecaller or counsellor. On the next step you can choose
                 whether to remove them from the previous assignee&apos;s list.
@@ -736,14 +788,16 @@ export function LeadBulkAssignDialog({
         {step === "strategy_confirm" && preview && (
           <div className="py-2 space-y-3">
             <p className="text-sm text-center">
-              Distribute <span className="font-semibold">{preview.assignments.length}</span> leads
+              {isRestoreMode ? "Restore and distribute" : "Distribute"}{" "}
+              <span className="font-semibold">{preview.assignments.length}</span> lead
+              {preview.assignments.length !== 1 ? "s" : ""}
               using{" "}
               <span className="font-semibold">
                 {LEAD_DISTRIBUTION_STRATEGIES.find((s) => s.value === strategy)?.label}
               </span>
               ?
             </p>
-            {strategyConflictCount > 0 && (
+            {!isRestoreMode && strategyConflictCount > 0 && (
               <div className="text-sm rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
                 {preview.conflictCounts.withCounsellor > 0 && (
                   <p>
@@ -780,7 +834,7 @@ export function LeadBulkAssignDialog({
 
         <DialogFooter className="shrink-0 border-t pt-4">
           <Button variant="outline" onClick={handleBack} disabled={submitting || previewLoading}>
-            {step === "mode" || step === "direct_assignee" ? "Cancel" : "Back"}
+            {step === "mode" ? "Cancel" : "Back"}
           </Button>
           <Button
             onClick={handlePrimary}
@@ -797,7 +851,7 @@ export function LeadBulkAssignDialog({
             {step === "direct_confirm" || step === "strategy_confirm"
               ? submitting
                 ? "Assigning…"
-                : isJunkRestoreMode
+                : isRestoreMode
                   ? "Confirm Restore"
                   : "Confirm Assign"
               : step === "strategy_preview"

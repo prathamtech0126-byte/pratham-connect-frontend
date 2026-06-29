@@ -20,6 +20,8 @@ interface FinancialEntryProps<TFieldValues extends FieldValues> {
   showTotalPayment?: boolean;
   /** Maximum number of additional payment rows (after first amount/date row) */
   maxAdditionalPayments?: number;
+  /** Show asterisk on remarks when partial payment (total ≠ amount). */
+  remarksRequired?: boolean;
   amountPlaceholder?: string; // Placeholder for amount field
   invoicePlaceholder?: string; // Placeholder for invoice field
   remarksPlaceholder?: string; // Placeholder for remarks field
@@ -37,6 +39,7 @@ export function FinancialEntry<T extends FieldValues>({
   showSecondPayment = false,
   showTotalPayment = false,
   maxAdditionalPayments = 5,
+  remarksRequired = false,
   amountPlaceholder = "Enter amount",
   invoicePlaceholder = "Enter invoice number",
   remarksPlaceholder = "Enter remarks",
@@ -79,6 +82,14 @@ export function FinancialEntry<T extends FieldValues>({
     );
   }, [showSecondPayment, values, additionalRows, cappedAdditionalPayments]);
 
+  const totalPaymentCap = useMemo(() => {
+    if (!showTotalPayment || values?.totalAmount == null || values.totalAmount === "") {
+      return undefined;
+    }
+    const total = Number(values.totalAmount);
+    return Number.isFinite(total) && total > 0 ? total : undefined;
+  }, [showTotalPayment, values?.totalAmount]);
+
   return (
     <div className="col-span-1 md:col-span-2 space-y-3 p-4 border rounded-lg bg-muted/20">
       <div className="flex items-center justify-between gap-2">
@@ -103,6 +114,7 @@ export function FinancialEntry<T extends FieldValues>({
           label="Amount"
           placeholder={amountPlaceholder}
           disabled={disabled}
+          max={totalPaymentCap}
         />
         <FormDateInput
           name={`${name}.date` as Path<T>}
@@ -163,7 +175,7 @@ export function FinancialEntry<T extends FieldValues>({
         <FormTextareaInput
           name={`${name}.remarks` as Path<T>}
           control={control}
-          label="Remarks"
+          label={remarksRequired ? "Remarks *" : "Remarks"}
           placeholder={remarksPlaceholder}
           disabled={disabled}
         />

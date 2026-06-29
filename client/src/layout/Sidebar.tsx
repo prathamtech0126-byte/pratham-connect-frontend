@@ -9,7 +9,6 @@ import {
   LogOut,
   Menu,
   PieChart,
-  UserPlus,
   Crown,
   Activity,
   FileText,
@@ -523,20 +522,6 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                         <span className="truncate">All Clients</span>
                       </Link>
                     )}
-                    {user && ["superadmin", "developer", "manager", "counsellor"].includes(user.role) && (
-                      <Link
-                        href="/clients/new"
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
-                          location === "/clients/new"
-                            ? "border-primary text-primary font-medium bg-primary/5"
-                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
-                        )}
-                      >
-                        <UserPlus className="w-4 h-4" />
-                        <span className="truncate">Add Client</span>
-                      </Link>
-                    )}
                     <Link
                       href="/clients/archive"
                       className={cn(
@@ -836,7 +821,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       <span className="truncate">Kanban</span>
                     </Link>
                     */}
-                    {user && canAccessLeadAutomation(user.role) && (
+                    {user && canAccessLeadAutomation(user) && (
                       <Link
                         href="/leads/automation"
                         className={cn(

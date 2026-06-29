@@ -8,7 +8,7 @@ import api from "@/lib/api";
 import { useSocket } from "@/context/socket-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Download, X, Filter, ChevronRight, User, Loader2, ExternalLink } from "lucide-react";
+import { Download, X, Filter, ChevronRight, User, Loader2, ExternalLink } from "lucide-react";
 import { ClientRedirectSkeleton } from "@/components/ui/page-skeletons";
 import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
@@ -277,14 +277,6 @@ export default function ClientList() {
       <PageWrapper
         title="Clients"
         breadcrumbs={[{ label: "Clients" }]}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button onClick={() => setLocation("/clients/new")} className="shadow-md shadow-primary/20">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Client
-            </Button>
-          </div>
-        }
       >
         <div className="space-y-6">
           <p className="text-muted-foreground text-sm">
@@ -1664,10 +1656,6 @@ export default function ClientList() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button onClick={() => setLocation("/clients/new")} className="shadow-md shadow-primary/20">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Client
-          </Button>
         </div>
       }
     >

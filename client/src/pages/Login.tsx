@@ -639,6 +639,7 @@ export default function Login() {
                 username: response.data.username || username,
                 name: response.data.name || response.data.fullname || username.split("@")[0],
                 role: mappedRole,
+                backendRole: role,
             };
 
             login(mappedRole, userData);

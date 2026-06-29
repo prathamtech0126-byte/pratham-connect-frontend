@@ -3,10 +3,6 @@ import { useLeadSocketRefresh } from "@/hooks/use-lead-socket";
 import { useLocation, useSearch } from "wouter";
 import { format } from "date-fns";
 
-import {
-  localCalendarYmd,
-  localMonthPresetYmds,
-} from "@/lib/local-date-range";
 import { leadDateRangeParams } from "@/lib/lead-date-range";
 
 import { useToast } from "@/hooks/use-toast";
@@ -77,7 +73,7 @@ import {
   type LeadEligibilityStatus,
   type LeadQuality,
 } from "@/api/leads.api";
-import { LeadBulkAssignDialog } from "@/components/leads/LeadBulkAssignDialog";
+import { LeadBulkAssignDialog, type LeadBulkRestoreMode } from "@/components/leads/LeadBulkAssignDialog";
 import {
   getLeadDisplayTags,
   leadStatusBadgeClassName,
@@ -86,13 +82,15 @@ import {
   isLeadTransferBlocked,
   isLeadReadOnly,
   isLeadJunk,
+  isDroppedLeadRestorable,
   sortLeadsForDisplay,
   mergeLeadRow,
   canTransferToCounsellor,
 } from "@/lib/lead-status-tags";
 import {
   consumeLeadListPatches,
-  extractLeadFromSocketPayload,
+  applyLeadListSocketEvent,
+  createLeadListReloadScheduler,
   saveLeadListCache,
   readLeadListCache,
   markLeadListNavAway,
@@ -497,12 +495,12 @@ export default function LeadList() {
     const rawDateTo   = transferredTo   ?? convertedTo   ?? droppedTo   ?? createdTo;
     if (!afterDate && rawDateFrom) {
       setCustomDateFrom(
-        rawDateFrom.includes("T") ? localCalendarYmd(new Date(rawDateFrom)) : rawDateFrom
+        rawDateFrom.includes("T") ? new Date(rawDateFrom).toLocaleDateString("en-CA") : rawDateFrom
       );
     }
     if (!beforeDate && rawDateTo) {
       setCustomDateTo(
-        rawDateTo.includes("T") ? localCalendarYmd(new Date(rawDateTo)) : rawDateTo
+        rawDateTo.includes("T") ? new Date(rawDateTo).toLocaleDateString("en-CA") : rawDateTo
       );
     }
     setAssignedScopeMode(assignedScope === "1");
@@ -565,7 +563,13 @@ export default function LeadList() {
   const isAdminBulk = ["admin", "superadmin", "developer", "manager"].includes(user?.role ?? "");
   const isCounsellor = user?.role === "counsellor";
   const isTelecaller = user?.role === "telecaller";
-  const isAdminJunkRestoreMode = isAdminBulk && filterProgressStatus === "junk";
+  const adminRestoreMode: LeadBulkRestoreMode =
+    isAdminBulk && filterProgressStatus === "junk"
+      ? "junk"
+      : isAdminBulk && filterAssignmentStatus === "dropped"
+        ? "dropped"
+        : null;
+  const isAdminRestoreMode = adminRestoreMode != null;
   const progressStatusOptions = isCounsellor
     ? PROGRESS_STATUS_OPTIONS.filter((o) => o.value !== "junk")
     : PROGRESS_STATUS_OPTIONS;
@@ -573,60 +577,10 @@ export default function LeadList() {
   /**
    * Date filter params for API calls — all ranges as UTC ISO (local calendar day bounds).
    */
-  const dateRangeParams = useMemo((): {
-    createdFrom?: string;
-    createdTo?: string;
-    afterDate?: string;
-    beforeDate?: string;
-    transferredFrom?: string;
-    transferredTo?: string;
-    convertedFrom?: string;
-    convertedTo?: string;
-    droppedFrom?: string;
-    droppedTo?: string;
-    nextFollowupFrom?: string;
-    nextFollowupTo?: string;
-  } => {
+  const dateRangeParams = useMemo(() => {
     if (dateFilter === "all") return {};
-
-    const baseRange = leadDateRangeParams(
-      dateFilter,
-      customDateFrom,
-      customDateTo
-    );
-    const { createdFrom, createdTo } = baseRange;
-    if (!createdFrom || !createdTo) return {};
-
-    const isSubFilter =
-      filterProgressStatus === "follow_up" ||
-      reportBucketFilter === "transferred" ||
-      (filterAssignmentStatus === "converted" && forReportMode) ||
-      (filterAssignmentStatus === "dropped" && forReportMode);
-
-    if (filterProgressStatus === "follow_up") {
-      return { nextFollowupFrom: createdFrom, nextFollowupTo: createdTo };
-    }
-    if (reportBucketFilter === "transferred") {
-      return { transferredFrom: createdFrom, transferredTo: createdTo };
-    }
-    if (filterAssignmentStatus === "converted" && forReportMode) {
-      return { convertedFrom: createdFrom, convertedTo: createdTo };
-    }
-    if (filterAssignmentStatus === "dropped" && forReportMode) {
-      return { droppedFrom: createdFrom, droppedTo: createdTo };
-    }
-    if (isSubFilter) return {};
-
-    return { createdFrom, createdTo };
-  }, [
-    dateFilter,
-    customDateFrom,
-    customDateTo,
-    filterProgressStatus,
-    reportBucketFilter,
-    filterAssignmentStatus,
-    forReportMode,
-  ]);
+    return leadDateRangeParams(dateFilter, customDateFrom, customDateTo);
+  }, [dateFilter, customDateFrom, customDateTo]);
 
   useEffect(() => {
     const trimmed = search.trim();
@@ -699,9 +653,24 @@ export default function LeadList() {
   ].filter(Boolean).length;
 
   // ── Data loading ───────────────────────────────────────────────
-  const loadLeads = useCallback(async () => {
+  const loadLeadsRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>(async () => {});
+  const reloadSchedulerRef = useRef(
+    createLeadListReloadScheduler((opts) => loadLeadsRef.current(opts))
+  );
+
+  const scheduleSilentReload = useCallback(() => {
+    reloadSchedulerRef.current.schedule();
+  }, []);
+
+  useEffect(() => {
+    return () => reloadSchedulerRef.current.cancel();
+  }, []);
+
+  const listSocketScope = isTelecaller ? "telecaller" : isCounsellor ? "counsellor" : "admin";
+
+  const loadLeads = useCallback(async (opts?: { silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!opts?.silent) setLoading(true);
 
       // Counsellor report card drill-down: exact API query only (no default list filter logic).
       if (counsellorReportDrillMode) {
@@ -839,9 +808,11 @@ export default function LeadList() {
         totalPages,
       });
     } catch {
-      toast({ title: "Error", description: "Failed to load leads", variant: "destructive" });
+      if (!opts?.silent) {
+        toast({ title: "Error", description: "Failed to load leads", variant: "destructive" });
+      }
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [
     searchQuery,
@@ -868,6 +839,10 @@ export default function LeadList() {
     hasPendingFollowUpOnly,
   ]);
 
+
+  useEffect(() => {
+    loadLeadsRef.current = loadLeads;
+  }, [loadLeads]);
 
 const loadCounsellors = useCallback(async () => {
   try {
@@ -948,23 +923,19 @@ const loadLeadTypes = useCallback(async () => {
 
   useLeadSocketRefresh({
     enabled: !!user?.id,
-    queryKeys: [
-      ["leads"],
-      ["telecaller-dashboard-leads-all"],
-      ["telecaller-dashboard-leads-period"],
-      ["current-telecaller-target"],
-    ],
-    onLeadEvent: (_event, payload) => {
-      const row = extractLeadFromSocketPayload(payload);
-      if (row?.id) {
-        setLeads((prev) => {
-          if (!prev.some((l) => l.id === row.id)) return prev;
-          return sortLeadsForDisplay(
-            prev.map((l) => (l.id === row.id ? mergeLeadRow(l, row) : l))
-          );
-        });
-      }
-      void loadLeads();
+    queryKeys: [],
+    onLeadEvent: (event, payload) => {
+      const myId = user?.id ? Number(user.id) : null;
+      if (myId == null || Number.isNaN(myId)) return;
+      applyLeadListSocketEvent({
+        event,
+        payload,
+        scope: listSocketScope,
+        viewerUserId: myId,
+        scheduleReload: scheduleSilentReload,
+        setLeads,
+        sortLeads: sortLeadsForDisplay,
+      });
     },
   });
 
@@ -976,11 +947,12 @@ const loadLeadTypes = useCallback(async () => {
   const selectableLeadsOnPage = useMemo(
     () =>
       displayLeads.filter((lead) => {
-        if (isAdminJunkRestoreMode) return isLeadJunk(lead);
+        if (adminRestoreMode === "junk") return isLeadJunk(lead);
+        if (adminRestoreMode === "dropped") return isDroppedLeadRestorable(lead);
         if (isAdminBulk) return !isLeadTransferBlocked(lead);
         return true;
       }),
-    [displayLeads, isAdminJunkRestoreMode, isAdminBulk]
+    [displayLeads, adminRestoreMode, isAdminBulk]
   );
 
   const allPageSelected =
@@ -1287,11 +1259,13 @@ const loadLeadTypes = useCallback(async () => {
   // ── DateRangePicker apply callback ─────────────────────────────
   const handleDateRangeApply = (filter: any, startDate?: string, endDate?: string) => {
     if (filter === "today") {
-      const d = localCalendarYmd(new Date());
+      const d = new Date().toLocaleDateString("en-CA");
       setCustomDateFrom(d);
       setCustomDateTo(d);
     } else if (filter === "monthly") {
-      const { from, to } = localMonthPresetYmds(new Date());
+      const now = new Date();
+      const from = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString("en-CA");
+      const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString("en-CA");
       setCustomDateFrom(from);
       setCustomDateTo(to);
     } else if (startDate && endDate) {
@@ -1313,14 +1287,23 @@ const loadLeadTypes = useCallback(async () => {
   // ── Telecaller-to-telecaller transfer handlers ─────────────────
   const toggleLeadSelection = (id: number) => {
     const lead = leads.find((item) => item.id === id);
-    if (isAdminJunkRestoreMode && lead && !isLeadJunk(lead)) {
+    if (adminRestoreMode === "junk" && lead && !isLeadJunk(lead)) {
       toast({
         title: "Only junk leads can be restored",
         variant: "destructive",
       });
       return;
     }
-    if (isAdminBulk && !isAdminJunkRestoreMode && lead && isLeadTransferBlocked(lead)) {
+    if (adminRestoreMode === "dropped" && lead && !isDroppedLeadRestorable(lead)) {
+      toast({
+        title: "Lead cannot be restored",
+        description:
+          "Only dropped leads with a counsellor (no telecaller) can be restored. Transferred or dual-assigned leads are excluded.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (isAdminBulk && !isAdminRestoreMode && lead && isLeadTransferBlocked(lead)) {
       toast({
         title: "Lead cannot be transferred",
         description: "Transferred or converted leads cannot be reassigned.",
@@ -1346,10 +1329,11 @@ const loadLeadTypes = useCallback(async () => {
     () =>
       leads.filter((l) => {
         if (!selectedLeadIds.has(l.id)) return false;
-        if (isAdminJunkRestoreMode) return isLeadJunk(l);
+        if (adminRestoreMode === "junk") return isLeadJunk(l);
+        if (adminRestoreMode === "dropped") return isDroppedLeadRestorable(l);
         return !isLeadTransferBlocked(l);
       }),
-    [leads, selectedLeadIds, isAdminJunkRestoreMode]
+    [leads, selectedLeadIds, adminRestoreMode]
   );
 
   const openAdminTransferModal = () => {
@@ -1363,14 +1347,14 @@ const loadLeadTypes = useCallback(async () => {
   const handleAdminBulkAssignSuccess = (updated: LeadEntity[]) => {
     const updatedMap = new Map(updated.map((lead) => [lead.id, lead]));
     setLeads((prev) => {
-      if (isAdminJunkRestoreMode) {
+      if (isAdminRestoreMode) {
         return prev.filter((lead) => !updatedMap.has(lead.id));
       }
       return prev.map((lead) =>
         updatedMap.has(lead.id) ? { ...lead, ...updatedMap.get(lead.id)! } : lead
       );
     });
-    if (isAdminJunkRestoreMode) {
+    if (isAdminRestoreMode) {
       setPagination((prev) => ({
         ...prev,
         total: Math.max(0, prev.total - updated.length),
@@ -1489,12 +1473,12 @@ const loadLeadTypes = useCallback(async () => {
                   onClick={isAdminBulk ? openAdminTransferModal : openTtModalBulk}
                   className="gap-1.5"
                 >
-                  {isAdminJunkRestoreMode ? (
+                  {isAdminRestoreMode ? (
                     <RotateCcw className="w-3.5 h-3.5" />
                   ) : (
                     <Send className="w-3.5 h-3.5" />
                   )}
-                  {isAdminJunkRestoreMode ? "Restore & Assign" : isAdminBulk ? "Assign" : "Transfer"} (
+                  {isAdminRestoreMode ? "Restore & Assign" : isAdminBulk ? "Assign" : "Transfer"} (
                     {isAdminBulk ? adminTransferableCount : selectedLeadIds.size})
                 </Button>
               )}
@@ -1894,7 +1878,13 @@ const loadLeadTypes = useCallback(async () => {
                   {displayLeads.map((lead) => {
                     const inSelectMode = canBulkSelect && isSelectMode;
                     const isSelected = selectedLeadIds.has(lead.id);
-                    const transferBlocked = isAdminBulk && !isAdminJunkRestoreMode && isLeadTransferBlocked(lead);
+                    const selectionBlocked =
+                      isAdminBulk &&
+                      (adminRestoreMode === "junk"
+                        ? !isLeadJunk(lead)
+                        : adminRestoreMode === "dropped"
+                          ? !isDroppedLeadRestorable(lead)
+                          : isLeadTransferBlocked(lead));
                     const readOnly = isLeadReadOnly(lead, user?.role);
                     const junk = isLeadJunk(lead);
                     const statusTags = getLeadDisplayTags(lead, user?.role, {
@@ -1914,7 +1904,7 @@ const loadLeadTypes = useCallback(async () => {
                                 ? "[&>td]:bg-slate-50/80 hover:[&>td]:bg-slate-100/80"
                                 : "hover:[&>td]:bg-muted/40",
                           inSelectMode && isSelected && "[&>td]:bg-primary/5 ring-1 ring-inset ring-primary/40",
-                          inSelectMode && transferBlocked && "opacity-60"
+                          inSelectMode && selectionBlocked && "opacity-60"
                         )}
                         onClick={() => {
                           if (inSelectMode) {
@@ -2251,7 +2241,7 @@ const loadLeadTypes = useCallback(async () => {
         }}
         transferableLeads={getAdminTransferableLeads()}
         blockedCount={adminSkippedTransferCount}
-        isJunkRestoreMode={isAdminJunkRestoreMode}
+        restoreMode={adminRestoreMode}
         telecallers={telecallers}
         counsellors={counsellors}
         onSuccess={handleAdminBulkAssignSuccess}

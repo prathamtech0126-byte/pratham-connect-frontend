@@ -1,7 +1,7 @@
 
 
 import { lazy, Suspense, useEffect } from "react";
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useSearch } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,9 +16,9 @@ import {
   CLIENT_FOLDER_ALLOWED_ROLES,
   CX_ALLOWED_ROLES,
   INCENTIVE_ROLES,
-  LEAD_AUTOMATION_ALLOWED_ROLES,
 } from "@/constants/roles";
 import { canAccessByRole } from "@/lib/role-access";
+import { canAccessLeadAutomation } from "@/lib/lead-permissions";
 import { SocketProvider } from "@/context/socket-context";
 import { AlertProvider } from "@/context/alert-context";
 import { EmergencyAlert } from "@/components/ui/emergency-alert";
@@ -134,7 +134,7 @@ const BindingActivityPage = lazy(() => import("@/pages/Bakend Team/Binding Team/
 // // Backend module pages
 // const BackendFillingClientPage = lazy(() => import("@/modules/backend/pages/FillingClientPage"));
 
-function ProtectedRoute({ component: Component, allowedRoles, ...rest }: any) {
+function ProtectedRoute({ component: Component, allowedRoles, roleCheck, ...rest }: any) {
   const { user, isLoading } = useAuth();
 
   // ✅ STRICT AUTHENTICATION CHECK
@@ -155,7 +155,11 @@ function ProtectedRoute({ component: Component, allowedRoles, ...rest }: any) {
     return <Redirect to="/login" />;
   }
 
-  if (allowedRoles && !canAccessByRole(user.role, allowedRoles as UserRole[])) {
+  if (roleCheck) {
+    if (!roleCheck(user)) {
+      return <Redirect to="/" />;
+    }
+  } else if (allowedRoles && !canAccessByRole(user.role, allowedRoles as UserRole[])) {
     return <Redirect to="/" />;
   }
 
@@ -165,6 +169,17 @@ function ProtectedRoute({ component: Component, allowedRoles, ...rest }: any) {
       <Component {...rest} />
     </MainLayout>
   );
+}
+
+/** New clients may only be created via lead conversion (?fromLead=). */
+function NewClientFromLeadOnly() {
+  const search = useSearch();
+  const fromLead = new URLSearchParams(search).get("fromLead");
+  const leadId = fromLead ? Number(fromLead) : NaN;
+  if (!Number.isFinite(leadId) || leadId <= 0) {
+    return <Redirect to="/clients" />;
+  }
+  return <ProtectedRoute component={ClientForm} />;
 }
 
 const PageLoadFallback = () => <LoadingScreen message="Loading..." />;
@@ -440,7 +455,7 @@ function Router() {
           {params => <ProtectedRoute component={CounsellorClientsPage} params={params} />}
         </Route>
         <Route path="/clients/new">
-          {params => <ProtectedRoute component={ClientForm} />}
+          {() => <NewClientFromLeadOnly />}
         </Route>
         <Route path="/clients/:id/edit">
           {params => <ProtectedRoute component={ClientForm} params={params} />}
@@ -468,24 +483,24 @@ function Router() {
             <ProtectedRoute
               component={LeadAutomationConfigure}
               params={params}
-              allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES}
+              roleCheck={canAccessLeadAutomation}
             />
           )}
         </Route>
         <Route path="/leads/automation/meta-conversions">
-          {() => <ProtectedRoute component={MetaConversionsPage} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
+          {() => <ProtectedRoute component={MetaConversionsPage} roleCheck={canAccessLeadAutomation} />}
         </Route>
         <Route path="/leads/automation/facebook/master-distribution">
-          {() => <ProtectedRoute component={FacebookMasterDistribution} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
+          {() => <ProtectedRoute component={FacebookMasterDistribution} roleCheck={canAccessLeadAutomation} />}
         </Route>
         <Route path="/leads/automation/facebook/manual-distribution">
-          {() => <ProtectedRoute component={FacebookManualDistribution} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
+          {() => <ProtectedRoute component={FacebookManualDistribution} roleCheck={canAccessLeadAutomation} />}
         </Route>
         <Route path="/leads/automation/facebook">
-          {() => <ProtectedRoute component={FacebookLeadAutomation} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
+          {() => <ProtectedRoute component={FacebookLeadAutomation} roleCheck={canAccessLeadAutomation} />}
         </Route>
         <Route path="/leads/automation">
-          {() => <ProtectedRoute component={LeadAutomation} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
+          {() => <ProtectedRoute component={LeadAutomation} roleCheck={canAccessLeadAutomation} />}
         </Route>
         <Route path="/leads/import">
           {() => <ProtectedRoute component={LeadImport} />}

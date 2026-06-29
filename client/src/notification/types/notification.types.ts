@@ -23,7 +23,23 @@ export interface NotificationItem {
   deliverAt: string;
   createdAt: string;
   readAt: string | null;
+  /** Set when pushed over Socket.io */
+  delivery?: {
+    via: "socket";
+    deliveredAt: string;
+    realtime: boolean;
+    redis: boolean;
+  };
 }
+
+export type NotificationRealtimeMeta = {
+  enabled: boolean;
+  transport: "socket";
+  polling: false;
+  schedulerIntervalSec: number;
+  redis: boolean;
+  events: string[];
+};
 
 export interface NotificationListResponse {
   success: boolean;
@@ -34,4 +50,5 @@ export interface NotificationListResponse {
     total: number;
     totalPages: number;
   };
+  realtime?: NotificationRealtimeMeta;
 }

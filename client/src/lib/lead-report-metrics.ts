@@ -1,4 +1,6 @@
-import { getReportPeriodBounds } from "@/lib/lead-report-period";
+import {
+  type LeadDateFilterType,
+} from "@/lib/lead-date-range";
 
 /** Lead is assigned to a telecaller if current_telecaller_id matches (any status). */
 export const isLeadAssignedToTelecaller = (
@@ -48,7 +50,7 @@ export type LeadReportMetricKey =
   | "pending_follow_up"
   | "junk";
 
-export type LeadReportDateFilter = "all" | "today" | "weekly" | "monthly" | "custom";
+export type LeadReportDateFilter = LeadDateFilterType;
 
 /** Build lead list URL for report drill-down.
  * Assigned = all leads that are not unassigned.
@@ -66,30 +68,9 @@ export const buildLeadListUrlFromReport = (input: {
   if (input.counsellorId != null) qs.set("counsellorId", String(input.counsellorId));
   qs.set("clearFilters", "1");
   qs.set("dateFilter", input.dateFilter);
-  const bounds = getReportPeriodBounds(
-    input.dateFilter,
-    input.customDateFrom,
-    input.customDateTo
-  );
-  if (bounds) {
-    const from = bounds.from.toISOString();
-    const to = bounds.to.toISOString();
-    if (input.metric === "transferred") {
-      qs.set("transferredFrom", from);
-      qs.set("transferredTo", to);
-    } else if (input.metric === "converted") {
-      qs.set("convertedFrom", from);
-      qs.set("convertedTo", to);
-    } else if (input.metric === "dropped") {
-      qs.set("droppedFrom", from);
-      qs.set("droppedTo", to);
-    } else {
-      qs.set("createdFrom", from);
-      qs.set("createdTo", to);
-    }
-  } else if (input.customDateFrom) {
+  if (input.dateFilter === "custom" && input.customDateFrom && input.customDateTo) {
     qs.set("afterDate", input.customDateFrom);
-    if (input.customDateTo) qs.set("beforeDate", input.customDateTo);
+    qs.set("beforeDate", input.customDateTo);
   }
 
   switch (input.metric) {
