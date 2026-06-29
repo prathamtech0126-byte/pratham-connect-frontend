@@ -80,6 +80,23 @@ export interface DashboardStats {
   notAssigned: number;
 }
 
+export interface EditLinkRecord {
+  id: number;
+  expiresAt: string;
+  revoked: boolean;
+  createdAt: string;
+  createdByUserId: number;
+}
+
+export interface CreateEditLinkResponse {
+  success: boolean;
+  tokenId: number;
+  token: string;
+  editUrl: string | null;
+  expiresAt: string;
+  leadId: number;
+}
+
 export interface ActivityLogEntry {
   id: number;
   userId?: number;
@@ -144,6 +161,15 @@ export const frontDeskApi = {
 
   getCounsellors: (): Promise<{ success: boolean; data: Counsellor[] }> =>
     api.get("/api/front-desk/counsellors").then((r) => r.data),
+
+  createEditLink: (id: number): Promise<CreateEditLinkResponse> =>
+    api.post(`/api/front-desk/leads/${id}/edit-link`).then((r) => r.data),
+
+  getEditLinks: (id: number): Promise<{ success: boolean; data: EditLinkRecord[] }> =>
+    api.get(`/api/front-desk/leads/${id}/edit-links`).then((r) => r.data),
+
+  revokeEditLink: (leadId: number, tokenId: number): Promise<{ success: boolean; message: string }> =>
+    api.delete(`/api/front-desk/leads/${leadId}/edit-link/${tokenId}`).then((r) => r.data),
 
   exportLeads: (params: {
     search?: string;

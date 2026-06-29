@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import { cn } from "@/lib/utils";
 import { useModulesRealtime } from "@/hooks/useModulesRealtime";
+import { useFrontDeskRealtime } from "@/hooks/useFrontDeskRealtime";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -13,14 +14,15 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   useModulesRealtime();
+  useFrontDeskRealtime();
   const isCollapsed = !isSidebarHovered;
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden">
+    <div className="flex h-screen w-full bg-background overflow-hidden print:overflow-visible print:h-auto">
       {/* Desktop Sidebar - Hidden on mobile */}
       <div
         className={cn(
-          "hidden md:block shrink-0 h-full border-r border-sidebar-border bg-sidebar shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] z-20 transition-all duration-300 ease-in-out",
+          "app-sidebar hidden md:block shrink-0 h-full border-r border-sidebar-border bg-sidebar shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] z-20 transition-all duration-300 ease-in-out print:hidden",
           isCollapsed ? "w-16" : "w-72"
         )}
         onMouseEnter={() => setIsSidebarHovered(true)}
@@ -31,7 +33,9 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-background relative">
-        <Topbar />
+        <div className="app-topbar print:hidden">
+          <Topbar />
+        </div>
 
         <main id="main-scroll-container" className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
           <div className="max-w-[min(100%,96rem)] mx-auto w-full animate-in fade-in duration-500 slide-in-from-bottom-4">

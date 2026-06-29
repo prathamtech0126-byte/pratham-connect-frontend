@@ -81,6 +81,7 @@ const CounsellorLeadReport = lazy(() => import("@/pages/Leads/CounsellorLeadRepo
 const TelecallerWiseLead = lazy(() => import("@/pages/Leads/TelecallerWiseLead"));
 const FrontDeskPortal = lazy(() => import("@/pages/FrontDesk/FrontDeskPortal"));
 const FrontDeskActivity = lazy(() => import("@/pages/FrontDesk/FrontDeskActivity"));
+const LeadSelfEditPage = lazy(() => import("@/pages/LeadSelfEdit/LeadSelfEditPage"));
 const MarketingHeadDashboard = lazy(() => import("@/pages/Dashboard/MarketingHeadDashboard"));
 const MaintenanceSettingsPage = lazy(() => import("@/pages/MaintenanceSettingsPage"));
 const BackendClientsPage = lazy(() => import("@/pages/Bakend Team/Backend Team/BK_Clients"));
@@ -192,10 +193,19 @@ function Router() {
 
   return (
     <Suspense fallback={<PageLoadFallback />}>
-      {isFrontDeskUser ? (
+      <Switch>
+        <Route path="/lead/edit">
+          {() => <LeadSelfEditPage />}
+        </Route>
+        <Route>
+          {() =>
+      isFrontDeskUser ? (
         <Switch>
           <Route path="/login">
             {() => <Redirect to="/front-desk" />}
+          </Route>
+          <Route path="/front-desk/leads/:id">
+            {() => <ProtectedRoute component={FrontDeskPortal} allowedRoles={["front_desk", "developer"] as UserRole[]} />}
           </Route>
           <Route path="/front-desk/activity">
             {() => <ProtectedRoute component={FrontDeskActivity} allowedRoles={["front_desk", "developer", "superadmin"] as UserRole[]} />}
@@ -540,6 +550,14 @@ function Router() {
           {() => <ProtectedRoute component={LeadList} />}
         </Route>
 
+        <Route path="/front-desk/leads/:id">
+          {() => (
+            <ProtectedRoute
+              component={FrontDeskPortal}
+              allowedRoles={["front_desk", "developer"] as UserRole[]}
+            />
+          )}
+        </Route>
         <Route path="/front-desk/activity">
           {() => (
             <ProtectedRoute
@@ -612,6 +630,8 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
       )}
+        </Route>
+      </Switch>
     </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './auth-context';
+import { MODULES_SOCKET } from '@/constants/modules-socket';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -10,8 +11,45 @@ interface SocketContextType {
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
-const SOCKET_URL: string =
-  import.meta.env.VITE_API_URL || "https://csm-backend-59rq.onrender.com";
+const resolveSocketUrl = (): string => {
+  const raw = String(import.meta.env.VITE_API_URL ?? "").trim();
+  if (raw) return raw.replace(/\/$/, "");
+
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    const isLocalhost =
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host.startsWith("192.168.") ||
+      host.startsWith("10.") ||
+      host.startsWith("172.");
+    if (isLocalhost) {
+      return `${window.location.protocol}//${host}:5006`;
+    }
+  }
+
+  return "https://csm-backend-59rq.onrender.com";
+};
+
+const SOCKET_URL = resolveSocketUrl();
+
+export function isFrontDeskRealtimeUser(role?: string | null): boolean {
+  return role === "front_desk" || role === "developer";
+}
+
+/** Join role + user + modules frontdesk room (required for instant lead list updates). */
+export function joinFrontDeskRealtimeRooms(
+  socket: Socket,
+  role: string,
+  userId: number | string
+): void {
+  socket.emit("join:role", role);
+  const uid = Number(userId);
+  if (Number.isFinite(uid) && uid > 0) {
+    socket.emit("join:user", uid);
+  }
+  socket.emit(MODULES_SOCKET.subscribe.joinFrontDesk);
+}
 
 
 export function SocketProvider({ children }: { children: ReactNode }) {
@@ -113,6 +151,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         if (!isNaN(userId)) {
           socket.emit('join:user', userId);
         }
+      } else if (isBroadcastRecipient || isFrontDeskRealtimeUser(user.role)) {
+        joinFrontDeskRealtimeRooms(socket, user.role, user.id);
       }
       return;
     }
@@ -219,6 +259,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         // Join the specific role room (e.g., 'superadmin', 'manager', 'director')
         joinRoleRoom(user.role);
 
+        if (isFrontDeskRealtimeUser(user.role)) {
+          joinFrontDeskRealtimeRooms(newSocket, user.role, user.id);
+        }
+
         // Join user-specific room for individual messages
         const userId = Number(user.id);
         if (!isNaN(userId)) {
@@ -233,11 +277,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           newSocket.emit('join:user', userId);
         }
       } else if (isBroadcastRecipient) {
-        newSocket.emit('join:role', user.role);
-        const userId = Number(user.id);
-        if (!isNaN(userId)) {
-          newSocket.emit('join:user', userId);
-        }
+        joinFrontDeskRealtimeRooms(newSocket, user.role, user.id);
       } else if (isCxUser) {
         newSocket.emit('join:role', user.role);
         const userId = Number(user.id);
@@ -322,6 +362,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           newSocket.emit('join:role', 'manager');
         }
 
+        if (isFrontDeskRealtimeUser(user.role)) {
+          joinFrontDeskRealtimeRooms(newSocket, user.role, user.id);
+        }
+
         // Rejoin user-specific room for individual messages
         const userId = Number(user.id);
         if (!isNaN(userId)) {
@@ -334,11 +378,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           newSocket.emit('join:user', userId);
         }
       } else if (user.role === 'front_desk' || user.role === 'marketing_head') {
-        newSocket.emit('join:role', user.role);
-        const userId = Number(user.id);
-        if (!isNaN(userId)) {
-          newSocket.emit('join:user', userId);
-        }
+        joinFrontDeskRealtimeRooms(newSocket, user.role, user.id);
       } else if (isCxUser) {
         newSocket.emit('join:role', user.role);
         const userId = Number(user.id);
@@ -459,12 +499,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         if (!isNaN(userId)) {
           socket.emit('join:user', userId);
         }
-      } else if (isBroadcastRecipient2) {
-        socket.emit('join:role', user.role);
-        const userId = Number(user.id);
-        if (!isNaN(userId)) {
-          socket.emit('join:user', userId);
-        }
+      } else if (isBroadcastRecipient2 || isFrontDeskRealtimeUser(user.role)) {
+        joinFrontDeskRealtimeRooms(socket, user.role, user.id);
       } else if (isCxUser2) {
         socket.emit('join:role', user.role);
         const userId = Number(user.id);

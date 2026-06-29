@@ -27,6 +27,7 @@ import {
   isFollowupNotificationType,
 } from "../lib/notification-display";
 import { playNotificationSound, primeNotificationAudio } from "../lib/notification-sound";
+import { FRONTDESK_NOTIFICATION_TYPES } from "@/constants/modules-socket";
 import { useState } from "react";
 
 /** Poll inbox every 2 min (socket handles real-time; poll is fallback only). */
@@ -354,6 +355,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       if (item.type === "visa_case_document_request") {
         const isCx = user?.role === "customer_experience" || (user?.role as string) === "cx";
         setLocation(isCx ? "/cx/document-requests" : (item.actionUrl ?? "/cx/document-requests"));
+        return;
+      }
+
+      // Front desk lead notifications → open the lead (fallback to entityId).
+      if ((FRONTDESK_NOTIFICATION_TYPES as readonly string[]).includes(item.type)) {
+        const meta = item.meta as Record<string, unknown> | undefined;
+        const leadId =
+          item.entityId ?? (meta?.leadId != null ? Number(meta.leadId) : null);
+        setLocation(item.actionUrl ?? (leadId ? `/front-desk/leads/${leadId}` : "/front-desk"));
         return;
       }
 
