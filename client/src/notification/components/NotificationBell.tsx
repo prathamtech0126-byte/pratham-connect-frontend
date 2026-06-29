@@ -25,6 +25,7 @@ export function NotificationBell({ extraBadgeCount = 0, childrenBefore }: Props)
     setInboxFilter,
     handleNotificationClick,
     markAllRead,
+    isRealtime,
   } = useNotifications();
 
   const [open, setOpen] = useState(false);
@@ -52,6 +53,14 @@ export function NotificationBell({ extraBadgeCount = 0, childrenBefore }: Props)
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-96 p-0" align="end">
         {childrenBefore}
+        {isRealtime && (
+          <div className="border-b px-3 py-1.5 flex items-center justify-end">
+            <span
+              className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"
+              aria-label="Connected"
+            />
+          </div>
+        )}
         <NotificationInboxPanel
           items={notifications}
           filter={inboxFilter}

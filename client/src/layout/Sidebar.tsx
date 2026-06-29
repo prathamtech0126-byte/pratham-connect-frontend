@@ -9,10 +9,10 @@ import {
   LogOut,
   Menu,
   PieChart,
-  UserPlus,
   Crown,
   Activity,
   FileText,
+  Inbox,
   FileSpreadsheet,
   ChevronDown,
   ChevronRight,
@@ -33,6 +33,7 @@ import {
   Wrench,
   BadgeDollarSign,
 } from "lucide-react";
+import { KanbanIcon } from "@/components/icons/KanbanIcon";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -145,6 +146,8 @@ const sidebarItems: SidebarItem[] = [
   },
 
   // ── CX Team items ──────────────────────────────────────────────────
+  // { icon: KanbanIcon,    label: "Board",          href: "/cx/kanban",          roles: ["customer_experience"] },
+  { icon: Inbox,         label: "Document Requests", href: "/cx/document-requests", roles: ["customer_experience"] },
   { icon: FileBarChart,  label: " Report",     href: "/cx/my-report",     roles: ["customer_experience"] },
   { icon: Activity,      label: "Activity Feed", href: "/cx/activity-feed", roles: ["customer_experience"] },
   { icon: Headset,       label: "IT Support",    href: "/tech-support",     roles: ["customer_experience"] },
@@ -152,8 +155,7 @@ const sidebarItems: SidebarItem[] = [
 
   // ── Binding Team items ─────────────────────────────────────────────
   { icon: Users,         label: "My Clients",       href: "/binding/clients",            roles: ["binding_team"] },
-  { icon: ClipboardList, label: "Visa Applications", href: "/binding/visa-applications",  roles: ["binding_team"] },
-  { icon: FileText,      label: "Doc Checklist",    href: "/binding/document-checklist", roles: ["binding_team"] },
+  // { icon: KanbanIcon,    label: "Board",            href: "/binding/kanban",             roles: ["binding_team"] },
   { icon: FileBarChart,  label: "My Report",        href: "/binding/my-report",          roles: ["binding_team"] },
   { icon: Activity,      label: "Activity Feed",    href: "/binding/activity",           roles: ["binding_team"] },
   { icon: Headset,       label: "IT Support",       href: "/tech-support",               roles: ["binding_team"] },
@@ -232,7 +234,13 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
 
   // Filter items based on user role
   const filteredItems = sidebarItems.filter((item) => {
-    if (hasFullAccess(user?.role)) return true;
+    if (hasFullAccess(user?.role)) {
+      // Exclude items that exist exclusively for CX or Binding team — developer/admin have their own pages
+      if (item.roles && item.roles.every(r => r === "customer_experience" || r === "binding_team")) {
+        return false;
+      }
+      return true;
+    }
     if (user?.role === "tech_support") {
       return ["/", "/tech-support/device-info"].includes(item.href);
     }
@@ -280,6 +288,11 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
         return item;
       }
 
+      // Backend Clients lives inside the Clients group — keep Clients highlighted
+      if (item.href === "/clients" && location.startsWith("/backend/clients")) {
+        return item;
+      }
+
       // Check if it's a prefix match
       if (location.startsWith(item.href)) {
         // Special case: Root "/" only matches if location is exactly "/"
@@ -295,9 +308,9 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
     filteredItems.find((i) => i.href === "/") || filteredItems[0],
   );
 
-  // Auto-expand clients if we are on a client page
+  // Auto-expand clients if we are on a client page (incl. nested Backend Clients)
   useEffect(() => {
-    if (location.startsWith("/clients")) {
+    if (location.startsWith("/clients") || location.startsWith("/backend/clients")) {
       setIsClientsOpen(true);
     }
   }, [location]);
@@ -509,20 +522,6 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                         <span className="truncate">All Clients</span>
                       </Link>
                     )}
-                    {user && ["superadmin", "developer", "manager", "counsellor"].includes(user.role) && (
-                      <Link
-                        href="/clients/new"
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
-                          location === "/clients/new"
-                            ? "border-primary text-primary font-medium bg-primary/5"
-                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
-                        )}
-                      >
-                        <UserPlus className="w-4 h-4" />
-                        <span className="truncate">Add Client</span>
-                      </Link>
-                    )}
                     <Link
                       href="/clients/archive"
                       className={cn(
@@ -535,6 +534,20 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       <Archive className="w-4 h-4" />
                       <span className="truncate">Archive</span>
                     </Link>
+                    {user && ["backend_manager", "superadmin", "developer"].includes(user.role) && (
+                      <Link
+                        href="/backend/clients"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors border-l-2",
+                          location === "/backend/clients"
+                            ? "border-primary text-primary font-medium bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50",
+                        )}
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span className="truncate">Visa Processing</span>
+                      </Link>
+                    )}
                   </CollapsibleContent>
                 )}
               </Collapsible>
@@ -582,7 +595,25 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                 {!isCollapsed && (
                   <CollapsibleContent className="pl-4 space-y-1">
 
-                    {/* Individual Reports */}
+                    {/* Report links are kept in alphabetical order by label */}
+
+                    {/* Backend Report */}
+                    {user && ["superadmin", "developer", "backend_manager"].includes(user.role) && (
+                      <Link
+                        href="/reports/backend"
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
+                          location === "/reports/backend"
+                            ? "border-primary text-primary bg-primary/5"
+                            : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
+                        )}
+                      >
+                        <FileBarChart className="w-4 h-4" />
+                        Backend Report
+                      </Link>
+                    )}
+
+                    {/* Counsellor Reports */}
                     {user && !["telecaller", "marketing_head", "customer_experience"].includes(user.role) && (
                       <Link
                         href="/reports"
@@ -598,38 +629,23 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       </Link>
                     )}
 
-                    {user && [ "developer"].includes(user.role) && (
-                       <Link
-                      href="/reports/payments"
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
-                        location === "/reports/payments"
-                          ? "border-primary text-primary bg-primary/5"
-                          : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
-                      )}
-                    >
-                      <FileSpreadsheet className="w-4 h-4" />
-                      Payments Report
-                    </Link>
-                    )}
-          
-
-                    {/* Overall Reports (restricted) */}
-                    {user && ["superadmin", "developer", "manager"].includes(user.role) && (
+                    {/* Daily Report */}
+                    {user && (hasFullAccess(user.role) || ["manager", "marketing_head"].includes(user.role)) && (
                       <Link
-                        href="/overall-report"
+                        href="/leads/daily-report"
                         className={cn(
                           "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
-                          location === "/overall-report"
+                          location === "/leads/daily-report"
                             ? "border-primary text-primary bg-primary/5"
                             : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
                         )}
                       >
                         <FileBarChart className="w-4 h-4" />
-                        Sales Reports
+                        Daily Report
                       </Link>
                     )}
 
+                    {/* Lead Reports */}
                     {user && ["superadmin", "developer", "manager", "telecaller", "marketing_head", "counsellor"].includes(user.role) && (
                       <Link
                         href={
@@ -654,18 +670,35 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       </Link>
                     )}
 
-                    {user && (hasFullAccess(user.role) || ["manager", "marketing_head"].includes(user.role)) && (
+                    {/* Payments Report */}
+                    {user && [ "developer"].includes(user.role) && (
+                       <Link
+                      href="/reports/payments"
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
+                        location === "/reports/payments"
+                          ? "border-primary text-primary bg-primary/5"
+                          : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
+                      )}
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                      Payments Report
+                    </Link>
+                    )}
+
+                    {/* Sales Reports */}
+                    {user && ["superadmin", "developer", "manager"].includes(user.role) && (
                       <Link
-                        href="/leads/daily-report"
+                        href="/overall-report"
                         className={cn(
                           "flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-l-2",
-                          location === "/leads/daily-report"
+                          location === "/overall-report"
                             ? "border-primary text-primary bg-primary/5"
                             : "border-transparent text-muted-foreground hover:bg-sidebar-accent/50"
                         )}
                       >
                         <FileBarChart className="w-4 h-4" />
-                        Daily Report
+                        Sales Reports
                       </Link>
                     )}
 
@@ -788,7 +821,7 @@ export function Sidebar({ className, isCollapsed }: { className?: string; isColl
                       <span className="truncate">Kanban</span>
                     </Link>
                     */}
-                    {user && canAccessLeadAutomation(user.role) && (
+                    {user && canAccessLeadAutomation(user) && (
                       <Link
                         href="/leads/automation"
                         className={cn(

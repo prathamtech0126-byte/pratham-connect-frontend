@@ -1,5 +1,8 @@
 import api from "@/lib/api";
-import type { NotificationListResponse } from "../types/notification.types";
+import type {
+  NotificationListResponse,
+  NotificationRealtimeMeta,
+} from "../types/notification.types";
 
 export async function fetchNotifications(params?: {
   page?: number;
@@ -11,12 +14,17 @@ export async function fetchNotifications(params?: {
   return res.data;
 }
 
-export async function fetchUnreadNotificationCount(category?: string): Promise<number> {
-  const res = await api.get<{ success: boolean; count: number }>(
-    "/api/notifications/unread-count",
-    { params: category ? { category } : undefined }
-  );
-  return res.data.count ?? 0;
+export async function fetchUnreadNotificationCount(
+  category?: string
+): Promise<{ count: number; realtime?: NotificationRealtimeMeta }> {
+  const res = await api.get<{
+    success: boolean;
+    count: number;
+    realtime?: NotificationRealtimeMeta;
+  }>("/api/notifications/unread-count", {
+    params: category ? { category } : undefined,
+  });
+  return { count: res.data.count ?? 0, realtime: res.data.realtime };
 }
 
 export async function markNotificationRead(id: number): Promise<void> {

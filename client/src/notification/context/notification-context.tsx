@@ -17,15 +17,24 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "../api/notifications.api";
-import type { NotificationCategory, NotificationItem } from "../types/notification.types";
+import { ToastAction } from "@/components/ui/toast";
+import type {
+  NotificationCategory,
+  NotificationItem,
+  NotificationRealtimeMeta,
+} from "../types/notification.types";
 import { useNotificationQueue } from "../hooks/useNotificationQueue";
 import { BlockingNotificationModal } from "../components/BlockingNotificationModal";
 import {
   formatFollowupNotificationBody,
-  isBlockingPriority,
+  isPaymentApprovalNotification,
+  shouldPlayAlertSound,
+  shouldShowBlockingModal,
 } from "../lib/notification-display";
 import { playNotificationSound, primeNotificationAudio } from "../lib/notification-sound";
 import { useState } from "react";
+
+const LOGIN_UNREAD_SOUND_DELAY_MS = 10_000;
 
 type NotificationContextValue = {
   notifications: NotificationItem[];
@@ -36,90 +45,214 @@ type NotificationContextValue = {
   handleNotificationClick: (item: NotificationItem) => void;
   markAllRead: (category?: string) => Promise<void>;
   refetch: () => void;
+  /** True when Socket.io is connected and realtime delivery is active */
+  isRealtime: boolean;
+  realtimeMeta: NotificationRealtimeMeta | null;
 };
 
 const NotificationContext = createContext<NotificationContextValue | undefined>(
   undefined
 );
 
+function normalizeSocketNotification(payload: NotificationItem): NotificationItem {
+  return {
+    id: payload.id,
+    type: payload.type,
+    category: payload.category,
+    priority: payload.priority,
+    title: payload.title,
+    body: payload.body,
+    entityType: payload.entityType,
+    entityId: payload.entityId,
+    actionUrl: payload.actionUrl,
+    meta: payload.meta ?? {},
+    deliverAt: payload.deliverAt,
+    createdAt: payload.createdAt,
+    readAt: payload.readAt,
+    delivery: payload.delivery,
+  };
+}
+
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { socket, isConnected } = useSocket();
+  const { socket, isConnected, isUserRoomJoined } = useSocket();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [inboxFilter, setInboxFilter] = useState<NotificationCategory>("all");
+  const [realtimeMeta, setRealtimeMeta] = useState<NotificationRealtimeMeta | null>(null);
   const unreadCountRef = useRef(0);
-  const loginSoundFiredRef = useRef(false);
-  const lastSoundAtRef = useRef(0);
+  const knownNotificationIdsRef = useRef<Set<number>>(new Set());
+  const inboxBootstrappedRef = useRef(false);
   const prevSocketConnectedRef = useRef(false);
+  const loginUnreadSoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearLoginUnreadSoundTimer = useCallback(() => {
+    if (loginUnreadSoundTimerRef.current != null) {
+      clearTimeout(loginUnreadSoundTimerRef.current);
+      loginUnreadSoundTimerRef.current = null;
+    }
+  }, []);
 
   const { currentBlocking, enqueueBlocking, acknowledgeCurrent } =
     useNotificationQueue();
+
+  const enqueueBlockingRef = useRef(enqueueBlocking);
+  useEffect(() => {
+    enqueueBlockingRef.current = enqueueBlocking;
+  });
+
+  const playNotificationSoundDebounced = useCallback((force = false) => {
+    playNotificationSound(force ? { force: true } : undefined);
+  }, []);
+
+  const playNotificationSoundDebouncedRef = useRef(playNotificationSoundDebounced);
+  useEffect(() => {
+    playNotificationSoundDebouncedRef.current = playNotificationSoundDebounced;
+  });
+
+  const scheduleLoginUnreadAlertSound = useCallback(() => {
+    clearLoginUnreadSoundTimer();
+    loginUnreadSoundTimerRef.current = setTimeout(() => {
+      loginUnreadSoundTimerRef.current = null;
+      if (unreadCountRef.current > 0) {
+        playNotificationSoundDebouncedRef.current();
+      }
+    }, LOGIN_UNREAD_SOUND_DELAY_MS);
+  }, [clearLoginUnreadSoundTimer]);
 
   const listQuery = useQuery({
     queryKey: ["notifications", "inbox", user?.id],
     queryFn: () => fetchNotifications({ limit: 50 }),
     enabled: !!user?.id,
-    refetchInterval: 120_000,
-    staleTime: 15_000,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
   const countQuery = useQuery({
     queryKey: ["notifications", "unread-count", user?.id],
-    queryFn: () => fetchUnreadNotificationCount(),
+    queryFn: async () => {
+      const { count, realtime } = await fetchUnreadNotificationCount();
+      if (realtime) setRealtimeMeta(realtime);
+      return count;
+    },
     enabled: !!user?.id,
-    refetchInterval: 120_000,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
+
+  useEffect(() => {
+    if (listQuery.data?.realtime) {
+      setRealtimeMeta(listQuery.data.realtime);
+    }
+  }, [listQuery.data?.realtime]);
 
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
   }, [queryClient]);
 
-  // Prime audio on every user gesture and tab-focus (idempotent inside primeNotificationAudio).
-  // Request OS notification permission so we can alert the user even when the browser is minimized.
+  const syncInboxFromServer = useCallback(
+    async (opts?: {
+      playSoundOnNew?: boolean;
+      showBlockingOnUnread?: boolean;
+    }) => {
+      if (!user?.id) return;
+      try {
+        const [list, { count, realtime }] = await Promise.all([
+          fetchNotifications({ limit: 50 }),
+          fetchUnreadNotificationCount(),
+        ]);
+        queryClient.setQueryData(["notifications", "inbox", user.id], list);
+        queryClient.setQueryData(["notifications", "unread-count", user.id], count);
+        unreadCountRef.current = count;
+        if (realtime) setRealtimeMeta(realtime);
+        else if (list.realtime) setRealtimeMeta(list.realtime);
+
+        const knownBefore = knownNotificationIdsRef.current;
+        const newUnread = list.data.filter(
+          (n) => !n.readAt && !knownBefore.has(n.id)
+        );
+
+        list.data.forEach((n) => knownNotificationIdsRef.current.add(n.id));
+
+        const blockingItems = opts?.showBlockingOnUnread
+          ? list.data.filter((n) => !n.readAt && shouldShowBlockingModal(n))
+          : newUnread.filter((n) => shouldShowBlockingModal(n));
+
+        for (const item of blockingItems) {
+          enqueueBlockingRef.current(item);
+        }
+
+        const allowAlertSound = inboxBootstrappedRef.current;
+        inboxBootstrappedRef.current = true;
+
+        if (
+          !allowAlertSound &&
+          opts?.showBlockingOnUnread &&
+          count > 0 &&
+          list.data.some((n) => !n.readAt && shouldPlayAlertSound(n))
+        ) {
+          scheduleLoginUnreadAlertSound();
+        }
+
+        if (
+          opts?.playSoundOnNew &&
+          allowAlertSound &&
+          count > 0 &&
+          newUnread.length > 0 &&
+          newUnread.some(shouldPlayAlertSound)
+        ) {
+          const forcePaymentSound = newUnread.some(isPaymentApprovalNotification);
+          playNotificationSoundDebouncedRef.current(forcePaymentSound);
+        }
+      } catch {
+        /* socket/API retry on reconnect */
+      }
+    },
+    [queryClient, user?.id, scheduleLoginUnreadAlertSound]
+  );
+
   useEffect(() => {
     const prime = () => primeNotificationAudio();
-    const onVisible = () => { if (!document.hidden) primeNotificationAudio(); };
-    window.addEventListener("click", prime, { passive: true });
-    window.addEventListener("keydown", prime, { passive: true });
-    window.addEventListener("touchstart", prime, { passive: true });
-    window.addEventListener("focus", prime, { passive: true });
+    const onVisible = () => {
+      if (!document.hidden) primeNotificationAudio();
+    };
+    window.addEventListener("pointerdown", prime, { capture: true });
+    window.addEventListener("click", prime, { capture: true });
+    window.addEventListener("keydown", prime, { capture: true });
+    window.addEventListener("touchstart", prime, { capture: true, passive: true });
+    window.addEventListener("focus", prime);
     document.addEventListener("visibilitychange", onVisible);
 
-    // Ask permission once so we can show OS notifications when the tab is hidden
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
 
     return () => {
-      window.removeEventListener("click", prime);
-      window.removeEventListener("keydown", prime);
+      window.removeEventListener("pointerdown", prime, { capture: true });
+      window.removeEventListener("click", prime, { capture: true });
+      window.removeEventListener("keydown", prime, { capture: true });
       window.removeEventListener("touchstart", prime);
       window.removeEventListener("focus", prime);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 
-  // Keep ref in sync so the login timer can read the latest count without restarting
   useEffect(() => {
     unreadCountRef.current = countQuery.data ?? 0;
   }, [countQuery.data]);
 
-  // After login: play sound once after 1 minute if there are unread notifications/alerts
   useEffect(() => {
     if (!user?.id) {
-      loginSoundFiredRef.current = false;
+      clearLoginUnreadSoundTimer();
+      knownNotificationIdsRef.current = new Set();
+      inboxBootstrappedRef.current = false;
+      setRealtimeMeta(null);
       return;
     }
-    const timer = setTimeout(() => {
-      if (unreadCountRef.current > 0) {
-        playNotificationSound();
-      }
-      loginSoundFiredRef.current = true;
-    }, 30_000);
-    return () => clearTimeout(timer);
-  }, [user?.id]);
+    void syncInboxFromServer({ showBlockingOnUnread: true });
+    return () => clearLoginUnreadSoundTimer();
+  }, [user?.id, syncInboxFromServer, clearLoginUnreadSoundTimer]);
 
   const mergeNotificationInCache = useCallback(
     (item: NotificationItem, options: { incrementUnread?: boolean }) => {
@@ -153,21 +286,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     [queryClient, user?.id]
   );
 
-  const playNotificationSoundDebounced = useCallback(() => {
-    const now = Date.now();
-    if (now - lastSoundAtRef.current < 1500) return;
-    lastSoundAtRef.current = now;
-    playNotificationSound();
-  }, []);
-
   const handleIncoming = useCallback(
-    (item: NotificationItem) => {
+    (raw: NotificationItem) => {
+      const item = normalizeSocketNotification(raw);
+      if (import.meta.env.DEV) {
+        console.log('[notification] socket:new', item.id, item.type);
+      }
+      knownNotificationIdsRef.current.add(item.id);
       mergeNotificationInCache(item, { incrementUnread: true });
 
-      playNotificationSoundDebounced();
+      if (shouldPlayAlertSound(item)) {
+        playNotificationSoundDebounced(isPaymentApprovalNotification(item));
+      }
 
-      // When the browser is minimized/background, also fire an OS-level notification.
-      // This is the only reliable way to get sound + alert when the tab is not visible.
       const displayBody = formatFollowupNotificationBody(item);
 
       if (document.hidden && "Notification" in window && Notification.permission === "granted") {
@@ -175,7 +306,30 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         new Notification(item.title, { body, icon: "/favicon.ico" });
       }
 
-      if (isBlockingPriority(item.priority)) {
+      if (item.type === "visa_case_document_request") {
+        const isCx = user?.role === "customer_experience" || (user?.role as string) === "cx";
+        const url = isCx
+          ? "/cx/document-requests"
+          : (item.actionUrl ?? null);
+        toast({
+          title: item.title,
+          description:
+            displayBody.length > 120 ? `${displayBody.slice(0, 120)}…` : displayBody,
+          action: url
+            ? (
+                <ToastAction
+                  altText={isCx ? "View Requests" : "View Case"}
+                  onClick={() => {
+                    setLocation(url);
+                    markNotificationRead(item.id).catch(() => {/* ignore */});
+                  }}
+                >
+                  {isCx ? "View Requests" : "View Case"}
+                </ToastAction>
+              )
+            : undefined,
+        });
+      } else if (shouldShowBlockingModal(item)) {
         enqueueBlocking(item);
       } else {
         toast({
@@ -185,17 +339,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         });
       }
     },
-    [mergeNotificationInCache, playNotificationSoundDebounced, enqueueBlocking, toast]
+    [mergeNotificationInCache, playNotificationSoundDebounced, enqueueBlocking, toast, setLocation, user?.role]
   );
 
   const handleUpdated = useCallback(
-    (item: NotificationItem) => {
-      mergeNotificationInCache(item, { incrementUnread: false });
+    (raw: NotificationItem) => {
+      const item = normalizeSocketNotification(raw);
+      if (import.meta.env.DEV) {
+        console.log('[notification] socket:updated', item.id, item.type);
+      }
+      if (!item.readAt && !knownNotificationIdsRef.current.has(item.id)) {
+        handleIncoming(item);
+        return;
+      }
+
+      mergeNotificationInCache(item, { incrementUnread: !item.readAt });
     },
-    [mergeNotificationInCache]
+    [handleIncoming, mergeNotificationInCache]
   );
 
-  // Keep handlers in refs so socket listeners are not re-registered on every render.
   const handleIncomingRef = useRef(handleIncoming);
   const handleUpdatedRef = useRef(handleUpdated);
   useEffect(() => {
@@ -203,28 +365,78 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     handleUpdatedRef.current = handleUpdated;
   });
 
+  const syncInboxFromServerRef = useRef(syncInboxFromServer);
   useEffect(() => {
-    if (!socket || !isConnected || !user?.id) return;
+    syncInboxFromServerRef.current = syncInboxFromServer;
+  });
+
+  useEffect(() => {
+    if (!socket || !isConnected || !isUserRoomJoined || !user?.id) return;
+
     const onNew = (payload: NotificationItem) => handleIncomingRef.current(payload);
     const onUpdated = (payload: NotificationItem) => handleUpdatedRef.current(payload);
+    const onRealtime = (meta: NotificationRealtimeMeta) => {
+      setRealtimeMeta(meta);
+      void syncInboxFromServerRef.current({ playSoundOnNew: true });
+    };
+
     socket.on("notification:new", onNew);
     socket.on("notification:updated", onUpdated);
+    socket.on("notifications:realtime", onRealtime);
+
     return () => {
       socket.off("notification:new", onNew);
       socket.off("notification:updated", onUpdated);
+      socket.off("notifications:realtime", onRealtime);
+    };
+  }, [socket, isConnected, isUserRoomJoined, user?.id]);
+
+  useEffect(() => {
+    if (!socket || !isConnected || !user?.id) return;
+
+    const onLeadAssigned = (payload: { telecallerId?: number }) => {
+      if (Number(payload.telecallerId) === Number(user.id)) {
+        playNotificationSoundDebouncedRef.current();
+        window.setTimeout(() => {
+          void syncInboxFromServerRef.current({ playSoundOnNew: true });
+        }, 500);
+      }
+    };
+    const onLeadTransferred = (payload: { counsellorId?: number }) => {
+      if (Number(payload.counsellorId) === Number(user.id)) {
+        playNotificationSoundDebouncedRef.current();
+        window.setTimeout(() => {
+          void syncInboxFromServerRef.current({ playSoundOnNew: true });
+        }, 500);
+      }
+    };
+
+    socket.on("lead:assigned:notify", onLeadAssigned);
+    socket.on("lead:transferred:notify", onLeadTransferred);
+
+    return () => {
+      socket.off("lead:assigned:notify", onLeadAssigned);
+      socket.off("lead:transferred:notify", onLeadTransferred);
     };
   }, [socket, isConnected, user?.id]);
 
   useEffect(() => {
     if (isConnected && user?.id && !prevSocketConnectedRef.current) {
-      invalidate();
+      void syncInboxFromServer({ playSoundOnNew: true });
     }
     prevSocketConnectedRef.current = isConnected;
-  }, [isConnected, user?.id, invalidate]);
+  }, [isConnected, user?.id, syncInboxFromServer]);
+
+  useEffect(() => {
+    const onReconnected = () => {
+      if (user?.id) void syncInboxFromServer({ playSoundOnNew: true });
+    };
+    window.addEventListener("socket:reconnected", onReconnected);
+    return () => window.removeEventListener("socket:reconnected", onReconnected);
+  }, [user?.id, syncInboxFromServer]);
 
   const handleNotificationClick = useCallback(
     (item: NotificationItem) => {
-      // Mark as read in the background — don't await, navigate immediately
       if (!item.readAt) {
         markNotificationRead(item.id)
           .then(() => invalidate())
@@ -244,14 +456,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Partial payment request (manager/admin receives) → messages Notifications tab
       if (item.type === "payment_partial") {
         sessionStorage.setItem("showNotifications", "true");
         setLocation("/messages");
         return;
       }
 
-      // Payment approved or rejected → open the specific client (view page)
       if (item.type === "payment_approved" || item.type === "payment_rejected") {
         const meta = item.meta as Record<string, unknown> | undefined;
         const clientId =
@@ -264,11 +474,26 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (item.type === "visa_case_document_request") {
+        const isCx = user?.role === "customer_experience" || (user?.role as string) === "cx";
+        setLocation(isCx ? "/cx/document-requests" : (item.actionUrl ?? "/cx/document-requests"));
+        return;
+      }
+
+      if (
+        item.type === "lead_followup_manager_escalation" ||
+        item.type === "lead_followup_admin_escalation"
+      ) {
+        const url = item.actionUrl ?? (item.entityId ? `/leads/${item.entityId}` : null);
+        if (url) setLocation(url);
+        return;
+      }
+
       if (item.actionUrl) {
         setLocation(item.actionUrl);
       }
     },
-    [setLocation, invalidate]
+    [setLocation, invalidate, user?.role]
   );
 
   const markAllRead = useCallback(
@@ -289,6 +514,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     handleNotificationClick,
     markAllRead,
     refetch: invalidate,
+    isRealtime: isConnected && isUserRoomJoined && (realtimeMeta?.enabled ?? true),
+    realtimeMeta,
   };
 
   return (

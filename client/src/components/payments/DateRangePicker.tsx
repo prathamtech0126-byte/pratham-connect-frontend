@@ -24,6 +24,9 @@ export interface DateRangePickerProps {
   onApply: (filter: PaymentsFilter, startDate?: string, endDate?: string) => void;
   onCancel: () => void;
   className?: string;
+  maxResults?: number;
+  onMaxResultsChange?: (n: number) => void;
+  maxResultsLimit?: number;
 }
 
 function toYMD(d: Date): string {
@@ -98,7 +101,7 @@ function MonthCalendar({ month, tempStart, tempEnd, hoverDate, onDayClick, onDay
     <div className="min-w-[200px]">
       <div className="grid grid-cols-7 text-center mb-1">
         {DAYS.map((d) => (
-          <div key={d} className="py-1 text-[11px] font-medium text-slate-400">
+          <div key={d} className="py-1 text-[11px] font-medium text-muted-foreground">
             {d}
           </div>
         ))}
@@ -115,10 +118,10 @@ function MonthCalendar({ month, tempStart, tempEnd, hoverDate, onDayClick, onDay
               className={cn(
                 "mx-auto flex h-7 w-7 items-center justify-center text-[12px] transition-colors",
                 isStart(d) || isEnd(d)
-                  ? "rounded-full bg-[#2d3a8c] font-bold text-white"
+                  ? "rounded-full bg-primary font-bold text-primary-foreground"
                   : isInRange(d)
-                  ? "rounded-none bg-blue-100 text-blue-800"
-                  : "rounded-full text-slate-700 hover:bg-slate-100"
+                  ? "rounded-none bg-accent text-accent-foreground"
+                  : "rounded-full text-foreground hover:bg-muted"
               )}
             >
               {d.getDate()}
@@ -132,7 +135,7 @@ function MonthCalendar({ month, tempStart, tempEnd, hoverDate, onDayClick, onDay
 
 // ─── DateRangePicker ───────────────────────────────────────────────────────────
 
-export default function DateRangePicker({ onApply, onCancel, className }: DateRangePickerProps) {
+export default function DateRangePicker({ onApply, onCancel, className, maxResults, onMaxResultsChange, maxResultsLimit = 500 }: DateRangePickerProps) {
   const [leftMonth, setLeftMonth] = useState(() => startOfMonth(new Date()));
   const rightMonth = addMonths(leftMonth, 1);
 
@@ -191,7 +194,6 @@ export default function DateRangePicker({ onApply, onCancel, className }: DateRa
     if (side === "left") {
       setLeftMonth(new Date(leftMonth.getFullYear(), monthIndex, 1));
     } else {
-      // right month is leftMonth + 1, so set left to month - 1
       setLeftMonth(new Date(rightMonth.getFullYear(), monthIndex - 1, 1));
     }
   }
@@ -216,24 +218,23 @@ export default function DateRangePicker({ onApply, onCancel, className }: DateRa
 
   const dateDisplay =
     pendingStart && pendingEnd
-      ? `${format(pendingStart, "d MMMM yyyy")} \u2192 ${format(pendingEnd, "d MMMM yyyy")}`
+      ? `${format(pendingStart, "d MMMM yyyy")} → ${format(pendingEnd, "d MMMM yyyy")}`
       : null;
 
-  // Year options: current year ± 5
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
 
   return (
     <div className={cn(
-      "z-50 flex w-[min(calc(100vw-1rem),480px)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl",
+      "z-50 flex w-[min(calc(100vw-1rem),480px)] overflow-hidden rounded-xl border border-border bg-card shadow-xl",
       "sm:w-[min(calc(100vw-1rem),520px)]",
       "lg:w-[min(calc(100vw-5rem),760px)]",
       className,
     )}>
 
       {/* ── Sidebar: preset list with radio buttons — hidden on small screens ── */}
-      <div className="hidden sm:flex w-40 lg:w-44 shrink-0 flex-col overflow-y-auto border-r border-slate-200 py-3">
-        <div className="mb-1 px-4 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+      <div className="hidden sm:flex w-40 lg:w-44 shrink-0 flex-col overflow-y-auto border-r border-border py-3">
+        <div className="mb-1 px-4 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
           Presets
         </div>
         {PRESETS.map((p) => {
@@ -244,18 +245,18 @@ export default function DateRangePicker({ onApply, onCancel, className }: DateRa
               type="button"
               onClick={() => handlePreset(p)}
               className={cn(
-                "flex w-full items-center gap-3 px-4 py-[7px] text-left text-[13px] transition-colors hover:bg-slate-50",
-                active ? "text-[#2d3a8c]" : "text-slate-700"
+                "flex w-full items-center gap-3 px-4 py-[7px] text-left text-[13px] transition-colors hover:bg-accent",
+                active ? "text-primary" : "text-foreground"
               )}
             >
               {/* Radio indicator */}
               <span
                 className={cn(
                   "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                  active ? "border-[#2d3a8c] bg-[#2d3a8c]" : "border-slate-300 bg-white"
+                  active ? "border-primary bg-primary" : "border-muted-foreground bg-card"
                 )}
               >
-                {active && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                {active && <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
               </span>
               <span className={cn("leading-tight", active && "font-medium")}>{p.label}</span>
             </button>
@@ -271,9 +272,9 @@ export default function DateRangePicker({ onApply, onCancel, className }: DateRa
           <button
             type="button"
             onClick={() => setLeftMonth((m) => subMonths(m, 1))}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 hover:bg-slate-100"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border hover:bg-accent"
           >
-            <ChevronLeft className="h-4 w-4 text-slate-500" />
+            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
           </button>
 
           <div className="flex flex-1 items-center justify-around">
@@ -282,7 +283,7 @@ export default function DateRangePicker({ onApply, onCancel, className }: DateRa
               <select
                 value={leftMonth.getMonth()}
                 onChange={(e) => handleMonthSelect("left", Number(e.target.value))}
-                className="cursor-pointer appearance-none rounded border border-slate-200 bg-white px-2 py-0.5 text-[13px] font-semibold text-slate-800 hover:bg-slate-50 focus:outline-none"
+                className="cursor-pointer appearance-none rounded border border-border bg-card px-2 py-0.5 text-[13px] font-semibold text-foreground hover:bg-accent focus:outline-none"
               >
                 {MONTHS.map((m, i) => (
                   <option key={m} value={i}>{m}</option>
@@ -291,7 +292,7 @@ export default function DateRangePicker({ onApply, onCancel, className }: DateRa
               <select
                 value={leftMonth.getFullYear()}
                 onChange={(e) => handleYearSelect("left", Number(e.target.value))}
-                className="cursor-pointer appearance-none rounded border border-slate-200 bg-white px-2 py-0.5 text-[13px] font-semibold text-slate-800 hover:bg-slate-50 focus:outline-none"
+                className="cursor-pointer appearance-none rounded border border-border bg-card px-2 py-0.5 text-[13px] font-semibold text-foreground hover:bg-accent focus:outline-none"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -304,7 +305,7 @@ export default function DateRangePicker({ onApply, onCancel, className }: DateRa
               <select
                 value={rightMonth.getMonth()}
                 onChange={(e) => handleMonthSelect("right", Number(e.target.value))}
-                className="cursor-pointer appearance-none rounded border border-slate-200 bg-white px-2 py-0.5 text-[13px] font-semibold text-slate-800 hover:bg-slate-50 focus:outline-none"
+                className="cursor-pointer appearance-none rounded border border-border bg-card px-2 py-0.5 text-[13px] font-semibold text-foreground hover:bg-accent focus:outline-none"
               >
                 {MONTHS.map((m, i) => (
                   <option key={m} value={i}>{m}</option>
@@ -313,7 +314,7 @@ export default function DateRangePicker({ onApply, onCancel, className }: DateRa
               <select
                 value={rightMonth.getFullYear()}
                 onChange={(e) => handleYearSelect("right", Number(e.target.value))}
-                className="cursor-pointer appearance-none rounded border border-slate-200 bg-white px-2 py-0.5 text-[13px] font-semibold text-slate-800 hover:bg-slate-50 focus:outline-none"
+                className="cursor-pointer appearance-none rounded border border-border bg-card px-2 py-0.5 text-[13px] font-semibold text-foreground hover:bg-accent focus:outline-none"
               >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -325,9 +326,9 @@ export default function DateRangePicker({ onApply, onCancel, className }: DateRa
           <button
             type="button"
             onClick={() => setLeftMonth((m) => addMonths(m, 1))}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-200 hover:bg-slate-100"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border hover:bg-accent"
           >
-            <ChevronRight className="h-4 w-4 text-slate-500" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
 
@@ -344,7 +345,7 @@ export default function DateRangePicker({ onApply, onCancel, className }: DateRa
             />
           </div>
           {/* Vertical divider */}
-          <div className="hidden w-px self-stretch bg-slate-200 lg:block" />
+          <div className="hidden w-px self-stretch bg-border lg:block" />
           <div className="hidden flex-1 pl-5 lg:block">
             <MonthCalendar
               month={rightMonth}
@@ -358,25 +359,44 @@ export default function DateRangePicker({ onApply, onCancel, className }: DateRa
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-200 px-4 py-3">
+        <div className="border-t border-border px-4 py-3">
           {/* Range display row */}
-          <div className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-card-foreground">
             {rangeLabel && (
-              <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 font-medium text-slate-700">
+              <span className="rounded border border-border bg-muted px-2 py-0.5 font-medium text-foreground">
                 {rangeLabel}
               </span>
             )}
             {dateDisplay && (
-              <span className="text-slate-500">{dateDisplay}</span>
+              <span className="text-muted-foreground">{dateDisplay}</span>
             )}
             {!rangeLabel && !dateDisplay && (
-              <span className="text-slate-400 italic">Select a range</span>
+              <span className="text-muted-foreground italic">Select a range</span>
             )}
           </div>
 
+          {/* Max results row (optional) */}
+          {onMaxResultsChange && (
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground whitespace-nowrap">Max results</span>
+              <input
+                type="number"
+                min={1}
+                max={maxResultsLimit}
+                value={maxResults ?? maxResultsLimit}
+                onChange={(e) => {
+                  const n = Math.max(1, Math.min(maxResultsLimit, Math.floor(Number(e.target.value) || 1)));
+                  onMaxResultsChange(n);
+                }}
+                className="h-7 w-20 rounded border border-border bg-card px-2 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="text-[10px] text-muted-foreground">max {maxResultsLimit}</span>
+            </div>
+          )}
+
           {/* Timezone + buttons */}
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-slate-400">Dates are shown in Kolkata Time</span>
+            <span className="text-[11px] text-muted-foreground">Dates are shown in Kolkata Time</span>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={onCancel} className="text-xs">
                 Cancel

@@ -1,208 +1,255 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
+import { useLocation } from "wouter";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { StatCard } from "@/components/cards/StatCard";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import DateRangePicker from "@/components/payments/DateRangePicker";
-import type { PaymentsFilter } from "@/api/payments.api";
-import { format } from "date-fns";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { LucideIcon } from "lucide-react";
 import {
-  Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid,
-} from "recharts";
-import {
-  Users, FileText, Clock, CheckCircle2, AlertTriangle, AlertCircle, CalendarDays,
+  Users, PackageCheck, CheckCircle2, AlertTriangle,
+  GitBranch, List, ClipboardList, FileCheck, FileText,
+  FileInput, BadgeCheck, FolderOpen,
 } from "lucide-react";
 import { usePageHint } from "@/hooks/usePageHint";
 import { ProductTour } from "@/components/ProductTour";
+import { DashboardDateFilter } from "@/components/dashboard/DashboardDateFilter";
+import { useOpsDashboard } from "@/hooks/useVisaCases";
+import { format } from "date-fns";
 
-// ── Mock summary data (replace with API calls) ─────────────────────────
+type OpsFilter = "today" | "weekly" | "monthly" | "custom";
 
-const STATS = {
-  totalClients: 24,
-  processing: 18,
-  completed: 6,
-  pendingDocs: 31,
-  slaBreaches: 2,
-  slaWarnings: 4,
-  slaGreen: 18,
+const TAB_TO_FILTER: Record<string, OpsFilter> = {
+  Today: "today", Weekly: "weekly", Monthly: "monthly", Custom: "custom",
+};
+const FILTER_TO_TAB: Record<OpsFilter, string> = {
+  today: "Today", weekly: "Weekly", monthly: "Monthly", custom: "Custom",
 };
 
-const CHART_DATA = [
-  { month: "Jan", enrolled: 8, processing: 5, completed: 3 },
-  { month: "Feb", enrolled: 12, processing: 8, completed: 4 },
-  { month: "Mar", enrolled: 18, processing: 11, completed: 7 },
-  { month: "Apr", enrolled: 15, processing: 10, completed: 5 },
-  { month: "May", enrolled: 22, processing: 14, completed: 8 },
-  { month: "Jun", enrolled: 30, processing: 18, completed: 12 },
+// Colors for donut segments — index-matched with legend dots
+const DONUT_COLORS = ["#0056b3", "#94a3b8", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444"];
+
+// Icon + color combos for Status Breakdown cards
+const STATUS_ICONS: { icon: LucideIcon; bg: string; color: string }[] = [
+  { icon: ClipboardList, bg: "bg-blue-50 dark:bg-blue-950/40",   color: "text-blue-600 dark:text-blue-400" },
+  { icon: FileCheck,     bg: "bg-emerald-50 dark:bg-emerald-950/40", color: "text-emerald-600 dark:text-emerald-400" },
+  { icon: FileText,      bg: "bg-violet-50 dark:bg-violet-950/40",   color: "text-violet-600 dark:text-violet-400" },
+  { icon: FileInput,     bg: "bg-amber-50 dark:bg-amber-950/40",     color: "text-amber-600 dark:text-amber-400" },
+  { icon: BadgeCheck,    bg: "bg-rose-50 dark:bg-rose-950/40",        color: "text-rose-600 dark:text-rose-400" },
+  { icon: FolderOpen,    bg: "bg-cyan-50 dark:bg-cyan-950/40",        color: "text-cyan-600 dark:text-cyan-400" },
 ];
 
-type DateFilter = "today" | "weekly" | "monthly" | "custom";
+// ── SVG Donut chart ──────────────────────────────────────────────
+function DonutChart({ data, total }: { data: { label: string; count: number }[]; total: number }) {
+  const r = 36;
+  const cx = 50;
+  const cy = 50;
+  const sw = 13;
+  const C = 2 * Math.PI * r;
+  const GAP = 3; // px gap between segments
+  const segments = data.filter((d) => d.count > 0);
+  const single = segments.length === 1;
 
-// ── Main Component ─────────────────────────────────────────────────────
+  if (total === 0) {
+    return (
+      <div className="flex h-[90px] w-[90px] flex-shrink-0 items-center justify-center rounded-full bg-muted/50">
+        <span className="text-lg font-bold text-muted-foreground">0</span>
+      </div>
+    );
+  }
 
-const FILTER_LABEL: Record<string, string> = {
-  today: "Today", monthly: "This Month", maximum: "All Time",
-};
+  let accum = 0;
+  return (
+    <div className="relative flex h-[90px] w-[90px] flex-shrink-0 items-center justify-center">
+      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+        {/* background track */}
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e2e8f0" strokeWidth={sw} />
+        {segments.map((seg, i) => {
+          const dash = Math.max(0, (seg.count / total) * C - (single ? 0 : GAP));
+          const dashOffset = -accum;
+          accum += (seg.count / total) * C;
+          return (
+            <circle
+              key={i}
+              cx={cx} cy={cy} r={r}
+              fill="none"
+              stroke={DONUT_COLORS[i % DONUT_COLORS.length]}
+              strokeWidth={sw}
+              strokeDasharray={`${dash} ${C}`}
+              strokeDashoffset={dashOffset}
+              strokeLinecap={single ? "round" : "butt"}
+            />
+          );
+        })}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-xl font-extrabold tabular-nums leading-none text-foreground">{total}</span>
+        <span className="mt-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground">Total</span>
+      </div>
+    </div>
+  );
+}
 
+// ── Main dashboard ───────────────────────────────────────────────
 export default function CxDashboard() {
+  const [, navigate] = useLocation();
   const { showHint, dismissHint } = usePageHint("cx_dashboard");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("monthly");
-  const [showPicker, setShowPicker] = useState(false);
-  const [customLabel, setCustomLabel] = useState<string | null>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
-  const total = STATS.slaBreaches + STATS.slaWarnings + STATS.slaGreen;
+  const [filter, setFilter] = useState<OpsFilter>("monthly");
+  const [customRange, setCustomRange] = useState<[Date | null, Date | null]>([null, null]);
 
-  // Close picker when clicking outside
-  useEffect(() => {
-    if (!showPicker) return;
-    function handleClick(e: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setShowPicker(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [showPicker]);
+  const fromDate = filter === "custom" && customRange[0] ? format(customRange[0], "yyyy-MM-dd") : undefined;
+  const toDate   = filter === "custom" && customRange[1] ? format(customRange[1], "yyyy-MM-dd") : undefined;
 
-  function handlePickerApply(filter: PaymentsFilter, startDate?: string, endDate?: string) {
-    setDateFilter("custom");
-    if (filter !== "custom") {
-      setCustomLabel(FILTER_LABEL[filter] ?? filter);
-    } else if (startDate && endDate) {
-      const fmt = (s: string) => format(new Date(s), "d MMM yyyy");
-      setCustomLabel(`${fmt(startDate)} – ${fmt(endDate)}`);
-    }
-    setShowPicker(false);
+  const { data, isLoading } = useOpsDashboard(
+    { filter, fromDate, toDate },
+    filter !== "custom" || (!!fromDate && !!toDate),
+  );
+
+  const s               = data?.summary;
+  const casesByStage    = data?.casesByStage ?? [];
+  const bySubStatus     = data?.bySubStatus ?? [];
+  const nonZeroSub      = bySubStatus.filter((x) => x.count > 0);
+  const stageTotal      = casesByStage.reduce((a, x) => a + x.count, 0);
+  const subTotal        = nonZeroSub.reduce((a, x) => a + x.count, 0);
+
+  if (isLoading) {
+    return (
+      <PageWrapper title="My Dashboard" breadcrumbs={[{ label: "CX Team" }]}>
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+          </div>
+          <Skeleton className="h-36 rounded-xl" />
+          <Skeleton className="h-40 rounded-xl" />
+        </div>
+      </PageWrapper>
+    );
   }
 
   return (
     <PageWrapper
-      title="Dashboard"
+      title="My Dashboard"
       breadcrumbs={[{ label: "CX Team" }]}
       actions={
-        <div className="flex gap-1.5" data-tour="dash-date-filter">
-          {(["today", "weekly", "monthly"] as const).map(f => (
-            <Button
-              key={f}
-              size="sm"
-              variant={dateFilter === f ? "default" : "outline"}
-              onClick={() => { setDateFilter(f); setCustomLabel(null); setShowPicker(false); }}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </Button>
-          ))}
-          {/* Custom date picker */}
-          <div className="relative" ref={pickerRef}>
-            <Button
-              size="sm"
-              variant={dateFilter === "custom" ? "default" : "outline"}
-              onClick={() => setShowPicker(v => !v)}
-            >
-              <CalendarDays className="h-3.5 w-3.5 mr-1" />
-              {dateFilter === "custom" && customLabel ? customLabel : "Custom"}
-            </Button>
-            {showPicker && (
-              <div className="absolute right-0 top-full mt-2 z-50">
-                <DateRangePicker
-                  onApply={handlePickerApply}
-                  onCancel={() => setShowPicker(false)}
-                />
-              </div>
-            )}
-          </div>
-        </div>
+        <DashboardDateFilter
+          data-tour="dash-date-filter"
+          date={customRange}
+          onDateChange={setCustomRange}
+          activeTab={FILTER_TO_TAB[filter]}
+          onTabChange={(tab) => setFilter(TAB_TO_FILTER[tab] ?? "monthly")}
+          showYearly={false}
+          align="end"
+        />
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-5">
 
-        {/* ── 1. Stat Cards ─────────────────────────────────────────── */}
-        <div data-tour="dash-stats" className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-          <StatCard title="Assigned Clients" value={STATS.totalClients} icon={Users} description="total in queue" />
-          <StatCard title="In Processing" value={STATS.processing} icon={Clock} description="active + on hold" />
-          <StatCard title="Completed" value={STATS.completed} icon={CheckCircle2} description="visa granted" trend={{ value: 12, isPositive: true }} />
-          <StatCard title="Pending Docs" value={STATS.pendingDocs} icon={FileText} description="docs awaiting upload" />
+        {/* ── KPI Row ── */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            title="Overdue clients"
-            value={STATS.slaBreaches}
-            icon={AlertTriangle}
-            description="TAT breaches"
-            className={STATS.slaBreaches > 0 ? "border border-red-200 dark:border-red-900" : ""}
-          />
-          <StatCard
-            title="At-risk clients"
-            value={STATS.slaWarnings}
-            icon={AlertCircle}
-            description="TAT warnings"
-            className={STATS.slaWarnings > 0 ? "border border-orange-200 dark:border-orange-900" : ""}
-          />
-        </div>
-
-        {/* ── 2. Charts Row ──────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
-          {/* Enrollment Trend */}
-          <Card className="xl:col-span-2 bg-card border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Client Enrollment Trends</CardTitle>
-              <CardDescription>
-                Enrolled vs Processing vs Completed —{" "}
-                {dateFilter === "monthly" ? "last 6 months" : dateFilter}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={CHART_DATA} barSize={9} barCategoryGap="30%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 8,
-                    }}
-                  />
-                  <Bar dataKey="enrolled" name="Enrolled" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="processing" name="Processing" fill="#60a5fa" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="completed" name="Completed" fill="#34d399" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-              <div className="flex items-center gap-5 mt-2 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-primary inline-block" />Enrolled</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-400 inline-block" />Processing</span>
-                <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-green-400 inline-block" />Completed</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* TAT Risk Summary */}
-          <Card className="bg-card border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">TAT Risk Summary</CardTitle>
-              <CardDescription>Distribution across {total} assigned clients</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {[
-                { label: "🟢 On Track", count: STATS.slaGreen, bar: "bg-green-500", text: "text-green-700" },
-                { label: "🟠 Warning", count: STATS.slaWarnings, bar: "bg-orange-400", text: "text-orange-600" },
-                { label: "🔴 Breach", count: STATS.slaBreaches, bar: "bg-red-500", text: "text-red-600" },
-              ].map(({ label, count, bar, text }) => (
-                <div key={label} className="space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className={`font-medium ${text}`}>{label}</span>
-                    <span className="text-muted-foreground">{count} / {total}</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${bar}`}
-                      style={{ width: `${total > 0 ? Math.round((count / total) * 100) : 0}%` }}
-                    />
-                  </div>
+            title="Active Cases"
+            value={s?.activeCases ?? 0}
+            description="assigned to me"
+            icon={Users}
+            onClick={() => navigate("/cx/clients")}
+            extra={
+              s?.clientsByCategory?.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {s.clientsByCategory.map((c) => (
+                    <span key={c.category} className="rounded-md bg-muted/60 px-2 py-0.5 text-[11px] font-medium">
+                      <span className="text-muted-foreground">{c.label}</span>{" "}
+                      <span className="font-bold text-foreground">{c.count}</span>
+                    </span>
+                  ))}
                 </div>
-              ))}
-            </CardContent>
-          </Card>
+              ) : null
+            }
+          />
+          <StatCard title="Ready for Handover"   value={s?.readyForHandoff ?? 0}    description="docs complete, ready to move" icon={PackageCheck}  />
+          <StatCard title="Handovers Completed"  value={s?.handoffsCompleted ?? 0}  description="handed over this period"      icon={CheckCircle2}  />
+          <StatCard title="Stuck Cases"         value={s?.stuckCases ?? 0}         description="need attention"              icon={AlertTriangle} />
         </div>
+
+        {/* ── Cases by Stage + Status Breakdown side by side ── */}
+        {(casesByStage.length > 0 || nonZeroSub.length > 0) && (
+          <div className="grid gap-4 lg:grid-cols-2">
+
+            {/* Cases by Stage */}
+            {casesByStage.length > 0 && (
+              <Card className="border-none shadow-card">
+                <CardContent className="p-5">
+                  <div className="mb-4 flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <GitBranch className="h-4 w-4" />
+                    </div>
+                    <h3 className="text-sm font-bold text-foreground">Cases by Stage</h3>
+                  </div>
+                  <div className="flex items-center gap-8">
+                    <DonutChart data={casesByStage} total={stageTotal} />
+                    <div className="flex-1 space-y-2.5">
+                      {casesByStage.map((st, i) => (
+                        <div
+                          key={st.stage}
+                          onClick={() => navigate(`/cx/clients?stage=${encodeURIComponent(st.stage)}`)}
+                          className="flex items-center justify-between text-sm cursor-pointer rounded-lg px-2 py-1 -mx-2 hover:bg-accent transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                              style={{ backgroundColor: DONUT_COLORS[i % DONUT_COLORS.length] }}
+                            />
+                            <span className="text-foreground">{st.label}</span>
+                          </div>
+                          <span className="tabular-nums text-muted-foreground">
+                            {st.count}&nbsp;
+                            <span className="text-xs">
+                              ({stageTotal > 0 ? Math.round((st.count / stageTotal) * 100) : 0}%)
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Status Breakdown */}
+            {nonZeroSub.length > 0 && (
+              <Card className="border-none shadow-card">
+                <CardContent className="p-5">
+                  <div className="mb-4 flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <List className="h-4 w-4" />
+                    </div>
+                    <h3 className="text-sm font-bold text-foreground">Status Breakdown</h3>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {nonZeroSub.map((sub, idx) => {
+                      const { icon: Icon, bg, color } = STATUS_ICONS[idx % STATUS_ICONS.length];
+                      const pct = subTotal > 0 ? Math.round((sub.count / subTotal) * 100) : 0;
+                      return (
+                        <div
+                          key={sub.subStatus}
+                          className="flex items-center gap-3.5 rounded-xl border border-border/50 bg-card p-4 shadow-sm"
+                        >
+                          <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${bg}`}>
+                            <Icon className={`h-5 w-5 ${color}`} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-xs text-muted-foreground">{sub.label}</p>
+                            <p className="text-2xl font-extrabold tabular-nums leading-tight text-foreground">{sub.count}</p>
+                            <p className="text-[11px] text-muted-foreground">{pct}% of total cases</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+          </div>
+        )}
 
       </div>
 
@@ -210,8 +257,7 @@ export default function CxDashboard() {
         open={showHint}
         onClose={dismissHint}
         steps={[
-          { target: '[data-tour="dash-stats"]', title: "Client Stats", content: "Six stat cards show your real-time metrics — total clients, processing, pending docs, and TAT health.", side: "bottom" },
-          { target: '[data-tour="dash-date-filter"]', title: "Date Filters", content: "Filter all charts and stats by Today, Weekly, Monthly, or pick a custom date range.", side: "bottom" },
+          { target: '[data-tour="dash-date-filter"]', title: "Date Filters", content: "Scope by Workload (all active cases), Today, Weekly, Monthly, or a custom date range.", side: "bottom" },
         ]}
       />
     </PageWrapper>

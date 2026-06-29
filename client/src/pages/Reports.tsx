@@ -15,6 +15,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Cell,
 } from "recharts";
 import {
   Users,
@@ -400,19 +401,26 @@ function IntelligenceDashboard({
   const MAX_NAME_LEN = 14;
   const truncateName = (s: string) =>
     s.length > MAX_NAME_LEN ? `${s.slice(0, MAX_NAME_LEN).trim()}...` : s;
-  const counsellorRevenueMap = new Map<number, { fullName: string; revenue: number }>();
+  const counsellorRevenueMap = new Map<number, { fullName: string; revenue: number; is_active: boolean }>();
   for (const c of counsellorList) {
     const existing = counsellorRevenueMap.get(c.counsellor_id);
     const revenue = (existing?.revenue ?? 0) + c.total_revenue;
     const fullName = c.full_name?.trim() || `Counsellor ${c.counsellor_id}`;
-    counsellorRevenueMap.set(c.counsellor_id, { fullName: existing?.fullName ?? fullName, revenue });
+    counsellorRevenueMap.set(c.counsellor_id, {
+      fullName: existing?.fullName ?? fullName,
+      revenue,
+      is_active: c.is_active ?? true,
+    });
   }
+  // Active counsellors always shown; inactive only if they have revenue in this period
   const revenueChartData = Array.from(counsellorRevenueMap.entries())
     .map(([, v]) => ({
       name: truncateName(v.fullName),
       fullName: v.fullName,
       revenue: v.revenue,
+      is_active: v.is_active,
     }))
+    .filter((d) => d.is_active || d.revenue > 0)
     .sort((a, b) => b.revenue - a.revenue);
 
   return (
@@ -496,12 +504,22 @@ function IntelligenceDashboard({
 
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl border border-border/50 bg-card p-4 shadow-sm">
-            <h4 className="mb-3 text-sm font-semibold text-foreground">
+            <h4 className="mb-1 text-sm font-semibold text-foreground">
               Revenue per Counsellor
             </h4>
+            <div className="mb-3 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-2 w-2 rounded-full bg-primary" />
+                Active
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-2 w-2 rounded-full bg-orange-400" />
+                Inactive (has revenue)
+              </span>
+            </div>
             <div
               style={{
-                height: Math.min(520, Math.max(220, (revenueChartData.length || 1) * 28 + 72)),
+                height: Math.min(520, Math.max(220, (revenueChartData.length || 1) * 34 + 72)),
               }}
               className="w-full"
             >
@@ -517,11 +535,32 @@ function IntelligenceDashboard({
                   <YAxis
                     type="category"
                     dataKey="name"
-                    width={110}
+                    width={115}
                     fontSize={11}
                     tickLine={false}
                     interval={0}
-                    tick={{ fill: "hsl(var(--foreground))" }}
+                    tick={(props: { x?: number; y?: number; payload?: { value: string } }) => {
+                      const { x = 0, y = 0, payload } = props;
+                      const entry = revenueChartData.find((d) => d.name === payload?.value);
+                      const inactive = entry && !entry.is_active;
+                      return (
+                        <g transform={`translate(${x},${y})`}>
+                          <text
+                            x={0}
+                            y={0}
+                            dy={4}
+                            textAnchor="end"
+                            fontSize={11}
+                            fill={inactive ? "#94a3b8" : "hsl(var(--foreground))"}
+                          >
+                            {payload?.value}
+                          </text>
+                          {inactive && (
+                            <circle cx={5} cy={0} r={3} fill="#fb923c" opacity={0.9} />
+                          )}
+                        </g>
+                      );
+                    }}
                   />
                   <Tooltip
                     contentStyle={{ borderRadius: "12px", border: "1px solid hsl(var(--border))" }}
@@ -529,9 +568,20 @@ function IntelligenceDashboard({
                       formatCurrency(v),
                       (props?.payload as { fullName?: string } | undefined)?.fullName ?? "Revenue",
                     ]}
-                    labelFormatter={(label) => (revenueChartData.find((d) => d.name === label)?.fullName ?? label)}
+                    labelFormatter={(label) => {
+                      const entry = revenueChartData.find((d) => d.name === label);
+                      const base = entry?.fullName ?? label;
+                      return entry && !entry.is_active ? `${base} (Inactive)` : base;
+                    }}
                   />
-                  <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[0, 6, 6, 0]} name="Revenue" />
+                  <Bar dataKey="revenue" radius={[0, 6, 6, 0]} name="Revenue">
+                    {revenueChartData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.is_active ? "hsl(var(--primary))" : "#fb923c"}
+                      />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>

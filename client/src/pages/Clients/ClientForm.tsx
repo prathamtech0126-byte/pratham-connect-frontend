@@ -13,7 +13,7 @@ import { useForm, useWatch, useFieldArray, Control } from "react-hook-form";
 import { Trash2 } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Link, useLocation, useParams, useSearch } from "wouter";
+import { Link, useLocation, useParams, useSearch, Redirect } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { clientService } from "@/services/clientService";
 import { useAuth } from "@/context/auth-context";
@@ -45,6 +45,14 @@ import api from "@/lib/api";
 import { fetchChecklists, fetchCategories, type ChecklistSummary } from "@/api/checklist.api";
 import { getLeadDetail, updateLeadApi } from "@/api/leads.api";
 import { pushLeadListPatch } from "@/lib/lead-list-sync";
+import {
+  isAllFinancePartialScenario,
+  parseFinanceMoney,
+  validateAllFinanceForSave,
+  validateAllFinancePartialRequest,
+  isPartialPaymentRequestRequiredMessage,
+  PARTIAL_PAYMENT_REMARKS_REQUIRED_MESSAGE,
+} from "@/lib/all-finance-payment-validation";
 
 // --- Schema Definitions ---
 
@@ -423,12 +431,17 @@ function NewServiceSection({
 }
 
 export default function ClientForm() {
-  const buildAllFinanceEntityData = (fieldData: any, partialPaymentFlag: boolean) => ({
+  const buildAllFinanceEntityData = (fieldData: any, partialPaymentFlag: boolean) => {
+    const total = parseFinanceMoney(fieldData?.totalAmount);
+    const amount = parseFinanceMoney(fieldData?.amount);
+    const partialPayment =
+      partialPaymentFlag && isAllFinancePartialScenario(total, amount);
+    return {
     amount: fieldData.amount,
     paymentDate: fieldData.date || fieldData.paymentDate || new Date().toISOString().split("T")[0],
     invoiceNo: fieldData.invoiceNo || "",
     remarks: fieldData.remarks || "",
-    partialPayment: partialPaymentFlag,
+    partialPayment,
     totalAmount: fieldData.totalAmount != null && fieldData.totalAmount !== "" ? String(fieldData.totalAmount) : undefined,
     anotherPaymentAmount: fieldData.anotherPaymentAmount != null && fieldData.anotherPaymentAmount !== "" ? String(fieldData.anotherPaymentAmount) : undefined,
     anotherPaymentDate: fieldData.anotherPaymentDate || undefined,
@@ -440,7 +453,19 @@ export default function ClientForm() {
     anotherPaymentDate4: fieldData.anotherPaymentDate4 || undefined,
     anotherPaymentAmount5: fieldData.anotherPaymentAmount5 != null && fieldData.anotherPaymentAmount5 !== "" ? String(fieldData.anotherPaymentAmount5) : undefined,
     anotherPaymentDate5: fieldData.anotherPaymentDate5 || undefined,
-  });
+  };
+  };
+
+  const validateAllFinanceProductBeforeSave = (
+    productFields: Record<string, unknown> | undefined
+  ): string | null => {
+    const fieldData = productFields?.financeAndEmployment as
+      | { totalAmount?: number; amount?: number; remarks?: string }
+      | undefined;
+    if (!fieldData?.amount || Number(fieldData.amount) <= 0) return null;
+    const result = validateAllFinanceForSave(fieldData, isPartialPayment, approvalStatus);
+    return result.ok ? null : result.message;
+  };
 
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -2671,15 +2696,18 @@ export default function ClientForm() {
   const markOriginatingLeadConverted = useCallback(async () => {
     if (!fromLeadId || leadConvertedMarkedRef.current) return;
     try {
+      const clientName = form.getValues("name")?.trim();
       const updated = await updateLeadApi(fromLeadId, {
         progressStatus: "converted",
         assignmentStatus: "converted",
+        ...(clientName ? { fullName: clientName } : {}),
       });
       pushLeadListPatch(fromLeadId, {
         progressStatus: updated.progressStatus ?? "converted",
         assignmentStatus: updated.assignmentStatus ?? "converted",
         convertedAt: updated.convertedAt ?? null,
         pendingConverted: updated.pendingConverted,
+        ...(clientName ? { fullName: updated.fullName ?? clientName } : {}),
       });
       leadConvertedMarkedRef.current = true;
     } catch (err: unknown) {
@@ -2693,7 +2721,7 @@ export default function ClientForm() {
         variant: "destructive",
       });
     }
-  }, [fromLeadId, toast]);
+  }, [fromLeadId, form, toast]);
 
   const handleCreateClient = async () => {
     if (isSubmitting || requestInFlightRef.current) {
@@ -2879,6 +2907,23 @@ export default function ClientForm() {
 
       // Then save product data if product section is shown
       if (showProductSection) {
+        const financeValidationError = validateAllFinanceProductBeforeSave(
+          form.getValues().productFields as Record<string, unknown> | undefined
+        );
+        if (financeValidationError) {
+          toast({
+            title:
+              isPartialPaymentRequestRequiredMessage(financeValidationError) ||
+              financeValidationError === PARTIAL_PAYMENT_REMARKS_REQUIRED_MESSAGE
+                ? "Partial Payment Error"
+                : "Validation Error",
+            description: financeValidationError,
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          requestInFlightRef.current = false;
+          return;
+        }
         await saveProductData();
       }
 
@@ -2898,9 +2943,15 @@ export default function ClientForm() {
       }
     } catch (error: any) {
       console.error("Failed to save data:", error);
+      const errorMessage =
+        error.response?.data?.message || error.message || "Failed to save data. Please try again.";
       toast({
-        title: "Error",
-        description: error.response?.data?.message || error.message || "Failed to save data. Please try again.",
+        title:
+          isPartialPaymentRequestRequiredMessage(errorMessage) ||
+          errorMessage === PARTIAL_PAYMENT_REMARKS_REQUIRED_MESSAGE
+            ? "Partial Payment Error"
+            : "Error",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -3012,11 +3063,15 @@ export default function ClientForm() {
 
     if (paymentPromises.length > 0) {
       const results = await Promise.allSettled(paymentPromises);
-      results.forEach((result, i) => {
-        if (result.status === "rejected") {
-          console.warn(`Payment stage save failed:`, result.reason?.response?.data?.message || result.reason?.message);
-        }
-      });
+      const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+      if (failures.length > 0) {
+        const firstError = failures[0].reason;
+        const message =
+          firstError?.response?.data?.message ||
+          firstError?.message ||
+          "Failed to save payment data";
+        throw new Error(message);
+      }
     } else {
       const payload: any = {
         clientId: internalClientId,
@@ -3057,6 +3112,11 @@ export default function ClientForm() {
 
     if (!productFields) {
       return;
+    }
+
+    const financeValidationError = validateAllFinanceProductBeforeSave(productFields);
+    if (financeValidationError) {
+      throw new Error(financeValidationError);
     }
 
     const productPaymentPromises: Promise<any>[] = [];
@@ -3380,6 +3440,13 @@ export default function ClientForm() {
   };
 
   // Show loading state while fetching client data in edit mode
+  if (
+    !clientIdFromUrl &&
+    (!fromLeadId || !Number.isFinite(fromLeadId) || fromLeadId <= 0)
+  ) {
+    return <Redirect to="/clients" />;
+  }
+
   if (isLoadingClientData && isEditMode) {
     const backHref = fromLeadId ? `/leads/${fromLeadId}` : "/clients";
     return (
@@ -3586,6 +3653,19 @@ export default function ClientForm() {
         const isFinanceDisabled = product.id === "financeAndEmployment" &&
           ((isPartialPayment && approvalStatus !== "approved") || approvalStatus === "pending") &&
           !canEditPendingFinance;
+        const financeFieldData =
+          product.id === "financeAndEmployment"
+            ? (form.watch("productFields.financeAndEmployment" as any) as {
+                totalAmount?: number;
+                amount?: number;
+              } | undefined)
+            : undefined;
+        const financeRemarksRequired =
+          product.id === "financeAndEmployment" &&
+          isAllFinancePartialScenario(
+            parseFinanceMoney(financeFieldData?.totalAmount),
+            parseFinanceMoney(financeFieldData?.amount)
+          );
         return (
           <FinancialEntry
             control={control}
@@ -3595,6 +3675,7 @@ export default function ClientForm() {
             showTotalPayment={product.id === "financeAndEmployment"}
             showSecondPayment={product.id === "financeAndEmployment" && isPartialPayment}
             maxAdditionalPayments={product.id === "financeAndEmployment" ? 2 : 5}
+            remarksRequired={financeRemarksRequired}
             disabled={isFinanceDisabled}
           />
         );
@@ -4292,10 +4373,11 @@ export default function ClientForm() {
                               const fieldData = productFields?.financeAndEmployment;
 
                               if (approvalStatus === "rejected") {
-                                if (!fieldData?.amount || fieldData.amount <= 0) {
+                                const partialCheck = validateAllFinancePartialRequest(fieldData);
+                                if (!partialCheck.ok) {
                                   toast({
-                                    title: "Amount Required",
-                                    description: "Please enter an amount before resubmitting.",
+                                    title: "Partial Payment Error",
+                                    description: partialCheck.message,
                                     variant: "destructive",
                                   });
                                   return;
@@ -4340,7 +4422,7 @@ export default function ClientForm() {
                                 } catch (error: any) {
                                   console.error("Failed to resubmit partial payment:", error);
                                   toast({
-                                    title: "Error",
+                                    title: "Partial Payment Error",
                                     description: error.response?.data?.message || error.message || "Failed to resubmit. Please try again.",
                                     variant: "destructive",
                                   });
@@ -4353,10 +4435,11 @@ export default function ClientForm() {
                               const newPartialPaymentState = !isPartialPayment;
 
                               if (newPartialPaymentState) {
-                                if (!fieldData?.amount || fieldData.amount <= 0) {
+                                const partialCheck = validateAllFinancePartialRequest(fieldData);
+                                if (!partialCheck.ok) {
                                   toast({
-                                    title: "Amount Required",
-                                    description: "Please enter an amount before submitting for partial payment approval.",
+                                    title: "Partial Payment Error",
+                                    description: partialCheck.message,
                                     variant: "destructive",
                                   });
                                   return;
@@ -4411,6 +4494,17 @@ export default function ClientForm() {
                                   setIsSubmitting(false);
                                 }
                               } else {
+                                const total = parseFinanceMoney(fieldData?.totalAmount);
+                                const amount = parseFinanceMoney(fieldData?.amount);
+                                if (isAllFinancePartialScenario(total, amount)) {
+                                  toast({
+                                    title: "Partial payment required",
+                                    description:
+                                      "Total and amount differ — keep partial payment enabled or match the amounts to save as full payment.",
+                                    variant: "destructive",
+                                  });
+                                  return;
+                                }
                                 setIsPartialPayment(false);
                                 setApprovalStatus(null);
                                 toast({

@@ -182,6 +182,7 @@ export interface CounsellorPerformanceRow {
   pending_amount: number;
   archived_count: number;
   sale_type_count?: number;
+  is_active: boolean;
 }
 
 export interface ManagerAchievedByCounsellor {

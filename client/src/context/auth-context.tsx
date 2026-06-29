@@ -24,6 +24,8 @@ interface User {
   username: string;
   name: string;
   role: UserRole;
+  /** Original role from backend/JWT before UI mapping (e.g. admin stays admin while role becomes superadmin). */
+  backendRole?: string;
   avatar?: string;
   isSupervisor?: boolean; // Only for Manager role
 }
@@ -245,6 +247,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 username: username || profile?.username || userData.username || 'user',
                 name: resolvedName || 'User',
                 role: mappedRole,
+                backendRole: role,
                 isSupervisor: mappedRole === 'manager' ? (isSupervisor || false) : undefined,
               };
 
@@ -286,6 +289,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           username: username || profile?.username || 'user',
           name: resolvedName || 'User',
           role: mappedRole,
+          backendRole: role,
           isSupervisor: mappedRole === 'manager' ? (isSupervisor || false) : undefined,
         };
 

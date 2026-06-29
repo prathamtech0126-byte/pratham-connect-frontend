@@ -1,7 +1,7 @@
 
 
 import { lazy, Suspense, useEffect } from "react";
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useSearch } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,9 +16,9 @@ import {
   CLIENT_FOLDER_ALLOWED_ROLES,
   CX_ALLOWED_ROLES,
   INCENTIVE_ROLES,
-  LEAD_AUTOMATION_ALLOWED_ROLES,
 } from "@/constants/roles";
 import { canAccessByRole } from "@/lib/role-access";
+import { canAccessLeadAutomation } from "@/lib/lead-permissions";
 import { SocketProvider } from "@/context/socket-context";
 import { AlertProvider } from "@/context/alert-context";
 import { EmergencyAlert } from "@/components/ui/emergency-alert";
@@ -58,6 +58,7 @@ const AddChecklistPage = lazy(() => import("@/pages/AddChecklistPage"));
 const TechSupportPage = lazy(() => import("@/pages/tech-support/TechSupportPage"));
 const DeviceInfoPage = lazy(() => import("@/pages/tech-support/DeviceInfo"));
 const PaymentsPage = lazy(() => import("@/pages/Reports/PaymentsPage"));
+const BackendReportPage = lazy(() => import("@/pages/Reports/BackendReportPage"));
 const IncentivesPage = lazy(() => import("@/pages/IncentivesPage"))
 const IncentivesApprovedPage = lazy(() => import("@/pages/IncentivesApprovedPage"))
 const IncentiveRulesPage = lazy(() => import("@/pages/IncentiveRulesPage"))
@@ -82,22 +83,23 @@ const FrontDeskPortal = lazy(() => import("@/pages/FrontDesk/FrontDeskPortal"));
 const FrontDeskActivity = lazy(() => import("@/pages/FrontDesk/FrontDeskActivity"));
 const MarketingHeadDashboard = lazy(() => import("@/pages/Dashboard/MarketingHeadDashboard"));
 const MaintenanceSettingsPage = lazy(() => import("@/pages/MaintenanceSettingsPage"));
+const BackendClientsPage = lazy(() => import("@/pages/Bakend Team/Backend Team/BK_Clients"));
 const CxDashboardPage    = lazy(() => import("@/pages/Bakend Team/CX Team/CX_Dashboard"));
 const CxClientsPage      = lazy(() => import("@/pages/Bakend Team/CX Team/CX_Clients"));
 const CxVisaTrackerPage  = lazy(() => import("@/pages/Bakend Team/CX Team/CX_VisaTracker"));
 const CxDocumentsPage    = lazy(() => import("@/pages/Bakend Team/CX Team/CX_Documents"));
 const CxActivityFeedPage = lazy(() => import("@/pages/Bakend Team/CX Team/CX_ActivityFeed"));
 const CxEscalationsPage  = lazy(() => import("@/pages/Bakend Team/CX Team/CX_Escalations"));
+const CxDocumentRequestsPage = lazy(() => import("@/pages/Bakend Team/CX Team/CX_DocumentRequests"));
 const CxKanbanPage       = lazy(() => import("@/pages/Bakend Team/CX Team/CX_Kanban"));
 const CxMyReportPage          = lazy(() => import("@/pages/Bakend Team/CX Team/CX_MyReport"));
 const CxDocumentReviewPage    = lazy(() => import("@/pages/Bakend Team/CX Team/CX_DocumentReview"));
 
 const BtDashboardPage         = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_Dashboard"));
 const BtClientsPage           = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_Clients"));
+const BtKanbanPage            = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_Kanban"));
 const BtClientDetailPage      = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_ClientDetail"));
 const BtBindingStudioPage     = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_BindingStudio"));
-const BtVisaApplicationsPage  = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_VisaApplications"));
-const BtDocumentChecklistPage = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_DocumentChecklist"));
 const BtMyReportPage          = lazy(() => import("@/pages/Bakend Team/Binding Team/BT_MyReport"));
 
 
@@ -132,7 +134,7 @@ const BindingActivityPage = lazy(() => import("@/pages/Bakend Team/Binding Team/
 // // Backend module pages
 // const BackendFillingClientPage = lazy(() => import("@/modules/backend/pages/FillingClientPage"));
 
-function ProtectedRoute({ component: Component, allowedRoles, ...rest }: any) {
+function ProtectedRoute({ component: Component, allowedRoles, roleCheck, ...rest }: any) {
   const { user, isLoading } = useAuth();
 
   // ✅ STRICT AUTHENTICATION CHECK
@@ -153,7 +155,11 @@ function ProtectedRoute({ component: Component, allowedRoles, ...rest }: any) {
     return <Redirect to="/login" />;
   }
 
-  if (allowedRoles && !canAccessByRole(user.role, allowedRoles as UserRole[])) {
+  if (roleCheck) {
+    if (!roleCheck(user)) {
+      return <Redirect to="/" />;
+    }
+  } else if (allowedRoles && !canAccessByRole(user.role, allowedRoles as UserRole[])) {
     return <Redirect to="/" />;
   }
 
@@ -163,6 +169,17 @@ function ProtectedRoute({ component: Component, allowedRoles, ...rest }: any) {
       <Component {...rest} />
     </MainLayout>
   );
+}
+
+/** New clients may only be created via lead conversion (?fromLead=). */
+function NewClientFromLeadOnly() {
+  const search = useSearch();
+  const fromLead = new URLSearchParams(search).get("fromLead");
+  const leadId = fromLead ? Number(fromLead) : NaN;
+  if (!Number.isFinite(leadId) || leadId <= 0) {
+    return <Redirect to="/clients" />;
+  }
+  return <ProtectedRoute component={ClientForm} />;
 }
 
 const PageLoadFallback = () => <LoadingScreen message="Loading..." />;
@@ -257,6 +274,9 @@ function Router() {
         <Route path="/cx/clients">
           {() => <ProtectedRoute component={CxClientsPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
         </Route>
+        <Route path="/backend/clients">
+          {() => <ProtectedRoute component={BackendClientsPage} allowedRoles={["backend_manager", "superadmin", "developer"] as UserRole[]} />}
+        </Route>
         <Route path="/cx/visa-tracker">
           {() => <ProtectedRoute component={CxVisaTrackerPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
         </Route>
@@ -269,9 +289,15 @@ function Router() {
         <Route path="/cx/escalations">
           {() => <ProtectedRoute component={CxEscalationsPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
         </Route>
-        <Route path="/cx/kanban">
-          {() => <ProtectedRoute component={CxKanbanPage} allowedRoles={["superadmin", "developer"] as UserRole[]} />}
+        <Route path="/cx/document-requests">
+          {() => <ProtectedRoute component={CxDocumentRequestsPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
         </Route>
+        {/* <Route path="/cx/kanban">
+          {() => <ProtectedRoute component={CxKanbanPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
+        </Route> */}
+        {/* <Route path="/binding/kanban">
+          {() => <ProtectedRoute component={BtKanbanPage} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
+        </Route> */}
         <Route path="/cx/my-report">
           {() => <ProtectedRoute component={CxMyReportPage} allowedRoles={["customer_experience", "superadmin", "developer"] as UserRole[]} />}
         </Route>
@@ -290,12 +316,6 @@ function Router() {
         </Route>
         <Route path="/binding/studio/:clientId">
           {(params) => <ProtectedRoute component={BtBindingStudioPage} params={params} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
-        </Route>
-        <Route path="/binding/visa-applications">
-          {() => <ProtectedRoute component={BtVisaApplicationsPage} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
-        </Route>
-        <Route path="/binding/document-checklist">
-          {() => <ProtectedRoute component={BtDocumentChecklistPage} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
         </Route>
         <Route path="/binding/my-report">
           {() => <ProtectedRoute component={BtMyReportPage} allowedRoles={["binding_team", "superadmin", "developer"] as UserRole[]} />}
@@ -371,6 +391,9 @@ function Router() {
       <Route path="/reports/payments">
           {params => <ProtectedRoute component={PaymentsPage} />}
         </Route>
+        <Route path="/reports/backend">
+          {() => <ProtectedRoute component={BackendReportPage} allowedRoles={BACKEND_ALLOWED_ROLES} />}
+        </Route>
         <Route path="/incentives">
           {() => <ProtectedRoute component={IncentivesPage} allowedRoles={INCENTIVE_ROLES} />}
         </Route>
@@ -432,7 +455,7 @@ function Router() {
           {params => <ProtectedRoute component={CounsellorClientsPage} params={params} />}
         </Route>
         <Route path="/clients/new">
-          {params => <ProtectedRoute component={ClientForm} />}
+          {() => <NewClientFromLeadOnly />}
         </Route>
         <Route path="/clients/:id/edit">
           {params => <ProtectedRoute component={ClientForm} params={params} />}
@@ -460,24 +483,24 @@ function Router() {
             <ProtectedRoute
               component={LeadAutomationConfigure}
               params={params}
-              allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES}
+              roleCheck={canAccessLeadAutomation}
             />
           )}
         </Route>
         <Route path="/leads/automation/meta-conversions">
-          {() => <ProtectedRoute component={MetaConversionsPage} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
+          {() => <ProtectedRoute component={MetaConversionsPage} roleCheck={canAccessLeadAutomation} />}
         </Route>
         <Route path="/leads/automation/facebook/master-distribution">
-          {() => <ProtectedRoute component={FacebookMasterDistribution} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
+          {() => <ProtectedRoute component={FacebookMasterDistribution} roleCheck={canAccessLeadAutomation} />}
         </Route>
         <Route path="/leads/automation/facebook/manual-distribution">
-          {() => <ProtectedRoute component={FacebookManualDistribution} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
+          {() => <ProtectedRoute component={FacebookManualDistribution} roleCheck={canAccessLeadAutomation} />}
         </Route>
         <Route path="/leads/automation/facebook">
-          {() => <ProtectedRoute component={FacebookLeadAutomation} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
+          {() => <ProtectedRoute component={FacebookLeadAutomation} roleCheck={canAccessLeadAutomation} />}
         </Route>
         <Route path="/leads/automation">
-          {() => <ProtectedRoute component={LeadAutomation} allowedRoles={LEAD_AUTOMATION_ALLOWED_ROLES} />}
+          {() => <ProtectedRoute component={LeadAutomation} roleCheck={canAccessLeadAutomation} />}
         </Route>
         <Route path="/leads/import">
           {() => <ProtectedRoute component={LeadImport} />}

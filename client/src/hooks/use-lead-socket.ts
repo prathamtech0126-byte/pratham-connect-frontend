@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/context/socket-context";
 import type { LeadEntity } from "@/api/leads.api";
@@ -12,19 +12,23 @@ export function useLeadSocketRefresh(options?: {
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
   const enabled = options?.enabled ?? true;
+  const onLeadEventRef = useRef(options?.onLeadEvent);
+  const queryKeysRef = useRef(options?.queryKeys);
+
+  useEffect(() => {
+    onLeadEventRef.current = options?.onLeadEvent;
+  }, [options?.onLeadEvent]);
+
+  useEffect(() => {
+    queryKeysRef.current = options?.queryKeys;
+  }, [options?.queryKeys]);
 
   useEffect(() => {
     if (!enabled || !socket || !isConnected) return;
 
     const invalidate = () => {
-      const keys = options?.queryKeys ?? [
-        ["telecaller-dashboard-leads-all"],
-        ["telecaller-dashboard-leads-period"],
-        ["current-telecaller-target"],
-        ["telecaller-targets-leaderboard"],
-        ["leads"],
-        ["counsellor-leads"],
-      ];
+      const keys = queryKeysRef.current;
+      if (!keys || keys.length === 0) return;
       keys.forEach((key) =>
         queryClient.invalidateQueries({ queryKey: key, refetchType: "active" })
       );
@@ -50,7 +54,7 @@ export function useLeadSocketRefresh(options?: {
 
     const handler = (event: string) => (payload: unknown) => {
       invalidate();
-      options?.onLeadEvent?.(event, payload);
+      onLeadEventRef.current?.(event, payload);
     };
 
     const handlers = events.map((ev) => {
@@ -62,7 +66,7 @@ export function useLeadSocketRefresh(options?: {
     return () => {
       handlers.forEach(({ ev, fn }) => socket.off(ev, fn));
     };
-  }, [socket, isConnected, enabled, queryClient, options?.onLeadEvent, options?.queryKeys]);
+  }, [socket, isConnected, enabled, queryClient]);
 }
 
 export type LeadAssignmentNotify = {

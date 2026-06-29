@@ -46,10 +46,3 @@ export const BACKEND_CHECKLIST_ADMIN_ROLES: UserRole[] = [
 export const CLIENT_FOLDER_ALLOWED_ROLES: UserRole[] = [...BACKEND_ALLOWED_ROLES];
 
 export const INCENTIVE_ROLES: UserRole[] = ['superadmin', 'developer'];
-
-export const LEAD_AUTOMATION_ALLOWED_ROLES: UserRole[] = [
-  "superadmin",
-  "admin",
-  "marketing_head",
-  "developer",
-];

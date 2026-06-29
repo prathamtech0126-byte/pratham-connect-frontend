@@ -132,3 +132,128 @@ export function extractLeadFromSocketPayload(payload: unknown): LeadEntity | nul
   }
   return null;
 }
+
+export const LEAD_LIST_SILENT_RELOAD_MS = 8000;
+
+/** Debounced background reload — coalesces burst socket events into one fetch. */
+export function createLeadListReloadScheduler(
+  reload: (opts?: { silent?: boolean }) => void | Promise<void>
+) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return {
+    schedule() {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        void reload({ silent: true });
+      }, LEAD_LIST_SILENT_RELOAD_MS);
+    },
+    cancel() {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    },
+  };
+}
+
+const LIST_GROWTH_EVENTS = new Set([
+  "lead:created",
+  "lead:assigned",
+  "lead:bulk_assigned",
+  "lead:bulk_imported",
+  "lead:reverted",
+]);
+
+export type LeadListSocketScope = "telecaller" | "counsellor" | "admin";
+
+export type ApplyLeadListSocketEventArgs = {
+  event: string;
+  payload: unknown;
+  scope: LeadListSocketScope;
+  viewerUserId: number;
+  scheduleReload: () => void;
+  setLeads: (updater: (prev: LeadEntity[]) => LeadEntity[]) => void;
+  sortLeads?: (items: LeadEntity[]) => LeadEntity[];
+};
+
+function leadInViewerScope(lead: LeadEntity, scope: LeadListSocketScope, viewerUserId: number): boolean {
+  if (scope === "telecaller") return lead.currentTelecallerId === viewerUserId;
+  if (scope === "counsellor") return lead.currentCounsellorId === viewerUserId;
+  return true;
+}
+
+function patchLeadRow(prev: LeadEntity, event: string, row: LeadEntity): LeadEntity {
+  let patch: Partial<LeadEntity> = { ...row };
+  if (event === "lead:followup") {
+    patch = { ...patch, progressStatus: "follow_up", pendingFollowUp: true };
+  }
+  return mergeLeadRow(prev, patch);
+}
+
+/** Merge socket updates in-place; refetch only when necessary (debounced, silent). */
+export function applyLeadListSocketEvent({
+  event,
+  payload,
+  scope,
+  viewerUserId,
+  scheduleReload,
+  setLeads,
+  sortLeads,
+}: ApplyLeadListSocketEventArgs): void {
+  const finalize = sortLeads ?? ((items: LeadEntity[]) => items);
+
+  if (event === "lead:assigned:notify" && scope === "telecaller") {
+    const n = payload as { telecallerId?: number; lead?: LeadEntity };
+    if (n.telecallerId !== viewerUserId || !n.lead) return;
+    setLeads((prev) => {
+      if (prev.some((l) => l.id === n.lead!.id)) {
+        return finalize(prev.map((l) => (l.id === n.lead!.id ? mergeLeadRow(l, n.lead!) : l)));
+      }
+      scheduleReload();
+      return prev;
+    });
+    return;
+  }
+
+  if (event === "lead:transferred:notify" && scope === "counsellor") {
+    const n = payload as { counsellorId?: number; lead?: LeadEntity };
+    if (n.counsellorId !== viewerUserId || !n.lead) return;
+    setLeads((prev) => {
+      if (prev.some((l) => l.id === n.lead!.id)) {
+        return finalize(prev.map((l) => (l.id === n.lead!.id ? mergeLeadRow(l, n.lead!) : l)));
+      }
+      scheduleReload();
+      return prev;
+    });
+    return;
+  }
+
+  const row = extractLeadFromSocketPayload(payload);
+  const activityLeadId =
+    payload && typeof payload === "object" && "leadId" in (payload as object)
+      ? Number((payload as { leadId?: unknown }).leadId)
+      : NaN;
+
+  if (!row) {
+    if (Number.isFinite(activityLeadId)) {
+      setLeads((prev) => {
+        if (prev.some((l) => l.id === activityLeadId)) scheduleReload();
+        return prev;
+      });
+    }
+    return;
+  }
+
+  if (!leadInViewerScope(row, scope, viewerUserId)) return;
+
+  setLeads((prev) => {
+    const idx = prev.findIndex((l) => l.id === row.id);
+    if (idx < 0) {
+      if (scope === "admin" && LIST_GROWTH_EVENTS.has(event)) scheduleReload();
+      else if (scope !== "admin") scheduleReload();
+      return prev;
+    }
+    const next = [...prev];
+    next[idx] = patchLeadRow(prev[idx], event, row);
+    return finalize(next);
+  });
+}

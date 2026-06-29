@@ -161,7 +161,7 @@ function resolveDateRange(
 export default function MetaConversionsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const canAccess = Boolean(user && canAccessLeadAutomation(user.role));
+  const canAccess = Boolean(user && canAccessLeadAutomation(user));
 
   // Status
   const [status, setStatus] = useState<MetaConversionsStatus | null>(null);

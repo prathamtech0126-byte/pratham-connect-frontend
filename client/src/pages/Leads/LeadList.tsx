@@ -3,12 +3,7 @@ import { useLeadSocketRefresh } from "@/hooks/use-lead-socket";
 import { useLocation, useSearch } from "wouter";
 import { format } from "date-fns";
 
-import {
-  istCalendarYmd,
-  istMonthPresetYmds,
-  istWeekYmds,
-  istYmdInclusiveRangeIso,
-} from "@/lib/ist-date-range";
+import { leadDateRangeParams } from "@/lib/lead-date-range";
 
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
@@ -60,13 +55,17 @@ import {
   Star,
   UserCheck,
   RotateCcw,
+  FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
 
+import { downloadLeadsExcel } from "@/lib/export-leads-excel";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import {
   fetchAllLeads,
+  getBulkLeadNotesApi,
   assignLeadApi,
   addLeadActivityApi,
   updateLeadFieldsApi,
@@ -74,7 +73,7 @@ import {
   type LeadEligibilityStatus,
   type LeadQuality,
 } from "@/api/leads.api";
-import { LeadBulkAssignDialog } from "@/components/leads/LeadBulkAssignDialog";
+import { LeadBulkAssignDialog, type LeadBulkRestoreMode } from "@/components/leads/LeadBulkAssignDialog";
 import {
   getLeadDisplayTags,
   leadStatusBadgeClassName,
@@ -83,13 +82,15 @@ import {
   isLeadTransferBlocked,
   isLeadReadOnly,
   isLeadJunk,
+  isDroppedLeadRestorable,
   sortLeadsForDisplay,
   mergeLeadRow,
   canTransferToCounsellor,
 } from "@/lib/lead-status-tags";
 import {
   consumeLeadListPatches,
-  extractLeadFromSocketPayload,
+  applyLeadListSocketEvent,
+  createLeadListReloadScheduler,
   saveLeadListCache,
   readLeadListCache,
   markLeadListNavAway,
@@ -105,8 +106,6 @@ import {
   getLeadReferenceDisplayLabel,
   leadHasReferenceSource,
 } from "@/lib/lead-reference-display";
-import { toCrmApiTimestamp } from "@/lib/format-crm-timestamp";
-
 type Counsellor = { id: number; fullName: string };
 type LeadType = { id: number; leadType: string; displayAlias?: string | null };
 
@@ -488,20 +487,20 @@ export default function LeadList() {
     ) {
       setDateFilter(dateFilterParam as DateFilterType);
     }
-    // afterDate/beforeDate are yyyy-MM-dd (new style)
+    // afterDate/beforeDate are yyyy-MM-dd for custom picker state
     if (afterDate) setCustomDateFrom(afterDate);
     if (beforeDate) setCustomDateTo(beforeDate);
-    // Legacy: extract IST yyyy-MM-dd from ISO strings for transferred/converted/dropped/createdFrom
+    // ISO createdFrom or outcome columns → local yyyy-MM-dd for picker when needed
     const rawDateFrom = transferredFrom ?? convertedFrom ?? droppedFrom ?? createdFrom;
     const rawDateTo   = transferredTo   ?? convertedTo   ?? droppedTo   ?? createdTo;
     if (!afterDate && rawDateFrom) {
       setCustomDateFrom(
-        rawDateFrom.includes("T") ? istCalendarYmd(new Date(rawDateFrom)) : rawDateFrom
+        rawDateFrom.includes("T") ? new Date(rawDateFrom).toLocaleDateString("en-CA") : rawDateFrom
       );
     }
     if (!beforeDate && rawDateTo) {
       setCustomDateTo(
-        rawDateTo.includes("T") ? istCalendarYmd(new Date(rawDateTo)) : rawDateTo
+        rawDateTo.includes("T") ? new Date(rawDateTo).toLocaleDateString("en-CA") : rawDateTo
       );
     }
     setAssignedScopeMode(assignedScope === "1");
@@ -556,6 +555,7 @@ export default function LeadList() {
   const [ttSubmitting, setTtSubmitting] = useState(false);
 
   const [adminTransferOpen, setAdminTransferOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const canBulkSelect =
     user?.role === "telecaller" ||
@@ -563,83 +563,24 @@ export default function LeadList() {
   const isAdminBulk = ["admin", "superadmin", "developer", "manager"].includes(user?.role ?? "");
   const isCounsellor = user?.role === "counsellor";
   const isTelecaller = user?.role === "telecaller";
-  const isAdminJunkRestoreMode = isAdminBulk && filterProgressStatus === "junk";
+  const adminRestoreMode: LeadBulkRestoreMode =
+    isAdminBulk && filterProgressStatus === "junk"
+      ? "junk"
+      : isAdminBulk && filterAssignmentStatus === "dropped"
+        ? "dropped"
+        : null;
+  const isAdminRestoreMode = adminRestoreMode != null;
   const progressStatusOptions = isCounsellor
     ? PROGRESS_STATUS_OPTIONS.filter((o) => o.value !== "junk")
     : PROGRESS_STATUS_OPTIONS;
 
   /**
-   * Date filter params for API calls.
-   *
-   * - today/weekly/monthly → sends `dateFilter=today/weekly/monthly` only; backend computes IST bounds.
-   * - custom → sends `afterDate`/`beforeDate` as yyyy-MM-dd; backend converts to naive IST strings.
-   * - Sub-filters (transferred/converted/dropped/followup) → ISO UTC strings (backend uses pgNaiveIst).
+   * Date filter params for API calls — all ranges as UTC ISO (local calendar day bounds).
    */
-  const dateRangeParams = useMemo((): {
-    dateFilter?: string;
-    afterDate?: string;
-    beforeDate?: string;
-    transferredFrom?: string;
-    transferredTo?: string;
-    convertedFrom?: string;
-    convertedTo?: string;
-    droppedFrom?: string;
-    droppedTo?: string;
-    nextFollowupFrom?: string;
-    nextFollowupTo?: string;
-  } => {
+  const dateRangeParams = useMemo(() => {
     if (dateFilter === "all") return {};
-
-    // For sub-filters we still need the ISO range (backend uses pgNaiveIst for outcome columns)
-    const isSubFilter =
-      filterProgressStatus === "follow_up" ||
-      reportBucketFilter === "transferred" ||
-      (filterAssignmentStatus === "converted" && forReportMode) ||
-      (filterAssignmentStatus === "dropped" && forReportMode);
-
-    if (isSubFilter) {
-      // Compute ymd bounds then convert to ISO for the sub-filter columns
-      let afterDate: string | undefined;
-      let beforeDate: string | undefined;
-      const now = new Date();
-      if (dateFilter === "today") {
-        const ymd = istCalendarYmd(now); afterDate = ymd; beforeDate = ymd;
-      } else if (dateFilter === "weekly") {
-        const { from, to } = istWeekYmds(now); afterDate = from; beforeDate = to;
-      } else if (dateFilter === "monthly") {
-        const { from, to } = istMonthPresetYmds(now); afterDate = from; beforeDate = to;
-      } else if (dateFilter === "custom" && customDateFrom && customDateTo) {
-        afterDate = customDateFrom.includes("T") ? istCalendarYmd(new Date(customDateFrom)) : customDateFrom;
-        beforeDate = customDateTo.includes("T") ? istCalendarYmd(new Date(customDateTo)) : customDateTo;
-      }
-      if (!afterDate || !beforeDate) return {};
-      const isoFrom = istYmdInclusiveRangeIso(afterDate, beforeDate).createdFrom;
-      const isoTo   = istYmdInclusiveRangeIso(afterDate, beforeDate).createdTo;
-      if (filterProgressStatus === "follow_up") return { nextFollowupFrom: isoFrom, nextFollowupTo: isoTo };
-      if (reportBucketFilter === "transferred") return { transferredFrom: isoFrom, transferredTo: isoTo };
-      if (filterAssignmentStatus === "converted" && forReportMode) return { convertedFrom: isoFrom, convertedTo: isoTo };
-      if (filterAssignmentStatus === "dropped" && forReportMode) return { droppedFrom: isoFrom, droppedTo: isoTo };
-    }
-
-    // Default created_at filter: send preset name or custom dates
-    if (dateFilter === "today" || dateFilter === "weekly" || dateFilter === "monthly") {
-      return { dateFilter };
-    }
-    if (dateFilter === "custom" && customDateFrom && customDateTo) {
-      const afterDate = customDateFrom.includes("T") ? istCalendarYmd(new Date(customDateFrom)) : customDateFrom;
-      const beforeDate = customDateTo.includes("T") ? istCalendarYmd(new Date(customDateTo)) : customDateTo;
-      return { afterDate, beforeDate };
-    }
-    return {};
-  }, [
-    dateFilter,
-    customDateFrom,
-    customDateTo,
-    filterProgressStatus,
-    reportBucketFilter,
-    filterAssignmentStatus,
-    forReportMode,
-  ]);
+    return leadDateRangeParams(dateFilter, customDateFrom, customDateTo);
+  }, [dateFilter, customDateFrom, customDateTo]);
 
   useEffect(() => {
     const trimmed = search.trim();
@@ -712,9 +653,24 @@ export default function LeadList() {
   ].filter(Boolean).length;
 
   // ── Data loading ───────────────────────────────────────────────
-  const loadLeads = useCallback(async () => {
+  const loadLeadsRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>(async () => {});
+  const reloadSchedulerRef = useRef(
+    createLeadListReloadScheduler((opts) => loadLeadsRef.current(opts))
+  );
+
+  const scheduleSilentReload = useCallback(() => {
+    reloadSchedulerRef.current.schedule();
+  }, []);
+
+  useEffect(() => {
+    return () => reloadSchedulerRef.current.cancel();
+  }, []);
+
+  const listSocketScope = isTelecaller ? "telecaller" : isCounsellor ? "counsellor" : "admin";
+
+  const loadLeads = useCallback(async (opts?: { silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!opts?.silent) setLoading(true);
 
       // Counsellor report card drill-down: exact API query only (no default list filter logic).
       if (counsellorReportDrillMode) {
@@ -852,9 +808,11 @@ export default function LeadList() {
         totalPages,
       });
     } catch {
-      toast({ title: "Error", description: "Failed to load leads", variant: "destructive" });
+      if (!opts?.silent) {
+        toast({ title: "Error", description: "Failed to load leads", variant: "destructive" });
+      }
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [
     searchQuery,
@@ -881,6 +839,10 @@ export default function LeadList() {
     hasPendingFollowUpOnly,
   ]);
 
+
+  useEffect(() => {
+    loadLeadsRef.current = loadLeads;
+  }, [loadLeads]);
 
 const loadCounsellors = useCallback(async () => {
   try {
@@ -961,23 +923,19 @@ const loadLeadTypes = useCallback(async () => {
 
   useLeadSocketRefresh({
     enabled: !!user?.id,
-    queryKeys: [
-      ["leads"],
-      ["telecaller-dashboard-leads-all"],
-      ["telecaller-dashboard-leads-period"],
-      ["current-telecaller-target"],
-    ],
-    onLeadEvent: (_event, payload) => {
-      const row = extractLeadFromSocketPayload(payload);
-      if (row?.id) {
-        setLeads((prev) => {
-          if (!prev.some((l) => l.id === row.id)) return prev;
-          return sortLeadsForDisplay(
-            prev.map((l) => (l.id === row.id ? mergeLeadRow(l, row) : l))
-          );
-        });
-      }
-      void loadLeads();
+    queryKeys: [],
+    onLeadEvent: (event, payload) => {
+      const myId = user?.id ? Number(user.id) : null;
+      if (myId == null || Number.isNaN(myId)) return;
+      applyLeadListSocketEvent({
+        event,
+        payload,
+        scope: listSocketScope,
+        viewerUserId: myId,
+        scheduleReload: scheduleSilentReload,
+        setLeads,
+        sortLeads: sortLeadsForDisplay,
+      });
     },
   });
 
@@ -989,11 +947,12 @@ const loadLeadTypes = useCallback(async () => {
   const selectableLeadsOnPage = useMemo(
     () =>
       displayLeads.filter((lead) => {
-        if (isAdminJunkRestoreMode) return isLeadJunk(lead);
+        if (adminRestoreMode === "junk") return isLeadJunk(lead);
+        if (adminRestoreMode === "dropped") return isDroppedLeadRestorable(lead);
         if (isAdminBulk) return !isLeadTransferBlocked(lead);
         return true;
       }),
-    [displayLeads, isAdminJunkRestoreMode, isAdminBulk]
+    [displayLeads, adminRestoreMode, isAdminBulk]
   );
 
   const allPageSelected =
@@ -1261,7 +1220,7 @@ const loadLeadTypes = useCallback(async () => {
       });
       return;
     }
-    const followupIso = toCrmApiTimestamp(scheduled);
+    const followupIso = scheduled.toISOString();
     try {
       setSubmitting(true);
       const result = await addLeadActivityApi(targetId, {
@@ -1300,11 +1259,13 @@ const loadLeadTypes = useCallback(async () => {
   // ── DateRangePicker apply callback ─────────────────────────────
   const handleDateRangeApply = (filter: any, startDate?: string, endDate?: string) => {
     if (filter === "today") {
-      const d = istCalendarYmd(new Date());
+      const d = new Date().toLocaleDateString("en-CA");
       setCustomDateFrom(d);
       setCustomDateTo(d);
     } else if (filter === "monthly") {
-      const { from, to } = istMonthPresetYmds(new Date());
+      const now = new Date();
+      const from = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString("en-CA");
+      const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString("en-CA");
       setCustomDateFrom(from);
       setCustomDateTo(to);
     } else if (startDate && endDate) {
@@ -1320,20 +1281,29 @@ const loadLeadTypes = useCallback(async () => {
   const parseCustomDate = (s: string) => s.includes("T") ? new Date(s) : new Date(`${s}T12:00:00+05:30`);
   const customLabel =
     dateFilter === "custom" && customDateFrom && customDateTo
-      ? `${format(parseCustomDate(customDateFrom), "d MMM")} – ${format(parseCustomDate(customDateTo), "d MMM yyyy")}`
+      ? `${format(parseCustomDate(customDateFrom), "d MMM ''yy")} – ${format(parseCustomDate(customDateTo), "d MMM ''yy")}`
       : null;
 
   // ── Telecaller-to-telecaller transfer handlers ─────────────────
   const toggleLeadSelection = (id: number) => {
     const lead = leads.find((item) => item.id === id);
-    if (isAdminJunkRestoreMode && lead && !isLeadJunk(lead)) {
+    if (adminRestoreMode === "junk" && lead && !isLeadJunk(lead)) {
       toast({
         title: "Only junk leads can be restored",
         variant: "destructive",
       });
       return;
     }
-    if (isAdminBulk && !isAdminJunkRestoreMode && lead && isLeadTransferBlocked(lead)) {
+    if (adminRestoreMode === "dropped" && lead && !isDroppedLeadRestorable(lead)) {
+      toast({
+        title: "Lead cannot be restored",
+        description:
+          "Only dropped leads with a counsellor (no telecaller) can be restored. Transferred or dual-assigned leads are excluded.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (isAdminBulk && !isAdminRestoreMode && lead && isLeadTransferBlocked(lead)) {
       toast({
         title: "Lead cannot be transferred",
         description: "Transferred or converted leads cannot be reassigned.",
@@ -1357,10 +1327,13 @@ const loadLeadTypes = useCallback(async () => {
 
   const getAdminTransferableLeads = useCallback(
     () =>
-      leads.filter(
-        (l) => selectedLeadIds.has(l.id) && !isAdminJunkRestoreMode && !isLeadTransferBlocked(l)
-      ),
-    [leads, selectedLeadIds, isAdminJunkRestoreMode]
+      leads.filter((l) => {
+        if (!selectedLeadIds.has(l.id)) return false;
+        if (adminRestoreMode === "junk") return isLeadJunk(l);
+        if (adminRestoreMode === "dropped") return isDroppedLeadRestorable(l);
+        return !isLeadTransferBlocked(l);
+      }),
+    [leads, selectedLeadIds, adminRestoreMode]
   );
 
   const openAdminTransferModal = () => {
@@ -1374,14 +1347,14 @@ const loadLeadTypes = useCallback(async () => {
   const handleAdminBulkAssignSuccess = (updated: LeadEntity[]) => {
     const updatedMap = new Map(updated.map((lead) => [lead.id, lead]));
     setLeads((prev) => {
-      if (isAdminJunkRestoreMode) {
+      if (isAdminRestoreMode) {
         return prev.filter((lead) => !updatedMap.has(lead.id));
       }
       return prev.map((lead) =>
         updatedMap.has(lead.id) ? { ...lead, ...updatedMap.get(lead.id)! } : lead
       );
     });
-    if (isAdminJunkRestoreMode) {
+    if (isAdminRestoreMode) {
       setPagination((prev) => ({
         ...prev,
         total: Math.max(0, prev.total - updated.length),
@@ -1434,9 +1407,36 @@ const loadLeadTypes = useCallback(async () => {
   const ttTargetName = telecallers.find((t) => String(t.id) === ttTargetId)?.fullName ?? "";
 
   const adminTransferableCount = getAdminTransferableLeads().length;
-  const adminSkippedTransferCount = isAdminJunkRestoreMode
-    ? 0
-    : Math.max(0, selectedLeadIds.size - adminTransferableCount);
+  const adminSkippedTransferCount = Math.max(0, selectedLeadIds.size - adminTransferableCount);
+
+  const handleExportLeads = async () => {
+    if (leads.length === 0) {
+      toast({
+        title: "No leads to export",
+        description: "Adjust filters or wait for the list to load.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setExporting(true);
+      const notesByLeadId = await getBulkLeadNotesApi(leads.map((l) => l.id));
+      await downloadLeadsExcel({
+        leads,
+        notesByLeadId,
+        sourceOptions: leadTypes,
+        saleTypes,
+      });
+      toast({
+        title: "Export complete",
+        description: `${leads.length} lead${leads.length === 1 ? "" : "s"} exported to Excel.`,
+      });
+    } catch {
+      toast({ title: "Export failed", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const eligibilityLabel = (v?: string | null) =>
     ELIGIBILITY_OPTIONS.find((o) => o.value === v)?.label;
@@ -1473,12 +1473,12 @@ const loadLeadTypes = useCallback(async () => {
                   onClick={isAdminBulk ? openAdminTransferModal : openTtModalBulk}
                   className="gap-1.5"
                 >
-                  {isAdminJunkRestoreMode ? (
+                  {isAdminRestoreMode ? (
                     <RotateCcw className="w-3.5 h-3.5" />
                   ) : (
                     <Send className="w-3.5 h-3.5" />
                   )}
-                  {isAdminJunkRestoreMode ? "Restore & Assign" : isAdminBulk ? "Assign" : "Transfer"} (
+                  {isAdminRestoreMode ? "Restore & Assign" : isAdminBulk ? "Assign" : "Transfer"} (
                     {isAdminBulk ? adminTransferableCount : selectedLeadIds.size})
                 </Button>
               )}
@@ -1491,6 +1491,18 @@ const loadLeadTypes = useCallback(async () => {
               </Button>
             </>
           )}
+          <Button
+            variant="outline"
+            onClick={() => void handleExportLeads()}
+            disabled={exporting || loading || leads.length === 0}
+          >
+            {exporting ? (
+              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 mr-1.5" />
+            )}
+            Export Excel
+          </Button>
           <Button onClick={() => setIsAddLeadOpen(true)}>Add New Lead</Button>
         </div>
       </div>
@@ -1596,31 +1608,34 @@ const loadLeadTypes = useCallback(async () => {
   {/* Row 2: Filters */}
   <div className="flex flex-wrap gap-2">
 
-    {/* Counsellor + Telecaller — hidden for telecaller role */}
-    {user?.role !== "telecaller" && (
-      <>
-        <Select value={filterCounsellor} onValueChange={setFilterCounsellor}>
-          <SelectTrigger className="h-9 w-44 text-xs">
-            <SelectValue placeholder="Counsellor" />
-          </SelectTrigger>
-          <SelectContent className="max-h-64 overflow-y-auto">
-            {counsellors.map((c) => (
-              <SelectItem key={c.id} value={String(c.id)}>{c.fullName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    {/* Counsellor — telecallers filter transferred leads by counsellor */}
+    <Select
+      value={isTelecaller ? filterCounsellor || "__all__" : filterCounsellor}
+      onValueChange={(v) => setFilterCounsellor(isTelecaller && v === "__all__" ? "" : v)}
+    >
+      <SelectTrigger className="h-9 w-44 text-xs">
+        <SelectValue placeholder="Counsellor" />
+      </SelectTrigger>
+      <SelectContent className="max-h-64 overflow-y-auto">
+        {isTelecaller && <SelectItem value="__all__">All counsellors</SelectItem>}
+        {counsellors.map((c) => (
+          <SelectItem key={c.id} value={String(c.id)}>{c.fullName}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
 
-        <Select value={filterTelecaller} onValueChange={setFilterTelecaller}>
-          <SelectTrigger className="h-9 w-44 text-xs">
-            <SelectValue placeholder="Telecaller" />
-          </SelectTrigger>
-          <SelectContent className="max-h-64 overflow-y-auto">
-            {telecallers.map((t) => (
-              <SelectItem key={t.id} value={String(t.id)}>{t.fullName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </>
+    {/* Telecaller — admin/manager only (telecallers always see their own leads) */}
+    {!isTelecaller && (
+      <Select value={filterTelecaller} onValueChange={setFilterTelecaller}>
+        <SelectTrigger className="h-9 w-44 text-xs">
+          <SelectValue placeholder="Telecaller" />
+        </SelectTrigger>
+        <SelectContent className="max-h-64 overflow-y-auto">
+          {telecallers.map((t) => (
+            <SelectItem key={t.id} value={String(t.id)}>{t.fullName}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     )}
 
     {/* Lead Source (from /api/lead-types) */}
@@ -1863,7 +1878,13 @@ const loadLeadTypes = useCallback(async () => {
                   {displayLeads.map((lead) => {
                     const inSelectMode = canBulkSelect && isSelectMode;
                     const isSelected = selectedLeadIds.has(lead.id);
-                    const transferBlocked = isAdminBulk && !isAdminJunkRestoreMode && isLeadTransferBlocked(lead);
+                    const selectionBlocked =
+                      isAdminBulk &&
+                      (adminRestoreMode === "junk"
+                        ? !isLeadJunk(lead)
+                        : adminRestoreMode === "dropped"
+                          ? !isDroppedLeadRestorable(lead)
+                          : isLeadTransferBlocked(lead));
                     const readOnly = isLeadReadOnly(lead, user?.role);
                     const junk = isLeadJunk(lead);
                     const statusTags = getLeadDisplayTags(lead, user?.role, {
@@ -1883,7 +1904,7 @@ const loadLeadTypes = useCallback(async () => {
                                 ? "[&>td]:bg-slate-50/80 hover:[&>td]:bg-slate-100/80"
                                 : "hover:[&>td]:bg-muted/40",
                           inSelectMode && isSelected && "[&>td]:bg-primary/5 ring-1 ring-inset ring-primary/40",
-                          inSelectMode && transferBlocked && "opacity-60"
+                          inSelectMode && selectionBlocked && "opacity-60"
                         )}
                         onClick={() => {
                           if (inSelectMode) {
@@ -2220,7 +2241,7 @@ const loadLeadTypes = useCallback(async () => {
         }}
         transferableLeads={getAdminTransferableLeads()}
         blockedCount={adminSkippedTransferCount}
-        isJunkRestoreMode={isAdminJunkRestoreMode}
+        restoreMode={adminRestoreMode}
         telecallers={telecallers}
         counsellors={counsellors}
         onSuccess={handleAdminBulkAssignSuccess}

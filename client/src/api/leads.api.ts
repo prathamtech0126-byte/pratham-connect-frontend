@@ -222,7 +222,6 @@ export interface LeadActivityEntity {
   activityType:
     | "note"
     | "followup"
-    | "call_log"
     | "assignment_change"
     | "counselor_assign"
     | "lead_update"
@@ -257,7 +256,7 @@ export interface LeadListParams {
   nextFollowupTo?: string;
   leadSource?: string;
   leadType?: string;
-  /** Preset filter name — backend computes IST bounds (today/weekly/monthly). */
+  /** Preset filter — backend computes UTC bounds (today/weekly/monthly). */
   dateFilter?: string;
   /** New-style date range: yyyy-MM-dd calendar dates (used for custom filter). */
   afterDate?: string;
@@ -334,6 +333,20 @@ export async function fetchAllLeads(
   return all;
 }
 
+/** Note timelines keyed by lead id (for list Excel export). */
+export const getBulkLeadNotesApi = async (
+  leadIds: number[]
+): Promise<Record<number, string>> => {
+  const res = await api.post("/api/leads/bulk-notes", { leadIds });
+  const data = res.data?.data ?? {};
+  const out: Record<number, string> = {};
+  for (const [key, value] of Object.entries(data)) {
+    const id = Number(key);
+    if (Number.isFinite(id) && typeof value === "string") out[id] = value;
+  }
+  return out;
+};
+
 export interface TelecallerLeadSummaryRow {
   telecallerId: number;
   total: number;
@@ -348,6 +361,8 @@ export interface TelecallerLeadSummaryRow {
 
 export const getTelecallerLeadSummary = async (params: {
   dateFilter?: string;
+  afterDate?: string;
+  beforeDate?: string;
   createdFrom?: string;
   createdTo?: string;
 }): Promise<TelecallerLeadSummaryRow[]> => {
@@ -468,10 +483,9 @@ export type TelecallerDashboardStats = {
 };
 
 export const getTelecallerDashboardStats = async (params: {
-  createdFrom?: string;
-  createdTo?: string;
-  followupFrom?: string;
-  followupTo?: string;
+  dateFilter?: string;
+  afterDate?: string;
+  beforeDate?: string;
 }): Promise<TelecallerDashboardStats> => {
   const res = await api.get("/api/leads/telecaller-dashboard-stats", { params });
   return res.data.data as TelecallerDashboardStats;
@@ -757,12 +771,63 @@ export const markLeadJunkApi = async (
   return res.data.data as LeadEntity;
 };
 
+/** Admin: restore junk leads in bulk and optionally assign during restore. */
+export const bulkRevertJunkLeadsApi = async (payload: {
+  leadIds?: number[];
+  telecallerId?: number;
+  counsellorId?: number;
+  assignments?: Array<{
+    leadId: number;
+    telecallerId?: number;
+    counsellorId?: number;
+    userId?: number;
+    userName?: string;
+    role?: "telecaller" | "counsellor";
+  }>;
+}) => {
+  const res = await api.post("/api/leads/bulk-revert-junk", payload);
+  return res.data.data as {
+    updated: LeadEntity[];
+    failed: Array<{ leadId: number; message: string }>;
+  };
+};
+
+/** Admin: restore dropped leads in bulk and optionally assign during restore. */
+export const bulkRevertDroppedLeadsApi = async (payload: {
+  leadIds?: number[];
+  telecallerId?: number;
+  counsellorId?: number;
+  assignments?: Array<{
+    leadId: number;
+    telecallerId?: number;
+    counsellorId?: number;
+    userId?: number;
+    userName?: string;
+    role?: "telecaller" | "counsellor";
+  }>;
+}) => {
+  const res = await api.post("/api/leads/bulk-revert-dropped", payload);
+  return res.data.data as {
+    updated: LeadEntity[];
+    failed: Array<{ leadId: number; message: string }>;
+  };
+};
+
 /** Admin: restore junk lead and optionally assign it during restore. */
 export const revertLeadJunkApi = async (
   leadId: number,
   payload?: { telecallerId?: number; counsellorId?: number }
 ) => {
   const res = await api.post(`/api/leads/${leadId}/revert-junk`, payload ?? {});
+  return res.data.data as LeadEntity;
+};
+
+/** Admin: restore dropped lead and optionally assign it during restore. */
+export const revertLeadDroppedApi = async (
+  leadId: number,
+  payload?: { telecallerId?: number; counsellorId?: number }
+) => {
+  const res = await api.post(`/api/leads/${leadId}/revert-dropped`, payload ?? {});
   return res.data.data as LeadEntity;
 };
 
@@ -800,7 +865,6 @@ export const addLeadActivityApi = async (
     activityType:
       | "note"
       | "followup"
-      | "call_log"
       | "assignment_change"
       | "counselor_assign";
     message?: string;

@@ -32,8 +32,7 @@ import {
   buildLeadListUrlFromReport,
   type LeadReportMetricKey,
 } from "@/lib/lead-report-metrics";
-import { type LeadDateFilterType } from "@/lib/lead-date-range";
-import { istYmdInclusiveRangeIso } from "@/lib/ist-date-range";
+import { type LeadDateFilterType, leadDateRangeParams } from "@/lib/lead-date-range";
 
 type DateFilterType = LeadDateFilterType;
 type UserLite = { id: number; fullName: string };
@@ -78,8 +77,8 @@ export default function TelecallerWiseLead() {
         : undefined;
     return {
       dateFilter,
-      customDateFrom: params.get("createdFrom") ?? undefined,
-      customDateTo: params.get("createdTo") ?? undefined,
+      customDateFrom: params.get("afterDate") ?? params.get("createdFrom") ?? undefined,
+      customDateTo: params.get("beforeDate") ?? params.get("createdTo") ?? undefined,
     };
   }, [searchStr]);
 
@@ -96,13 +95,10 @@ export default function TelecallerWiseLead() {
   const [telecallers, setTelecallers] = useState<UserLite[]>([]);
   const [summaryRows, setSummaryRows] = useState<TelecallerLeadSummaryRow[]>([]);
 
-  const rangeParams = useMemo(() => {
-    if (dateFilter === "custom" && customDateFrom && customDateTo) {
-      return istYmdInclusiveRangeIso(customDateFrom, customDateTo);
-    }
-    if (dateFilter === "all") return {};
-    return { dateFilter };
-  }, [dateFilter, customDateFrom, customDateTo]);
+  const rangeParams = useMemo(
+    () => leadDateRangeParams(dateFilter, customDateFrom, customDateTo),
+    [dateFilter, customDateFrom, customDateTo]
+  );
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -164,7 +160,7 @@ export default function TelecallerWiseLead() {
 
   const customLabel =
     dateFilter === "custom" && customDateFrom && customDateTo
-      ? `${format(new Date(customDateFrom), "d MMM")} - ${format(new Date(customDateTo), "d MMM yyyy")}`
+      ? `${format(new Date(customDateFrom), "d MMM ''yy")} – ${format(new Date(customDateTo), "d MMM ''yy")}`
       : null;
 
   const openLeadList = useCallback(
@@ -269,8 +265,8 @@ export default function TelecallerWiseLead() {
                     const qs = new URLSearchParams();
                     qs.set("from", "telecaller-wise");
                     qs.set("dateFilter", dateFilter);
-                    if (customDateFrom) qs.set("createdFrom", customDateFrom);
-                    if (customDateTo) qs.set("createdTo", customDateTo);
+                    if (customDateFrom) qs.set("afterDate", customDateFrom);
+                    if (customDateTo) qs.set("beforeDate", customDateTo);
                     setLocation(`/leads/telecaller/${telecaller.id}?${qs.toString()}`);
                   }}
                   className="w-full text-left grid grid-cols-[1.8fr_repeat(6,_1fr)] px-5 py-3.5 transition-colors hover:bg-muted/40 items-center"

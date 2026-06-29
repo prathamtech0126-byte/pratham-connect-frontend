@@ -4,7 +4,7 @@ import { DataTable } from "@/components/table/DataTable";
 import { TableToolbar } from "@/components/table/TableToolbar";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { formatCrmTimestamp } from "@/lib/format-crm-timestamp";
+import { formatTimestamp } from "@/lib/format-timestamp";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -442,8 +442,8 @@ export function ActivityLogView({ restrictRole }: { restrictRole?: string } = {}
       header: "Date & Time",
       cell: (item: ActivityLogItem) => (
         <div className="flex flex-col">
-          <span className="text-sm">{formatCrmTimestamp(item.timestamp, "date")}</span>
-          <span className="text-xs text-muted-foreground">{formatCrmTimestamp(item.timestamp, "time")}</span>
+          <span className="text-sm">{formatTimestamp(item.timestamp, "date")}</span>
+          <span className="text-xs text-muted-foreground">{formatTimestamp(item.timestamp, "time")}</span>
         </div>
       ),
       className: "w-[150px] text-right"
@@ -692,7 +692,7 @@ export function ActivityLogView({ restrictRole }: { restrictRole?: string } = {}
                     <div className="flex-1">
                       <p className="font-medium text-sm">{selectedActivity?.user.name}</p>
                       <p className="text-xs text-muted-foreground capitalize">
-                        {selectedActivity?.user.role.replace('_', ' ')} • {selectedActivity && formatCrmTimestamp(selectedActivity.timestamp, "datetime")}
+                        {selectedActivity?.user.role.replace('_', ' ')} • {selectedActivity && formatTimestamp(selectedActivity.timestamp, "datetime")}
                       </p>
                       {selectedActivity?.clientName && (
                         <p className="text-xs text-blue-600 mt-1">Client: {selectedActivity.clientName}</p>

@@ -34,7 +34,7 @@ interface ColFilters {
   productType: string;
   saleType: string;
   amount: string;
-  invoiceNo: string;      
+  invoiceNo: string;
   clientOwner: string;
   addedBy: string;
   sharedClient: string;
@@ -47,7 +47,7 @@ function formatAmount(raw: string): string {
 }
 
 const searchInput =
-  "w-full rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-0 transition-colors";
+  "w-full rounded-md border border-border bg-background px-2.5 py-1 text-[11px] text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-0 transition-colors";
 
 export default function PaymentsTable({
   data,
@@ -64,7 +64,7 @@ export default function PaymentsTable({
     productType: "",
     saleType: "",
     amount: "",
-    invoiceNo: "",          
+    invoiceNo: "",
     clientOwner: "",
     addedBy: "",
     sharedClient: "",
@@ -118,7 +118,7 @@ export default function PaymentsTable({
 
   if (data.length === 0) {
     return (
-      <div className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 py-8">
+      <div className="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/40 py-8">
         <p className="text-sm text-muted-foreground">
           {searchQuery.trim() ? "No payments match your search." : "No payments found for this period."}
         </p>
@@ -126,22 +126,22 @@ export default function PaymentsTable({
     );
   }
 
-  const thCls = "border border-slate-200 bg-slate-50 px-2 sm:px-3 py-2 text-left text-xs font-semibold text-slate-600 whitespace-nowrap";
-  const tdCls = "border border-slate-200 px-2 sm:px-3 py-1.5 text-xs";
+  const thCls = "border border-border bg-muted px-2 sm:px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap";
+  const tdCls = "border border-border px-2 sm:px-3 py-1.5 text-xs";
 
   return (
     <>
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full border-collapse text-sm">
           <thead>
             {/* ── Column labels ── */}
-            <tr className="bg-slate-50">
+            <tr className="bg-muted">
               <th className={`${thCls} text-center w-10`}>#</th>
               <th className={thCls}>
                 <button
                   type="button"
                   onClick={() => setDateSortOrder((p) => p === "none" ? "asc" : p === "asc" ? "desc" : "none")}
-                  className="inline-flex items-center gap-1 hover:text-slate-900"
+                  className="inline-flex items-center gap-1 hover:text-foreground"
                 >
                   Date
                   <span className="text-[10px]">
@@ -161,45 +161,45 @@ export default function PaymentsTable({
             </tr>
 
             {/* ── Column filter inputs ── */}
-            <tr className="bg-white">
-              <td className="border border-slate-200 px-2 py-1" />
-              <td className="border border-slate-200 px-2 py-1">
+            <tr className="bg-card">
+              <td className="border border-border px-2 py-1" />
+              <td className="border border-border px-2 py-1">
                 <input className={searchInput} placeholder="Search..." value={colFilters.date}
                   onChange={(e) => setFilter("date", e.target.value)} />
               </td>
-              <td className="border border-slate-200 px-2 py-1">
+              <td className="border border-border px-2 py-1">
                 <input className={searchInput} placeholder="Search..." value={colFilters.clientName}
                   onChange={(e) => setFilter("clientName", e.target.value)} />
               </td>
-              <td className="border border-slate-200 px-2 py-1">
+              <td className="border border-border px-2 py-1">
                 <input className={searchInput} placeholder="Search..." value={colFilters.paymentType}
                   onChange={(e) => setFilter("paymentType", e.target.value)} />
               </td>
-              <td className="border border-slate-200 px-2 py-1">
+              <td className="border border-border px-2 py-1">
                 <input className={searchInput} placeholder="Search..." value={colFilters.productType}
                   onChange={(e) => setFilter("productType", e.target.value)} />
               </td>
-              <td className="border border-slate-200 px-2 py-1">
+              <td className="border border-border px-2 py-1">
                 <input className={searchInput} placeholder="Search..." value={colFilters.saleType}
                   onChange={(e) => setFilter("saleType", e.target.value)} />
               </td>
-              <td className="border border-slate-200 px-2 py-1">
+              <td className="border border-border px-2 py-1">
                 <input className={`${searchInput} text-right`} placeholder="Search..." value={colFilters.amount}
                   onChange={(e) => setFilter("amount", e.target.value)} />
               </td>
-              <td className="border border-slate-200 px-2 py-1">
-                 <input className={searchInput} placeholder="Search..." value={colFilters.invoiceNo}
-                   onChange={(e) => setFilter("invoiceNo", e.target.value)}  />
-</td>
-              <td className="border border-slate-200 px-2 py-1">
+              <td className="border border-border px-2 py-1">
+                <input className={searchInput} placeholder="Search..." value={colFilters.invoiceNo}
+                  onChange={(e) => setFilter("invoiceNo", e.target.value)} />
+              </td>
+              <td className="border border-border px-2 py-1">
                 <input className={searchInput} placeholder="Search..." value={colFilters.clientOwner}
                   onChange={(e) => setFilter("clientOwner", e.target.value)} />
               </td>
-              <td className="border border-slate-200 px-2 py-1">
+              <td className="border border-border px-2 py-1">
                 <input className={searchInput} placeholder="Search..." value={colFilters.addedBy}
                   onChange={(e) => setFilter("addedBy", e.target.value)} />
               </td>
-              <td className="border border-slate-200 px-2 py-1">
+              <td className="border border-border px-2 py-1">
                 <input className={`${searchInput} text-center`} placeholder="Search..." value={colFilters.sharedClient}
                   onChange={(e) => setFilter("sharedClient", e.target.value)} />
               </td>
@@ -215,10 +215,10 @@ export default function PaymentsTable({
               </tr>
             ) : (
               filteredData.map((row, idx) => (
-                <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
-                  <td className={`${tdCls} text-center text-slate-400`}>{idx + 1}</td>
+                <tr key={idx} className={idx % 2 === 0 ? "bg-card" : "bg-muted/40"}>
+                  <td className={`${tdCls} text-center text-muted-foreground`}>{idx + 1}</td>
 
-                  <td className={`${tdCls} text-slate-600`}>{row.date}</td>
+                  <td className={`${tdCls} text-muted-foreground`}>{row.date}</td>
 
                   <td className={`${tdCls} font-medium`}>
                     {row.clientId ? (
@@ -230,25 +230,26 @@ export default function PaymentsTable({
                         {row.clientName}
                       </button>
                     ) : (
-                      <span className="text-slate-800">{row.clientName}</span>
+                      <span className="text-foreground">{row.clientName}</span>
                     )}
                   </td>
 
+                  <td className={`${tdCls} text-foreground`}>{row.paymentType || "-"}</td>
 
-                  <td className={`${tdCls} text-slate-700`}>{row.paymentType || "-"}</td>
+                  <td className={`${tdCls} text-foreground`}>{row.productType || "-"}</td>
 
-                  <td className={`${tdCls} text-slate-700`}>{row.productType || "-"}</td>
+                  <td className={`${tdCls} text-foreground`}>{row.saleType || "-"}</td>
 
-                  <td className={`${tdCls} text-slate-700`}>{row.saleType || "-"}</td>
-
-                  <td className={`${tdCls} text-right font-mono font-semibold text-slate-800`}>
+                  <td className={`${tdCls} text-right font-mono font-semibold text-foreground`}>
                     {formatAmount(row.amount)}
                   </td>
-                  <td className={`${tdCls} text-slate-600 font-mono text-xs`}>
-  {row.invoiceNo ?? <span className="text-slate-300">—</span>}
-</td>
+
+                  <td className={`${tdCls} text-muted-foreground font-mono text-xs`}>
+                    {row.invoiceNo ?? <span className="text-muted-foreground/40">—</span>}
+                  </td>
+
                   {/* Client Owner — pencil opens counsellor assignment */}
-                  <td className={`${tdCls} text-slate-600`}>
+                  <td className={`${tdCls} text-muted-foreground`}>
                     <span className="flex w-full items-center justify-between gap-2">
                       <span>{row.clientOwner}</span>
                       {row.paymentId && (
@@ -256,16 +257,16 @@ export default function PaymentsTable({
                           type="button"
                           title="Change client owner"
                           onClick={() => setAssignState({ row, field: "clientOwner" })}
-                          className="flex-shrink-0 inline-flex h-5 w-5 items-center justify-center rounded hover:bg-slate-200"
+                          className="flex-shrink-0 inline-flex h-5 w-5 items-center justify-center rounded hover:bg-muted"
                         >
-                          <Pencil className="h-3 w-3 text-slate-400" />
+                          <Pencil className="h-3 w-3 text-muted-foreground" />
                         </button>
                       )}
                     </span>
                   </td>
 
                   {/* Added By — pencil opens counsellor assignment */}
-                  <td className={`${tdCls} text-slate-600`}>
+                  <td className={`${tdCls} text-muted-foreground`}>
                     <span className="flex w-full items-center justify-between gap-2">
                       <span>{row.addedBy}</span>
                       {row.paymentId && (
@@ -273,9 +274,9 @@ export default function PaymentsTable({
                           type="button"
                           title="Change added by"
                           onClick={() => setAssignState({ row, field: "addedBy" })}
-                          className="flex-shrink-0 inline-flex h-5 w-5 items-center justify-center rounded hover:bg-slate-200"
+                          className="flex-shrink-0 inline-flex h-5 w-5 items-center justify-center rounded hover:bg-muted"
                         >
-                          <Pencil className="h-3 w-3 text-slate-400" />
+                          <Pencil className="h-3 w-3 text-muted-foreground" />
                         </button>
                       )}
                     </span>
@@ -283,9 +284,9 @@ export default function PaymentsTable({
 
                   <td className={`${tdCls} text-center`}>
                     {row.sharedClient === "Yes" ? (
-                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[10px]">Yes</Badge>
+                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 text-[10px]">Yes</Badge>
                     ) : (
-                      <Badge className="bg-red-100 text-red-600 hover:bg-red-100 text-[10px]">No</Badge>
+                      <Badge className="bg-red-100 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 text-[10px]">No</Badge>
                     )}
                   </td>
                 </tr>

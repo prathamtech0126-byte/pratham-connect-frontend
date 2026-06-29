@@ -55,14 +55,19 @@ import {
 import { pushLeadListPatch } from "@/lib/lead-list-sync";
 import { resolvePerformerDisplayName } from "@/lib/lead-performer";
 import { listPatchFromLeadUpdate } from "@/lib/lead-progress-rules";
-import { shouldIncludeLeadTimelineActivity } from "@/lib/lead-activity-display";
+import {
+  getLeadNoteDisplayMessage,
+  isLeadNotesSectionActivity,
+  normalizeLeadActivitiesForDisplay,
+  shouldIncludeLeadTimelineActivity,
+} from "@/lib/lead-activity-display";
 import {
   clampFollowupDateTime,
   getMinFollowupDateTime,
   getTomorrowMorning1030,
   isFollowupDateTimeAllowed,
 } from "@/lib/followup-datetime";
-import { toCrmApiTimestamp } from "@/lib/format-crm-timestamp";
+import { isValidLeadCity, LEAD_CITY_ERROR_MESSAGE } from "@/lib/lead-city-validation";
 import type { LeadDetailMeta } from "@/api/leads.api";
 import {
   resolveLeadSourceSelectValue,
@@ -173,22 +178,40 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
     [user, telecallers, counsellors]
   );
 
+  const activitiesRefreshRef = useRef<Promise<void> | null>(null);
+
   const refreshActivitiesFromServer = useCallback(async () => {
     if (!id || Number.isNaN(Number(id))) return;
-    try {
-      const res = await getLeadDetail(Number(id));
-      if (isMountedRef.current) {
-        setActivities(res.activities || []);
-        if (res.meta) setLeadMeta(res.meta);
+    if (activitiesRefreshRef.current) return activitiesRefreshRef.current;
+
+    activitiesRefreshRef.current = (async () => {
+      try {
+        const res = await getLeadDetail(Number(id));
+        if (isMountedRef.current) {
+          setActivities(res.activities || []);
+          if (res.meta) setLeadMeta(res.meta);
+        }
+      } catch {
+        /* keep existing activities on refresh failure */
+      } finally {
+        activitiesRefreshRef.current = null;
       }
-    } catch {
-      /* keep existing activities on refresh failure */
-    }
+    })();
+
+    return activitiesRefreshRef.current;
   }, [id]);
 
   const addLocalLeadUpdateActivity = useCallback(
-    (changes: { field: string; old: string; new: string }[]) => {
+    (
+      changes: { field: string; old: string; new: string }[],
+      options?: {
+        message?: string;
+        reasonNote?: string;
+        reasonType?: "eligibility" | "quality";
+      }
+    ) => {
       const performer = getPerformerName();
+      const reasonNote = options?.reasonNote?.trim();
       setActivities((prev) => [
         {
           id: -Date.now(),
@@ -196,13 +219,20 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
           userId: user?.id ? Number(user.id) : null,
           userName: performer,
           activityType: "lead_update",
-          message: `${performer} updated the lead`,
+          message: options?.message?.trim() || `${performer} updated the lead`,
           status: "completed",
           createdAt: new Date().toISOString(),
           meta: {
             eventType: "lead_updated",
             changes,
             performedByName: performer,
+            ...(reasonNote
+              ? {
+                  reasonNote,
+                  reasonType: options?.reasonType ?? null,
+                  showInNotes: true,
+                }
+              : {}),
           },
         },
         ...prev,
@@ -244,28 +274,25 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
     });
   }, []);
 
-  const fetchData = useCallback(
-    async (opts?: { silent?: boolean }) => {
-      if (!id || Number.isNaN(Number(id))) {
-        setPageLoading(false);
-        return;
-      }
-      if (!opts?.silent) setPageLoading(true);
-      try {
-        const res = await getLeadDetail(Number(id));
-        if (!isMountedRef.current) return;
-        applyDetailResponse(res);
-      } catch (err: any) {
-        if (!isMountedRef.current) return;
-        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
-        if (!opts?.silent) setLead(null);
-        toast({ title: "Error", description: "Failed to load lead details", variant: "destructive" });
-      } finally {
-        if (isMountedRef.current && !opts?.silent) setPageLoading(false);
-      }
-    },
-    [id, toast, applyDetailResponse]
-  );
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!id || Number.isNaN(Number(id))) {
+      setPageLoading(false);
+      return;
+    }
+    if (!opts?.silent) setPageLoading(true);
+    try {
+      const res = await getLeadDetail(Number(id));
+      if (!isMountedRef.current) return;
+      applyDetailResponse(res);
+    } catch (err: any) {
+      if (!isMountedRef.current) return;
+      if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+      if (!opts?.silent) setLead(null);
+      toast({ title: "Error", description: "Failed to load lead details", variant: "destructive" });
+    } finally {
+      if (isMountedRef.current && !opts?.silent) setPageLoading(false);
+    }
+  }, [id, applyDetailResponse, toast]);
 
   // 2. Fetch Dropdown Data (Mirroring AddLead)
   const fetchDropdownData = async () => {
@@ -302,8 +329,11 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
   useEffect(() => {
     void fetchData();
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     void fetchDropdownData();
-  }, [fetchData]);
+  }, [user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -337,7 +367,7 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
     }
 
     const { lead: updatedLead, activity: createdActivity } = await markLeadFollowupApi(lead.id, {
-      followupAt: toCrmApiTimestamp(scheduled),
+      followupAt: scheduled.toISOString(),
       message: fNote?.trim() || null,
     });
 
@@ -371,6 +401,15 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
   // --- Handlers ---
   const handleSaveEdit = async () => {
     if (!lead) return;
+    const cityValue = editForm.city?.trim() ?? "";
+    if (cityValue && !isValidLeadCity(cityValue)) {
+      toast({
+        title: "Update Failed",
+        description: LEAD_CITY_ERROR_MESSAGE,
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       const q = toLeadQualityOrNull(editForm.leadQuality);
       const e = toEligibilityOrNull(editForm.eligibilityStatus);
@@ -502,12 +541,9 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
   const transferDisabledReason = (() => {
     if (!lead || isLeadReadOnly(lead, user?.role)) return undefined;
-    if (leadMeta?.pendingFollowUp) return "Complete the follow-up before transfer";
+    if (leadMeta?.pendingFollowUp) return "Complete your follow-up for transfer";
     if (!lead.eligibilityStatus || !lead.leadQuality) {
       return "Set eligibility and lead quality before transfer";
-    }
-    if (lead.assignmentStatus === "transferred" && leadMeta?.counsellorHasActivity) {
-      return "Counsellor has already worked on this lead — contact admin to re-transfer";
     }
     return undefined;
   })();
@@ -639,15 +675,28 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
         listPatchFromLeadUpdate(updated, fieldPatch, lead.progressStatus)
       );
 
-      await refreshActivitiesFromServer();
-
-      if (reason?.trim()) {
-        const reasonMsg =
-          type === "eligibility"
-            ? `Eligibility marked as ${humanizeEnum(next)} — ${reason.trim()}`
-            : `Lead quality marked as ${humanizeEnum(next)} — ${reason.trim()}`;
-        await refreshActivitiesFromServer();
-      }
+      const fieldLabel = type === "eligibility" ? "Eligibility" : "Quality";
+      const reasonMsg = reason?.trim()
+        ? type === "eligibility"
+          ? `Eligibility marked as ${humanizeEnum(next)} — ${reason.trim()}`
+          : `Lead quality marked as ${humanizeEnum(next)} — ${reason.trim()}`
+        : undefined;
+      addLocalLeadUpdateActivity(
+        [
+          {
+            field: fieldLabel,
+            old: humanizeEnum(
+              type === "eligibility" ? lead.eligibilityStatus : lead.leadQuality
+            ),
+            new: humanizeEnum(next),
+          },
+        ],
+        {
+          message: reasonMsg,
+          reasonNote: reasonMsg,
+          reasonType: reasonMsg ? type : undefined,
+        }
+      );
 
       toast({ title: type === "eligibility" ? "Eligibility updated" : "Lead quality updated" });
     } catch {
@@ -662,7 +711,8 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
   const handleSetEligibility = (value?: LeadEntity["eligibilityStatus"]) => {
     const next = value ?? eligibilityValue;
-    if (!lead || !next || isLeadReadOnly(lead, user?.role)) return;
+    if (!lead || !next || isLeadReadOnly(lead, user?.role) || submitting) return;
+    if (next === lead.eligibilityStatus) return;
     if (needsReasonForUpdate("eligibility", next)) {
       setPendingFieldUpdate({ type: "eligibility", value: next });
       setReasonText("");
@@ -674,7 +724,8 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
 
   const handleSetQuality = (value?: LeadEntity["leadQuality"]) => {
     const next = value ?? qualityValue;
-    if (!lead || !next || isLeadReadOnly(lead, user?.role)) return;
+    if (!lead || !next || isLeadReadOnly(lead, user?.role) || submitting) return;
+    if (next === lead.leadQuality) return;
     if (needsReasonForUpdate("quality", next)) {
       setPendingFieldUpdate({ type: "quality", value: next });
       setReasonText("");
@@ -964,14 +1015,12 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
   const junk = isLeadJunk(lead);
   const converted = isLeadConverted(lead);
 
-  const isNoteActivity = (a: LeadActivityEntity) =>
-    a.activityType === "note" &&
-    (a.meta?.isReasonNote === true ||
-      (!a.meta?.eventType && !(a.message ?? "").toLowerCase().includes("updated the lead")));
-
-  const noteActivities = activities.filter(isNoteActivity);
-  const followupActivities = activities.filter((a) => a.activityType === "followup");
-  const timelineItems = activities.filter(shouldIncludeLeadTimelineActivity);
+  const displayActivities = normalizeLeadActivitiesForDisplay(activities);
+  const noteActivities = displayActivities.filter(isLeadNotesSectionActivity);
+  const followupActivities = displayActivities.filter(
+    (a) => a.activityType === "followup" && a.status !== "cancelled"
+  );
+  const timelineItems = displayActivities.filter(shouldIncludeLeadTimelineActivity);
 
   const openTransfer = () => {
     if (!canTransferToCounsellor(lead, leadMeta) && !leadMeta?.canReassignCounsellor) {
@@ -1014,14 +1063,15 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       telecallers={telecallers}
       noteActivities={noteActivities.map((a) => ({
         id: a.id,
-        message: a.message ?? "",
+        message: getLeadNoteDisplayMessage(a),
         createdAt: a.createdAt,
         userName: a.userName ?? null,
         canEdit:
+          a.activityType === "note" &&
           !readOnly &&
           (user?.role !== "telecaller" ||
             a.userId == null ||
-            (user?.id != null && a.userId === Number(user.id))),
+            Number(a.userId) === Number(user?.id)),
       }))}
       followupActivities={followupActivities.map((a) => ({
         id: a.id,
@@ -1030,9 +1080,10 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
         status: a.status,
         userName: a.userName ?? null,
         canComplete:
-          user?.role === "telecaller"
-            ? Boolean(a.canComplete)
-            : !readOnly && a.status === "pending",
+          a.status === "pending" &&
+          (typeof a.canComplete === "boolean"
+            ? a.canComplete
+            : !readOnly && !telecallerTransferredViewOnly),
       }))}
       timelineItems={timelineItems}
       showAddNote={showAddNote}
@@ -1148,7 +1199,11 @@ const [pickerOpen, setPickerOpen] = useState(false);   // New state for picker
       <Dialog open={showTransferModal} onOpenChange={setShowTransferModal}>
   <DialogContent>
     <DialogHeader>
-      <DialogTitle>Transfer to Counsellor / Manager</DialogTitle>
+      <DialogTitle>
+        {leadMeta?.canReassignCounsellor
+          ? "Transfer to another counsellor"
+          : "Transfer to Counsellor / Manager"}
+      </DialogTitle>
     </DialogHeader>
     <div className="py-4 space-y-4">
       <div className="grid gap-2">

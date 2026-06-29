@@ -6,8 +6,11 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import fs from "fs";
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import { createRequire } from "module";
+const _require = createRequire(import.meta.url);
+const pkg = _require("./package.json") as { version: string };
+
+
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 /** Build-time version for cache busting: new deploy = new version, so clients reload. */
@@ -21,6 +24,7 @@ function versionPlugin() {
       return {
         define: {
           "import.meta.env.VITE_APP_VERSION": JSON.stringify(version),
+          __APP_VERSION__: JSON.stringify(pkg.version),
         },
       };
     },
@@ -43,6 +47,7 @@ export default defineConfig(({ mode }) => {
   return {
     // Frontend lives in /client
     root: "client",
+    publicDir: path.resolve(__dirname, "client/public"),
 
     plugins: [
       react(),
@@ -77,6 +82,12 @@ export default defineConfig(({ mode }) => {
         "/api": {
           target: env.VITE_API_URL,
           changeOrigin: true,
+          secure: false,
+        },
+        "/socket.io": {
+          target: env.VITE_API_URL,
+          changeOrigin: true,
+          ws: true,
           secure: false,
         },
       },

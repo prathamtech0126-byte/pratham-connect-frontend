@@ -2,12 +2,13 @@ import {
   AlertTriangle,
   Bell,
   CalendarClock,
+  FileText,
   Megaphone,
   UserPlus,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { formatCrmTimestamp } from "@/lib/format-crm-timestamp";
+import { formatTimestamp } from "@/lib/format-timestamp";
 import type { NotificationItem } from "../types/notification.types";
 
 export function isBlockingPriority(priority: string): boolean {
@@ -23,6 +24,7 @@ export function getNotificationIcon(type: string): LucideIcon {
     return Megaphone;
   }
   if (type.startsWith("payment_")) return Wallet;
+  if (type.startsWith("visa_case_")) return FileText;
   if (type.includes("deadline") || type.includes("overdue")) return AlertTriangle;
   return Bell;
 }
@@ -40,10 +42,58 @@ export function getNotificationAccent(priority: string): string {
   }
 }
 
+export function isFollowupNotificationType(type: string): boolean {
+  return (
+    type === "lead_followup_reminder" ||
+    type === "lead_followup_overdue" ||
+    type === "lead_followup_manager_escalation" ||
+    type === "lead_followup_admin_escalation"
+  );
+}
+
+/** Follow-up is due now (not just "coming up" reminder). */
+export function isFollowupDueNotification(item: NotificationItem): boolean {
+  if (item.type === "lead_followup_overdue") {
+    const phase = (item.meta as { phase?: string } | undefined)?.phase;
+    return phase === "five_hour";
+  }
+  if (item.type !== "lead_followup_reminder") return false;
+  const phase = (item.meta as { phase?: string } | undefined)?.phase;
+  return phase === "due" || item.title === "Follow-up now";
+}
+
+/** Full-screen acknowledge card (partial payment, follow-up due, etc.). */
+export function shouldShowBlockingModal(item: NotificationItem): boolean {
+  if (item.type === "payment_partial" || item.type === "payment_pending_approval") {
+    return true;
+  }
+  if (isFollowupDueNotification(item)) return true;
+  return false;
+}
+
+/** Partial payment / approval requests — always alert with sound. */
+export function isPaymentApprovalNotification(item: NotificationItem): boolean {
+  return item.type === "payment_partial" || item.type === "payment_pending_approval";
+}
+
+/** Play alert sound for these notification types (instant on socket/sync). */
+export function shouldPlayAlertSound(item: NotificationItem): boolean {
+  if (isPaymentApprovalNotification(item)) return true;
+  if (shouldShowBlockingModal(item)) return true;
+  if (isFollowupNotificationType(item.type)) return true;
+  if (
+    item.type === "lead_assignment_batch" ||
+    (item.meta && (item.meta as { batch?: boolean }).batch === true)
+  ) {
+    return true;
+  }
+  return isBlockingPriority(item.priority);
+}
+
 /** Correct IST time in follow-up notification copy (inbox + blocking popup). */
 export function formatFollowupNotificationBody(item: NotificationItem): string {
   const meta = item.meta as { followupAt?: string } | undefined;
-  const when = meta?.followupAt ? formatCrmTimestamp(meta.followupAt, "datetime") : null;
+  const when = meta?.followupAt ? formatTimestamp(meta.followupAt, "datetime") : null;
   if (!when || !item.type.startsWith("lead_followup")) {
     return item.body;
   }
@@ -78,6 +128,8 @@ export function filterByCategory(
       (n) =>
         isBlockingPriority(n.priority) ||
         n.type === "lead_followup_overdue" ||
+        n.type === "lead_followup_manager_escalation" ||
+        n.type === "lead_followup_admin_escalation" ||
         (n.category === "alerts" && n.type !== "lead_followup_reminder")
     );
   }

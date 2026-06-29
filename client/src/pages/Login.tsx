@@ -516,6 +516,8 @@ import api, { setInMemoryToken, setCsrfToken } from "@/lib/api";
 
 import { useToast } from "@/hooks/use-toast";
 
+const APP_VERSION = __APP_VERSION__;
+
 const resolveUserIdFromResponse = (data: any): string | null => {
     const candidates = [
         data?.userId,
@@ -637,6 +639,7 @@ export default function Login() {
                 username: response.data.username || username,
                 name: response.data.name || response.data.fullname || username.split("@")[0],
                 role: mappedRole,
+                backendRole: role,
             };
 
             login(mappedRole, userData);
@@ -687,27 +690,27 @@ export default function Login() {
 
     return (
         <div
-            className="min-h-screen w-full flex items-center justify-center bg-white dark:bg-gray-950 transition-colors duration-300 relative"
+            className="min-h-screen w-full flex items-center justify-center bg-background transition-colors duration-300 relative"
             onKeyDown={(e) => {
                 if (e.key === "Enter") {
                     handleLogin();
                 }
             }}
         >
-            {/* Simple clean background - no dotted pattern */}
-            <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950" />
+            {/* Background gradient using theme tokens */}
+            <div className="absolute inset-0 bg-gradient-to-br from-background to-muted" />
 
             {/* Theme Toggle - Top Right */}
             <div className="absolute top-4 right-4 z-50">
                 <ModeToggle />
             </div>
 
-            {/* Main Card Container - Increased width to 480px */}
+            {/* Main Card Container */}
             <div className="w-full max-w-[480px] px-4 relative z-10">
-                <Card className="border-0 shadow-lg bg-white dark:bg-gray-900 rounded-2xl">
+                <Card className="border border-border shadow-lg bg-card rounded-2xl">
                     <CardContent className="pt-10 pb-10 px-8">
                         <div className="space-y-6">
-                            {/* Logo - Your existing logo */}
+                            {/* Logo */}
                             <div className="flex justify-center mb-2">
                                 <img
                                     src={logoLight}
@@ -716,23 +719,23 @@ export default function Login() {
                                 />
                             </div>
 
-                            {/* Welcome Section - Simplified as per image */}
+                            {/* Welcome Section */}
                             <div className="text-center space-y-1">
-                                <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
+                                <h2 className="text-2xl font-semibold text-foreground tracking-tight">
                                     Welcome Back
                                 </h2>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                <p className="text-sm text-muted-foreground">
                                     Sign in to your workspace
                                 </p>
                             </div>
 
-                            {/* Form Fields - Clean and minimal */}
+                            {/* Form Fields */}
                             <div className="space-y-5 mt-4">
                                 {/* Email Field */}
                                 <div className="space-y-1">
                                     <Label
                                         htmlFor="username"
-                                        className="text-gray-700 dark:text-gray-300 text-sm font-medium"
+                                        className="text-foreground text-sm font-medium"
                                     >
                                         Email Address
                                     </Label>
@@ -750,7 +753,7 @@ export default function Login() {
                                                 }));
                                             }
                                         }}
-                                        className={`h-11 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-gray-400/30 focus:border-gray-400 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 ${fieldErrors.username ? "border-red-500" : ""}`}
+                                        className={`h-11 bg-background border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary text-foreground placeholder:text-muted-foreground ${fieldErrors.username ? "border-destructive" : ""}`}
                                     />
                                 </div>
 
@@ -758,7 +761,7 @@ export default function Login() {
                                 <div className="space-y-1">
                                     <Label
                                         htmlFor="password"
-                                        className="text-gray-700 dark:text-gray-300 text-sm font-medium"
+                                        className="text-foreground text-sm font-medium"
                                     >
                                         Password
                                     </Label>
@@ -778,13 +781,13 @@ export default function Login() {
                                                 }
                                             }}
                                             autoComplete="current-password"
-                                            className={`h-11 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-gray-400/30 focus:border-gray-400 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 pr-10 ${fieldErrors.password ? "border-red-500" : ""}`}
+                                            className={`h-11 bg-background border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary text-foreground placeholder:text-muted-foreground pr-10 ${fieldErrors.password ? "border-destructive" : ""}`}
                                         />
                                         <button
                                             type="button"
                                             tabIndex={-1}
                                             onClick={() => setShowPassword((p) => !p)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 focus:outline-none"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
                                             aria-label={showPassword ? "Hide password" : "Show password"}
                                         >
                                             {showPassword ? (
@@ -798,16 +801,16 @@ export default function Login() {
 
                                 {/* Error Message */}
                                 {errorMessage && (
-                                    <p className="text-xs font-medium text-red-500 dark:text-red-400 text-center">
+                                    <p className="text-xs font-medium text-destructive text-center">
                                         {errorMessage}
                                     </p>
                                 )}
 
-                                {/* Sign In Button - Clean and simple */}
+                                {/* Sign In Button */}
                                 <Button
                                     type="button"
                                     onClick={() => handleLogin()}
-                                    className="w-full h-11 text-sm font-medium bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 dark:text-gray-900 text-white rounded-xl transition-all duration-200 mt-2"
+                                    className="w-full h-11 text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl transition-all duration-200 mt-2"
                                     disabled={isLoading}
                                 >
                                     {isLoading ? "Signing in..." : "Sign In"}
@@ -819,7 +822,7 @@ export default function Login() {
                                         errorMessage.includes("timeout") ||
                                         errorMessage.includes("spinning up") ||
                                         errorMessage.includes("CORS")) && (
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
+                                        <p className="text-xs text-muted-foreground text-center mt-2">
                                             Wait 30–60 seconds for the server to wake up, then try again.
                                         </p>
                                     )}
@@ -829,8 +832,11 @@ export default function Login() {
                 </Card>
 
                 {/* Footer */}
-                <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
+                <p className="text-center text-xs text-muted-foreground mt-6">
                     © {new Date().getFullYear()} Pratham International. All rights reserved.
+                </p>
+                <p className="text-center text-xs text-muted-foreground/50 mt-1">
+                    v{APP_VERSION}
                 </p>
             </div>
         </div>

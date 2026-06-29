@@ -17,7 +17,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { formatCrmTimestamp } from "@/lib/format-crm-timestamp";
+import { formatTimestamp } from "@/lib/format-timestamp";
 import { frontDeskApi, ActivityLogEntry } from "@/api/frontdesk.api";
 import { useAuth } from "@/context/auth-context";
 
@@ -143,8 +143,8 @@ export default function FrontDeskActivity() {
       className: "w-[150px] text-right",
       cell: (entry: ActivityLogEntry) => (
         <div className="flex flex-col">
-          <span className="text-sm">{entry.createdAt ? formatCrmTimestamp(entry.createdAt, "date") : "—"}</span>
-          <span className="text-xs text-muted-foreground">{entry.createdAt ? formatCrmTimestamp(entry.createdAt, "time") : ""}</span>
+          <span className="text-sm">{entry.createdAt ? formatTimestamp(entry.createdAt, "date") : "—"}</span>
+          <span className="text-xs text-muted-foreground">{entry.createdAt ? formatTimestamp(entry.createdAt, "time") : ""}</span>
         </div>
       ),
     },

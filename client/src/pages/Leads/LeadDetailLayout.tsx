@@ -1,5 +1,4 @@
-import { format } from "date-fns";
-import { formatCrmTimestamp } from "@/lib/format-crm-timestamp";
+import { formatTimestamp } from "@/lib/format-timestamp";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -68,7 +67,7 @@ function humanizeEnum(value: string) {
 
 function formatDateTime(value?: string | null) {
   if (!value) return "—";
-  return formatCrmTimestamp(value, "datetime");
+  return formatTimestamp(value, "datetime");
 }
 
 function formatCustomAnswer(val: unknown): string {
@@ -129,7 +128,13 @@ export type LeadDetailLayoutProps = {
   typeOptions: { id: number; saleType: string }[];
   counsellors: { id: number; fullName: string }[];
   telecallers: { id: number; fullName: string }[];
-  noteActivities: { id: number; message?: string; createdAt: string; userName?: string | null; canEdit?: boolean }[];
+  noteActivities: {
+    id: number;
+    message?: string;
+    createdAt: string;
+    userName?: string | null;
+    canEdit?: boolean;
+  }[];
   followupActivities: {
     id: number;
     followupAt?: string;
@@ -240,6 +245,14 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
     canEditLeadSource = false,
   } = props;
 
+  const showTransferToCounsellor =
+    !isCounsellor &&
+    !canReassign &&
+    !isJunk &&
+    !isConverted &&
+    !readOnly &&
+    lead.assignmentStatus !== "transferred";
+
   const sortedTimelineItems = sortTimelineActivities(timelineItems, timelineNewestFirst);
 
   const customAnswers =
@@ -299,7 +312,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
   const readOnlyLabel = isJunk
     ? "Read only — junk"
     : telecallerTransferredViewOnly
-      ? "View only — Lead Is Transferred To Counsellor"
+      ? "View only"
       : isConverted
         ? "Read only — converted"
         : "Read only";
@@ -313,8 +326,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
 
       {telecallerTransferredViewOnly && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          This lead is with a counsellor. You can view notes, follow-ups, and the full timeline, but
-          you cannot add or edit notes or complete counsellor follow-ups.
+          This lead is with a counsellor. You can not modify lead details
         </div>
       )}
 
@@ -365,17 +377,24 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                     Junk
                   </Button>
                 )}
-                {!isCounsellor && (
-                  <Button
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={submitting || (!canTransfer && !canReassign)}
-                    title={transferDisabledReason}
-                    onClick={onTransfer}
-                  >
-                    <Send className="h-4 w-4" />
-                    {transferButtonLabel}
-                  </Button>
+                {showTransferToCounsellor && (
+                  <div className="flex flex-col items-end gap-0.5 shrink-0">
+                    <Button
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={submitting || !canTransfer}
+                      title={leadMeta?.pendingFollowUp ? transferDisabledReason : undefined}
+                      onClick={onTransfer}
+                    >
+                      <Send className="h-4 w-4" />
+                      {transferButtonLabel}
+                    </Button>
+                    {leadMeta?.pendingFollowUp && !canTransfer && (
+                      <p className="text-[11px] font-medium text-amber-700 text-right leading-tight max-w-[220px]">
+                        Complete your follow-up for transfer
+                      </p>
+                    )}
+                  </div>
                 )}
                 {isCounsellor && (
                   <>
@@ -671,7 +690,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                       Lead note
                     </p>
                     <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm whitespace-pre-wrap break-words break-all min-w-0 max-w-full overflow-hidden [overflow-wrap:anywhere]">
-                      {lead.latestNote?.trim() || "No note yet."}
+                      {lead.latestNote?.trim() || "Not added"}
                     </div>
                   </div>
 
@@ -744,7 +763,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
               )}
               {noteActivities.length === 0 && !showAddNote && (
                 <div className="min-h-[500px] flex items-center justify-center rounded-lg border border-dashed bg-muted/20">
-                  <p className="text-sm text-muted-foreground text-center">No notes yet.</p>
+                  <p className="text-sm text-muted-foreground text-center">Not added</p>
                 </div>
               )}
               {noteActivities.map((n) => {
@@ -780,11 +799,18 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                         </>
                       ) : (
                         <div className="flex justify-between gap-4">
-                          <p className="text-sm flex-1 break-words break-all min-w-0 [overflow-wrap:anywhere]">
-                            {n.message}
-                          </p>
+                          <div className="min-w-0 flex-1 space-y-1">
+                            {n.userName && (
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                {n.userName}
+                              </p>
+                            )}
+                            <p className="text-sm break-words break-all min-w-0 [overflow-wrap:anywhere]">
+                              {n.message}
+                            </p>
+                          </div>
                           <div className="flex flex-col items-end gap-2 shrink-0">
-                            {n.canEdit && (
+                            {!readOnly && n.canEdit !== false && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -835,7 +861,9 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold">{formatDateTime(f.followupAt)}</p>
                           {f.userName && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{f.userName}</p>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mt-0.5">
+                              Scheduled by {f.userName}
+                            </p>
                           )}
                           {f.message && (
                             <p className="text-sm text-muted-foreground mt-0.5 break-words break-all whitespace-pre-wrap">
@@ -904,7 +932,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                     </p>
                   </div>
                 </div>
-                {!readOnly && !isCounsellor && (
+                {(canReassign && !isCounsellor) && (
                   <Button variant="link" size="sm" className="h-auto px-0 text-primary shrink-0" onClick={onTransfer}>
                     Change
                   </Button>
@@ -939,7 +967,6 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                     const isNote = item.activityType === "note";
                     const isFollowup = item.activityType === "followup";
                     const followupCompleted = isFollowup && item.status === "completed";
-                    const isCall = item.activityType === "call_log";
                     const isLeadUpdate =
                       item.activityType === "lead_update" || item.activityType === "lead_created";
                     const formatted = formatLeadActivityDisplay(item, { counsellors, telecallers });
@@ -951,9 +978,8 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                             isNote && "bg-blue-50 text-blue-600",
                             isFollowup && !followupCompleted && "bg-amber-50 text-amber-600",
                             followupCompleted && "bg-emerald-50 text-emerald-600",
-                            isCall && "bg-violet-50 text-violet-600",
                             isLeadUpdate && "bg-slate-100 text-slate-700",
-                            !isNote && !isFollowup && !isCall && !isLeadUpdate && "bg-emerald-50 text-emerald-600"
+                            !isNote && !isFollowup && !isLeadUpdate && "bg-emerald-50 text-emerald-600"
                           )}
                         >
                           {isNote ? (
@@ -965,8 +991,6 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                                 followupCompleted ? "text-emerald-600" : "text-amber-600"
                               )}
                             />
-                          ) : isCall ? (
-                            <Phone className="h-3.5 w-3.5" />
                           ) : (
                             <CheckCircle2 className="h-3.5 w-3.5" />
                           )}
@@ -984,7 +1008,7 @@ export function LeadDetailLayout(props: LeadDetailLayoutProps) {
                             </p>
                           ))}
                           <p className="text-[10px] text-muted-foreground/80 mt-1">
-                            {format(new Date(item.createdAt), "dd MMM yyyy, hh:mm a")}
+                            {formatTimestamp(item.createdAt, "datetime")}
                           </p>
                         </div>
                       </div>

@@ -4,6 +4,7 @@ import { Topbar } from "./Topbar";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import { cn } from "@/lib/utils";
+import { useModulesRealtime } from "@/hooks/useModulesRealtime";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  useModulesRealtime();
   const isCollapsed = !isSidebarHovered;
 
   return (

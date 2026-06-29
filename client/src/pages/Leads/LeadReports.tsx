@@ -48,7 +48,12 @@ export default function LeadReports() {
   const apiParams = leadDateRangeParams(dateFilter, customDateFrom, customDateTo);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-lead-report-stats", apiParams.dateFilter, apiParams.afterDate, apiParams.beforeDate],
+    queryKey: [
+      "admin-lead-report-stats",
+      dateFilter,
+      customDateFrom,
+      customDateTo,
+    ],
     queryFn: () => getAdminLeadReportStats(apiParams),
     staleTime: 60_000,
   });
@@ -60,7 +65,7 @@ export default function LeadReports() {
   const typeBreakdown = data?.typeBreakdown ?? [];
 
   const customLabel = dateFilter === "custom" && customDateFrom && customDateTo
-    ? `${format(new Date(`${customDateFrom}T12:00:00+05:30`), "d MMM")} – ${format(new Date(`${customDateTo}T12:00:00+05:30`), "d MMM yyyy")}`
+    ? `${format(new Date(`${customDateFrom}T12:00:00+05:30`), "d MMM ''yy")} – ${format(new Date(`${customDateTo}T12:00:00+05:30`), "d MMM ''yy")}`
     : null;
 
   const openLeadList = useCallback(
