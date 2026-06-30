@@ -795,11 +795,13 @@ import {
   fetchCategories,
   fetchCountries,
   fetchChecklists,
+  fetchChecklistDetail,
   createCountry,
   type CreateChecklistData,
   type CreateSectionData,
   type CreateItemData,
   type ChecklistSummary,
+  type Section,
 } from '@/api/checklist.api';
 import { COUNTRY_LIST } from '@/data/countries';
 
@@ -850,6 +852,12 @@ export default function AddChecklistPage() {
   const [selectedChecklistId, setSelectedChecklistId] = useState<string>('');
   const [selectedChecklistTitle, setSelectedChecklistTitle] = useState<string>('');
   const [checklistSearch, setChecklistSearch] = useState<string>('');
+
+  // Existing sections of the selected checklist (shown in "existing" mode)
+  const [existingSections, setExistingSections] = useState<Section[]>([]);
+  const [loadingExistingSections, setLoadingExistingSections] = useState(false);
+  // New documents to add into an existing section, keyed by section id
+  const [existingSectionNewItems, setExistingSectionNewItems] = useState<Record<string, ItemForm[]>>({});
   
   // Checklist form state
   const [checklistData, setChecklistData] = useState<CreateChecklistData>({
@@ -959,6 +967,8 @@ export default function AddChecklistPage() {
     setSelectedChecklistTitle('');
     setCreatedChecklistId(null);
     setChecklistSearch('');
+    setExistingSections([]);
+    setExistingSectionNewItems({});
     if (newMode === 'existing') {
       fetchExistingChecklists();
     }
@@ -972,6 +982,8 @@ export default function AddChecklistPage() {
       setSelectedChecklistTitle('');
       setCreatedChecklistId(null);
       setChecklistSearch('');
+      setExistingSections([]);
+      setExistingSectionNewItems({});
       setSuccess(null);
       setError(null);
     }
@@ -1019,7 +1031,7 @@ export default function AddChecklistPage() {
     }
   };
 
-  const handleExistingChecklistSelect = (checklistId: string) => {
+  const handleExistingChecklistSelect = async (checklistId: string) => {
     const selected = existingChecklists.find(c => c.id === checklistId);
     if (selected) {
       setSelectedChecklistId(checklistId);
@@ -1027,6 +1039,21 @@ export default function AddChecklistPage() {
       setCreatedChecklistId(checklistId);
       setSuccess(`"${selected.title}" selected. You can now add sections and documents below.`);
       setActiveTab('sections');
+
+      // Load the checklist's existing sections so the user can see what's already there
+      setExistingSections([]);
+      setExistingSectionNewItems({});
+      setLoadingExistingSections(true);
+      try {
+        const detail = await fetchChecklistDetail(selected.slug);
+        const sorted = (detail.sections || []).slice().sort((a, b) => a.displayOrder - b.displayOrder);
+        setExistingSections(sorted);
+      } catch (err) {
+        console.error('Error fetching existing sections:', err);
+        setExistingSections([]);
+      } finally {
+        setLoadingExistingSections(false);
+      }
     }
   };
 
@@ -1073,6 +1100,38 @@ export default function AddChecklistPage() {
     setSections(updated);
   };
 
+  // ── New documents on an EXISTING section ──────────────────────────────────
+  const addExistingItem = (sectionId: string, currentItemCount: number) => {
+    setExistingSectionNewItems((prev) => {
+      const list = prev[sectionId] ? [...prev[sectionId]] : [];
+      list.push({
+        name: '',
+        notes: '',
+        isMandatory: true,
+        isConditional: false,
+        conditionText: '',
+        quantityNote: '',
+        displayOrder: currentItemCount + list.length,
+      });
+      return { ...prev, [sectionId]: list };
+    });
+  };
+
+  const removeExistingItem = (sectionId: string, itemIndex: number) => {
+    setExistingSectionNewItems((prev) => {
+      const list = (prev[sectionId] || []).filter((_, i) => i !== itemIndex);
+      return { ...prev, [sectionId]: list };
+    });
+  };
+
+  const updateExistingItem = (sectionId: string, itemIndex: number, field: keyof ItemForm, value: any) => {
+    setExistingSectionNewItems((prev) => {
+      const list = [...(prev[sectionId] || [])];
+      list[itemIndex] = { ...list[itemIndex], [field]: value };
+      return { ...prev, [sectionId]: list };
+    });
+  };
+
   const handleSectionsSubmit = async () => {
     if (!createdChecklistId) {
       setError('No checklist selected. Please create a new checklist or select an existing one before adding sections.');
@@ -1086,10 +1145,30 @@ export default function AddChecklistPage() {
     try {
       let sectionCount = 0;
       let itemCount = 0;
-      
+
+      // 1. Add new documents to EXISTING sections
+      for (const section of existingSections) {
+        const newItems = existingSectionNewItems[section.id] || [];
+        for (const item of newItems) {
+          if (!item.name) continue;
+
+          await createItem(section.id, {
+            name: item.name,
+            notes: item.notes,
+            isMandatory: item.isMandatory,
+            isConditional: item.isConditional,
+            conditionText: item.conditionText,
+            quantityNote: item.quantityNote,
+            displayOrder: item.displayOrder,
+          });
+          itemCount++;
+        }
+      }
+
+      // 2. Create brand-new sections (and their documents)
       for (const section of sections) {
         if (!section.title) continue;
-        
+
         const sectionResult = await createSection(createdChecklistId, {
           title: section.title,
           description: section.description,
@@ -1097,13 +1176,13 @@ export default function AddChecklistPage() {
           isConditional: section.isConditional,
           conditionText: section.conditionText,
         });
-        
+
         sectionCount++;
         const sectionId = sectionResult.data.id;
-        
+
         for (const item of section.items) {
           if (!item.name) continue;
-          
+
           await createItem(sectionId, {
             name: item.name,
             notes: item.notes,
@@ -1116,7 +1195,13 @@ export default function AddChecklistPage() {
           itemCount++;
         }
       }
-      
+
+      if (sectionCount === 0 && itemCount === 0) {
+        setError('Nothing to save. Add a document to an existing section or create a new section first.');
+        setLoading(false);
+        return;
+      }
+
       setSuccess(
         `${sectionCount} section${sectionCount !== 1 ? 's' : ''} and ${itemCount} document${itemCount !== 1 ? 's' : ''} added successfully. Redirecting to checklists…`
       );
@@ -1124,6 +1209,7 @@ export default function AddChecklistPage() {
       setSections([
         { title: '', description: '', displayOrder: sections.length, isConditional: false, conditionText: '', items: [] }
       ]);
+      setExistingSectionNewItems({});
 
       setTimeout(() => {
         setLocation('/checklists');
@@ -1614,6 +1700,8 @@ export default function AddChecklistPage() {
                             setCreatedChecklistId(null);
                             setSuccess(null);
                             setChecklistSearch('');
+                            setExistingSections([]);
+                            setExistingSectionNewItems({});
                           }}
                           className="shrink-0 text-xs text-slate-500 hover:text-red-500 underline underline-offset-2 transition-colors"
                         >
@@ -1658,6 +1746,195 @@ export default function AddChecklistPage() {
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="space-y-6">
+                  {/* Existing sections in the selected checklist (read-only) */}
+                  {mode === 'existing' && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-[#0063cc]" />
+                          Existing Sections
+                          {!loadingExistingSections && (
+                            <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100">
+                              {existingSections.length}
+                            </Badge>
+                          )}
+                        </p>
+                      </div>
+
+                      {loadingExistingSections ? (
+                        <div className="flex items-center gap-2 py-6 justify-center text-sm text-slate-400">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading existing sections…
+                        </div>
+                      ) : existingSections.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-8 text-center text-sm text-slate-400">
+                          This checklist has no sections yet. Add the first one below.
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {existingSections.map((section, idx) => {
+                            const newItems = existingSectionNewItems[section.id] || [];
+                            return (
+                              <Card key={section.id} className="border border-slate-200">
+                                {/* Section header */}
+                                <CardHeader className="bg-slate-50/50 px-4 py-3">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="shrink-0 w-7 h-7 rounded-lg bg-[#0063cc]/10 text-[#0063cc] flex items-center justify-center text-xs font-bold">
+                                        {idx + 1}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-medium text-slate-800 truncate">{section.title}</p>
+                                        {section.description && (
+                                          <p className="text-xs text-slate-400 truncate">{section.description}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      {section.isConditional && (
+                                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-200">Conditional</Badge>
+                                      )}
+                                      <Badge className="text-xs bg-slate-100 text-slate-600 hover:bg-slate-100">
+                                        {section.items.length} doc{section.items.length !== 1 ? 's' : ''}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                </CardHeader>
+
+                                <CardContent className="px-4 py-3 space-y-3">
+                                  {/* Existing documents (read-only) */}
+                                  {section.items.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {section.items
+                                        .slice()
+                                        .sort((a, b) => a.displayOrder - b.displayOrder)
+                                        .map((doc) => (
+                                          <span
+                                            key={doc.id}
+                                            className="inline-flex items-center gap-1 text-xs bg-slate-50 border border-slate-200 text-slate-600 rounded-md px-2 py-1"
+                                          >
+                                            <File className="w-3 h-3 text-slate-400" />
+                                            {doc.name}
+                                          </span>
+                                        ))}
+                                    </div>
+                                  )}
+
+                                  {/* New documents being added to this existing section */}
+                                  {newItems.map((item, itemIndex) => (
+                                    <Card key={itemIndex} className="border-l-4 border-l-[#0063cc] bg-slate-50/30">
+                                      <CardContent className="px-3 pt-3 pb-3 sm:px-4 sm:pt-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                          <h4 className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                                            <File className="w-4 h-4 text-[#0063cc] shrink-0" />
+                                            New Document {itemIndex + 1}
+                                          </h4>
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removeExistingItem(section.id, itemIndex)}
+                                            className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                                          >
+                                            <X className="w-4 h-4" />
+                                          </Button>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                          <div className="space-y-1.5">
+                                            <Label className="text-sm font-semibold">Document Name <span className="text-red-500">*</span></Label>
+                                            <Input
+                                              value={item.name}
+                                              onChange={(e) => updateExistingItem(section.id, itemIndex, 'name', e.target.value)}
+                                              placeholder="e.g., Passport"
+                                              className="focus:ring-[#0063cc] focus:border-[#0063cc]"
+                                            />
+                                          </div>
+                                          <div className="space-y-1.5">
+                                            <Label className="text-sm font-semibold">
+                                              Quantity Note <span className="text-xs font-normal text-slate-400">(Optional)</span>
+                                            </Label>
+                                            <Input
+                                              value={item.quantityNote || ''}
+                                              onChange={(e) => updateExistingItem(section.id, itemIndex, 'quantityNote', e.target.value)}
+                                              placeholder="e.g., Min. 4,000 CAD"
+                                              className="focus:ring-[#0063cc] focus:border-[#0063cc]"
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="space-y-1.5 mt-3">
+                                          <Label className="text-sm font-semibold">
+                                            Notes <span className="text-xs font-normal text-slate-400">(Optional)</span>
+                                          </Label>
+                                          <Textarea
+                                            value={item.notes || ''}
+                                            onChange={(e) => updateExistingItem(section.id, itemIndex, 'notes', e.target.value)}
+                                            placeholder="Additional notes or instructions"
+                                            className="focus:ring-[#0063cc] focus:border-[#0063cc]"
+                                            rows={2}
+                                          />
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-x-5 gap-y-2 mt-3">
+                                          <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                              type="checkbox"
+                                              checked={item.isMandatory}
+                                              onChange={(e) => updateExistingItem(section.id, itemIndex, 'isMandatory', e.target.checked)}
+                                              className="rounded border-slate-300 text-[#0063cc] focus:ring-[#0063cc]"
+                                            />
+                                            <span className="text-sm">Mandatory</span>
+                                          </label>
+                                          <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                              type="checkbox"
+                                              checked={item.isConditional}
+                                              onChange={(e) => updateExistingItem(section.id, itemIndex, 'isConditional', e.target.checked)}
+                                              className="rounded border-slate-300 text-[#0063cc] focus:ring-[#0063cc]"
+                                            />
+                                            <span className="text-sm">Conditional</span>
+                                          </label>
+                                        </div>
+
+                                        {item.isConditional && (
+                                          <div className="space-y-1.5 mt-3">
+                                            <Label className="text-sm font-semibold">Condition Text</Label>
+                                            <Input
+                                              value={item.conditionText || ''}
+                                              onChange={(e) => updateExistingItem(section.id, itemIndex, 'conditionText', e.target.value)}
+                                              placeholder="e.g., Only if applicant has dependents"
+                                              className="focus:ring-[#0063cc] focus:border-[#0063cc]"
+                                            />
+                                          </div>
+                                        )}
+                                      </CardContent>
+                                    </Card>
+                                  ))}
+
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => addExistingItem(section.id, section.items.length)}
+                                    className="w-full sm:w-auto border-[#0063cc] text-[#0063cc] hover:bg-[#0063cc]/10"
+                                  >
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Add Document
+                                  </Button>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <Separator className="my-1" />
+                      <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                        <Plus className="w-4 h-4 text-[#0063cc]" />
+                        Add New Sections
+                      </p>
+                    </div>
+                  )}
+
                   {sections.map((section, sectionIndex) => (
                     <Card key={sectionIndex} className="border-2 hover:border-[#0063cc]/30 transition-all duration-200">
                       {/* Section header */}
