@@ -446,8 +446,9 @@ export function AllCounsellorClientsList({
               <SelectItem value="student">Students (All)</SelectItem>
               <SelectItem value="student-td">Students (TD)</SelectItem>
               <SelectItem value="student-no-td">Students (Application Only)</SelectItem>
-              <SelectItem value="visitor">Visitor</SelectItem>
-              <SelectItem value="spouse">Spouse</SelectItem>
+              <SelectItem value="core">Visitor & Spouse</SelectItem>
+              <SelectItem value="visitor">Visitor Only</SelectItem>
+              <SelectItem value="spouse">Spouse Only</SelectItem>
               <SelectItem value="core-product">Core Product (All Finance)</SelectItem>
               <SelectItem value="other-product">Other Products</SelectItem>
               <SelectItem value="pending">With Pending Amount</SelectItem>
