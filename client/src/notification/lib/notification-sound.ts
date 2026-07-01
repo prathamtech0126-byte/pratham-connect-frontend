@@ -1,118 +1,57 @@
-/**
- * Notification sound — /notification-sound.mp3 from client/public.
- * Plays immediately on alert; repeats at most once every 10 seconds.
- */
-
-const NOTIFICATION_SOUND_SRC = "/notification-sound.mp3";
-const SOUND_COOLDOWN_MS = 10_000;
-
-let _lastPlayedAt = 0;
-let _audioCtx: AudioContext | null = null;
 let _audio: HTMLAudioElement | null = null;
-let _unlocked = false;
+let _lastPlayedAt = 0;
+let _isPrimed = false;
 
-function getAudioContext(): AudioContext | null {
-  if (typeof window === "undefined") return null;
-  const Ctx =
-    window.AudioContext ||
-    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!Ctx) return null;
-  if (!_audioCtx) {
-    _audioCtx = new Ctx();
-  }
-  return _audioCtx;
-}
+const SOUND_COOLDOWN_MS = 2000;
 
-function getSharedAudio(): HTMLAudioElement {
+function getAudio(): HTMLAudioElement {
   if (!_audio) {
-    _audio = new Audio(NOTIFICATION_SOUND_SRC);
+    _audio = new Audio("/notification-sound.mp3");
     _audio.preload = "auto";
-    _audio.volume = 0.85;
-    _audio.load();
+    _audio.volume = 0.6;
   }
   return _audio;
 }
 
-function playWebAudioChime(): void {
-  const ctx = getAudioContext();
-  if (!ctx) return;
-
-  const run = () => {
-    const now = ctx.currentTime;
-    const playTone = (freq: number, start: number, duration: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + duration);
-    };
-    playTone(880, now, 0.14);
-    playTone(1174.66, now + 0.1, 0.22);
-  };
-
-  if (ctx.state === "suspended") {
-    void ctx.resume().then(run).catch(() => {});
-  } else {
-    run();
-  }
-}
-
-async function playSharedMp3(): Promise<boolean> {
-  const audio = getSharedAudio();
-  try {
-    audio.pause();
-    audio.currentTime = 0;
-    await audio.play();
-    _unlocked = true;
-    return true;
-  } catch (err) {
-    console.warn("[notification-sound] play failed:", err);
-    return false;
-  }
-}
-
-export function primeNotificationAudio() {
-  const ctx = getAudioContext();
-  if (ctx?.state === "suspended") {
-    void ctx.resume();
-  }
-
-  if (_unlocked) return;
-
-  const audio = getSharedAudio();
-  void (async () => {
-    try {
-      const prevVolume = audio.volume;
-      audio.volume = 0;
-      audio.currentTime = 0;
-      await audio.play();
+/**
+ * Prime audio on user gesture so subsequent auto-plays aren't blocked.
+ * Idempotent — safe to call on every click/keydown; only does work once.
+ */
+export function primeNotificationAudio(): void {
+  if (_isPrimed) return;
+  const audio = getAudio();
+  audio
+    .play()
+    .then(() => {
       audio.pause();
       audio.currentTime = 0;
-      audio.volume = prevVolume;
-      _unlocked = true;
-    } catch {
-      /* needs a user gesture — handlers will retry */
-    }
-  })();
+      _isPrimed = true;
+    })
+    .catch(() => {});
 }
 
-/** Instant play; same sound won't repeat within 10 seconds unless forced. */
-export function playNotificationSound(options?: { force?: boolean }) {
+/**
+ * Play the notification sound.
+ * Debounced to 2 s so back-to-back triggers only produce one sound unless forced.
+ */
+export function playNotificationSound(options?: { force?: boolean }): void {
+  const force = options?.force === true;
   const now = Date.now();
-  if (!options?.force && now - _lastPlayedAt < SOUND_COOLDOWN_MS) return;
-  _lastPlayedAt = now;
+  if (!force && now - _lastPlayedAt < SOUND_COOLDOWN_MS) return;
 
-  void playSharedMp3().then((played) => {
-    if (!played) playWebAudioChime();
-  });
+  const audio = getAudio();
+  audio.currentTime = 0;
+  audio
+    .play()
+    .then(() => {
+      _lastPlayedAt = now;
+    })
+    .catch(() => {
+      /* autoplay blocked — ignore */
+    });
 }
 
-if (typeof window !== "undefined") {
-  getSharedAudio();
+/** No-op kept for callers that flush after gesture unlock. */
+export function flushPendingNotificationSound(): void {
+  playNotificationSound({ force: true });
 }

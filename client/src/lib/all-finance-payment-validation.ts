@@ -69,8 +69,13 @@ export function validateAllFinanceForSave(
     return { ok: false, message: "Amount cannot exceed total payment" };
   }
 
-  const remarksCheck = validatePartialPaymentRemarks(fieldData);
-  if (!remarksCheck.ok) return remarksCheck;
+  const partialAlreadySubmitted =
+    approvalStatus === "pending" || approvalStatus === "approved";
+
+  if (!partialAlreadySubmitted) {
+    const remarksCheck = validatePartialPaymentRemarks(fieldData);
+    if (!remarksCheck.ok) return remarksCheck;
+  }
 
   if (isAllFinancePartialScenario(total, amount)) {
     if (!isPartialPayment || approvalStatus === null) {

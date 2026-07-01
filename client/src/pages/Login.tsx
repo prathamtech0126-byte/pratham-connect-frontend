@@ -515,6 +515,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 import api, { setInMemoryToken, setCsrfToken } from "@/lib/api";
 
 import { useToast } from "@/hooks/use-toast";
+import { primeNotificationAudio } from "@/notification/lib/notification-sound";
 
 const APP_VERSION = __APP_VERSION__;
 
@@ -571,6 +572,7 @@ export default function Login() {
         }
 
         setIsSubmitting(true);
+        primeNotificationAudio();
 
         try {
             // For Render.com free tier: Wake up the server first

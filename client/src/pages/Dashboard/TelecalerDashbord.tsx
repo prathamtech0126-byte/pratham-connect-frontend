@@ -16,7 +16,7 @@ import DateRangePicker from "@/components/payments/DateRangePicker";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { leadDateRangeParams } from "@/lib/lead-date-range";
+import { leadDateRangeParams, type LeadDateFilterType } from "@/lib/lead-date-range";
 import { getLeadSourceLabel, type LeadSourceOption } from "@/lib/lead-source-display";
 
 type LeaderboardRow = {
@@ -45,7 +45,7 @@ const RANK_BG = ["bg-yellow-50 border-yellow-200", "bg-slate-50 border-slate-200
 export default function TelecalerDashbord() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [timeFilter, setTimeFilter] = useState("monthly");
+  const [timeFilter, setTimeFilter] = useState<LeadDateFilterType>("monthly");
   const [customDateFrom, setCustomDateFrom] = useState<string | undefined>(undefined);
   const [customDateTo, setCustomDateTo] = useState<string | undefined>(undefined);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -172,14 +172,32 @@ export default function TelecalerDashbord() {
     onLeadEvent: (event, payload) => {
       const uid = user?.id ? Number(user.id) : null;
       if (uid == null) return;
+
+      if (event === "lead:converted") {
+        return;
+      }
+
+      const isAssignmentEvent =
+        event === "lead:assigned:notify" || event === "lead:assigned";
+
+      if (!isAssignmentEvent) return;
+
       let lead: LeadEntity | null = null;
       if (event === "lead:assigned:notify") {
         const n = payload as LeadAssignmentNotify;
-        if (n.telecallerId === uid) lead = n.lead;
-      } else if (payload && typeof payload === "object" && "id" in (payload as LeadEntity)) {
+        if (n.telecallerId === uid && n.lead?.assignmentStatus === "assigned") {
+          lead = n.lead;
+        }
+      } else if (payload && typeof payload === "object" && "id" in payload) {
         const p = payload as LeadEntity;
-        if (p.currentTelecallerId === uid) lead = p;
+        if (
+          p.currentTelecallerId === uid &&
+          p.assignmentStatus === "assigned"
+        ) {
+          lead = p;
+        }
       }
+
       if (lead) {
         playNotificationSound();
         setAssignmentAlerts((prev) => {
@@ -422,7 +440,7 @@ export default function TelecalerDashbord() {
               <button
                 key={tab}
                 onClick={() => {
-                  setTimeFilter(tab.toLowerCase());
+                  setTimeFilter(tab.toLowerCase() as LeadDateFilterType);
                   if (tab === "Custom") setShowDatePicker(true);
                 }}
                 className={cn(

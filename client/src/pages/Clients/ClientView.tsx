@@ -755,6 +755,8 @@ export default function ClientView() {
   const [statusStage, setStatusStage] = useState<string>("");  // selected main stage label
   const [statusValue, setStatusValue] = useState<string>("");  // selected sub-status enum value
   const [statusNotes, setStatusNotes] = useState<string>("");
+  const [statusSubmissionDate, setStatusSubmissionDate] = useState<string>("");
+  const [statusDecisionDate, setStatusDecisionDate] = useState<string>("");
   // Edit Basic Details dialog — client fields + visa-case sponsorship/travel
   const [basicEditOpen, setBasicEditOpen] = useState(false);
   const [fullNameDraft, setFullNameDraft] = useState<string>("");
@@ -1447,7 +1449,12 @@ export default function ClientView() {
       try {
         await changeStatusMutation.mutateAsync({
           visaCaseId,
-          body: { subStatus: statusValue, notes: statusNotes || undefined },
+          body: {
+            subStatus: statusValue,
+            notes: statusNotes || undefined,
+            ...(statusSubmissionDate ? { submissionDate: statusSubmissionDate } : {}),
+            ...(statusDecisionDate ? { decisionDate: statusDecisionDate } : {}),
+          },
         });
         // Optimistically patch the cached visa case so derived flags (isFullyReceived, etc.)
         // update immediately without waiting for the slow paginated refetch scan.
@@ -1460,6 +1467,8 @@ export default function ClientView() {
         setStatusOpen(false);
         setStatusValue("");
         setStatusNotes("");
+        setStatusSubmissionDate("");
+        setStatusDecisionDate("");
       } catch (err: any) {
         toast({
           title: "Status update failed",
@@ -2283,7 +2292,7 @@ export default function ClientView() {
       </div>
 
       {/* Change-status dialog */}
-      <Dialog open={statusOpen} onOpenChange={(open) => { setStatusOpen(open); if (!open) { setStatusStage(""); setStatusValue(""); setStatusNotes(""); } }}>
+      <Dialog open={statusOpen} onOpenChange={(open) => { setStatusOpen(open); if (!open) { setStatusStage(""); setStatusValue(""); setStatusNotes(""); setStatusSubmissionDate(""); setStatusDecisionDate(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Change Status — {clientFullName}</DialogTitle>
@@ -2300,7 +2309,7 @@ export default function ClientView() {
               {visaCase?.visaCaseId && processingStages ? (
                 <Select
                   value={statusStage}
-                  onValueChange={(v) => { setStatusStage(v); setStatusValue(""); }}
+                  onValueChange={(v) => { setStatusStage(v); setStatusValue(""); setStatusSubmissionDate(""); setStatusDecisionDate(""); }}
                 >
                   <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder="Select a stage" />
@@ -2312,7 +2321,7 @@ export default function ClientView() {
                   </SelectContent>
                 </Select>
               ) : (
-                <Select value={statusStage} onValueChange={(v) => { setStatusStage(v); setStatusValue(""); }}>
+                <Select value={statusStage} onValueChange={(v) => { setStatusStage(v); setStatusValue(""); setStatusSubmissionDate(""); setStatusDecisionDate(""); }}>
                   <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder="Select a stage" />
                   </SelectTrigger>
@@ -2329,7 +2338,7 @@ export default function ClientView() {
               <div className="space-y-2">
                 <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Status</Label>
                 {visaCase?.visaCaseId && processingStages ? (
-                  <Select value={statusValue} onValueChange={setStatusValue}>
+                  <Select value={statusValue} onValueChange={(v) => { setStatusValue(v); if (v !== "FILE_SUBMITTED") setStatusSubmissionDate(""); }}>
                     <SelectTrigger className="h-9 w-full">
                       <SelectValue placeholder="Select a status" />
                     </SelectTrigger>
@@ -2340,7 +2349,7 @@ export default function ClientView() {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Select value={statusValue} onValueChange={setStatusValue}>
+                  <Select value={statusValue} onValueChange={(v) => { setStatusValue(v); if (v !== "FILE_SUBMITTED") setStatusSubmissionDate(""); }}>
                     <SelectTrigger className="h-9 w-full">
                       <SelectValue placeholder="Select a status" />
                     </SelectTrigger>
@@ -2351,6 +2360,32 @@ export default function ClientView() {
                     </SelectContent>
                   </Select>
                 )}
+              </div>
+            )}
+            {/* Submission date — shown when File Submitted is selected */}
+            {statusValue === "FILE_SUBMITTED" && (
+              <div className="space-y-2">
+                <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Submission Date</Label>
+                <Input
+                  type="date"
+                  value={statusSubmissionDate}
+                  onChange={(e) => setStatusSubmissionDate(e.target.value)}
+                  min="2020-01-01"
+                  className="h-9"
+                />
+              </div>
+            )}
+            {/* Decision date — shown for all Decision stage statuses */}
+            {statusStage === "Decision" && statusValue && (
+              <div className="space-y-2">
+                <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Decision Date</Label>
+                <Input
+                  type="date"
+                  value={statusDecisionDate}
+                  onChange={(e) => setStatusDecisionDate(e.target.value)}
+                  min="2020-01-01"
+                  className="h-9"
+                />
               </div>
             )}
             {visaCase?.visaCaseId && (

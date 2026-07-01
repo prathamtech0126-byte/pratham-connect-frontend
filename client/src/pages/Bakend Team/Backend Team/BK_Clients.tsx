@@ -656,6 +656,8 @@ export default function BackendClients({
   const [statusStageDraft, setStatusStageDraft] = useState<string>("");  // selected stage label
   const [statusDraft, setStatusDraft] = useState<string>("");            // selected sub-status enum
   const [statusNotes, setStatusNotes] = useState<string>("");
+  const [statusSubmissionDate, setStatusSubmissionDate] = useState<string>("");
+  const [statusDecisionDate, setStatusDecisionDate] = useState<string>("");
   const [statusBusy, setStatusBusy] = useState(false);
 
   // Every team can move a case to any status, so the picker always offers the
@@ -686,6 +688,8 @@ export default function BackendClients({
     setStatusStageDraft(currentStageLabel);
     setStatusDraft(c.subStatus ?? "");
     setStatusNotes("");
+    setStatusSubmissionDate("");
+    setStatusDecisionDate("");
   };
   const saveStatus = async () => {
     if (!statusTarget) return;
@@ -700,6 +704,8 @@ export default function BackendClients({
         notes: statusNotes.trim() || undefined,
         // Any team may move to any stage now — override the stage-order RBAC.
         adminOverride: true,
+        ...(statusSubmissionDate ? { submissionDate: statusSubmissionDate } : {}),
+        ...(statusDecisionDate ? { decisionDate: statusDecisionDate } : {}),
       });
       const newLabel = subStatusByValue.get(statusDraft)?.displayLabel ?? statusTarget.status;
       setClients((prev) =>
@@ -707,6 +713,8 @@ export default function BackendClients({
       );
       queryClient.invalidateQueries({ queryKey: ["visa-cases"] });
       toast({ title: "Status updated", description: `${statusTarget.name}'s status changed to "${newLabel}".` });
+      setStatusSubmissionDate("");
+      setStatusDecisionDate("");
       setStatusTarget(null);
     } catch (err: any) {
       toast({
@@ -1678,7 +1686,7 @@ export default function BackendClients({
       </Dialog>
 
       {/* Change-status dialog */}
-      <Dialog open={!!statusTarget} onOpenChange={(o) => { if (!o) { setStatusTarget(null); setStatusStageDraft(""); setStatusDraft(""); setStatusNotes(""); } }}>
+      <Dialog open={!!statusTarget} onOpenChange={(o) => { if (!o) { setStatusTarget(null); setStatusStageDraft(""); setStatusDraft(""); setStatusNotes(""); setStatusSubmissionDate(""); setStatusDecisionDate(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Change Status — {statusTarget?.name}</DialogTitle>
@@ -1689,7 +1697,7 @@ export default function BackendClients({
               <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Stage</Label>
               <Select
                 value={statusStageDraft}
-                onValueChange={(v) => { setStatusStageDraft(v); setStatusDraft(""); }}
+                onValueChange={(v) => { setStatusStageDraft(v); setStatusDraft(""); setStatusSubmissionDate(""); setStatusDecisionDate(""); }}
               >
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder={stagesMeta ? "Select a stage" : "Loading…"} />
@@ -1705,7 +1713,7 @@ export default function BackendClients({
             {statusStageDraft && (
               <div className="space-y-2">
                 <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Status</Label>
-                <Select value={statusDraft} onValueChange={setStatusDraft}>
+                <Select value={statusDraft} onValueChange={(v) => { setStatusDraft(v); if (v !== "FILE_SUBMITTED") setStatusSubmissionDate(""); }}>
                   <SelectTrigger className="h-9 w-full">
                     <SelectValue placeholder="Select a status" />
                   </SelectTrigger>
@@ -1715,6 +1723,32 @@ export default function BackendClients({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+            {/* Submission date — shown when File Submitted is selected */}
+            {statusDraft === "FILE_SUBMITTED" && (
+              <div className="space-y-2">
+                <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Submission Date</Label>
+                <Input
+                  type="date"
+                  value={statusSubmissionDate}
+                  onChange={(e) => setStatusSubmissionDate(e.target.value)}
+                  min="2020-01-01"
+                  className="h-9"
+                />
+              </div>
+            )}
+            {/* Decision date — shown for all Decision stage statuses */}
+            {statusStageDraft === "Decision" && statusDraft && (
+              <div className="space-y-2">
+                <Label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Decision Date</Label>
+                <Input
+                  type="date"
+                  value={statusDecisionDate}
+                  onChange={(e) => setStatusDecisionDate(e.target.value)}
+                  min="2020-01-01"
+                  className="h-9"
+                />
               </div>
             )}
             <div className="space-y-1.5">

@@ -3662,6 +3662,8 @@ export default function ClientForm() {
             : undefined;
         const financeRemarksRequired =
           product.id === "financeAndEmployment" &&
+          approvalStatus !== "pending" &&
+          approvalStatus !== "approved" &&
           isAllFinancePartialScenario(
             parseFinanceMoney(financeFieldData?.totalAmount),
             parseFinanceMoney(financeFieldData?.amount)

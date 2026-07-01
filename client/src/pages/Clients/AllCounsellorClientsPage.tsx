@@ -23,6 +23,8 @@ import {
   AllCounsellorClientRow,
   ClientStageFilter,
   ClientTypeFilter,
+  ClientPaymentFilter,
+  ClientProductFilter,
   getDateColumnMode,
 } from "@/components/clients/AllCounsellorClientsList";
 
@@ -63,16 +65,50 @@ function normalizeStage(stage: string): "Initial" | "Before Visa" | "After Visa"
 }
 
 function parseStageParam(v: string | null): ClientStageFilter {
-  const ok: ClientStageFilter[] = ["all", "initial", "before", "after"];
-  if (v && ok.includes(v as ClientStageFilter)) return v as ClientStageFilter;
-  return "all";
+  const ok = ["initial", "before", "after"] as const;
+  if (!v) return [];
+  return v.split(",").filter((x): x is typeof ok[number] => (ok as readonly string[]).includes(x));
 }
 
 function parseClientTypeParam(v: string | null): ClientTypeFilter {
-  const ok: ClientTypeFilter[] = ["all", "student", "student-core", "student-app", "student-td", "student-no-td", "student-sale-only", "core", "core-product", "other-product", "pending"];
+  const ok: ClientTypeFilter[] = ["all", "student", "student-core", "student-app", "student-td", "student-no-td", "student-sale-only", "core", "visitor", "spouse", "core-product", "other-product", "pending"];
   if (v && ok.includes(v as ClientTypeFilter)) return v as ClientTypeFilter;
   return "all";
 }
+
+function parsePaymentFilterParam(v: string | null): ClientPaymentFilter {
+  const ok: ClientPaymentFilter[] = ["all", "pending-only", "fully-paid"];
+  if (v && ok.includes(v as ClientPaymentFilter)) return v as ClientPaymentFilter;
+  return "all";
+}
+
+function parseProductFilterParam(v: string | null): ClientProductFilter {
+  const ok = ["all-finance", "noc-job", "work-permit", "study-permit"] as const;
+  if (!v) return [];
+  return v.split(",").filter((x): x is typeof ok[number] => (ok as readonly string[]).includes(x));
+}
+
+const TRV_PRODUCT = "TRV_WORK_PERMIT_EXT_STUDY_PERMIT_EXTENSION";
+
+/**
+ * Predicate per product-filter value. Work Permit and Study Permit are both the
+ * TRV product, distinguished only by the entity `type` ("Work Permit Ext." /
+ * "Study Permit Ext."), so they need a type check — not just a productName match.
+ */
+const PRODUCT_MATCHERS: Record<string, (p: any) => boolean> = {
+  "all-finance": (p) => p?.productName === "ALL_FINANCE_EMPLOYEMENT",
+  "noc-job": (p) => p?.productName === "NOC_LEVEL_JOB_ARRANGEMENT",
+  "work-permit": (p) => p?.productName === TRV_PRODUCT && p?.entity?.type === "Work Permit Ext.",
+  "study-permit": (p) => p?.productName === TRV_PRODUCT && p?.entity?.type === "Study Permit Ext.",
+};
+
+/** Friendly labels for product names, shown as chips so users see what each client has. */
+const PRODUCT_LABELS: Record<string, string> = {
+  ALL_FINANCE_EMPLOYEMENT: "All Finance",
+  NOC_LEVEL_JOB_ARRANGEMENT: "NOC Level Job",
+  KIDS_STUDY_PERMIT: "Kids Study Permit",
+  TUTION_FEES: "Tuition Fees",
+};
 
 function parseFlexibleDate(value: unknown): number | null {
   if (value == null || value === "") return null;
@@ -340,6 +376,17 @@ function mapRawToRow(
   const amountPending = Math.max(totalPayment - amountReceived, 0);
   const stage = getLatestStageFromPayments(raw.payments, raw.stage, raw.visaSubmitted) || "N/A";
 
+  // Collect the normalized core payment stages that actually have a payment entry.
+  const paidStages: string[] = Array.isArray(raw.payments)
+    ? Array.from(
+        new Set(
+          raw.payments
+            .map((p: any) => (p?.stage ? String(p.stage).toUpperCase() : null))
+            .filter((s: string | null): s is string => s != null)
+        )
+      )
+    : [];
+
   const corePayment = Array.isArray(raw.payments)
     ? raw.payments.find(
         (p: any) => p?.stage && ["INITIAL", "BEFORE_VISA", "AFTER_VISA"].includes(p.stage)
@@ -379,6 +426,25 @@ function mapRawToRow(
     !hasTutionFees &&
     Array.isArray(raw.productPayments) &&
     raw.productPayments.some((p: any) => !!p?.productName);
+
+  // Friendly labels of the products this client actually has (for the row chips).
+  // TRV products show their specific type (Work Permit Ext. / Study Permit Ext. / etc.)
+  // so users can tell them apart.
+  const products: string[] = Array.isArray(raw.productPayments)
+    ? Array.from(
+        new Set(
+          raw.productPayments
+            .map((p: any) => {
+              if (!p?.productName) return null;
+              if (p.productName === TRV_PRODUCT) {
+                return p?.entity?.type ? String(p.entity.type) : "TRV / Work Permit";
+              }
+              return PRODUCT_LABELS[p.productName] ?? String(p.productName);
+            })
+            .filter((x: string | null): x is string => x != null)
+        )
+      )
+    : [];
 
   const studentApplicationDates: string[] = [];
   if (Array.isArray(raw.studentApplications)) {
@@ -432,6 +498,8 @@ function mapRawToRow(
     studentApplicationDates,
     tuitionDepositDates,
     stage,
+    paidStages,
+    products,
     totalPayment,
     amountReceived,
     amountPending,
@@ -514,8 +582,12 @@ export default function AllCounsellorClientsPage() {
 
   const urlParams = useMemo(() => new URLSearchParams(searchStr), [searchStr]);
   const search = urlParams.get("q") ?? "";
-  const stageFilter = parseStageParam(urlParams.get("stage"));
+  const stageParam = urlParams.get("stage") ?? "";
+  const productParam = urlParams.get("product") ?? "";
+  const stageFilter = parseStageParam(stageParam);
   const clientTypeFilter = parseClientTypeParam(urlParams.get("clientType"));
+  const paymentFilter = parsePaymentFilterParam(urlParams.get("payment"));
+  const productFilter = parseProductFilterParam(productParam);
   const fromDate = urlParams.get("from") ?? "";
   const toDate = urlParams.get("to") ?? "";
   const counsellorIdParam = urlParams.get("counsellorId");
@@ -576,12 +648,34 @@ export default function AllCounsellorClientsPage() {
         row.counsellor.toLowerCase().includes(q) ||
         row.salesType.toLowerCase().includes(q);
 
+      // When "Has Pending" is selected together with a stage, the stage filter
+      // means "this stage's payment is still MISSING" (e.g. enrolled + paid Initial
+      // but Before Visa payment not done yet). Otherwise the stage filter keeps its
+      // normal meaning: clients whose current stage matches.
       const stage = normalizeStage(row.stage);
-      const matchStage =
-        stageFilter === "all" ||
-        (stageFilter === "initial" && stage === "Initial") ||
-        (stageFilter === "before" && stage === "Before Visa") ||
-        (stageFilter === "after" && stage === "After Visa");
+      const stageKeyMap: Record<string, string> = {
+        initial: "INITIAL",
+        before: "BEFORE_VISA",
+        after: "AFTER_VISA",
+      };
+      const pendingStageMode = paymentFilter === "pending-only" && stageFilter.length > 0;
+      const matchStage = (() => {
+        if (stageFilter.length === 0) return true;
+        if (pendingStageMode) {
+          // Must be enrolled (has at least one payment entry) and be MISSING
+          // the payment entry for at least one selected stage.
+          if (row.paidStages.length === 0) return false;
+          return stageFilter.some((sf) => {
+            const key = stageKeyMap[sf];
+            return key ? !row.paidStages.includes(key) : false;
+          });
+        }
+        return (
+          (stage === "Initial" && stageFilter.includes("initial")) ||
+          (stage === "Before Visa" && stageFilter.includes("before")) ||
+          (stage === "After Visa" && stageFilter.includes("after"))
+        );
+      })();
 
       const cat = row.saleTypeCategory ?? "";
       // When no date range (direct page access, not from dashboard), skip date-based checks
@@ -614,6 +708,8 @@ export default function AllCounsellorClientsPage() {
             : row.hasStudentApplication && !row.hasTutionFees)) ||
         (clientTypeFilter === "student-sale-only" && isStudentSaleOnly) ||
         (clientTypeFilter === "core" && (cat === "visitor" || cat === "spouse")) ||
+        (clientTypeFilter === "visitor" && cat === "visitor") ||
+        (clientTypeFilter === "spouse" && cat === "spouse") ||
         (clientTypeFilter === "core-product" && row.hasAllFinance) ||
         (clientTypeFilter === "other-product" && row.hasOtherProduct) ||
         (clientTypeFilter === "pending" && row.amountPending > 0);
@@ -636,14 +732,73 @@ export default function AllCounsellorClientsPage() {
         return true;
       })();
 
-      return matchSearch && matchStage && matchClientType && matchDate && matchCounsellor;
+      // "enrolled" = client has at least one core payment entry.
+      const enrolled = row.paidStages.length > 0;
+
+      // Match product. In "Has Pending" mode the product filter flips to
+      // "this product's payment entry is MISSING" (no entry at all — if even one
+      // partial-payment entry exists, the client is excluded). Otherwise it keeps
+      // its normal meaning: client HAS the selected product.
+      const matchProduct = (() => {
+        if (productFilter.length === 0) return true;
+        const payments = productPaymentsById.get(row.id) ?? [];
+        if (paymentFilter === "pending-only") {
+          // "Missing" mode — EVERY selected product's entry must be absent.
+          return productFilter.every((pf) => {
+            const matcher = PRODUCT_MATCHERS[pf];
+            return matcher ? !payments.some(matcher) : false;
+          });
+        }
+        if (paymentFilter === "fully-paid") {
+          // "Paid" mode — EVERY selected product must have an entry that is fully paid.
+          return productFilter.every((pf) => {
+            const matcher = PRODUCT_MATCHERS[pf];
+            if (!matcher) return false;
+            const matched = payments.filter(matcher);
+            return matched.length > 0 && matched.every((p) => p?.paymentStatus !== "Pending");
+          });
+        }
+        // "All" — client must HAVE every selected product (entry exists, any status).
+        return productFilter.every((pf) => {
+          const matcher = PRODUCT_MATCHERS[pf];
+          return matcher ? payments.some(matcher) : false;
+        });
+      })();
+
+      // Match payment. When "Has Pending" is combined with a stage and/or product,
+      // the "pending" meaning is delegated to the missing stage/product checks above
+      // (we just require the client to be enrolled). Plain "Has Pending" = core pending.
+      const matchPayment = (() => {
+        if (paymentFilter === "all") return true;
+        if (paymentFilter === "fully-paid") {
+          // With a product selected, "fully paid" refers to that product and is fully
+          // handled in matchProduct (works for "Only Products" clients with no core
+          // payment too). Otherwise it means the core payment is fully paid.
+          if (productFilter.length > 0) return true;
+          return row.amountPending === 0 && row.amountReceived > 0;
+        }
+        // pending-only
+        if (productFilter.length > 0) {
+          // Product "missing" check is handled in matchProduct — no core requirement.
+          return true;
+        }
+        if (stageFilter.length > 0) {
+          // "Missing stage" needs the client to actually be enrolled (have a payment).
+          return enrolled;
+        }
+        return row.amountPending > 0;
+      })();
+
+      return matchSearch && matchStage && matchClientType && matchDate && matchCounsellor && matchPayment && matchProduct;
     });
   }, [
     allRows,
     productPaymentsById,
     search,
-    stageFilter,
+    stageParam,
     clientTypeFilter,
+    paymentFilter,
+    productParam,
     fromDate,
     toDate,
     counsellorIdParam,
@@ -797,7 +952,7 @@ export default function AllCounsellorClientsPage() {
             stageFilter={stageFilter}
             onStageFilterChange={(v) => {
               mergeQuery((p) => {
-                if (v && v !== "all") p.set("stage", v);
+                if (v.length > 0) p.set("stage", v.join(","));
                 else p.delete("stage");
               });
             }}
@@ -809,6 +964,20 @@ export default function AllCounsellorClientsPage() {
                 // Clear dashboard date range when manually changing filter
                 p.delete("from");
                 p.delete("to");
+              });
+            }}
+            paymentFilter={paymentFilter}
+            onPaymentFilterChange={(v) => {
+              mergeQuery((p) => {
+                if (v && v !== "all") p.set("payment", v);
+                else p.delete("payment");
+              });
+            }}
+            productFilter={productFilter}
+            onProductFilterChange={(v) => {
+              mergeQuery((p) => {
+                if (v.length > 0) p.set("product", v.join(","));
+                else p.delete("product");
               });
             }}
             onView={(id) => {
