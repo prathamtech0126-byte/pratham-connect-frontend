@@ -65,10 +65,13 @@ export function isFrontDeskRealtimeUser(role?: string | null): boolean {
 export function joinFrontDeskRealtimeRooms(
   socket: Socket,
   role: string,
-  _userId?: number | string
+  userId?: number | string
 ): void {
   socket.emit('join:role', role);
-  // join:user is handled once via joinUserRoom() on connect/reconnect.
+  const uid = Number(userId);
+  if (Number.isFinite(uid) && uid > 0) {
+    socket.emit('join:user', uid);
+  }
   socket.emit(MODULES_SOCKET.subscribe.joinFrontDesk);
 }
 
@@ -394,45 +397,25 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         joinUserRoom(socket, ensureUserId);
       } else if (isTelecaller2) {
         socket.emit('join:role', 'telecaller');
-        const telecallerUserId = Number(user.id);
-        if (!isNaN(telecallerUserId)) {
-          socket.emit('join:user', telecallerUserId);
-        }
         joinUserRoom(socket, ensureUserId);
       } else if (isBroadcastRecipient2 || isFrontDeskRealtimeUser(user.role)) {
         joinFrontDeskRealtimeRooms(socket, user.role, user.id);
         joinUserRoom(socket, ensureUserId);
       } else if (isCxUser2) {
         socket.emit('join:role', user.role);
-        const cxUserId = Number(user.id);
-        if (!isNaN(cxUserId)) {
-          socket.emit('join:user', cxUserId);
-        }
         joinUserRoom(socket, ensureUserId);
       } else if (isOpsTeam2) {
         socket.emit('join:role', user.role);
-        const opsUserId = Number(user.id);
-        if (!isNaN(opsUserId)) {
-          socket.emit('join:user', opsUserId);
-        }
         joinUserRoom(socket, ensureUserId);
       } else if (isAdmin) {
         socket.emit('join:admin');
         socket.emit('join:role', user.role);
-        const adminUserId = Number(user.id);
-        if (!isNaN(adminUserId)) {
-          socket.emit('join:user', adminUserId);
-        }
         joinUserRoom(socket, ensureUserId);
         if (isFrontDeskRealtimeUser(user.role)) {
           joinFrontDeskRealtimeRooms(socket, user.role, user.id);
         }
       } else if (isTechSupport) {
         socket.emit('join:role', 'tech_support');
-        const techUserId = Number(user.id);
-        if (!isNaN(techUserId)) {
-          socket.emit('join:user', techUserId);
-        }
         joinUserRoom(socket, ensureUserId);
       } else if (user.role) {
         socket.emit('join:role', user.role);
