@@ -1,15 +1,19 @@
 import { useState, useMemo } from "react";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, ChevronDown } from "lucide-react";
 import { DataTable } from "@/components/table/DataTable";
 import { TableActions } from "@/components/table/TableActions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export type ClientStageFilter = "all" | "initial" | "before" | "after";
+export type ClientStageFilter = ("initial" | "before" | "after")[];
 export type ClientTypeFilter = "all" | "student" | "student-core" | "student-app" | "student-td" | "student-no-td" | "student-sale-only" | "core" | "core-product" | "other-product" | "pending";
+export type ClientPaymentFilter = "all" | "pending-only" | "fully-paid";
+export type ClientProductFilter = ("all-finance" | "noc-job" | "work-permit" | "study-permit")[];
 
 export type DateColumnMode = "enrollment" | "tuition-deposit" | "application";
 
@@ -37,6 +41,10 @@ export interface AllCounsellorClientRow {
   /** Paid tuition deposit dates (feeDate from TUTION_FEES product payments). */
   tuitionDepositDates: string[];
   stage: string;
+  /** Normalized core payment stages that have a payment entry: "INITIAL", "BEFORE_VISA", "AFTER_VISA", "SUBMITTED_VISA". */
+  paidStages: string[];
+  /** Friendly labels of the products this client has (e.g. "All Finance", "NOC Level Job"). */
+  products: string[];
   totalPayment: number;
   amountReceived: number;
   amountPending: number;
@@ -52,6 +60,10 @@ interface AllCounsellorClientsListProps {
   onStageFilterChange: (value: ClientStageFilter) => void;
   clientTypeFilter: ClientTypeFilter;
   onClientTypeFilterChange: (value: ClientTypeFilter) => void;
+  paymentFilter: ClientPaymentFilter;
+  onPaymentFilterChange: (value: ClientPaymentFilter) => void;
+  productFilter: ClientProductFilter;
+  onProductFilterChange: (value: ClientProductFilter) => void;
   onView: (id: string) => void;
   onEdit: (id: string) => void;
   onArchive?: (id: string) => void;
@@ -206,6 +218,61 @@ function parseEnrollmentDate(dateStr: string): number {
   return new Date(dateStr).getTime() || 0;
 }
 
+function MultiSelectDropdown<T extends string>({
+  options,
+  value,
+  onChange,
+  allLabel,
+}: {
+  options: { value: T; label: string }[];
+  value: T[];
+  onChange: (value: T[]) => void;
+  allLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const toggle = (v: T) => {
+    onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
+  };
+
+  const triggerLabel =
+    value.length === 0
+      ? allLabel
+      : value.length === 1
+        ? (options.find((o) => o.value === value[0])?.label ?? value[0])
+        : `${value.length} Selected`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="h-9 w-full flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          <span className="truncate text-left text-foreground">{triggerLabel}</span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="p-1" align="start" style={{ width: "var(--radix-popover-trigger-width)" }}>
+        {options.map((opt) => (
+          <div
+            key={opt.value}
+            className="flex items-center gap-2 rounded-sm px-2 py-1.5 cursor-pointer hover:bg-accent select-none"
+            onClick={() => toggle(opt.value)}
+          >
+            <Checkbox
+              checked={value.includes(opt.value)}
+              onClick={(e) => e.stopPropagation()}
+              onCheckedChange={() => toggle(opt.value)}
+            />
+            <span className="text-sm">{opt.label}</span>
+          </div>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function AllCounsellorClientsList({
   data,
   search,
@@ -214,6 +281,10 @@ export function AllCounsellorClientsList({
   onStageFilterChange,
   clientTypeFilter,
   onClientTypeFilterChange,
+  paymentFilter,
+  onPaymentFilterChange,
+  productFilter,
+  onProductFilterChange,
   onView,
   onEdit,
   onArchive,
@@ -260,6 +331,20 @@ export function AllCounsellorClientsList({
             <span className="text-[11px] leading-tight text-amber-700 dark:text-amber-400">
               {s.coreProductHandledBy.name} has taken this payment
             </span>
+          )}
+          {s.products.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 mt-0.5">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wide">Products:</span>
+              {s.products.map((p) => (
+                <Badge
+                  key={p}
+                  variant="outline"
+                  className="px-1.5 py-0 text-[10px] font-normal bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800"
+                >
+                  {p}
+                </Badge>
+              ))}
+            </div>
           )}
         </div>
       ),
@@ -345,19 +430,45 @@ export function AllCounsellorClientsList({
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2 w-full sm:w-[220px]">
-          <Label className="text-xs font-medium text-muted-foreground">Payment Stage</Label>
-          <Select value={stageFilter} onValueChange={(v) => onStageFilterChange(v as ClientStageFilter)}>
+        <div className="space-y-2 w-full sm:w-[200px]">
+          <Label className="text-xs font-medium text-muted-foreground">Received / Pending</Label>
+          <Select value={paymentFilter} onValueChange={(v) => onPaymentFilterChange(v as ClientPaymentFilter)}>
             <SelectTrigger className="h-9">
-              <SelectValue placeholder="Select stage" />
+              <SelectValue placeholder="Payment status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Stages</SelectItem>
-              <SelectItem value="initial">Initial</SelectItem>
-              <SelectItem value="before">Before Visa</SelectItem>
-              <SelectItem value="after">After Visa</SelectItem>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="pending-only">Has Pending</SelectItem>
+              <SelectItem value="fully-paid">Fully Paid</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-2 w-full sm:w-[220px]">
+          <Label className="text-xs font-medium text-muted-foreground">Payment Stage</Label>
+          <MultiSelectDropdown
+            options={[
+              { value: "initial", label: "Initial" },
+              { value: "before", label: "Before Visa" },
+              { value: "after", label: "After Visa" },
+            ]}
+            value={stageFilter}
+            onChange={onStageFilterChange}
+            allLabel="Stages"
+          />
+        </div>
+        <div className="space-y-2 w-full sm:w-[200px]">
+          <Label className="text-xs font-medium text-muted-foreground">Product</Label>
+          <MultiSelectDropdown
+            options={[
+              { value: "all-finance", label: "All Finance" },
+              { value: "noc-job", label: "NOC Level Job" },
+              { value: "work-permit", label: "Work Permit" },
+              { value: "study-permit", label: "Study Permit" },
+            ]}
+            value={productFilter}
+            onChange={onProductFilterChange}
+            allLabel="Product"
+          />
         </div>
         <div className="sm:ml-auto pb-0.5">
           <Button

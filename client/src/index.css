@@ -256,3 +256,127 @@
   padding-right: 4rem;
   white-space: nowrap;
 }
+
+#front-desk-client-print {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 210mm;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@media print {
+  @page portrait {
+    margin: 1cm;
+    size: A4 portrait;
+  }
+
+  @page landscape {
+    margin: 1cm;
+    size: A4 landscape;
+  }
+
+  @page client-print {
+    margin: 0;
+    size: A4 portrait;
+  }
+
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    page: portrait;
+  }
+
+  body.print-landscape {
+    page: landscape;
+  }
+
+  body.print-portrait {
+    page: portrait;
+  }
+
+  body.print-client-only {
+    page: client-print;
+  }
+
+  .app-sidebar,
+  .app-topbar {
+    display: none !important;
+  }
+
+  #main-scroll-container {
+    overflow: visible !important;
+    padding: 0 !important;
+    height: auto !important;
+  }
+
+  .print-root {
+    overflow: visible !important;
+  }
+
+  .print-break-inside-avoid {
+    break-inside: avoid;
+  }
+
+  body.print-client-only > *:not(#front-desk-client-print) {
+    display: none !important;
+  }
+
+  body.print-client-only #front-desk-client-print {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    left: 0;
+    z-index: 99999;
+    opacity: 1;
+    overflow: visible;
+    background: white;
+    padding: 0.8cm;
+    pointer-events: auto;
+    width: auto;
+  }
+
+  #front-desk-client-print .print-header-row {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #front-desk-client-print .print-qr-block {
+    align-items: flex-end !important;
+    text-align: right !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  #front-desk-client-print .print-logo-wrap {
+    margin-right: auto !important;
+    justify-content: flex-start !important;
+  }
+
+  #front-desk-client-print .print-qr-code {
+    display: block !important;
+    width: 52px !important;
+    height: 52px !important;
+  }
+
+  body.print-client-only #front-desk-client-print img.print-logo {
+    display: block !important;
+    visibility: visible !important;
+    max-height: 40px;
+    width: auto;
+    object-fit: contain;
+  }
+
+  #front-desk-client-print .print-qr-frame svg {
+    display: block !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

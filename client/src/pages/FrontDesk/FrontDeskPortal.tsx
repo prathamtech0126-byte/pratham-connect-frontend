@@ -1,10 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { useLocation, useRoute } from "wouter";
+import { format } from "date-fns";
 import {
   Search, CheckCircle2, UserCheck, Download, RefreshCw,
   Eye, CalendarDays, X, ChevronLeft, ChevronRight,
-  Users, ClipboardCheck, UserPlus, Clock,
+  Users, ClipboardCheck, Clock, Printer, MoreVertical,
 } from "lucide-react";
 import { PageWrapper } from "@/layout/PageWrapper";
 import { Button } from "@/components/ui/button";
@@ -15,11 +16,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { frontDeskApi, FrontDeskLead, Counsellor } from "@/api/frontdesk.api";
+import { refreshFrontDeskDashboardCaches } from "@/lib/frontdeskQueryCache";
 import DateRangePicker from "@/components/payments/DateRangePicker";
 import type { PaymentsFilter } from "@/api/payments.api";
 import FrontDeskLeadDetail from "./FrontDeskLeadDetail";
+import { usePrintClientLead } from "./usePrintClientLead";
+import { useFrontDeskDetailRoom } from "@/hooks/useFrontDeskDetailRoom";
 
 const PAGE_SIZE = 25;
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
@@ -52,6 +62,24 @@ function statusBadge(status: string) {
 export default function FrontDeskPortal() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [, setLocation] = useLocation();
+  const [leadRouteMatch, leadRouteParams] = useRoute("/front-desk/leads/:id");
+
+  const parsedLeadId = leadRouteMatch && leadRouteParams?.id ? Number(leadRouteParams.id) : null;
+  const selectedLeadId =
+    parsedLeadId != null && Number.isFinite(parsedLeadId) && parsedLeadId > 0 ? parsedLeadId : null;
+
+  useEffect(() => {
+    if (leadRouteMatch && leadRouteParams?.id && selectedLeadId == null) {
+      setLocation("/front-desk");
+    }
+  }, [leadRouteMatch, leadRouteParams?.id, selectedLeadId, setLocation]);
+
+  const openLead = (id: number) => setLocation(`/front-desk/leads/${id}`);
+  const closeLead = () => setLocation("/front-desk");
+
+  // Per-lead socket room while detail is open (listeners live in MainLayout).
+  useFrontDeskDetailRoom(selectedLeadId);
 
   // Filters — default to today
   const [draftSearch, setDraftSearch] = useState("");
@@ -64,9 +92,9 @@ export default function FrontDeskPortal() {
   const [leadTypeFilter, setLeadTypeFilter] = useState("all");
   const [page, setPage] = useState(1);
 
-  const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
   const [assignLeadId, setAssignLeadId] = useState<number | null>(null);
   const [selectedCounsellorId, setSelectedCounsellorId] = useState("");
+  const { printClient, printingId, printPortal } = usePrintClientLead();
 
   const isVerified = verifiedFilter === "verified" ? true : verifiedFilter === "unverified" ? false : undefined;
   const activeLeadType = leadTypeFilter === "all" ? undefined : leadTypeFilter;
@@ -75,6 +103,7 @@ export default function FrontDeskPortal() {
   const { data: statsData } = useQuery({
     queryKey: ["frontdesk-stats", startDate, endDate],
     queryFn: () => frontDeskApi.getStats({ startDate, endDate }),
+    staleTime: 0,
   });
   const stats = statsData?.data;
 
@@ -82,6 +111,7 @@ export default function FrontDeskPortal() {
   const { data, isFetching, refetch } = useQuery({
     queryKey: ["frontdesk-leads", search, startDate, endDate, isVerified, activeLeadType, page],
     queryFn: () => frontDeskApi.getLeads({ search: search || undefined, startDate, endDate, isVerified, leadType: activeLeadType, page, limit: PAGE_SIZE }),
+    staleTime: 0,
   });
 
   const { data: counsellorsData } = useQuery({
@@ -99,11 +129,9 @@ export default function FrontDeskPortal() {
   const verifyMutation = useMutation({
     mutationFn: ({ id, saleType, source, counsellorId }: { id: number; saleType: string; source: string; counsellorId?: number }) =>
       frontDeskApi.verifyLead(id, saleType, source, counsellorId),
-    onSuccess: (_data, variables) => {
+    onSuccess: async (_data, variables) => {
       toast({ title: "Lead verified" });
-      qc.invalidateQueries({ queryKey: ["frontdesk-leads"] });
-      qc.invalidateQueries({ queryKey: ["frontdesk-stats"] });
-      qc.invalidateQueries({ queryKey: ["frontdesk-lead-detail", variables.id] });
+      await refreshFrontDeskDashboardCaches(qc, { leadId: variables.id });
     },
     onError: (err: any) => toast({ title: "Failed to verify", description: err?.response?.data?.message, variant: "destructive" }),
   });
@@ -111,13 +139,11 @@ export default function FrontDeskPortal() {
   const assignMutation = useMutation({
     mutationFn: ({ leadId, counsellorId, leadType }: { leadId: number; counsellorId: number; leadType?: string }) =>
       frontDeskApi.assignLead(leadId, counsellorId, leadType),
-    onSuccess: (_data, variables) => {
+    onSuccess: async (_data, variables) => {
       toast({ title: "Lead assigned" });
       setAssignLeadId(null);
       setSelectedCounsellorId("");
-      qc.invalidateQueries({ queryKey: ["frontdesk-leads"] });
-      qc.invalidateQueries({ queryKey: ["frontdesk-stats"] });
-      qc.invalidateQueries({ queryKey: ["frontdesk-lead-detail", variables.leadId] });
+      await refreshFrontDeskDashboardCaches(qc, { leadId: variables.leadId });
     },
     onError: (err: any) => toast({ title: "Assignment failed", description: err?.response?.data?.message, variant: "destructive" }),
   });
@@ -160,18 +186,22 @@ export default function FrontDeskPortal() {
 
   if (selectedLeadId !== null) {
     return (
-      <FrontDeskLeadDetail
-        leadId={selectedLeadId}
-        onBack={() => setSelectedLeadId(null)}
-        counsellors={counsellors}
-        saleTypeNames={saleTypeNames}
-        onVerify={(id, saleType, source, counsellorId) => verifyMutation.mutate({ id, saleType, source, counsellorId })}
-        onAssign={(leadId, counsellorId) => assignMutation.mutate({ leadId, counsellorId })}
-      />
+      <>
+        <FrontDeskLeadDetail
+          leadId={selectedLeadId}
+          onBack={closeLead}
+          counsellors={counsellors}
+          saleTypeNames={saleTypeNames}
+          onVerify={(id, saleType, source, counsellorId) => verifyMutation.mutate({ id, saleType, source, counsellorId })}
+          onAssign={(leadId, counsellorId) => assignMutation.mutate({ leadId, counsellorId })}
+        />
+        {printPortal}
+      </>
     );
   }
 
   return (
+    <>
     <PageWrapper title="Dashboard" breadcrumbs={[{ label: "Front Desk" }, { label: "Dashboard" }]}>
 
       {/* ── Stats Cards ── */}
@@ -262,7 +292,9 @@ export default function FrontDeskPortal() {
           <TableHeader>
             <TableRow className="bg-slate-50 hover:bg-slate-50">
               {["Name", "Phone", "Email", "City", "Lead Type", "Verified", "Status", "Counsellor", "Registered", ""].map((h) => (
-                <TableHead key={h} className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 py-3">{h}</TableHead>
+                <TableHead key={h || "actions"} className={`text-[11px] font-semibold uppercase tracking-wide text-slate-400 py-3 ${h ? "" : "w-10"}`}>
+                  {h}
+                </TableHead>
               ))}
             </TableRow>
           </TableHeader>
@@ -277,7 +309,7 @@ export default function FrontDeskPortal() {
               <TableRow
                 key={lead.id}
                 className="cursor-pointer hover:bg-slate-50/80 transition-colors"
-                onClick={() => setSelectedLeadId(lead.id)}
+                onClick={() => openLead(lead.id)}
               >
                 <TableCell className="font-medium text-sm py-3">{lead.fullName}</TableCell>
                 <TableCell className="text-sm text-slate-600">{lead.phone}</TableCell>
@@ -302,24 +334,44 @@ export default function FrontDeskPortal() {
                 <TableCell className="text-xs text-slate-400 whitespace-nowrap">
                   {lead.createdAt ? format(new Date(lead.createdAt), "d MMM, HH:mm") : "—"}
                 </TableCell>
-                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-end gap-1">
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setSelectedLeadId(lead.id)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    {lead.isVerified && lead.assignmentStatus !== "converted" && lead.assignmentStatus !== "dropped" && (
+                <TableCell className="w-10 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
-                        size="sm" variant="outline" className="h-7 px-2 text-xs"
-                        onClick={() => {
-                          setAssignLeadId(lead.id);
-                          setSelectedCounsellorId(lead.currentCounsellorId?.toString() ?? "");
-                        }}
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-slate-500 hover:text-slate-800 data-[state=open]:bg-slate-100"
+                        aria-label="Lead actions"
                       >
-                        <UserCheck className="h-3.5 w-3.5 mr-1" />
-                        {lead.currentCounsellorId ? "Re-assign" : "Assign"}
+                        <MoreVertical className="h-4 w-4" />
                       </Button>
-                    )}
-                  </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => openLead(lead.id)}>
+                        <Eye className="h-4 w-4" /> View details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="gap-2 cursor-pointer"
+                        disabled={printingId === lead.id}
+                        onClick={() => printClient(lead.id)}
+                      >
+                        <Printer className={`h-4 w-4 ${printingId === lead.id ? "animate-pulse" : ""}`} />
+                        Print
+                      </DropdownMenuItem>
+                      {lead.isVerified && lead.assignmentStatus !== "converted" && lead.assignmentStatus !== "dropped" && (
+                        <DropdownMenuItem
+                          className="gap-2 cursor-pointer"
+                          onClick={() => {
+                            setAssignLeadId(lead.id);
+                            setSelectedCounsellorId(lead.currentCounsellorId?.toString() ?? "");
+                          }}
+                        >
+                          <UserCheck className="h-4 w-4" />
+                          {lead.currentCounsellorId ? "Re-assign" : "Assign"}
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
@@ -375,5 +427,7 @@ export default function FrontDeskPortal() {
         </DialogContent>
       </Dialog>
     </PageWrapper>
+    {printPortal}
+    </>
   );
 }

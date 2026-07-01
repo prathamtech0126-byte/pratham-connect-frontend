@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import {
   ArrowLeft, CheckCircle2, UserCheck,
   User, GraduationCap, BookOpen, Users, Pencil, Plus, Trash2,
-  Save, X,
+  Save, X, Printer, Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,16 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { frontDeskApi, Counsellor, FrontDeskLeadDetail as LeadDetailType } from "@/api/frontdesk.api";
+import {
+  patchFrontDeskDetailFromEdit,
+  patchFrontDeskListRow,
+  refreshFrontDeskDashboardCaches,
+} from "@/lib/frontdeskQueryCache";
+import { usePrintClientLead } from "./usePrintClientLead";
+import { FrontDeskEditLinkDialog } from "./FrontDeskEditLinkDialog";
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Props {
   leadId: number;
@@ -29,11 +39,11 @@ interface Props {
   onAssign: (leadId: number, counsellorId: number) => void;
 }
 
-function InfoField({ label, value }: { label: string; value?: string | null }) {
+function InfoField({ label, value, readOnly }: { label: string; value?: string | null; readOnly?: boolean }) {
   return (
-    <div className="rounded-md border border-slate-100 bg-slate-50 px-3 py-2">
+    <div className={`rounded-md border border-slate-100 px-3 py-2 ${readOnly ? "bg-slate-100/80" : "bg-slate-50"}`}>
       <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-0.5 text-sm text-slate-800">{value || "—"}</p>
+      <p className={`mt-0.5 text-sm ${readOnly ? "text-slate-500" : "text-slate-800"}`}>{value || "—"}</p>
     </div>
   );
 }
@@ -129,30 +139,38 @@ export default function FrontDeskLeadDetail({ leadId, onBack, counsellors, saleT
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verifySaleType, setVerifySaleType] = useState("");
   const [verifyCounsellorId, setVerifyCounsellorId] = useState("");
+  const [editLinkOpen, setEditLinkOpen] = useState(false);
+  const { printClient, printingId, printPortal } = usePrintClientLead();
 
   const { data, isLoading } = useQuery({
     queryKey: ["frontdesk-lead-detail", leadId],
     queryFn: () => frontDeskApi.getLeadDetail(leadId),
+    staleTime: 0,
   });
 
   const lead = data?.data;
 
   const updateMutation = useMutation({
     mutationFn: (body: Record<string, unknown>) => frontDeskApi.updateLeadDetails(leadId, body),
-    onSuccess: () => {
+    onSuccess: async (_data, body) => {
       toast({ title: "Lead updated successfully" });
       setEditState(null);
-      qc.invalidateQueries({ queryKey: ["frontdesk-lead-detail", leadId] });
-      qc.invalidateQueries({ queryKey: ["frontdesk-leads"] });
+      patchFrontDeskListRow(qc, leadId, {
+        fullName: body.fullName as string,
+        phone: body.phone as string,
+        email: (body.email as string | null) ?? null,
+        city: (body.city as string | null) ?? null,
+      });
+      patchFrontDeskDetailFromEdit(qc, leadId, body);
+      await refreshFrontDeskDashboardCaches(qc, { leadId });
     },
     onError: (err: any) =>
       toast({ title: "Update failed", description: err?.response?.data?.message, variant: "destructive" }),
   });
 
   const openEdit = () => {
-    if (lead) {
-      setEditState(initEditState(lead as LeadDetailType));
-    }
+    if (!lead || lead.currentCounsellorId != null) return;
+    setEditState(initEditState(lead as LeadDetailType));
   };
 
   const handleSave = () => {
@@ -242,7 +260,24 @@ export default function FrontDeskLeadDetail({ leadId, onBack, counsellors, saleT
     .split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2);
   const isEditing = editState !== null;
 
+  const isFrontDeskEditable = lead.currentCounsellorId == null;
+  const fieldReadOnly = !isFrontDeskEditable;
+
+  const editLinkBlocked =
+    lead.assignmentStatus === "converted" ||
+    lead.assignmentStatus === "dropped" ||
+    lead.progressStatus === "junk";
+
+  const handlePrint = () => {
+    if (isEditing) {
+      toast({ title: "Save or cancel edits before printing", variant: "destructive" });
+      return;
+    }
+    printClient(leadId, lead as LeadDetailType);
+  };
+
   return (
+    <>
     <div className="space-y-5">
       {/* Top nav */}
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -260,9 +295,42 @@ export default function FrontDeskLeadDetail({ leadId, onBack, counsellors, saleT
               </Button>
             </>
           ) : (
-            <Button size="sm" variant="outline" onClick={openEdit} className="gap-1.5">
-              <Pencil className="h-4 w-4" /> Edit
-            </Button>
+            <>
+              <Button size="sm" variant="outline" onClick={handlePrint} disabled={printingId === leadId} className="gap-1.5">
+                <Printer className={`h-4 w-4 ${printingId === leadId ? "animate-pulse" : ""}`} /> Print
+              </Button>
+              {isFrontDeskEditable && (
+                editLinkBlocked ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span tabIndex={0}>
+                        <Button size="sm" variant="outline" disabled className="gap-1.5 pointer-events-none">
+                          <Link2 className="h-4 w-4" /> Edit link
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Cannot create edit link for converted, dropped, or junk leads
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setEditLinkOpen(true)}
+                    disabled={isEditing}
+                    className="gap-1.5"
+                  >
+                    <Link2 className="h-4 w-4" /> Edit link
+                  </Button>
+                )
+              )}
+              {isFrontDeskEditable && (
+                <Button size="sm" variant="outline" onClick={openEdit} className="gap-1.5">
+                  <Pencil className="h-4 w-4" /> Edit
+                </Button>
+              )}
+            </>
           )}
           {!lead.isVerified && (
             <Button
@@ -281,6 +349,14 @@ export default function FrontDeskLeadDetail({ leadId, onBack, counsellors, saleT
           )}
         </div>
       </div>
+
+      {!isFrontDeskEditable && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          This lead is assigned to a counsellor
+          {lead.counsellorName ? ` (${lead.counsellorName})` : ""}.
+          Front desk can view and print details, but cannot edit them or create client edit links.
+        </div>
+      )}
 
       {/* Identity card */}
       <Card>
@@ -379,18 +455,18 @@ export default function FrontDeskLeadDetail({ leadId, onBack, counsellors, saleT
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <InfoField label="Full Name" value={lead.fullName} />
-              <InfoField label="Phone Number" value={lead.phone} />
-              <InfoField label="Alternate Phone" value={lead.profile?.alternatePhone} />
-              <InfoField label="Email" value={lead.email} />
-              <InfoField label="Date of Birth" value={lead.profile?.dateOfBirth ? format(new Date(lead.profile.dateOfBirth), "d MMMM yyyy") : undefined} />
-              <InfoField label="Gender" value={lead.profile?.gender} />
-              <InfoField label="City" value={lead.city} />
-              <InfoField label="Language Exam Given" value={lead.profile?.languageExamGiven ? "Yes" : "No"} />
-              <InfoField label="Passport Holder" value={lead.profile?.hasPassport ? "Yes" : "No"} />
-              <InfoField label="Preferred Country" value={lead.profile?.preferredCountry} />
-              <InfoField label="Field of Interest" value={lead.profile?.fieldOfInterest} />
-              <InfoField label="Visa Refusal Details" value={lead.profile?.visaRefusalDetails} />
+              <InfoField readOnly={fieldReadOnly} label="Full Name" value={lead.fullName} />
+              <InfoField readOnly={fieldReadOnly} label="Phone Number" value={lead.phone} />
+              <InfoField readOnly={fieldReadOnly} label="Alternate Phone" value={lead.profile?.alternatePhone} />
+              <InfoField readOnly={fieldReadOnly} label="Email" value={lead.email} />
+              <InfoField readOnly={fieldReadOnly} label="Date of Birth" value={lead.profile?.dateOfBirth ? format(new Date(lead.profile.dateOfBirth), "d MMMM yyyy") : undefined} />
+              <InfoField readOnly={fieldReadOnly} label="Gender" value={lead.profile?.gender} />
+              <InfoField readOnly={fieldReadOnly} label="City" value={lead.city} />
+              <InfoField readOnly={fieldReadOnly} label="Language Exam Given" value={lead.profile?.languageExamGiven ? "Yes" : "No"} />
+              <InfoField readOnly={fieldReadOnly} label="Passport Holder" value={lead.profile?.hasPassport ? "Yes" : "No"} />
+              <InfoField readOnly={fieldReadOnly} label="Preferred Country" value={lead.profile?.preferredCountry} />
+              <InfoField readOnly={fieldReadOnly} label="Field of Interest" value={lead.profile?.fieldOfInterest} />
+              <InfoField readOnly={fieldReadOnly} label="Visa Refusal Details" value={lead.profile?.visaRefusalDetails} />
             </div>
           )}
         </CardContent>
@@ -442,12 +518,12 @@ export default function FrontDeskLeadDetail({ leadId, onBack, counsellors, saleT
             <div className="space-y-3">
               {lead.education.map((edu: any) => (
                 <div key={edu.id} className="grid grid-cols-2 gap-3 rounded-md border p-3 sm:grid-cols-3">
-                  <InfoField label="Level" value={edu.educationLevel} />
-                  <InfoField label="School / College" value={edu.schoolName} />
-                  <InfoField label="Specialization" value={edu.specialization} />
-                  <InfoField label="Year of Completion" value={edu.yearOfCompletion?.toString()} />
-                  <InfoField label="% / CGPA" value={edu.percentageOrCgpa} />
-                  <InfoField label="Backlogs" value={edu.numberOfBacklogs?.toString() ?? "0"} />
+                  <InfoField readOnly={fieldReadOnly} label="Level" value={edu.educationLevel} />
+                  <InfoField readOnly={fieldReadOnly} label="School / College" value={edu.schoolName} />
+                  <InfoField readOnly={fieldReadOnly} label="Specialization" value={edu.specialization} />
+                  <InfoField readOnly={fieldReadOnly} label="Year of Completion" value={edu.yearOfCompletion?.toString()} />
+                  <InfoField readOnly={fieldReadOnly} label="% / CGPA" value={edu.percentageOrCgpa} />
+                  <InfoField readOnly={fieldReadOnly} label="Backlogs" value={edu.numberOfBacklogs?.toString() ?? "0"} />
                 </div>
               ))}
             </div>
@@ -501,12 +577,12 @@ export default function FrontDeskLeadDetail({ leadId, onBack, counsellors, saleT
             <div className="space-y-3">
               {lead.languageScores.map((s: any) => (
                 <div key={s.id} className="grid grid-cols-3 gap-3 rounded-md border p-3 sm:grid-cols-6">
-                  <InfoField label="Exam" value={s.examType} />
-                  <InfoField label="Listening" value={s.listening} />
-                  <InfoField label="Reading" value={s.reading} />
-                  <InfoField label="Writing" value={s.writing} />
-                  <InfoField label="Speaking" value={s.speaking} />
-                  <InfoField label="Overall" value={s.overallBand} />
+                  <InfoField readOnly={fieldReadOnly} label="Exam" value={s.examType} />
+                  <InfoField readOnly={fieldReadOnly} label="Listening" value={s.listening} />
+                  <InfoField readOnly={fieldReadOnly} label="Reading" value={s.reading} />
+                  <InfoField readOnly={fieldReadOnly} label="Writing" value={s.writing} />
+                  <InfoField readOnly={fieldReadOnly} label="Speaking" value={s.speaking} />
+                  <InfoField readOnly={fieldReadOnly} label="Overall" value={s.overallBand} />
                 </div>
               ))}
             </div>
@@ -556,8 +632,8 @@ export default function FrontDeskLeadDetail({ leadId, onBack, counsellors, saleT
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {lead.familyMembers.map((f: any) => (
                 <div key={f.id} className="grid grid-cols-2 gap-2 rounded-md border p-3">
-                  <InfoField label="Name" value={f.memberName} />
-                  <InfoField label="Phone" value={f.phoneNumber} />
+                  <InfoField readOnly={fieldReadOnly} label="Name" value={f.memberName} />
+                  <InfoField readOnly={fieldReadOnly} label="Phone" value={f.phoneNumber} />
                 </div>
               ))}
             </div>
@@ -649,6 +725,13 @@ export default function FrontDeskLeadDetail({ leadId, onBack, counsellors, saleT
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <FrontDeskEditLinkDialog
+        leadId={leadId}
+        open={editLinkOpen}
+        onOpenChange={setEditLinkOpen}
+      />
     </div>
+    {printPortal}
+    </>
   );
 }
