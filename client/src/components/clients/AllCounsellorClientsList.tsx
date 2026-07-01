@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type ClientStageFilter = ("initial" | "before" | "after")[];
-export type ClientTypeFilter = "all" | "student" | "student-core" | "student-app" | "student-td" | "student-no-td" | "student-sale-only" | "core" | "core-product" | "other-product" | "pending";
+export type ClientTypeFilter = "all" | "student" | "student-core" | "student-app" | "student-td" | "student-no-td" | "student-sale-only" | "core" | "visitor" | "spouse" | "core-product" | "other-product" | "pending";
 export type ClientPaymentFilter = "all" | "pending-only" | "fully-paid";
 export type ClientProductFilter = ("all-finance" | "noc-job" | "work-permit" | "study-permit")[];
 
@@ -218,6 +218,17 @@ function parseEnrollmentDate(dateStr: string): number {
   return new Date(dateStr).getTime() || 0;
 }
 
+function getDaysSinceEnrollment(enrollmentDate: string): number | null {
+  const t = parseListDate(enrollmentDate) ?? parseEnrollmentDate(enrollmentDate);
+  if (!t) return null;
+  const start = new Date(t);
+  start.setHours(0, 0, 0, 0);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const days = Math.floor((now.getTime() - start.getTime()) / 86400000);
+  return days < 0 ? 0 : days;
+}
+
 function MultiSelectDropdown<T extends string>({
   options,
   value,
@@ -383,6 +394,18 @@ export function AllCounsellorClientsList({
         );
       },
     },
+    {
+      header: "Days Enrolled",
+      cell: (s: AllCounsellorClientRow) => {
+        const days = getDaysSinceEnrollment(s.enrollmentDate);
+        if (days === null) return <span className="text-slate-400">—</span>;
+        return (
+          <span className="whitespace-nowrap font-medium text-slate-600" title={`${days} day${days === 1 ? "" : "s"} since enrollment`}>
+            {days === 0 ? "Today" : `${days}d`}
+          </span>
+        );
+      },
+    },
     { header: "Stage", cell: (s: AllCounsellorClientRow) => <Badge variant="outline" className={`font-medium whitespace-nowrap ${getStageBadgeClass(s.stage)}`}>{s.stage}</Badge> },
     { header: "Total", cell: (s: AllCounsellorClientRow) => `₹${s.totalPayment.toLocaleString('en-IN')}` },
     { header: "Received", cell: (s: AllCounsellorClientRow) => <span className="text-emerald-600 font-medium">₹{s.amountReceived.toLocaleString('en-IN')}</span> },
@@ -423,7 +446,9 @@ export function AllCounsellorClientsList({
               <SelectItem value="student">Students (All)</SelectItem>
               <SelectItem value="student-td">Students (TD)</SelectItem>
               <SelectItem value="student-no-td">Students (Application Only)</SelectItem>
-              <SelectItem value="core">Visitor / Spouse</SelectItem>
+              <SelectItem value="core">Visitor & Spouse</SelectItem>
+              <SelectItem value="visitor">Visitor Only</SelectItem>
+              <SelectItem value="spouse">Spouse Only</SelectItem>
               <SelectItem value="core-product">Core Product (All Finance)</SelectItem>
               <SelectItem value="other-product">Other Products</SelectItem>
               <SelectItem value="pending">With Pending Amount</SelectItem>

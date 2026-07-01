@@ -71,7 +71,7 @@ function parseStageParam(v: string | null): ClientStageFilter {
 }
 
 function parseClientTypeParam(v: string | null): ClientTypeFilter {
-  const ok: ClientTypeFilter[] = ["all", "student", "student-core", "student-app", "student-td", "student-no-td", "student-sale-only", "core", "core-product", "other-product", "pending"];
+  const ok: ClientTypeFilter[] = ["all", "student", "student-core", "student-app", "student-td", "student-no-td", "student-sale-only", "core", "visitor", "spouse", "core-product", "other-product", "pending"];
   if (v && ok.includes(v as ClientTypeFilter)) return v as ClientTypeFilter;
   return "all";
 }
@@ -708,6 +708,8 @@ export default function AllCounsellorClientsPage() {
             : row.hasStudentApplication && !row.hasTutionFees)) ||
         (clientTypeFilter === "student-sale-only" && isStudentSaleOnly) ||
         (clientTypeFilter === "core" && (cat === "visitor" || cat === "spouse")) ||
+        (clientTypeFilter === "visitor" && cat === "visitor") ||
+        (clientTypeFilter === "spouse" && cat === "spouse") ||
         (clientTypeFilter === "core-product" && row.hasAllFinance) ||
         (clientTypeFilter === "other-product" && row.hasOtherProduct) ||
         (clientTypeFilter === "pending" && row.amountPending > 0);
